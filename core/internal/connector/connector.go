@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/naatin777/plugumi/core/internal/registry"
@@ -20,6 +22,75 @@ import (
 
 const ProtocolVersion = "0.1.0"
 const CoreVersion = "0.1.0"
+
+// Connector はPlugin Endpointへの接続試行を管理する。
+// 静的configと動的登録（POST /v1/plugins）の両方からWatchを受け、
+// Endpointごとに接続loopを1本だけ張る。
+// Endpointの集合はSessionとは別に持つ — Session未確立（到達不能）でも
+// 再登録を防げるようにするため。
+type Connector struct {
+	ctx       context.Context // loopの寿命はCoreプロセス
+	sessions  *registry.Registry
+	coreURL   string
+	mu        sync.Mutex
+	endpoints map[string]struct{}
+}
+
+func New(ctx context.Context, sessions *registry.Registry, coreURL string) *Connector {
+	return &Connector{ctx: ctx, sessions: sessions, coreURL: coreURL, endpoints: map[string]struct{}{}}
+}
+
+// Watch はEndpointへの接続loopを開始する。既知のEndpointならfalse。
+func (c *Connector) Watch(endpoint string) bool {
+	c.mu.Lock()
+	if _, ok := c.endpoints[endpoint]; ok {
+		c.mu.Unlock()
+		return false
+	}
+	c.endpoints[endpoint] = struct{}{}
+	c.mu.Unlock()
+	go c.loop(endpoint)
+	return true
+}
+
+// Known は既知のEndpoint一覧を返す（登録順ではなくソート済み）。
+func (c *Connector) Known() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]string, 0, len(c.endpoints))
+	for endpoint := range c.endpoints {
+		out = append(out, endpoint)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// loop は1つのPlugin Endpointへの接続試行。Session確立まで再試行を続ける。
+func (c *Connector) loop(endpoint string) {
+	failed := false
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+		}
+		if _, ok := c.sessions.FindEndpoint(endpoint); !ok {
+			if err := hello(c.sessions, endpoint, c.coreURL); err != nil {
+				if !failed {
+					log.Printf("[core] plugin %s unreachable: %v (retrying)", endpoint, err)
+					failed = true
+				}
+			} else {
+				failed = false
+			}
+		}
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-time.After(3 * time.Second):
+		}
+	}
+}
 
 // newID はUUIDv4形式のランダムIDをprefix付きで発行する。
 // 逐次カウンターにしない理由: hello失敗でIDが消費されるのを避けるのと、
@@ -31,34 +102,6 @@ func newID(prefix string) string {
 	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
 	s := hex.EncodeToString(b[:])
 	return fmt.Sprintf("%s%s-%s-%s-%s-%s", prefix, s[0:8], s[8:12], s[12:16], s[16:20], s[20:32])
-}
-
-// Loop は1つのPlugin Endpointへの接続試行。Session確立まで再試行を続ける。
-// ctx終了で止まる。
-func Loop(ctx context.Context, sessions *registry.Registry, endpoint, coreURL string) {
-	failed := false
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		if _, ok := sessions.FindEndpoint(endpoint); !ok {
-			if err := hello(sessions, endpoint, coreURL); err != nil {
-				if !failed {
-					log.Printf("[core] plugin %s unreachable: %v (retrying)", endpoint, err)
-					failed = true
-				}
-			} else {
-				failed = false
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(3 * time.Second):
-		}
-	}
 }
 
 // hello は session.hello（Core → Plugin）。IDを払い出してSessionを登録する。

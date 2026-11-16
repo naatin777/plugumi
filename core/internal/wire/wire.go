@@ -59,6 +59,24 @@ type ToolsListResponse struct {
 	Tools []ListedTool `json:"tools"`
 }
 
+// PluginsAddRequest はPlugin Endpointの動的登録（POST /v1/plugins）。
+// 登録は受理のみ — Sessionの確立は非同期（connectorが再試行する）。
+type PluginsAddRequest struct {
+	Endpoint string `json:"endpoint"`
+}
+
+// RegisteredPlugin は登録済みEndpoint1行分。Session未確立なら
+// sessionId/pluginIdは空（接続再試行中）。
+type RegisteredPlugin struct {
+	Endpoint  string `json:"endpoint"`
+	SessionID string `json:"sessionId,omitempty"`
+	PluginID  string `json:"pluginId,omitempty"`
+}
+
+type PluginsListResponse struct {
+	Plugins []RegisteredPlugin `json:"plugins"`
+}
+
 // ---- JSON-RPC 2.0 ----
 
 type Request struct {

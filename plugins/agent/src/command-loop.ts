@@ -30,8 +30,14 @@ async function handle(line: string): Promise<void> {
       case "close":
         await close(args);
         return;
+      case "register":
+        await register(args);
+        return;
+      case "plugins":
+        await plugins();
+        return;
       case "help":
-        console.log("commands: list | call <registrationId> <toolPath> [json] | close <callId>");
+        console.log("commands: list | call <registrationId> <toolPath> [json] | close <callId> | register <endpoint> | plugins");
         return;
       default:
         console.log(`unknown command: ${command} (try "help")`);
@@ -75,4 +81,23 @@ async function close(args: string[]): Promise<void> {
   }
   state.conn.notify(METHOD_CALL_CLOSE, { callId });
   console.log(`[close] sent for ${callId}`);
+}
+
+// Plugin EndpointをCoreへ動的登録する（POST /v1/plugins）。
+async function register(args: string[]): Promise<void> {
+  const [endpoint] = args;
+  if (!endpoint) {
+    console.log("usage: register <endpoint>");
+    return;
+  }
+  const response = await postJSON(`${state.coreUrl}/v1/plugins`, { endpoint });
+  console.log(`[register] ${JSON.stringify(response)}`);
+}
+
+// 登録済みPlugin Endpoint一覧（POST /v1/plugins/list）。
+async function plugins(): Promise<void> {
+  const response = (await postJSON(`${state.coreUrl}/v1/plugins/list`, {})) as {
+    plugins: unknown[];
+  };
+  for (const plugin of response.plugins) console.log(JSON.stringify(plugin));
 }

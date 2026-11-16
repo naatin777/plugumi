@@ -38,13 +38,14 @@ func main() {
 	go sessions.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
 
 	callRouter := router.New(sessions)
+	pluginConnector := connector.New(ctx, sessions, coreURL)
 
-	// 設定された各Plugin Endpointへ接続を試みる。
+	// 設定された各Plugin Endpointへ接続を試みる（動的登録はPOST /v1/plugins）。
 	for _, plugin := range cfg.Plugins {
-		go connector.Loop(ctx, sessions, plugin.Endpoint, coreURL)
+		pluginConnector.Watch(plugin.Endpoint)
 	}
 
-	srv := &http.Server{Addr: cfg.Core.Listen, Handler: server.New(sessions, callRouter).Handler()}
+	srv := &http.Server{Addr: cfg.Core.Listen, Handler: server.New(sessions, callRouter, pluginConnector).Handler()}
 	log.Printf("[core] listening on %s (config %s)", cfg.Core.Listen, *configPath)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("serve: %v", err)

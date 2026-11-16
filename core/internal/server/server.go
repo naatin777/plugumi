@@ -10,11 +10,13 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/coder/websocket"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
+	"github.com/naatin777/plugumi/core/internal/connector"
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/router"
 	"github.com/naatin777/plugumi/core/internal/rpc"
@@ -50,12 +52,13 @@ func init() {
 }
 
 type Server struct {
-	registry *registry.Registry
-	router   *router.Router
+	registry  *registry.Registry
+	router    *router.Router
+	connector *connector.Connector
 }
 
-func New(registry *registry.Registry, router *router.Router) *Server {
-	return &Server{registry: registry, router: router}
+func New(registry *registry.Registry, router *router.Router, connector *connector.Connector) *Server {
+	return &Server{registry: registry, router: router, connector: connector}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -84,6 +87,19 @@ func (s *Server) Handler() http.Handler {
 		Path:        "/v1/tools/list",
 		Summary:     "登録中の全Toolを返す最小Discovery（MVP仮置き）",
 	}, s.toolsList)
+	huma.Register(api, huma.Operation{
+		OperationID: "plugins-add",
+		Method:      http.MethodPost,
+		Path:        "/v1/plugins",
+		Summary:     "Plugin Endpointの動的登録",
+		Description: "Endpointを接続対象に追加する。受理のみ — Session確立は非同期（connectorが再試行する）。",
+	}, s.pluginsAdd)
+	huma.Register(api, huma.Operation{
+		OperationID: "plugins-list",
+		Method:      http.MethodPost,
+		Path:        "/v1/plugins/list",
+		Summary:     "登録済みPlugin Endpoint一覧",
+	}, s.pluginsList)
 
 	return mux
 }
@@ -145,6 +161,47 @@ func (s *Server) toolsList(_ context.Context, input *ToolsListInput) (*ToolsList
 	}
 	out := &ToolsListOutput{}
 	out.Body.Tools = s.registry.AllTools()
+	return out, nil
+}
+
+type PluginsAddInput struct {
+	Body wire.PluginsAddRequest
+}
+type PluginsAddOutput struct {
+	Body struct {
+		Endpoint string `json:"endpoint"`
+	}
+}
+
+func (s *Server) pluginsAdd(_ context.Context, input *PluginsAddInput) (*PluginsAddOutput, error) {
+	endpoint := input.Body.Endpoint
+	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+		return nil, newErr(http.StatusBadRequest, "invalid_endpoint",
+			"endpoint must be an http(s) URL")
+	}
+	if !s.connector.Watch(endpoint) {
+		return nil, newErr(http.StatusConflict, "duplicate_endpoint", "endpoint already registered")
+	}
+	log.Printf("[core] plugin endpoint registered: %s", endpoint)
+	out := &PluginsAddOutput{}
+	out.Body.Endpoint = endpoint
+	return out, nil
+}
+
+type PluginsListOutput struct {
+	Body wire.PluginsListResponse
+}
+
+func (s *Server) pluginsList(_ context.Context, _ *struct{}) (*PluginsListOutput, error) {
+	out := &PluginsListOutput{}
+	for _, endpoint := range s.connector.Known() {
+		entry := wire.RegisteredPlugin{Endpoint: endpoint}
+		if session, ok := s.registry.FindEndpoint(endpoint); ok {
+			entry.SessionID = session.ID
+			entry.PluginID = session.Plugin.ID
+		}
+		out.Body.Plugins = append(out.Body.Plugins, entry)
+	}
 	return out, nil
 }
 
