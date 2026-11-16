@@ -106,8 +106,9 @@ func (s *Server) toolsSet(_ context.Context, input *ToolsSetInput) (*ToolsSetOut
 		}
 		return nil, newErr(http.StatusConflict, "duplicate_tool_path", err.Error())
 	}
-	session, _ := s.registry.FindSession(input.Body.SessionID)
-	log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), session.Plugin.ID)
+	if session, ok := s.registry.FindSession(input.Body.SessionID); ok {
+		log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), session.Plugin.ID)
+	}
 	out := &ToolsSetOutput{}
 	out.Body.Count = len(input.Body.Tools)
 	return out, nil
@@ -169,7 +170,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conn := rpc.NewConn(c, "c-")
-	if err := s.registry.SetWebSocket(sessionID, conn); err != nil {
+	if err := s.registry.SetChannel(sessionID, conn); err != nil {
 		conn.Close()
 		return
 	}
@@ -186,5 +187,6 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	err = conn.Run(r.Context())
 	log.Printf("[core] ws closed: %s (%s): %v", session.Plugin.ID, sessionID, err)
 	s.router.DropConn(conn)
-	s.registry.Remove(sessionID)
+	// pluginがchannelを張り直していれば新しいchannelのSessionは消さない。
+	s.registry.RemoveChannel(sessionID, conn)
 }

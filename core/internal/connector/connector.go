@@ -65,11 +65,11 @@ func Loop(ctx context.Context, sessions *registry.Registry, endpoint, coreURL st
 func hello(sessions *registry.Registry, endpoint, coreURL string) error {
 	session := &registry.Session{
 		ID:             newID("s-"),
-		RegistrationID: newID("registry-"),
+		RegistrationID: newID("reg-"),
 		Endpoint:       endpoint,
 		CreatedAt:      time.Now(),
-		LastPing:       time.Now(),
 	}
+	session.Touch() // 失効判定の基準時刻を登録直後に合わせる
 	var req wire.HelloRequest
 	req.ProtocolVersion = ProtocolVersion
 	req.SessionID = session.ID

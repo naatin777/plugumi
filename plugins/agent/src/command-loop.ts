@@ -16,9 +16,9 @@ export function startCommandLoop(): void {
 }
 
 async function handle(line: string): Promise<void> {
-  const [cmd, ...args] = line.split(/\s+/);
+  const [command, ...args] = line.split(/\s+/);
   try {
-    switch (cmd) {
+    switch (command) {
       case "":
         return;
       case "list":
@@ -34,7 +34,7 @@ async function handle(line: string): Promise<void> {
         console.log("commands: list | call <registrationId> <toolPath> [json] | close <callId>");
         return;
       default:
-        console.log(`unknown command: ${cmd} (try "help")`);
+        console.log(`unknown command: ${command} (try "help")`);
     }
   } catch (error) {
     console.log(`error: ${error}`);
@@ -42,15 +42,15 @@ async function handle(line: string): Promise<void> {
 }
 
 async function list(): Promise<void> {
-  const res = (await postJSON(`${state.coreUrl}/v1/tools/list`, {
+  const response = (await postJSON(`${state.coreUrl}/v1/tools/list`, {
     sessionId: state.sessionId,
   })) as { tools: unknown[] };
-  for (const t of res.tools) console.log(JSON.stringify(t));
+  for (const tool of response.tools) console.log(JSON.stringify(tool));
 }
 
 async function call(args: string[]): Promise<void> {
-  const [regId, toolPath, ...rest] = args;
-  if (!regId || !toolPath) {
+  const [registrationId, toolPath, ...rest] = args;
+  if (!registrationId || !toolPath) {
     console.log("usage: call <registrationId> <toolPath> [json]");
     return;
   }
@@ -59,12 +59,12 @@ async function call(args: string[]): Promise<void> {
     return;
   }
   const input = rest.length > 0 ? JSON.parse(rest.join(" ")) : undefined;
-  const res = await state.conn.request(METHOD_CALL, {
-    target: { registrationId: regId, toolPath },
+  const response = await state.conn.request(METHOD_CALL, {
+    target: { registrationId, toolPath },
     input,
   });
   // async受理後もnotificationはcallId相関で届き続ける（session.tsで表示）。
-  console.log(`[res] ${JSON.stringify(res.result ?? res.error)}`);
+  console.log(`[res] ${JSON.stringify(response.result ?? response.error)}`);
 }
 
 async function close(args: string[]): Promise<void> {

@@ -13,15 +13,58 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
+// Session の公開fieldは登録時に一度だけ書かれ、その後変更しないため
+// lockなしで読んでよい。可変な3つ（channel・tools・lastPing）は
+// 各method経由でsession-levelのlockを取って触れる。
 type Session struct {
 	ID             string
 	RegistrationID string
 	Plugin         wire.PluginInfo
 	Endpoint       string
 	CreatedAt      time.Time
-	LastPing       time.Time
-	Tools          []wire.ToolDecl
-	WebSocket      *rpc.Conn // Plugin→CoreのWebSocket channel（張られるまではnil）
+
+	mu       sync.RWMutex
+	channel  *rpc.Conn // Plugin→CoreのWebSocket channel（張られるまではnil）
+	tools    []wire.ToolDecl
+	lastPing time.Time
+}
+
+// Channel はPlugin→Coreのchannel（未接続ならnil）。
+func (s *Session) Channel() *rpc.Conn {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.channel
+}
+
+func (s *Session) SetChannel(c *rpc.Conn) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.channel = c
+}
+
+// Tools は現行のTool宣言一覧（tools.setのたびに丸ごと差し替わる）。
+func (s *Session) Tools() []wire.ToolDecl {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tools
+}
+
+func (s *Session) SetTools(tools []wire.ToolDecl) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tools = tools
+}
+
+func (s *Session) Touch() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastPing = time.Now()
+}
+
+func (s *Session) LastPingAt() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastPing
 }
 
 var ErrNoSession = errors.New("unknown session")
@@ -42,12 +85,26 @@ func New() *Registry {
 	}
 }
 
+// Add はSessionを登録する。同じEndpointの旧Session（plugin再起動・再hello）が
+// 残っていれば失効させてから差し替える — 残すとtools.listに
+// 死んだToolが並び、旧registrationIdへの呼出が死んだconnへforwardされる。
 func (r *Registry) Add(s *Session) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	stale := r.byEndpoint[s.Endpoint]
+	if stale != nil && stale.ID != s.ID {
+		delete(r.sessions, stale.ID)
+		delete(r.byReg, stale.RegistrationID)
+	} else {
+		stale = nil
+	}
 	r.sessions[s.ID] = s
 	r.byReg[s.RegistrationID] = s
 	r.byEndpoint[s.Endpoint] = s
+	r.mu.Unlock()
+
+	if stale != nil {
+		r.teardown(stale)
+	}
 }
 
 func (r *Registry) FindSession(id string) (*Session, bool) {
@@ -73,9 +130,9 @@ func (r *Registry) FindEndpoint(endpoint string) (*Session, bool) {
 
 // SetTools は tools.set を反映する（アトミック置換）。toolPath重複は409相当。
 func (r *Registry) SetTools(sessionID string, tools []wire.ToolDecl) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
 	s, ok := r.sessions[sessionID]
+	r.mu.RUnlock()
 	if !ok {
 		return ErrNoSession
 	}
@@ -89,29 +146,26 @@ func (r *Registry) SetTools(sessionID string, tools []wire.ToolDecl) error {
 			tools[i].Kind = "sync"
 		}
 	}
-	s.Tools = tools
+	s.SetTools(tools)
 	return nil
 }
 
 func (r *Registry) Touch(sessionID string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, ok := r.sessions[sessionID]
+	s, ok := r.FindSession(sessionID)
 	if !ok {
 		return ErrNoSession
 	}
-	s.LastPing = time.Now()
+	s.Touch()
 	return nil
 }
 
-func (r *Registry) SetWebSocket(sessionID string, c *rpc.Conn) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, ok := r.sessions[sessionID]
+// SetChannel はSessionのchannelを張る。
+func (r *Registry) SetChannel(sessionID string, c *rpc.Conn) error {
+	s, ok := r.FindSession(sessionID)
 	if !ok {
 		return ErrNoSession
 	}
-	s.WebSocket = c
+	s.SetChannel(c)
 	return nil
 }
 
@@ -120,7 +174,7 @@ func (r *Registry) AllTools() []wire.ListedTool {
 	defer r.mu.RUnlock()
 	var out []wire.ListedTool
 	for _, s := range r.sessions {
-		for _, t := range s.Tools {
+		for _, t := range s.Tools() {
 			out = append(out, wire.ListedTool{RegistrationID: s.RegistrationID, ToolDecl: t})
 		}
 	}
@@ -149,9 +203,31 @@ func (r *Registry) Remove(id string) {
 	delete(r.byReg, s.RegistrationID)
 	delete(r.byEndpoint, s.Endpoint)
 	r.mu.Unlock()
+	r.teardown(s)
+}
 
-	if s.WebSocket != nil {
-		s.WebSocket.Close()
+// RemoveChannel はSessionの現行channelがこのconnのときだけSessionを失効させる。
+// WS切断後始末用 — pluginがchannelを張り直した直後に旧connの
+// cleanupが走っても、新しいchannelのSessionを消さないためのguard。
+func (r *Registry) RemoveChannel(id string, c *rpc.Conn) {
+	r.mu.Lock()
+	s, ok := r.sessions[id]
+	matched := ok && s.Channel() == c
+	if matched {
+		delete(r.sessions, s.ID)
+		delete(r.byReg, s.RegistrationID)
+		delete(r.byEndpoint, s.Endpoint)
+	}
+	r.mu.Unlock()
+	if matched {
+		r.teardown(s)
+	}
+}
+
+// teardown はSession失効の後始末（mapから外れた後に呼ぶ）。
+func (r *Registry) teardown(s *Session) {
+	if c := s.Channel(); c != nil {
+		c.Close()
 	}
 	if r.OnExpired != nil {
 		r.OnExpired(s)
@@ -168,7 +244,7 @@ func (r *Registry) ExpireLoop(ctx context.Context, idleTimeout, tick time.Durati
 			return
 		case <-t.C:
 			for _, s := range r.All() {
-				if time.Since(s.LastPing) > idleTimeout {
+				if time.Since(s.LastPingAt()) > idleTimeout {
 					r.Remove(s.ID)
 				}
 			}

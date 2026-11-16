@@ -50,12 +50,12 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 	if !ok {
 		return nil, &wire.Error{Code: -32602, Message: "no such registrationId: " + params.Target.RegistrationID}
 	}
-	if session.WebSocket == nil {
+	if session.Channel() == nil {
 		return nil, &wire.Error{Code: -32000, Message: "plugin channel unavailable"}
 	}
 	kind := "sync"
 	toolFound := false
-	for _, tool := range session.Tools {
+	for _, tool := range session.Tools() {
 		if tool.ToolPath == params.Target.ToolPath {
 			toolFound = true
 			kind = tool.Kind
@@ -65,7 +65,7 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 		return nil, &wire.Error{Code: -32601, Message: "no such toolPath: " + params.Target.ToolPath}
 	}
 
-	target := session.WebSocket
+	target := session.Channel()
 	forwardID := target.NextID()
 	route := &Route{
 		Caller: caller, CallerID: message.ID,
@@ -196,18 +196,29 @@ func (r *Router) DispatchNotif(c *rpc.Conn, message *wire.Incoming) {
 }
 
 // DropConn はconn終了時の後始末。そのconnに紐付くrouteを失敗として閉じる。
+// targetが死んだときはcallerへerror終端を、callerが死んだときはtargetへ
+// closeを送る — 送らないと購読・長時間callが相手側で走り続ける。
 func (r *Router) DropConn(c *rpc.Conn) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	dropped := map[string]*Route{}
 	for key, route := range r.routes {
 		if route.Target == c || route.Caller == c {
+			dropped[key] = route
 			delete(r.routes, key)
-			if route.Caller != c {
-				_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
-					CallID: route.CallerID,
-					Error:  &wire.Error{Code: -32000, Message: "target channel closed"},
-				})
-			}
+		}
+	}
+	r.mu.Unlock()
+
+	for _, route := range dropped {
+		if route.Target == c && route.Caller != c {
+			_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
+				CallID: route.CallerID,
+				Error:  &wire.Error{Code: -32000, Message: "target channel closed"},
+			})
+		}
+		if route.Caller == c && route.Target != c {
+			_ = route.Target.Notify(wire.MethodCallClose,
+				wire.CallCloseParams{CallID: route.TargetID})
 		}
 	}
 }
