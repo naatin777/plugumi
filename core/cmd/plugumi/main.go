@@ -28,12 +28,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	coreURL := "http://" + settings.Core.Listen
+	coreURL := settings.Core.URL
 
 	ctx := context.Background()
 	sessions := registry.New()
-	sessions.OnExpired = func(s *registry.Session) {
-		log.Printf("[core] session expired: %s (%s)", s.Plugin().ID, s.ID)
+	sessions.OnExpired = func(session *registry.Session) {
+		// hello未完了で落ちたSession（plugin未到達のretry毎）はログを出さない。
+		if plugin := session.Plugin(); plugin.ID != "" {
+			log.Printf("[core] session expired: %s (%s)", plugin.ID, session.ID)
+		}
 	}
 	go sessions.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
 

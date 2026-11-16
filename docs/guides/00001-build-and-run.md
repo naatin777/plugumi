@@ -35,12 +35,12 @@ cd core
 
 ```json
 {
-  "core": { "listen": "127.0.0.1:7700" },
+  "core": { "url": "http://127.0.0.1:7700" },
   "plugins": [ { "endpoint": "http://127.0.0.1:9001" } ]
 }
 ```
 
-- `core.listen` — REST+WSの待受アドレス。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
+- `core.url` — Coreの外部向けURL。REST+WSの待受アドレス（host:port）はここから導出し、Pluginへ渡す`core_url`にもそのまま使う。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
 - `plugins[]` — 静的なPlugin Endpoint一覧。空でも起動できる
 
 ### Coreが提供する操作

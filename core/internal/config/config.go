@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 )
 
@@ -12,7 +13,11 @@ import (
 // Coreは起動設定でPlugin Endpoint一覧を持ち、各Endpointへ接続を試みる。
 type Config struct {
 	Core struct {
-		Listen string `json:"listen"` // REST+WSを同居させる待受アドレス
+		// Coreの外部向けURL。Pluginへ渡すcore_urlにそのまま使う。
+		URL string `json:"url"`
+		// Listen はURLから導出した待受アドレス（host:port）。
+		// Loadが設定する派生値で、configファイルには書かない。
+		Listen string `json:"-"`
 	} `json:"core"`
 	Plugins []PluginEndpoint `json:"plugins"`
 }
@@ -30,20 +35,28 @@ func Load(path string) (*Config, error) {
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	if settings.Core.Listen == "" {
-		return nil, fmt.Errorf("%s: core.listen is required", path)
+	if settings.Core.URL == "" {
+		return nil, fmt.Errorf("%s: core.url is required", path)
+	}
+	parsed, err := url.Parse(settings.Core.URL)
+	if err != nil || parsed.Host == "" {
+		return nil, fmt.Errorf("%s: core.url must be an http(s) URL (got %q)", path, settings.Core.URL)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, fmt.Errorf("%s: core.url must be an http(s) URL (got %q)", path, settings.Core.URL)
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return nil, fmt.Errorf("%s: core.url must not have a path (got %q)", path, settings.Core.URL)
 	}
 	// MVPは認証なし — API（Plugin動的登録・Tool呼出）を外部に
 	// 公開しないよう、待受はloopbackに限定する。
-	host, _, err := net.SplitHostPort(settings.Core.Listen)
-	if err != nil {
-		return nil, fmt.Errorf("%s: core.listen: %w", path, err)
-	}
+	host := parsed.Hostname()
 	if host != "localhost" {
 		addr := net.ParseIP(host)
 		if addr == nil || !addr.IsLoopback() {
-			return nil, fmt.Errorf("%s: core.listen must be a loopback address (got %q)", path, settings.Core.Listen)
+			return nil, fmt.Errorf("%s: core.url must be a loopback address (got %q)", path, settings.Core.URL)
 		}
 	}
+	settings.Core.Listen = parsed.Host
 	return &settings, nil
 }
