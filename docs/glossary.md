@@ -16,8 +16,8 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ### Host
 
-UIの実行・配信環境（Web/Electron等）。Coreと接続し、環境固有の機能を担う。
-表示専用で実行寿命を持たない。PluginもHostになり得る（PluginsはHostになります）。
+UIの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
+Pluginとして実装される（Web/Electron等もPlugin）。表示専用で実行寿命を持たない。
 
 ### UI
 
