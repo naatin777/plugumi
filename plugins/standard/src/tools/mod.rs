@@ -16,7 +16,7 @@ use serde_json::Value;
 use tokio::sync::watch;
 
 use crate::rpc::Conn;
-use crate::session::Shared;
+use crate::session::SharedSession;
 use crate::wire::{self, CallParams, ToolDecl};
 
 /// 登録するTool一覧。`toolPath` と `kind` のみを持ち、
@@ -89,7 +89,7 @@ impl Call {
 
 /// 着信 tools.call を捌く。callIdでclose配送できるよう登録し、
 /// kindに応じて受理・終端を分ける。
-pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
+pub fn dispatch(session: SharedSession, conn: Conn, req_id: Value, params: CallParams) {
     let (close_tx, close_rx) = watch::channel(false);
     let call = Call {
         conn: conn.clone(),
@@ -98,7 +98,7 @@ pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
         input: params.input,
         close_rx,
     };
-    shared
+    session
         .lock()
         .unwrap()
         .calls
@@ -123,7 +123,7 @@ pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
                         data: None,
                     }),
                 );
-                shared.lock().unwrap().calls.remove(&id_key);
+                session.lock().unwrap().calls.remove(&id_key);
             });
         }
 
@@ -136,7 +136,7 @@ pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
                     "exec" => exec::handle(call).await,
                     _ => ticks::handle(call).await,
                 }
-                shared.lock().unwrap().calls.remove(&id_key);
+                session.lock().unwrap().calls.remove(&id_key);
             });
         }
 

@@ -102,14 +102,18 @@ func (c *Conn) RequestWithID(ctx context.Context, id json.RawMessage, method str
 		rawParams = wire.Marshal(params)
 	}
 	ch := make(chan *wire.Incoming, 1)
+	key := string(id)
 	c.writeMu.Lock()
-	c.pending[string(id)] = ch
+	c.pending[key] = ch
 	c.writeMu.Unlock()
+	// 正常応答・timeout・切断のどの経路でもpendingを残さない。
+	defer func() {
+		c.writeMu.Lock()
+		delete(c.pending, key)
+		c.writeMu.Unlock()
+	}()
 
 	if err := c.write(wire.Request{JSONRPC: "2.0", ID: id, Method: method, Params: rawParams}); err != nil {
-		c.writeMu.Lock()
-		delete(c.pending, string(id))
-		c.writeMu.Unlock()
 		return nil, err
 	}
 	select {

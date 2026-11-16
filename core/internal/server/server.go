@@ -123,7 +123,7 @@ func (s *Server) toolsSet(_ context.Context, input *ToolsSetInput) (*ToolsSetOut
 		return nil, newErr(http.StatusConflict, "duplicate_tool_path", err.Error())
 	}
 	if session, ok := s.registry.FindSession(input.Body.SessionID); ok {
-		log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), session.Plugin.ID)
+		log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), session.Plugin().ID)
 	}
 	out := &ToolsSetOutput{}
 	out.Body.Count = len(input.Body.Tools)
@@ -198,7 +198,7 @@ func (s *Server) pluginsList(_ context.Context, _ *struct{}) (*PluginsListOutput
 		entry := wire.RegisteredPlugin{Endpoint: endpoint}
 		if session, ok := s.registry.FindEndpoint(endpoint); ok {
 			entry.SessionID = session.ID
-			entry.PluginID = session.Plugin.ID
+			entry.PluginID = session.Plugin().ID
 		}
 		out.Body.Plugins = append(out.Body.Plugins, entry)
 	}
@@ -231,7 +231,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	log.Printf("[core] ws channel: %s (%s)", session.Plugin.ID, sessionID)
+	log.Printf("[core] ws channel: %s (%s)", session.Plugin().ID, sessionID)
 
 	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
 		if message.Method == wire.MethodCall {
@@ -242,8 +242,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn.OnNotif = func(message *wire.Incoming) { s.router.DispatchNotif(conn, message) }
 
 	err = conn.Run(r.Context())
-	log.Printf("[core] ws closed: %s (%s): %v", session.Plugin.ID, sessionID, err)
+	log.Printf("[core] ws closed: %s (%s): %v", session.Plugin().ID, sessionID, err)
 	s.router.DropConn(conn)
-	// pluginがchannelを張り直していれば新しいchannelのSessionは消さない。
-	s.registry.RemoveChannel(sessionID, conn)
+	// WS切断はSession失効とは別（contracts/00002）— channelだけ外し、
+	// Sessionはpingの失効か再helloでの差替えで消える。
+	s.registry.ClearChannel(sessionID, conn)
 }

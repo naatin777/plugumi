@@ -105,6 +105,9 @@ func newID(prefix string) string {
 }
 
 // hello は session.hello（Core → Plugin）。IDを払い出してSessionを登録する。
+// Sessionはhello送信「前」に登録する — Pluginはhello応答と並行して
+// tools.set・WS接続を開始し得るため、応答を受けてから登録すると
+// tools.set が unknown_session で落ちる競合になる（contracts/00002）。
 func hello(sessions *registry.Registry, endpoint, coreURL string) error {
 	session := &registry.Session{
 		ID:             newID("s-"),
@@ -113,6 +116,8 @@ func hello(sessions *registry.Registry, endpoint, coreURL string) error {
 		CreatedAt:      time.Now(),
 	}
 	session.Touch() // 失効判定の基準時刻を登録直後に合わせる
+	sessions.Add(session)
+
 	var req wire.HelloRequest
 	req.ProtocolVersion = ProtocolVersion
 	req.SessionID = session.ID
@@ -124,18 +129,20 @@ func hello(sessions *registry.Registry, endpoint, coreURL string) error {
 	client := &http.Client{Timeout: 5 * time.Second}
 	res, err := client.Post(endpoint+"/v1/session/hello", "application/json", bytes.NewReader(body))
 	if err != nil {
+		sessions.Remove(session.ID)
 		return err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
+		sessions.Remove(session.ID)
 		return fmt.Errorf("hello: %s", res.Status)
 	}
 	var helloResponse wire.HelloResponse
 	if err := json.NewDecoder(res.Body).Decode(&helloResponse); err != nil {
+		sessions.Remove(session.ID)
 		return err
 	}
-	session.Plugin = helloResponse.Plugin
-	sessions.Add(session)
-	log.Printf("[core] session: %s (%s) → %s @ %s", session.Plugin.ID, session.ID, session.RegistrationID, endpoint)
+	session.SetPlugin(helloResponse.Plugin)
+	log.Printf("[core] session: %s (%s) → %s @ %s", session.Plugin().ID, session.ID, session.RegistrationID, endpoint)
 	return nil
 }

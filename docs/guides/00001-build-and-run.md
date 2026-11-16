@@ -12,7 +12,7 @@ relations:
 
 ## 対象読者と前提条件
 
-MVP実装をローカルで動かす開発者。Go 1.24+・Rust(cargo)・Node 24+・npm が入っていること。
+MVP実装をローカルで動かす開発者。Go 1.26+・Rust(cargo)・Node 24+・npm が入っていること。
 
 ## ビルド
 

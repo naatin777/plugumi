@@ -13,20 +13,34 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-// Session の公開fieldは登録時に一度だけ書かれ、その後変更しないため
-// lockなしで読んでよい。可変な3つ（channel・tools・lastPing）は
-// 各method経由でsession-levelのlockを取って触れる。
+// Session の公開field（ID・RegistrationID・Endpoint・CreatedAt）は
+// 登録時に一度だけ書かれ、その後変更しないためlockなしで読んでよい。
+// 可変な4つ（plugin・channel・tools・lastPing）は各method経由で
+// session-levelのlockを取って触れる（pluginはhello応答受取時に埋まる）。
 type Session struct {
 	ID             string
 	RegistrationID string
-	Plugin         wire.PluginInfo
 	Endpoint       string
 	CreatedAt      time.Time
 
 	mu       sync.RWMutex
+	plugin   wire.PluginInfo
 	channel  *rpc.Conn // Plugin→CoreのWebSocket channel（張られるまではnil）
 	tools    []wire.ToolDecl
 	lastPing time.Time
+}
+
+// Plugin はhello応答で受け取ったPlugin情報（未確立時はzero）。
+func (s *Session) Plugin() wire.PluginInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.plugin
+}
+
+func (s *Session) SetPlugin(info wire.PluginInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.plugin = info
 }
 
 // Channel はPlugin→Coreのchannel（未接続ならnil）。
@@ -206,22 +220,20 @@ func (r *Registry) Remove(id string) {
 	r.teardown(s)
 }
 
-// RemoveChannel はSessionの現行channelがこのconnのときだけSessionを失効させる。
-// WS切断後始末用 — pluginがchannelを張り直した直後に旧connの
-// cleanupが走っても、新しいchannelのSessionを消さないためのguard。
-func (r *Registry) RemoveChannel(id string, c *rpc.Conn) {
-	r.mu.Lock()
-	s, ok := r.sessions[id]
-	matched := ok && s.Channel() == c
-	if matched {
-		delete(r.sessions, s.ID)
-		delete(r.byReg, s.RegistrationID)
-		delete(r.byEndpoint, s.Endpoint)
+// ClearChannel はSessionの現行channelがこのconnのとき、channelだけを外す。
+// Session自体は消さない — channelの切断とSession失効は別
+// （docs/contracts/00002。Session寿命はsession.pingが管理する）。
+// Pluginは同じsessionIdでchannelを張り直せる。
+func (r *Registry) ClearChannel(id string, c *rpc.Conn) {
+	s, ok := r.FindSession(id)
+	if !ok {
+		return
 	}
-	r.mu.Unlock()
-	if matched {
-		r.teardown(s)
+	s.mu.Lock()
+	if s.channel == c {
+		s.channel = nil
 	}
+	s.mu.Unlock()
 }
 
 // teardown はSession失効の後始末（mapから外れた後に呼ぶ）。

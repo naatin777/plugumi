@@ -82,6 +82,9 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 		wire.ForwardCallParams{ToolPath: params.Target.ToolPath, Input: params.Input})
 	if err != nil {
 		r.removeRoute(route)
+		// target側で実行中のcallがあれば止める — timeout/送信失敗で
+		// こちらが諦めても、相手側の購読・長時間callは走り続けるため。
+		_ = target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: forwardID})
 		return nil, &wire.Error{Code: -32000, Message: "forward failed: " + err.Error()}
 	}
 

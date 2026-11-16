@@ -33,7 +33,7 @@ func main() {
 	ctx := context.Background()
 	sessions := registry.New()
 	sessions.OnExpired = func(s *registry.Session) {
-		log.Printf("[core] session expired: %s (%s)", s.Plugin.ID, s.ID)
+		log.Printf("[core] session expired: %s (%s)", s.Plugin().ID, s.ID)
 	}
 	go sessions.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
 

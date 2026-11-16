@@ -4,6 +4,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 )
 
@@ -31,6 +32,18 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Core.Listen == "" {
 		return nil, fmt.Errorf("%s: core.listen is required", path)
+	}
+	// MVPは認証なし — API（Plugin動的登録・Tool呼出）を外部に
+	// 公開しないよう、待受はloopbackに限定する。
+	host, _, err := net.SplitHostPort(cfg.Core.Listen)
+	if err != nil {
+		return nil, fmt.Errorf("%s: core.listen: %w", path, err)
+	}
+	if host != "localhost" {
+		addr := net.ParseIP(host)
+		if addr == nil || !addr.IsLoopback() {
+			return nil, fmt.Errorf("%s: core.listen must be a loopback address (got %q)", path, cfg.Core.Listen)
+		}
 	}
 	return &cfg, nil
 }

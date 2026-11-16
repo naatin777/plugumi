@@ -6,7 +6,12 @@ use serde_json::json;
 use std::time::Duration;
 
 pub async fn handle(mut call: Call) {
+    // 0はtokio::time::intervalがpanicするため明示エラーにする。
     let interval_ms = call.input["intervalMs"].as_u64().unwrap_or(1000);
+    if interval_ms == 0 {
+        call.result_error("intervalMs must be >= 1");
+        return;
+    }
     let count = call.input["count"].as_u64();
     let mut t = tokio::time::interval(Duration::from_millis(interval_ms));
     let mut seq = 0u64;
