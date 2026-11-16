@@ -48,7 +48,7 @@ func Load(path string) (*Config, error) {
 	if parsed.Path != "" && parsed.Path != "/" {
 		return nil, fmt.Errorf("%s: core.url must not have a path (got %q)", path, settings.Core.URL)
 	}
-	// MVPは認証なし — API（Plugin動的登録・Tool呼出）を外部に
+	// MVPは認証なし。API（Plugin動的登録・Tool呼び出し）を外部に
 	// 公開しないよう、待受はloopbackに限定する。
 	host := parsed.Hostname()
 	if host != "localhost" {

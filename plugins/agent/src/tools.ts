@@ -1,5 +1,5 @@
 // agent pluginが提供するTool群。
-// MVPは agent/echo のみ（自己呼出の疎通確認用）。
+// MVPは agent/echo のみ（自己呼び出しの疎通確認用）。
 
 import type { Conn } from "./rpc.js";
 import type { CallParams, RpcError, ToolDecl } from "./wire.js";

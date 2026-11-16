@@ -1,6 +1,6 @@
-// Package router は caller Plugin → Core → target Plugin の呼出中継
+// Package router は caller Plugin → Core → target Plugin の呼び出し中継
 // （docs/contracts/00003）。id空間は接続ごと送信者ごと。Coreはtarget側へ
-// forward idを自空間から発行し、呼出に紐付くnotificationの params.callId を
+// forward idを自空間から発行し、呼び出しに紐付くnotificationの params.callId を
 // 各方間のidへ書き換えて配送する。
 package router
 
@@ -82,13 +82,13 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 		wire.ForwardCallParams{ToolPath: params.Target.ToolPath, Input: params.Input})
 	if err != nil {
 		r.removeRoute(route)
-		// target側で実行中のcallがあれば止める — timeout/送信失敗で
-		// こちらが諦めても、相手側の購読・長時間callは走り続けるため。
+		// target側で実行中のcallがあれば止める。timeout/送信失敗で
+		// こちらが諦めても、相手側の購読・長時間callは実行され続けるため。
 		_ = target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: forwardID})
 		return nil, &wire.Error{Code: -32000, Message: "forward failed: " + err.Error()}
 	}
 
-	// sync呼出・または受理がエラーなら経路はここで終了。
+	// sync呼び出し・または受理がエラーなら経路はここで終了。
 	// async受理後はrouteを残してnotification中継を継続する。
 	if kind != "async" || res.Error != nil {
 		r.removeRoute(route)
@@ -143,7 +143,7 @@ func (r *Router) HandleTargetNotif(c *rpc.Conn, message *wire.Incoming) {
 	_ = route.Caller.Notify(message.Method, json.RawMessage(params))
 }
 
-// HandleCallerNotif は呼出元側connからの tools.call.close notification。
+// HandleCallerNotif は呼び出し元側connからの tools.call.close notification。
 // 対応routeを引き、callIdをforward idへ書き換えてtargetへ配送する。
 func (r *Router) HandleCallerNotif(c *rpc.Conn, message *wire.Incoming) {
 	var closeParams wire.CallCloseParams
@@ -200,7 +200,7 @@ func (r *Router) DispatchNotif(c *rpc.Conn, message *wire.Incoming) {
 
 // DropConn はconn終了時の後始末。そのconnに紐付くrouteを失敗として閉じる。
 // targetが死んだときはcallerへerror終端を、callerが死んだときはtargetへ
-// closeを送る — 送らないと購読・長時間callが相手側で走り続ける。
+// closeを送る。送らないと購読・長時間callが相手側で実行され続ける。
 func (r *Router) DropConn(c *rpc.Conn) {
 	r.mu.Lock()
 	dropped := map[string]*Route{}

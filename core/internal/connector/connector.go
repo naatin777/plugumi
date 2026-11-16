@@ -1,5 +1,5 @@
 // Package connector はCore→Pluginへの接続試行（link.hello）。
-// Link確立は起動と分離する — 到達不能なPluginは再試行を続けるだけ
+// Link確立は起動と分離する。到達不能なPluginは再試行を続けるだけ
 // （docs/contracts/00001「Plugin Endpointの解決」）。
 package connector
 
@@ -24,8 +24,8 @@ const CoreVersion = "0.1.0"
 
 // Connector はPlugin Endpointへの接続試行を管理する。
 // 静的configと動的登録（POST /v1/plugins）の両方からWatchを受け、
-// Endpointごとに接続loopを1本だけ張る。
-// Endpointの集合はLinkとは別に持つ — Link未確立（到達不能）でも
+// Endpointごとに接続loopを1本だけ起動する。
+// Endpointの集合はLinkとは別に持つ。Link未確立（到達不能）でも
 // 再登録を防げるようにするため。
 type Connector struct {
 	ctx       context.Context // loopの寿命はCoreプロセス
@@ -104,7 +104,7 @@ func newID(prefix string) string {
 }
 
 // hello は link.hello（Core → Plugin）。IDを払い出してLinkを登録する。
-// Linkはhello送信「前」に登録する — Pluginはhello応答と並行して
+// Linkはhello送信「前」に登録する。Pluginはhello応答と並行して
 // tools.set・transport接続を開始し得るため、応答を受けてから登録すると
 // tools.set が unknown_link で落ちる競合になる（contracts/00002）。
 func hello(links *registry.Registry, endpoint, coreURL string) error {

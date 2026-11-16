@@ -1,4 +1,4 @@
-# Design — 1つの具体的な解法
+# Design: 1つの具体的な解法
 
 **置き場所:** `docs/designs/`。**Type:** `design`。**必須relation:** `relations.requirement` は**少なくとも1つの既存 Requirement** を指さなければならない。
 

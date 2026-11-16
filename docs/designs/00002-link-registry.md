@@ -14,7 +14,7 @@ relations:
 
 ## 対応するrequirement
 
-`docs/requirements/00002`（厳格な呼出先指定）は `linkId` で宛先を一意に識別する設計であり、そのlinkIdを保持・失効させる本体が本designのLink Registryである。`docs/contracts/00001` のLink lifecycleをCore内部のデータ・振る舞いとして定義する。
+`docs/requirements/00002`（厳格な呼び出し先指定）は `linkId` で宛先を一意に識別する設計であり、そのlinkIdを保持・失効させる本体が本designのLink Registryである。`docs/contracts/00001` のLink lifecycleをCore内部のデータ・振る舞いとして定義する。
 
 ## モデルと不変条件
 
@@ -22,7 +22,7 @@ Coreはメモリ上に **Link Registry** を持つ。永続化しない（`docs/
 
 ```
 Link {
-  linkId           // Core発行、Link識別・Tool呼出の宛先識別を兼ねる
+  linkId           // Core発行、Link識別・Tool呼び出しの宛先識別を兼ねる
   plugin: { id, version?, name? }   // link.hello応答の識別情報
   endpoint         // Pluginの接続先（Core→Plugin REST用）
   tools: ToolDecl[]        // tools.set で置き換えられる宣言リスト
@@ -55,4 +55,4 @@ Link {
 
 - `link.bye` による明示終了を入れるか
 - 失効間隔・ping間隔の確定値
-- 同一Plugin実装の複数Link（重複Endpoint設定・手動複数起動）をどう扱うか — MVPではそのまま別Linkとして登録する想定
+- 同一Plugin実装の複数Link（重複Endpoint設定・手動複数起動）をどう扱うか。MVPではそのまま別Linkとして登録する想定

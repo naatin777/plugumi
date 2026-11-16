@@ -1,6 +1,6 @@
 ---
 type: decision
-title: Pluginの実装言語 — standard=Rust・agent=TypeScript
+title: "Pluginの実装言語: standard=Rust・agent=TypeScript"
 description: 各Pluginの実装言語と、その選定理由（ライブラリ直結・LLMエコシステム）。
 status: draft
 relations:
@@ -45,6 +45,6 @@ TypeScriptを選ぶ理由:
 
 ## トレードオフと帰結
 
-- 言語が分かれるためwire型は各Pluginが自分で持つ（共有SDKは作らない — Plugin独立の前提）
+- 言語が分かれるためwire型は各Pluginが自分で持つ（共有SDKは作らない。Plugin独立の前提）
 - standardの検索系toolは、今後 `ignore`/`grep-searcher`/`notify`/PTY系crateの追加を検討する（規約どおり追加時は要許可）
 - agentのLLM SDK選定は `00009` に分離

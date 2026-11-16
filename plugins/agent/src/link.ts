@@ -2,7 +2,7 @@
 // tools.callの配送までをまとめる。PluginはCoreを事前に知らず、
 // helloで受け取った core_url 宛てに以後の送信を行う。
 //
-// LinkはlinkIdごとに独立して管理する — 複数のCoreが
+// LinkはlinkIdごとに独立して管理する。複数のCoreが
 // 同じPluginへhelloしてよい（docs/decisionsの複数Core方針）。
 
 import { serve } from "@hono/node-server";
@@ -42,8 +42,8 @@ export function servePlugin(listen: string): void {
   app.post("/v1/link/hello", async (c) => {
     const req = (await c.req.json()) as HelloRequest;
 
-    // 同じCoreからの再helloは、そのCoreの旧Linkを畳んでから受け入れる
-    // （別CoreのLinkは生かす — 複数Core接続を許すため）。
+    // 同じCoreからの再helloは、そのCoreの旧Linkを破棄してから受け入れる
+    // （別CoreのLinkは生かす。複数Core接続を許すため）。
     for (const [id, link] of links) {
       if (link.coreUrl === req.core.url) {
         teardownLink(link);
@@ -84,17 +84,17 @@ export function servePlugin(listen: string): void {
   console.log(`[agent] listening on ${listen}`);
 }
 
-/// Linkを畳む: pingを止め、transportを切る（実行中callのcloseはCore側が処理）。
+/// Linkを破棄する: pingを止め、transportを切る（実行中callのcloseはCore側が処理）。
 function teardownLink(link: LinkState): void {
   if (link.pingTimer) clearInterval(link.pingTimer);
   link.conn = undefined;
 }
 
 /// Link確立後のライフサイクル: tools.set → pingループ → transport。
-/// 途中でLinkが畳まれても（Core側の失効・再起動hello）、
+/// 途中でLinkが破棄されても（Core側の失効・再起動hello）、
 /// ping/接続loopはlinks mapを見て終わる。
 async function startLink(link: LinkState): Promise<void> {
-  // tools.setは短く再試行する — 直列失敗でもLinkを無toolにしない。
+  // tools.setは短く再試行する。直列失敗でもLinkを無toolにしない。
   for (let attempt = 1; attempt <= 5; attempt++) {
     if (!links.has(link.linkId)) return;
     try {
@@ -118,8 +118,8 @@ async function startLink(link: LinkState): Promise<void> {
   await connectTransportLoop(link);
 }
 
-/// transportを張り続ける。切断されてもLinkが生きている限り再試行する
-/// （transport切断とLink失効は別 — contracts/00002）。
+/// transportを接続し続ける。切断されてもLinkが生きている限り再試行する
+/// （transport切断とLink失効は別。contracts/00002）。
 async function connectTransportLoop(link: LinkState): Promise<void> {
   while (links.has(link.linkId)) {
     try {

@@ -1,5 +1,5 @@
 // Package server はPlugin→Core側のHTTP server。
-// REST呼出（tools.set/ping/tools.list）はOpenAPI (huma) で定義し、
+// REST呼び出し（tools.set/ping/tools.list）はOpenAPI (huma) で定義し、
 // transportの受付はOpenAPI対象外としてraw handlerのまま同居させる
 // （docs/contracts/00001・00002）。
 package server
@@ -92,20 +92,20 @@ func (s *Server) Handler() http.Handler {
 		OperationID: "link-ping",
 		Method:      http.MethodPost,
 		Path:        "/v1/link/ping",
-		Summary:     "Linkの維持信号",
+		Summary:     "Linkを維持するping",
 	}, s.ping)
 	huma.Register(api, huma.Operation{
 		OperationID: "tools-list",
 		Method:      http.MethodPost,
 		Path:        "/v1/tools/list",
-		Summary:     "登録中の全Toolを返す最小Discovery（MVP仮置き）",
+		Summary:     "登録中の全Toolを返す最小Discovery（MVP暫定）",
 	}, s.toolsList)
 	huma.Register(api, huma.Operation{
 		OperationID: "plugins-add",
 		Method:      http.MethodPost,
 		Path:        "/v1/plugins",
 		Summary:     "Plugin Endpointの動的登録",
-		Description: "Endpointを接続対象に追加する。受理のみ — Link確立は非同期（connectorが再試行する）。",
+		Description: "Endpointを接続対象に追加する。受理のみで、Link確立は非同期（connectorが再試行する）。",
 	}, s.pluginsAdd)
 	huma.Register(api, huma.Operation{
 		OperationID: "plugins-list",
@@ -243,7 +243,7 @@ func (s *Server) pluginsList(_ context.Context, _ *struct{}) (*PluginsListOutput
 
 // ---- transport（OpenAPI対象外）----
 
-// handleTransport はPlugin→Coreのtransport受付（hello後に張られる）。
+// handleTransport はPlugin→Coreのtransport受付（hello後に接続される）。
 // ?linkId= でLinkに紐付ける。
 func (s *Server) handleTransport(w http.ResponseWriter, r *http.Request) {
 	linkID := r.URL.Query().Get("linkId")

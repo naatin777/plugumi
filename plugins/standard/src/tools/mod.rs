@@ -1,9 +1,9 @@
-//! Tool群の宣言と呼出配送。
+//! Tool群の宣言と呼び出し配送。
 //!
 //! 各toolは対応するmoduleの `async fn` として実装する。
 //! `kind`（sync/async）で受理・終端の流れが分かれる（docs/contracts/00003）:
 //!
-//! - sync: handlerの戻り値が呼出のresponseになる
+//! - sync: handlerの戻り値が呼び出しのresponseになる
 //! - async: 受理 `{accepted:true}` を返してから実処理し、
 //!   途中出力・終端は `Call` 経由のnotificationで送る
 
@@ -42,11 +42,11 @@ pub fn decls() -> Vec<ToolDecl> {
         .collect()
 }
 
-/// 1つの着信呼出。ToolPath・Inputのほか、async側では
+/// 1つの着信呼び出し。ToolPath・Inputのほか、async側では
 /// output/result/closed を使う。
 pub struct Call {
     pub conn: Conn,
-    pub id: Value, // callId = 呼出requestのJSON-RPC id
+    pub id: Value, // callId = 呼び出しrequestのJSON-RPC id
     pub tool_path: String,
     pub input: Value,
     close_rx: watch::Receiver<bool>,
@@ -61,7 +61,7 @@ impl Call {
         );
     }
 
-    /// async呼出の終端 result notification を送る。
+    /// async呼び出しの終端 result notification を送る。
     pub fn result(&self, result: Value) {
         self.conn.notify(
             wire::METHOD_CALL_RESULT,
@@ -77,7 +77,7 @@ impl Call {
         );
     }
 
-    /// 呼出元のclose（またはLink終了）を待つ。購読系toolはこれで終わる。
+    /// 呼び出し元のclose（またはLink終了）を待つ。購読系toolはこれで終わる。
     pub async fn closed(&mut self) {
         while !*self.close_rx.borrow() {
             if self.close_rx.changed().await.is_err() {
@@ -104,7 +104,7 @@ pub fn dispatch(link: SharedLink, conn: Conn, req_id: Value, params: CallParams)
         .insert(req_id.to_string(), close_tx);
 
     match params.tool_path.as_str() {
-        // sync: handlerの戻り値が呼出のresponseになる。
+        // sync: handlerの戻り値が呼び出しのresponseになる。
         "echo" | "fs/read" | "fs/write" => {
             let id_key = req_id.to_string();
             tokio::spawn(async move {

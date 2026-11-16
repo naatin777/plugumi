@@ -1,4 +1,4 @@
-# Verification — 証拠と合否の計画
+# Verification: 証拠と合否の計画
 
 **置き場所:** `docs/verification/`。**Type:** `verification`。**必須relation:** `relations` に `requirement`・`design`・`architecture`・`contract` のいずれかのキーで**少なくとも1つの既存artifact**を指さなければならない。
 
@@ -10,7 +10,7 @@ Verification artifactは、不変条件・requirement・architecture・protocol�
 - **環境・前提条件:** ランタイム版・依存・fixture・資格情報や分離（秘密を露出しない）。
 - **テストシナリオ:** 手順・期待出力・異常/境界ケース。
 - **証拠:** コマンド・トレース・スクリーンショット・ログ・日付。**実行後にのみ**記録。
-- **成果:** planned / passed / failed / blocked。制限と再現情報を添え、成功を黙って推測しない。
+- **結果:** planned / passed / failed / blocked。制限と再現情報を添え、成功を黙って推測しない。
 
 relation の例:
 

@@ -1,4 +1,4 @@
-//! fs/read・fs/write — ファイル読み書きのsync tool。
+//! fs/read・fs/write: ファイル読み書きのsync tool。
 
 use super::Call;
 use serde_json::{json, Value};

@@ -58,7 +58,7 @@ type ToolsListResponse struct {
 }
 
 // PluginsAddRequest はPlugin Endpointの動的登録（POST /v1/plugins）。
-// 登録は受理のみ — Linkの確立は非同期（connectorが再試行する）。
+// 登録は受理のみ。Linkの確立は非同期（connectorが再試行する）。
 type PluginsAddRequest struct {
 	Endpoint string `json:"endpoint"`
 }

@@ -1,4 +1,4 @@
-// 最小の呼出元コマンドループ。LLMなし・Queueなし — stdinから指示を受けて
+// 最小の呼び出し元コマンドループ。LLMなし・Queueなし。stdinから指示を受けて
 // tools.list / tools.call / tools.call.close を送り、
 // 応答と届くnotificationをstdoutに表示する。
 
@@ -76,7 +76,7 @@ async function call(args: string[]): Promise<void> {
     input,
   });
   // async受理後もnotificationはcallId相関で届き続ける（link.tsで表示）。
-  // responseのJSON-RPC idがこの呼出のcallId（closeはこれを指定する）。
+  // responseのJSON-RPC idがこの呼び出しのcallId（closeはこれを指定する）。
   console.log(
     `[res callId=${JSON.stringify(response.id)}] ${JSON.stringify(response.result ?? response.error)}`,
   );

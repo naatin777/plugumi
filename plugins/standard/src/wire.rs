@@ -115,7 +115,7 @@ pub const METHOD_CALL_OUTPUT: &str = "tools.call.output";
 pub const METHOD_CALL_RESULT: &str = "tools.call.result";
 pub const METHOD_CALL_CLOSE: &str = "tools.call.close";
 
-/// target側へ届く呼出params（docs/contracts/00003:
+/// target側へ届く呼び出しparams（docs/contracts/00003:
 /// 中継時はtargetへtoolPathのみ伝える）。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

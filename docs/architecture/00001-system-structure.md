@@ -5,7 +5,7 @@ description: Plugumiの構成要素・責務・接続関係。旧実装から引
 status: draft
 ---
 
-## 範囲
+## 対象範囲
 
 Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/contracts/00001`、信頼モデルは `docs/decisions/00001`、配布・運用面は `docs/decisions/00003` を参照。
 
@@ -21,10 +21,10 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 ## 設計思想（旧実装から引き継ぐ不変条件）
 
 - **CoreはAI非依存の汎用プラットフォーム**。AI Agent・Filesystem・Browser等はすべてPluginとして実装する（旧 `REQ-CORE-001` / ADR-0001 と同じ思想）
-- **Plugin間の直接通信は禁止**。Tool呼出は `Plugin A → Core → Plugin B` の仲介経路のみ
+- **Plugin間の直接通信は禁止**。Tool呼び出しは `Plugin A → Core → Plugin B` の仲介経路のみ
 - **UI Hostは表示専用**。Hostの起動・終了・切断はCore・Plugin・Tool実行の寿命に影響しない
 - **NodeはPluginが宣言する「実行環境」の共有識別**であり、Coreはその意味を解釈しない（ローカル・Docker sandbox・リモートホスト等）
-- **同一Pluginは複数登録できる**（複数Node・同一Node上）。例外として `standard` PluginはNodeごと最大1登録 — 旧実装の既存仕様であり、再検証対象
+- **同一Pluginは複数登録できる**（複数Node・同一Node上）。例外として `standard` PluginはNodeごと最大1登録（旧実装の既存仕様・再検証対象）
 
 ## 本体が提供するもの vs Pluginが実現するもの
 
@@ -44,12 +44,12 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 ## Link / Transport / Node の関係
 
-- **Link**: CoreがPluginと確立する1つの接続・登録の単位。`link.hello` で開始し、Link失効で終わる。`linkId` がLink識別とTool呼出の宛先を兼ねる
+- **Link**: CoreがPluginと確立する1つの接続・登録の単位。`link.hello` で開始し、Link失効で終わる。`linkId` がLink識別とTool呼び出しの宛先を兼ねる
 - **Transport**: Link配下の双方向通信路（MVPではWebSocket + JSON-RPC 2.0）。transport切断はLink失効とは別のライフサイクル
 - **Node**: Pluginが宣言する実行環境の共有識別。LinkがどのNodeで動くかの対応をCoreが保持する
 
 つまり `Link ⊃ (Transport・Tool宣言・Node宣言)` の包含関係で、MVPではすべてlink-scoped（`docs/decisions/00004`）。用語の定義は `docs/glossary.md` を正本とする。
-- Plugin信頼モデルは VS Code型 — インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
+- Plugin信頼モデルは VS Code型: インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
 - 接続はローカル基本。リモート接続は任意追加（Tailscale・Cloudflare Tunnel + Access等、`docs/decisions/00003`）
 
 ## ランタイム・デプロイモデル
@@ -68,7 +68,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 | ADR-0021 | Plugin起動と接続を分離 | 継承（`docs/decisions/00004`） |
 | ADR-0024 | Core→Plugin接続・逆接続禁止 | 継承（`docs/decisions/00004`） |
 | ADR-0025 | 複数Core接続を妨げない | 受け入れるが、状態分離・競合の保証範囲は未確定 |
-| ADR-0040 | 永続Registration ID | **非継承** — MVPはlink-scoped（`docs/decisions/00004`） |
+| ADR-0040 | 永続Registration ID | **非継承**（MVPはlink-scoped、`docs/decisions/00004`） |
 | ADR-0071 | 階層Tool Path（配列表現） | toolPath構造は未確定 |
 | ADR-0078 | CoreがPluginをspawn・管理 | MVPは外部起動のみ |
 | ADR-0079 | HTTP/JSON Session Handshake | REST面は継承するがtransport追加で一部置換 |

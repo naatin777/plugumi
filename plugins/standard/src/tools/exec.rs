@@ -1,4 +1,4 @@
-//! exec — コマンドを実行し、stdout/stderrを途中出力として流すasync tool。
+//! exec: コマンドを実行し、stdout/stderrを途中出力として流すasync tool。
 //! closeされたら子プロセスをkillする。
 
 use super::Call;

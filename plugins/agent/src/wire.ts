@@ -51,7 +51,7 @@ export const METHOD_CALL_OUTPUT = "tools.call.output";
 export const METHOD_CALL_RESULT = "tools.call.result";
 export const METHOD_CALL_CLOSE = "tools.call.close";
 
-// target側へ届く呼出params（docs/contracts/00003:
+// target側へ届く呼び出しparams（docs/contracts/00003:
 // 中継時はtargetへtoolPathのみ伝える）。
 export interface CallParams {
   toolPath: string;

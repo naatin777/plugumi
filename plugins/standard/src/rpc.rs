@@ -25,7 +25,7 @@ pub struct Conn {
 }
 
 impl Conn {
-    /// WS接続を張り、受信pumpを開始する。
+    /// WS接続を開き、受信pumpを開始する。
     /// `handler` はrequest/notificationを受け取る（responseは内部で相関処理）。
     pub async fn connect<F>(
         url: &str,

@@ -1,4 +1,4 @@
-//! echo — 入力をそのまま返すsync tool（疎通確認用）。
+//! echo: 入力をそのまま返すsync tool（疎通確認用）。
 
 use super::Call;
 use serde_json::Value;

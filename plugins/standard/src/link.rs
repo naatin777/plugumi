@@ -2,7 +2,7 @@
 //! tools.callの配送までをまとめる。PluginはCoreを事前に知らず、
 //! helloで受け取った core_url 宛てに以後の送信を行う。
 //!
-//! LinkはlinkIdごとに独立して管理する — 複数のCoreが
+//! LinkはlinkIdごとに独立して管理する。複数のCoreが
 //! 同じPluginへhelloしてよい（docs/decisionsの複数Core方針）。
 
 use axum::{
@@ -80,8 +80,8 @@ async fn handle_hello(
     State(shared): State<Shared>,
     Json(req): Json<HelloRequest>,
 ) -> Result<Json<HelloResponse>, (StatusCode, Json<Value>)> {
-    // 同じCoreからの再helloは、そのCoreの旧Linkを畳んでから受け入れる。
-    // （別CoreのLinkは生かす — 複数Core接続を許すため）
+    // 同じCoreからの再helloは、そのCoreの旧Linkを破棄してから受け入れる。
+    // （別CoreのLinkは生かす。複数Core接続を許すため）
     let stale_ids: Vec<String> = {
         let state = shared.lock().unwrap();
         state
@@ -123,7 +123,7 @@ async fn handle_hello(
     }))
 }
 
-/// Linkを畳む: 実行中callにcloseを送り、transportを切る。
+/// Linkを破棄する: 実行中callにcloseを送り、transportを切る。
 fn teardown_link(link: &SharedLink) {
     let mut inner = link.lock().unwrap();
     for (_, close_tx) in inner.calls.drain() {
@@ -134,7 +134,7 @@ fn teardown_link(link: &SharedLink) {
 }
 
 /// Link確立後のライフサイクル: tools.set → pingループ → transport。
-/// 途中でLinkが畳まれても（Core側の失効・再起動hello）、
+/// 途中でLinkが破棄されても（Core側の失効・再起動hello）、
 /// ping/接続loopはlinks mapを見て終わる。
 async fn start_link(shared: Shared, link: SharedLink) {
     let (link_id, core_url) = {
@@ -142,7 +142,7 @@ async fn start_link(shared: Shared, link: SharedLink) {
         (inner.link_id.clone(), inner.core_url.clone())
     };
 
-    // tools.setは短く再試行する — 直列失敗でもLinkを無toolにしない。
+    // tools.setは短く再試行する。直列失敗でもLinkを無toolにしない。
     let tools = tools::decls();
     for attempt in 1..=5 {
         if !link_alive(&shared, &link_id) {
@@ -191,8 +191,8 @@ async fn ping_loop(shared: Shared, core_url: String, link_id: String) {
     }
 }
 
-/// transportを張り続ける。切断されてもLinkが生きている限り再試行する
-/// （transport切断とLink失効は別 — contracts/00002）。
+/// transportを接続し続ける。切断されてもLinkが生きている限り再試行する
+/// （transport切断とLink失効は別。contracts/00002）。
 async fn connect_transport_loop(shared: Shared, link: SharedLink, link_id: &str) {
     loop {
         if !link_alive(&shared, link_id) {

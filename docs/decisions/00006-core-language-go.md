@@ -34,7 +34,7 @@ Coreは **Go** で実装する。
 
 - Plugin SDKをGo以外にも提供する場合、言語数だけ実装・検証コストが増える（Coreとは別の話だが関連する）
 - MVP時点の主要選択:
-  - WebSocket: `coder/websocket` 候補（旧nhooyr.io/websocketの維持fork。gorilla/websocketはメンテナンス停止気味）。標準libにWS実装は無いため外部依存が要る — 導入時にユーザー許可を得る
+  - WebSocket: `coder/websocket` 候補（旧nhooyr.io/websocketの維持fork。gorilla/websocketはメンテナンス停止気味）。標準libにWS実装は無いため外部依存が要る。導入時にユーザー許可を得る
   - JSON-RPC: 標準encoding/jsonで薄く実装
   - 設定ファイル: `plugumi.json`（標準 `encoding/json`。TOMLは外部依存になるため不採用）
 - 外部ライブラリの追加は、標準libで足りるかを確認したうえでユーザー許可を得てから行う（`.agents/skills/coding-convention`）

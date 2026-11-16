@@ -1,5 +1,5 @@
-//! ticks — 定期通知のasync tool。count指定がなければ終端を持たない
-//! （購読の形: 呼出元がcloseするかSession失効で終わる）。
+//! ticks: 定期通知のasync tool。count指定がなければ終端を持たない
+//! （購読の形: 呼び出し元がcloseするかSession失効で終わる）。
 
 use super::Call;
 use serde_json::json;

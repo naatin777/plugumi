@@ -1,4 +1,4 @@
-# Requirement — 外部から観測可能な必要性
+# Requirement: 外部から観測可能な必要性
 
 **置き場所:** `docs/requirements/`。**Type:** `requirement`。**必須relation:** なし。
 

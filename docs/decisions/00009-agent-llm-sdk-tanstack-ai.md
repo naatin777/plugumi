@@ -1,6 +1,6 @@
 ---
 type: decision
-title: Agent LLM SDK候補 — TanStack AI（評価中）
+title: "Agent LLM SDK候補: TanStack AI（評価中）"
 description: AgentのLLM通信レイヤ候補の比較と、TanStack AIを評価する理由・採用条件。
 status: draft
 relations:
@@ -55,8 +55,8 @@ TanStack AIはAgentを構成するための仕組みを幅広く提供してい�
 
 ## 代替案
 
-- **Vercel AI SDK** — Structured OutputやProviderの対応が強く、Agent Loopも提供している。十分有力な候補
-- **pi-ai** — モデル通信を比較的低レベルから制御でき、OAuth・モデル間の履歴変換・キャッシュ対応などが魅力。実際、旧PlugumiのAgentはTypeScript + pi-aiで実装されていた
+- **Vercel AI SDK**: Structured OutputやProviderの対応が強く、Agent Loopも提供している。十分有力な候補
+- **pi-ai**: モデル通信を比較的低レベルから制御でき、OAuth・モデル間の履歴変換・キャッシュ対応などが魅力。実際、旧PlugumiのAgentはTypeScript + pi-aiで実装されていた
 
 ## トレードオフと帰結
 

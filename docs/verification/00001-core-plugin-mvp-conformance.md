@@ -12,7 +12,7 @@ relations:
 
 ## 対象と範囲
 
-`docs/contracts/00001`（REST接続）・`00002`（transport）・`00003`（Tool呼出）のMVP適合範囲。認証・Node・UI Protocol・Shared Contextは対象外。
+`docs/contracts/00001`（REST接続）・`00002`（transport）・`00003`（Tool呼び出し）のMVP適合範囲。認証・Node・UI Protocol・Shared Contextは対象外。
 
 ## 前提条件と環境
 
@@ -33,24 +33,24 @@ relations:
 | L1-4 | 異常: 未知`linkId`で `tools.set` | `401 unknown_link` |
 | L1-5 | 異常: サポート外version（`/v2/link/hello` 等）へのリクエスト | `426 protocol_mismatch`、Link未成立 |
 
-### L2. Tool呼出
+### L2. Tool呼び出し
 
 | # | 操作 | 期待 |
 |---|---|---|
-| L2-1 | sync tool呼出（echo） | responseにresultが直接返る（終端=response） |
-| L2-2 | async tool呼出（exec） | 受理 `{accepted:true}` → output通知 → result通知の順で届く |
-| L2-3 | 購読tool呼出（ticks） | 受理後outputが継続、`close`送信で停止する |
-| L2-4 | 呼出中にcaller conn切断 | target側のcallも停止する（close伝播） |
-| L2-5 | target conn切断で呼出中 | callerへ `tools.call.result` のerror終端（`-32000`） |
+| L2-1 | sync tool呼び出し（echo） | responseにresultが直接返る（終端=response） |
+| L2-2 | async tool呼び出し（exec） | 受理 `{accepted:true}` → output通知 → result通知の順で届く |
+| L2-3 | 購読tool呼び出し（ticks） | 受理後outputが継続、`close`送信で停止する |
+| L2-4 | 呼び出し中にcaller conn切断 | target側のcallも停止する（close伝播） |
+| L2-5 | target conn切断で呼び出し中 | callerへ `tools.call.result` のerror終端（`-32000`） |
 | L2-6 | 異常: 未知`linkId`へcall | `-32602 no such linkId` |
 | L2-7 | 異常: 未知`toolPath`へcall | `-32601 no such toolPath` |
-| L2-8 | 自己呼出（`call <自分のlinkId> <tool>`） | 同一conn上でcaller/target両役が動く |
+| L2-8 | 自己呼び出し（`call <自分のlinkId> <tool>`） | 同一conn上でcaller/target両役が動く |
 
 ### L3. transportとLinkの寿命分離
 
 | # | 操作 | 期待 |
 |---|---|---|
-| L3-1 | transport切断（Plugin側WSクローズ） | Linkは残る。`tools.list` にtoolが残り、Pluginがtransportを張り直せる |
+| L3-1 | transport切断（Plugin側WSクローズ） | Linkは残る。`tools.list` にtoolが残り、Pluginがtransportを接続し直せる |
 | L3-2 | transport切断中にcall | `-32000 plugin transport unavailable` |
 | L3-3 | ping停止90秒超 | Link失効。`tools.list` から消え、以後 `401 unknown_link` |
 | L3-4 | transport切断後の再接続（同linkId） | 新しいtransportが差し替わる。Linkは継続 |
