@@ -1,15 +1,15 @@
-# Contract — 相互運用可能なinterfaceとデータ形式
+# Contract: 相互運用可能なinterfaceとデータ形式
 
 **置き場所:** `docs/contracts/`。**Type:** `contract`。**必須relation:** なし。
 
-Contractは独立に実装される当事者間（例: Core↔Plugin、Client↔App、SDK↔Panel）の**観測可能な義務**を述べる。実装チュートリアルではない。
+Contractは独立に実装される当事者間（例: Core↔Plugin、Core↔UI Host、SDK↔Panel）の**観測可能な義務**を述べる。実装チュートリアルではない。
 
 ## 推奨する内容
 
 - **当事者・バージョン・範囲:** 誰がどちら側を実装するか。互換性の期待。
 - **操作・メッセージ:** request/responseまたはeventの形状、フィールドと値の意味。
 - **エラーと境界ケース:** 検証・キャンセル・タイムアウト・順序・配送/再試行の保証。
-- **識別とセキュリティ:** 呼出元identity、認可scope、信頼境界。
+- **識別とセキュリティ:** 呼び出し元identity、認可scope、信頼境界。
 - **適合ルール:** 独立実装がパスしなければならないこと。
 - **スキーマ・ソース参照:** 実在するOpenAPI/JSON Schema/`.proto`パス。計画のみの場合はその旨を明記。
 

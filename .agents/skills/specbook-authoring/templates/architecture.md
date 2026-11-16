@@ -5,7 +5,7 @@ description: component間の責務と関係を記述する。
 status: draft
 ---
 
-## 範囲
+## 対象範囲
 
 このアーキテクチャがカバーするシステム境界は何か？
 

@@ -17,3 +17,9 @@ Thumbs.db
 # Node
 node_modules/
 dist/
+
+# Rust
+target/
+
+# Go binaries
+core/plugumi

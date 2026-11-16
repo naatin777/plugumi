@@ -1,4 +1,4 @@
-# Decision — 明示的な選択と理由
+# Decision: 明示的な選択と理由
 
 **置き場所:** `docs/decisions/`。**Type:** `decision`。**必須relation:** なし。**同typeキーによる階層（parent相当）は禁止。**
 

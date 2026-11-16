@@ -1,6 +1,6 @@
 ---
 type: decision
-title: Queue意味論 — priority 3段階 / timing 3種 / 途中出力=配送機構
+title: "Queue意味論: priority 3段階 / timing 3種 / 途中出力=配送機構"
 description: Agent入力キューの priority・timing・途中出力 と queue の関係を決める。
 status: draft
 relations:
@@ -14,7 +14,7 @@ relations:
 
 ## 決定
 
-### 1. Queue Priority — `high` / `medium` / `low` の3段階
+### 1. Queue Priority: `high` / `medium` / `low` の3段階
 
 数値ではなく3段階。割り込みタイミングとは独立して順序だけを決める。
 
@@ -28,7 +28,7 @@ relations:
 
 **Priorityは順序、Timingはいつ渡せるかを制御する。** 両者は独立した軸。
 
-### 2. Queue Timing — `interrupt` / `after_current` / `after_all`
+### 2. Queue Timing: `interrupt` / `after_current` / `after_all`
 
 | Timing | 動作 |
 |---|---|
@@ -54,9 +54,9 @@ Agent Idle       ← after_all を投入
 
 `after_all` の入力を処理することで、新しいAgent Turnが始まることもある。
 
-### 3. 途中出力とQueue — 途中出力は配送の仕組み
+### 3. 途中出力とQueue: 途中出力は配送の仕組み
 
-途中出力 は任意のタイミングで Tool Output Protocol を繰り返し返せる（wire上はasync形態の通知として届く — `docs/contracts/00003`）。**Queue専用の配送仕様は不要**であり、Queueにどう積むかは各出力メッセージが指定する。
+途中出力 は任意のタイミングで Tool Output Protocol を繰り返し返せる（wire上はasync形態の通知として届く。`docs/contracts/00003`）。**Queue専用の配送仕様は不要**であり、Queueにどう積むかは各出力メッセージが指定する。
 
 ```text
 Tool（途中出力あり）
@@ -70,7 +70,7 @@ Tool（途中出力あり）
   └─ result(...)
 ```
 
-これは Dynamic Hooks にもそのまま適用できる — hook操作も「実行中に届く出力メッセージ」として同じ配送路に乗る。
+これは Dynamic Hooks にもそのまま適用できる。hook操作も「実行中に届く出力メッセージ」として同じ配送路に乗る。
 
 この統一により、旧実装で別々に検討されていた3つの問題が同じ機構で片付く: 進行中出力のPush（queue/hookメッセージ自体がpush）、複数PartのTool出力（`queue.*`群+`result`がPartに相当）、Dynamic Hooks（`hook.set/patch`として表現）。
 
@@ -86,4 +86,4 @@ Tool（途中出力あり）
 - priorityとtimingの直積（3×3）で、「interruptほどじゃないけど緊急性あり」等を自然に表現できる
 - `after_all` の定義を「Idle」としたことで、Agent Turn境界の正確な意味をQueue実装側が持つ必要がある
 - Tool Output Protocol に `queue.*` / `hook.*` のメッセージ種を持たせる設計が必要になる
-- Queue自体は Agent Plugin 領域の概念であり、Core の AI 非依存性を侵さないこと — `queue.*` はCoreから見て単なる途中出力payload
+- Queue自体は Agent Plugin 領域の概念であり、Core の AI 非依存性を侵さないこと。`queue.*` はCoreから見て単なる途中出力payload

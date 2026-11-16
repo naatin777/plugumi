@@ -1,121 +1,245 @@
 ---
 type: contract
-title: Core↔Plugin 接続契約（MVP・REST）
-description: CoreがPluginへ接続し、Sessionを確立してTool宣言を受け取るまでの最小契約。HTTP+JSONのRESTで構成する。
+title: Core↔Plugin 接続契約
+description: CoreがPluginへHTTP経由で接続し、Linkを確立してTool宣言を受け取るまでの契約。接続手順・Linkの状態遷移・ID・時間定数を規定する。
 status: draft
 relations:
   architecture:
     - '00001'
+  requirement:
+    - '00005'
+  decision:
+    - '00010'
 ---
 
 ## 当事者と範囲
 
-Core と Plugin の双方が実装する通信境界。
+Core と Plugin の双方が実装する通信境界。**共通規格（登録・検査系）はCore→PluginのREST、Tool呼び出しの流路だけをWS + JSON-RPC 2.0とする**（`docs/decisions/00010`）。WS上のメッセージ形式は `docs/contracts/00002`、呼び出し形態は `docs/contracts/00003`、本contractは接続手順とLinkのライフサイクルを規定する。
 
-- 基本は **HTTP/1.1 + JSON の REST**。request/responseで足りる処理はすべてここに載せる（OpenAPI化を見据える）
-- Tool呼出・途中出力・通知などrequest/responseで表せない部分は **WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`、呼出形態は `docs/contracts/00003`）
-- **Panel ↔ Plugin の通信は本契約の対象外**。Pluginのフロントエンド⇄バックエンド間はWS・WebRTC・GraphQL等を自由に選んでよい。Plugumiが規定するのはCore↔Pluginと、UIを提供・配置する枠組みだけ
 - Pluginプロセスは外部起動を前提とする（Coreはspawnしない）
+- Panel ↔ Plugin の通信は本契約の対象外。Pluginのフロントエンド⇄バックエンド間はWS・WebRTC・GraphQL等を自由に選んでよい
+- 接続開始は必ず **Core → Plugin**。**PluginはCoreのURL・Domainを知らない**（接続前でも接続後でも）。Pluginは待受と応答だけを行う
 
 ## Endpoint
 
-- Pluginは `http://<host>:<port>` で待受し、CoreからのREST呼出を受ける
-- Coreは `http://<host>:<port>` で待受し、PluginからのREST呼出を受ける。CoreのURLは handshake でPluginに伝える
-- いずれもMVPではloopback・認証トークン無し（安全性の前提は後述）。リモート接続・TLS・認証は `docs/decisions/00003` に従い後付け可能な別設計事項
+- **Pluginは `http://<host>:<port>`（リモートなら `https://`）のHTTP server**として待受し、下表のREST operationとWS upgradeを受け付ける
+- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host向けAPI**（後述）。PluginがこのURLを知ることはない
+- CoreとPluginは別マシンにあり得る。到達性は利用者がネットワーク構成で確保する（`docs/decisions/00010`）
+- TLS・認証は未解決の別設計事項。MVPはloopback・認証トークン無し
+
+## Plugin REST operations
+
+PluginのHTTP serverが受け付けるoperation。全てCore→Plugin方向。
+
+| operation | 役割 |
+|---|---|
+| `POST /v1/link/hello` | Link確立: linkId払い出し・plugin情報取得 |
+| `POST /v1/link/ping` | Link維持の生存確認（Core→Pluginにprobe） |
+| `GET /v1/tools` | PluginのTool宣言一覧を返す |
+| `POST /v1/tools/catalog` | 登録中の全Tool一覧のpush受信 |
+| `GET /v1/transport?linkId=` | Tool呼び出し用WS接続のupgrade受付 |
+
+### `POST /v1/link/hello`
+
+```jsonc
+// request
+{ "linkId": "link-<UUIDv4>", "core": { "id": "<core.id>", "version": "<semver?>" } }
+// response 200
+{ "plugin": { "id": "agent", "version": "0.1.0", "name": "…" } }
+```
+
+- Coreが払い出した `linkId` と不透明な識別子 `core.id` を伝え、Pluginは自身の識別情報を返す
+- 同じ `core.id` からの再helloは、その `core.id` の旧Linkを失効させてから差し替える（plugin再起動・Core再接続時。別CoreのLinkは生かす）
+
+### `POST /v1/link/ping`
+
+```jsonc
+// request
+{ "linkId": "link-<UUIDv4>" }
+// response 200
+{ }
+```
+
+- 生存確認probe。Coreが定期的に送り、応答成功でそのLinkの `lastPing` を更新する
+- 応答失敗・不明なlinkIdはLink失効に向けてカウントされる
+
+### `GET /v1/tools`
+
+```jsonc
+// response 200
+{ "tools": [ { "toolPath": "echo", "kind": "sync" }, … ] }
+```
+
+- Pluginが提供するTool宣言を返す。CoreはLink確立後にpullする
+- `kind` は `sync | async`（省略時 `sync`）。宣言の構造は `docs/contracts/00003`
+
+### `POST /v1/tools/catalog`
+
+```jsonc
+// request
+{ "tools": [ { "linkId": "link-…", "toolPath": "echo", "kind": "sync" }, … ] }
+// response 200
+{ }
+```
+
+- Coreが「現在登録中の全Tool」を全置換でpushする。Tool呼び出しの宛先 `linkId` が各要素に付く
+- 送信契機: Link確立・Link失効・Tool宣言の変化（`GET /v1/tools` の結果が変わったとき）
+
+### `GET /v1/transport?linkId=`
+
+- Tool呼び出し用WS接続のupgrade受付。`linkId` queryで既存Linkに紐付ける
+- このWS上を流れるのは `tools.call` 系のみ（`docs/contracts/00002`）
+
+## 共通規則
+
+- 本書のJSON例は説明用であり、フィールドの順序・余分な空白に意味はない
+- 未知のフィールドを受け取った側は無視してよい（forward compatibility）
+
+### バージョン
+
+- **URL prefix `/vN/` がプロトコル版である**（`v1`・`v2`…の整数版）。transportのupgrade path `/v1/transport` にもこのprefixが付く
+- version情報はメッセージbodyに持たない。pathだけがversion情報源
+- **互換性ルール**: 同じ `/vN/` 同士は互換。破壊的変更はversionを進めて `/v2/` 等を新設する
+- サポート外の `/vN/`（Nは数字）へのリクエスト・upgradeは、受理前にHTTP **`426 protocol_mismatch`** で応答する
+- `/vN/` 以外の未知pathは `404` のエラーbody（下表の形）を返す
+
+### エラー応答
+
+HTTP段階では、次の形のbodyで返す。
+
+```jsonc
+{ "error": { "code": "<error-code>", "message": "<人間向け説明文>" } }
+```
+
+| HTTP | code | 発生条件 |
+|---|---|---|
+| 400 | `invalid_params` | 必須フィールドの欠落・型の不一致 |
+| 400 | `invalid_endpoint` | `POST /v1/plugins` のendpointがhttp(s) URLでない |
+| 404 | `unknown_endpoint` | 存在しないoperation・path |
+| 404 | `unknown_link` | `linkId` が現存しない（transport upgrade・ping等） |
+| 409 | `duplicate_endpoint` | `POST /v1/plugins` で既知のendpointを再登録 |
+| 426 | `protocol_mismatch` | サポート外の `/vN/` prefix へのリクエスト |
+
+transport確立後（WS上）のエラーはJSON-RPC error objectで返す（`docs/contracts/00002`）。`message` は人間向けで自由。実装は `code` とHTTPステータスのみで判定すること。
+
+## 用語
+
+Link・linkId・Transport 等の定義は `docs/glossary.md` を正本とする。
+
+- **Link**: CoreとPluginが確立する1つの接続・登録単位。`linkId` がLink識別とTool呼び出しの宛先を兼ねる
+- **Transport**: Linkと1対1で結ばれたWebSocket通信路。**transportの寿命とLinkの寿命は一致する**（切断 = Link失効）
 
 ## Plugin Endpointの解決
 
-Coreは起動設定でPlugin Endpoint一覧を持ち、各Endpointへ接続を試みる。
+Coreは起動設定（`plugumi.json` の `plugins[]`）でPlugin Endpoint一覧を持ち、各Endpointへの接続を試みる。実行中に `POST /v1/plugins`（管理REST）で追加登録もできる。
 
-- 設定形式・場所は実装時に決定（候補: `plugumi.json` 等の静的リスト）
-- 接続不能なPluginは一定間隔で再試行する（MVPの方針。間隔・上限は実装詳細）
+- 接続不能なEndpointへの接続は再試行を続ける（間隔は実装詳細・推奨値は後述）
+- 動的登録はランタイムのみ有効で、再起動で消える
+- Endpointの形式は `http://<host>:<port>` または `https://<host>:<port>`（pathは持たない）
 
-## Sessionのライフサイクル
+## Linkのライフサイクル
 
-1. CoreがPluginのHTTP Endpointへ `POST /v1/session/hello` を送る
-2. Coreが払い出した `registrationId`・`sessionId`・`core_url`・protocolVersionを伝え、Pluginは自身の識別情報を返す
-3. Pluginは以後 `core_url` 宛てに `tools.set` 等のPlugin→Core操作を呼ぶ
-4. Sessionは `session.ping` の定期送信で維持し、一定期間pingが無い場合Coreが失効させる（詳細は `docs/designs/00002`）
-5. Session失効で `registrationId`・Tool宣言はすべて消える（session-scoped）
-
-再接続は新しい `session.hello` からやり直し、新IDが払い出される。
-
-## Operations
-
-### `POST /v1/session/hello`（Core → Plugin）
-
-Sessionを確立する最初の呼出。Coreが払い出したIDと自身のURLを伝える。
-
-```jsonc
-// request body
-{ "protocolVersion": "0.1.0",
-  "sessionId": "s-…",
-  "registrationId": "reg-…",
-  "core": { "url": "http://127.0.0.1:PORT", "version": "…" } }
-// response body
-{ "plugin": { "id": "my-plugin", "version": "0.1.0", "name": "My Plugin" } }
+```mermaid
+stateDiagram-v2
+    [*] --> connecting: Coreがhello送信(linkIdを発行)
+    connecting --> established: hello応答でplugin情報が届く
+    connecting --> [*]: hello失敗 → Link削除・再試行
+    established --> [*]: transport切断 → Link失効
+    established --> [*]: ping期限切れ → 失効・削除
+    note right of established
+        transportとLinkの寿命は一致する。
+        切断後の再接続は新しいlinkIdになる。
+    end note
 ```
 
-- `protocolVersion` のメジャー不一致はPluginが4xxで応答し、Sessionは成立しない
-- `plugin.id` は実装を識別する文字列。一意性はCoreに要求しない（同一実装の複数登録を許す）
+```mermaid
+sequenceDiagram
+    participant Core
+    participant Plugin
 
-### `POST /v1/tools/set`（Plugin → Core）
-
-このRegistrationが提供するTool一覧を**アトミックに置き換える**。接続時と宣言変更時に送る。
-
-```jsonc
-// request body
-{ "sessionId": "s-…",
-  "tools": [ { "toolPath": "fs/read",
-               "kind": "sync",
-               "description": "…",
-               "tags": ["fs", "read"],
-               "inputSchema": {…}, "outputSchema": {…} } ] }
-// response body
-{ "count": 1 }
+    Core->>Plugin: POST /v1/link/hello { linkId, core.id }
+    Plugin-->>Core: { plugin: { id, … } }
+    Core->>Plugin: GET /v1/tools
+    Plugin-->>Core: { tools: […] }
+    Core->>Plugin: GET /v1/transport?linkId= (WS upgrade)
+    Core->>Plugin: POST /v1/tools/catalog { tools } (登録済み全Tool)
+    Note over Core,Plugin: Link established
+    loop 維持
+        Core->>Plugin: POST /v1/link/ping
+    end
 ```
 
-- `sessionId` で呼出元Sessionを識別する（CoreはSessionから呼出元を判断し、自己申告の信頼性はSession確立に依存する）
-- `toolPath` は登録内で一意な文字列（構造は open question）。重複は4xx
-- `kind` は呼出形態の期待ラベル（`sync` / `async`、詳細は `docs/contracts/00003`）。省略時は `sync` 扱い
-- `description` `tags` `inputSchema` `outputSchema` は任意フィールド
+1. Coreは `POST /v1/link/hello` でLinkを確立する。払い出した `linkId` と `core.id` を伝え、Pluginは自身の識別情報を返す
+2. Coreは `GET /v1/tools` でTool宣言をpullする（宣言の変化検知は下記「未解決」）
+3. Coreは `GET /v1/transport?linkId=` でWSをupgradeし、Tool呼び出し用のtransportをLinkに結ぶ
+4. Coreは `POST /v1/tools/catalog` で現在の全Tool一覧をPluginへpushする（Link確立時と内容変化ごと）
+5. Coreは `POST /v1/link/ping` の定期送信で半開きを検出する。最終成功から失効期限を超えたLinkを削除する
+6. **transport切断 = Link失効**。Tool宣言・紐付くcallはすべて消える（link-scoped）。再接続はhelloからやり直し、新 `linkId` が払い出される
 
-### `POST /v1/session/ping`（Plugin → Core）
+## Core管理REST API（Plugin向けではない）
 
-Sessionの維持信号。
+UI Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
 
-```jsonc
-// request body
-{ "sessionId": "s-…" }
-// response body
-{ "ok": true }
-```
+| operation | 用途 |
+|---|---|
+| `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "http://…"}`。受理のみで接続は非同期） |
+| `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId・pluginId付き） |
+| `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI Host向け確認用） |
+| `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧画面 |
 
-### `POST /v1/tools/list`（Plugin → Core）
+- 管理RESTのエラー応答は上表のHTTPエラー形に従う
+- 認証なしのため待受はloopback必須（MVPの安全性前提）
 
-呼出元がTool候補を得る最小のDiscovery（MVP仮置き）。登録中の全Toolを返し、tag/schema検索は後続contractへ。
+## IDの形式
 
-```jsonc
-// request body
-{ "sessionId": "s-…" }
-// response body
-{ "tools": [ { "registrationId": "reg-…", "toolPath": "fs/read", "kind": "sync",
-               "description": "…", "tags": ["fs"], "inputSchema": {…} } ] }
-```
+| ID | 形式 | 発行者 | 一意性の範囲 |
+|---|---|---|---|
+| `linkId` | `link-<UUIDv4>` | Core | Core内で一意。再利用しない |
+| `core.id` | 不透明な文字列 | Core | Core再起動・複数Core間で実質一意（推奨: 生成して永続化） |
+| `callId` | 発行側の任意文字列（推奨 `plugin-N`/`core-N`） | 各conn送信側 | conn・送信方向ごと |
 
-## エラー
+`core.id` は宛先ではなく識別用の不透明な値。Pluginはこれを使って「同じCoreからの再hello」を検出するが、そこからCoreへ接続する手段は持たない。
 
-- HTTPステータス: 400 invalid params / 401 未hello・未知Session / 404 未知Endpoint / 409 状態衝突（toolPath重複等）/ 426 `protocolVersion` 不一致
-- error body は `{ "error": { "code": "…", "message": "…" } }` の形を基本とする
+## 時間に関する定数
+
+以下はMVP実装の**推奨値**であり、適合に必須ではない。ただし関係ルール（下記）は維持すること。
+
+| 定数 | 推奨値 | 関係ルール |
+|---|---|---|
+| ping間隔 | 30秒 | 失効期限を下回ること |
+| 失効期限 | 90秒 | ping間隔の概ね3倍（数回分の取りこぼしを許す） |
+| 接続再試行間隔 | 3秒 | — |
+| hello応答timeout | 5秒 | — |
+| tools.call転送timeout | 120秒 | — |
 
 ## セキュリティと適合性
 
-- **安全性の前提**: MVPはloopbackのみで、外部ネットワークから到達できないことが前提。Coreと同じユーザー権限のプロセスは本契約上すべて信頼できる呼出元とみなす（`docs/decisions/00001` の信頼モデルと整合）
-- loopback外へ公開する場合は、認証・TLSを必須とする別contractが必要になる
-- 1 Pluginは複数Coreからの接続を受け付け得る。SessionはCoreごとに独立し、`registrationId` はCore内の名前空間で衝突しない
+- **安全性の前提**: MVPはloopbackのみで、外部ネットワークから到達できないことが前提。Coreと同じユーザー権限のプロセスは本契約上すべて信頼できる呼び出し元とみなす（`docs/decisions/00001` の信頼モデルと整合）。Coreの管理REST待受はloopbackを要求する
+- Plugin Endpointがリモートの場合、TLS（`https://`）・認証は別設計事項として必須になる（未解決）
+- 1 Pluginは複数Coreからの接続を受け付け得る。LinkはCoreごとに独立し、`linkId` はCore内の名前空間で衝突しない
+- **Pluginが外部へ接続する経路は存在しない**。helloもtransportもCoreから来るものを受け付けるだけである
 
-## 未解決の問い
+## 適合ルール
+
+独立実装が本contractに適合するには、次を満たす。
+
+- Core側実装は Plugin Endpointへの `POST /v1/link/hello` ・ `GET /v1/tools` ・ `POST /v1/tools/catalog` ・ `POST /v1/link/ping` ・ `GET /v1/transport` upgrade・linkId払出・失効判定・endpoint登録の全operationを提供すること
+- Plugin側実装は上表のREST operation全てと `/v1/transport` のupgrade受付を行えること。CoreのURL・Domainを保持しないこと
+- エラー応答は上記のコード・HTTPステータスと一致すること
+- `linkId`・`callId`の形式は実装側の自由ではなく上表に従うこと（`link-`prefix・UUIDv4）
+
+## 未定と未解決の問い
+
+**未定（実装者の自由）:**
+
+- Plugin内部の実装構造（言語・並行モデル・永続化）
+- pingの送信間隔・失効期限の具体的値（推奨値の範囲で）
+- `core.version`・`plugin.version` の解釈
+
+**未解決の問い（後で決める）:**
 
 - `toolPath` の構造（`seg/seg` 階層か、flat文字列か）
-- `session.ping` の間隔・失効期限（`docs/designs/00002` で詳細化）
-- 明示的な終了操作（`session.bye` 等）を定義するか
+- **Tool宣言の動的変更の伝え方**。`GET /v1/tools` はpull型なので、宣言が実行中に変わってもPluginから通知する術がない（MVPはLink確立時の1回pull。変更を伝えるにはtransport上のヒント通知か、明示的な再helloが要る）
+- `link.ping` の間隔・失効期限を適合必須値に格上げするか
+- 明示的な終了操作（`link.bye` 等）を定義するか
+- リモート接続のTLS・認証・権限管理（`https://` 前提の別contract）
