@@ -22,9 +22,51 @@ cd plugins/standard && cargo build
 cd plugins/agent && npm install && npm run build
 ```
 
+## Coreの使い方
+
+```sh
+cd core
+./plugumi serve -config plugumi.json   # -config省略時は ./plugumi.json
+```
+
+サブコマンドは `serve` のみ（フォアグラウンド常駐）。`start`/`ps`/`stop` のdaemon機構は未実装。
+
+### 設定 `plugumi.json`
+
+```json
+{
+  "core": { "listen": "127.0.0.1:7700" },
+  "plugins": [ { "endpoint": "http://127.0.0.1:9001" } ]
+}
+```
+
+- `core.listen` — REST+WSの待受アドレス。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
+- `plugins[]` — 静的なPlugin Endpoint一覧。空でも起動できる
+
+### Coreが提供する操作
+
+| 操作 | 内容 |
+|---|---|
+| `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（session確立は非同期） |
+| `POST /v1/plugins/list` | 登録済みEndpoint一覧（sessionId/pluginId付き） |
+| `POST /v1/tools/list` `{sessionId}` | 登録中の全Tool（最小Discovery・仮置き） |
+| `POST /v1/tools/set` `{sessionId, tools}` | Tool宣言のアトミック置換（Pluginが呼ぶ） |
+| `POST /v1/session/ping` `{sessionId}` | Session維持信号（Pluginが30秒間隔で呼ぶ） |
+| `GET /v1/ws?sessionId=` | Plugin→CoreのWS channel（呼出専用・OpenAPI対象外） |
+| `GET /openapi.json` | OpenAPI 3.1 spec（`/openapi.yaml`も） |
+| `GET /docs` | API仕様の閲覧UI（Stoplight Elements） |
+
+### 動作モデル
+
+- CoreはPluginへ `POST /v1/session/hello` し、sessionId/registrationId（UUID）を払い出す
+- Pluginはhelloの `core_url` 宛てに `tools.set`・`ping`・WS channelを張る
+- ping 90秒無しでSession失効。WS切断はchannelを外すだけでSessionは残り、Pluginがchannelを張り直す
+- Plugin再起動（再hello）は同endpointの旧Sessionを差し替える
+- 1つのPluginに複数Coreが接続してよい（Core別のSessionが共存する）
+
 ## 手順
 
-1. Core を起動: `cd core && ./plugumi serve`（`core/plugumi.json` の `core.listen` と `plugins[].endpoint` を読む）
+1. Core を起動: `cd core && ./plugumi serve`
 2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定 `127.0.0.1:9001`）
 3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定 `127.0.0.1:9002`、stdinコマンドループが開く）
 

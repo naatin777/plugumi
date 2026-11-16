@@ -20,15 +20,15 @@ func main() {
 	if len(os.Args) < 2 || os.Args[1] != "serve" {
 		log.Fatalf("usage: plugumi serve [-config plugumi.json]")
 	}
-	fs := flag.NewFlagSet("serve", flag.ExitOnError)
-	configPath := fs.String("config", "plugumi.json", "config file path")
-	_ = fs.Parse(os.Args[2:])
+	serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
+	configPath := serveFlags.String("config", "plugumi.json", "config file path")
+	_ = serveFlags.Parse(os.Args[2:])
 
-	cfg, err := config.Load(*configPath)
+	settings, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	coreURL := "http://" + cfg.Core.Listen
+	coreURL := "http://" + settings.Core.Listen
 
 	ctx := context.Background()
 	sessions := registry.New()
@@ -41,12 +41,12 @@ func main() {
 	pluginConnector := connector.New(ctx, sessions, coreURL)
 
 	// 設定された各Plugin Endpointへ接続を試みる（動的登録はPOST /v1/plugins）。
-	for _, plugin := range cfg.Plugins {
+	for _, plugin := range settings.Plugins {
 		pluginConnector.Watch(plugin.Endpoint)
 	}
 
-	srv := &http.Server{Addr: cfg.Core.Listen, Handler: server.New(sessions, callRouter, pluginConnector).Handler()}
-	log.Printf("[core] listening on %s (config %s)", cfg.Core.Listen, *configPath)
+	srv := &http.Server{Addr: settings.Core.Listen, Handler: server.New(sessions, callRouter, pluginConnector).Handler()}
+	log.Printf("[core] listening on %s (config %s)", settings.Core.Listen, *configPath)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
