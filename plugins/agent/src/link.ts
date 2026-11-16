@@ -12,8 +12,6 @@ import { dispatchCall, toolDecls } from "./tools.js";
 import { METHOD_CALL, METHOD_CALL_CLOSE } from "./wire.js";
 import type { CallParams, HelloRequest, PluginInfo } from "./wire.js";
 
-const PROTOCOL_VERSION = "0.1.0";
-
 const PLUGIN_INFO: PluginInfo = {
   id: "agent",
   version: "0.1.0",
@@ -43,15 +41,6 @@ export function servePlugin(listen: string): void {
   const app = new Hono();
   app.post("/v1/link/hello", async (c) => {
     const req = (await c.req.json()) as HelloRequest;
-    if (
-      req.protocolVersion &&
-      req.protocolVersion.split(".")[0] !== PROTOCOL_VERSION.split(".")[0]
-    ) {
-      return c.json(
-        { error: { code: "protocol_mismatch", message: "protocolVersion mismatch" } },
-        426,
-      );
-    }
 
     // 同じCoreからの再helloは、そのCoreの旧Linkを畳んでから受け入れる
     // （別CoreのLinkは生かす — 複数Core接続を許すため）。
@@ -73,6 +62,22 @@ export function servePlugin(listen: string): void {
     );
     void startLink(link);
     return c.json({ plugin: PLUGIN_INFO });
+  });
+
+  // versionはURL prefixで表す（contracts/00001）。
+  // 知っているversion以外の/vN/はprotocol_mismatchで拒否する。
+  app.notFound((c) => {
+    const version = c.req.path.split("/")[1] ?? "";
+    if (version.startsWith("v") && version !== "v1") {
+      return c.json(
+        { error: { code: "protocol_mismatch", message: "unsupported protocol version" } },
+        426,
+      );
+    }
+    return c.json(
+      { error: { code: "unknown_endpoint", message: "unknown endpoint" } },
+      404,
+    );
   });
 
   serve({ fetch: app.fetch, hostname: host, port });

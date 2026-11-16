@@ -47,11 +47,16 @@ func newErr(status int, code, message string) error {
 
 func init() {
 	// humaの入力バリデーションも契約のエラーcodeに揃える（docs/contracts/00001）。
+	// humaは入力不正を422で返すが、契約のinvalid_paramsは400に正規化する。
 	huma.NewError = func(status int, message string, errs ...error) huma.StatusError {
 		code := map[int]string{
-			http.StatusBadRequest: "invalid_params",
-			http.StatusNotFound:   "unknown_endpoint",
+			http.StatusBadRequest:          "invalid_params",
+			http.StatusUnprocessableEntity: "invalid_params",
+			http.StatusNotFound:            "unknown_endpoint",
 		}[status]
+		if code == "invalid_params" {
+			status = http.StatusBadRequest
+		}
 		if code == "" {
 			code = http.StatusText(status)
 		}
@@ -109,7 +114,30 @@ func (s *Server) Handler() http.Handler {
 		Summary:     "登録済みPlugin Endpoint一覧",
 	}, s.pluginsList)
 
-	return mux
+	// 未知のoperationも契約のエラー形で返す（contracts/00001）。
+	// ServeMuxはパターン競合で最長一致するため、"/" は未知pathだけに届く。
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
+			"code": "unknown_endpoint", "message": "unknown endpoint"}})
+	})
+
+	// versionはURL prefixで表す（docs/contracts/00001）。
+	// 未サポートの/vN/（Nは数字）はprotocol_mismatchで拒否する。
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		versioned := len(path) > 2 && path[0] == '/' && path[1] == 'v' &&
+			path[2] >= '0' && path[2] <= '9'
+		if versioned && !strings.HasPrefix(path, "/v1/") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUpgradeRequired)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
+				"code": "protocol_mismatch", "message": "unsupported protocol version"}})
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
 }
 
 // ---- huma operations ----

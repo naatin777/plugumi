@@ -5,7 +5,13 @@
 //! LinkはlinkIdごとに独立して管理する — 複数のCoreが
 //! 同じPluginへhelloしてよい（docs/decisionsの複数Core方針）。
 
-use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
+use axum::{
+    extract::{Request, State},
+    http::StatusCode,
+    response::Json,
+    routing::post,
+    Router,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -16,8 +22,6 @@ use tokio::sync::watch;
 use crate::rpc::Conn;
 use crate::tools;
 use crate::wire::{self, CallParams, HelloRequest, HelloResponse, Incoming, PluginInfo};
-
-const PROTOCOL_VERSION: &str = "0.1.0";
 
 /// 1つのLinkの状態。Coreが増えてもlinkIdごとに分かれる。
 pub struct LinkInner {
@@ -44,28 +48,38 @@ pub async fn serve(listen: &str) -> Result<(), String> {
     }));
     let app = Router::new()
         .route("/v1/link/hello", post(handle_hello))
+        .fallback(unsupported_version)
         .with_state(shared);
     let listener = TcpListener::bind(listen).await.map_err(|e| e.to_string())?;
     eprintln!("[standard] listening on {listen}");
     axum::serve(listener, app).await.map_err(|e| e.to_string())
 }
 
+// versionはURL prefixで表す（contracts/00001）。
+// 知っているversion以外の/vN/はprotocol_mismatchで拒否する。
+async fn unsupported_version(req: Request) -> (StatusCode, Json<Value>) {
+    let path = req.uri().path();
+    let is_other_version = path
+        .split('/')
+        .nth(1)
+        .is_some_and(|seg| seg.starts_with('v') && seg != "v1");
+    if is_other_version {
+        (
+            StatusCode::UPGRADE_REQUIRED,
+            Json(json!({"error": {"code": "protocol_mismatch", "message": "unsupported protocol version"}})),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": {"code": "unknown_endpoint", "message": "unknown endpoint"}})),
+        )
+    }
+}
+
 async fn handle_hello(
     State(shared): State<Shared>,
     Json(req): Json<HelloRequest>,
 ) -> Result<Json<HelloResponse>, (StatusCode, Json<Value>)> {
-    // protocolVersionメジャー不一致は426（contracts/00001）。
-    if !req.protocol_version.is_empty()
-        && req.protocol_version.split('.').next() != PROTOCOL_VERSION.split('.').next()
-    {
-        return Err((
-            StatusCode::UPGRADE_REQUIRED,
-            Json(
-                json!({"error": {"code": "protocol_mismatch", "message": "protocolVersion mismatch"}}),
-            ),
-        ));
-    }
-
     // 同じCoreからの再helloは、そのCoreの旧Linkを畳んでから受け入れる。
     // （別CoreのLinkは生かす — 複数Core接続を許すため）
     let stale_ids: Vec<String> = {

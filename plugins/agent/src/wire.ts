@@ -3,7 +3,6 @@
 // ---- REST ----
 
 export interface HelloRequest {
-  protocolVersion: string;
   linkId: string;
   core: { url: string; version?: string };
 }

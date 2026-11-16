@@ -30,6 +30,14 @@ Core と Plugin の双方が実装する通信境界。本contractは **HTTP/1.1
 - 本書のJSON例は説明用であり、フィールドの順序・余分な空白に意味はない
 - 未知のフィールドを受け取った側は無視してよい（forward compatibility）
 
+### バージョン
+
+- **URL prefix `/vN/` がプロトコル版である**（`v1`・`v2`…の整数版）。全operationはこのprefixの下に置く
+- version情報はbodyに持たない — pathだけがversion情報源
+- **互換性ルール**: 同じ `/vN/` 同士は互換。破壊的変更はversionを進めて `/v2/` 等を新設する
+- サポート外の `/vN/`（Nは数字）へのリクエストは `426 protocol_mismatch` で応答する。**受け手側の責務** — Pluginは `/v1/` 以外の `/vN/` を知らない場合426を返し、Coreも同様にPluginからの未サポートversion呼出を426で拒否する
+- `/vN/` 以外の未知pathは `404 unknown_endpoint`
+
 ### エラー応答
 
 エラーはHTTPステータスと、次の形のbodyで返す。
@@ -46,7 +54,7 @@ Core と Plugin の双方が実装する通信境界。本contractは **HTTP/1.1
 | 404 | `unknown_endpoint` | 存在しないoperationへのPOST |
 | 409 | `duplicate_endpoint` | `POST /v1/plugins` で既知のendpointを再登録 |
 | 409 | `duplicate_tool_path` | `tools.set` 内の `toolPath` が重複 |
-| 426 | `protocol_mismatch` | `protocolVersion` のメジャー不一致 |
+| 426 | `protocol_mismatch` | サポート外の `/vN/` prefix へのリクエスト |
 
 `message` は人間向けで自由。実装は `code` とHTTPステータスのみで判定すること。
 
@@ -94,7 +102,7 @@ sequenceDiagram
     end
 ```
 
-1. CoreはPluginのHTTP Endpointへ `POST /v1/link/hello` を送る。Coreが払い出した `linkId`・`core.url`・`protocolVersion` を伝え、Pluginは自身の識別情報を返す
+1. CoreはPluginのHTTP Endpointへ `POST /v1/link/hello` を送る。Coreが払い出した `linkId`・`core.url` を伝え、Pluginは自身の識別情報を返す
 2. Pluginは以後 `core.url` 宛てに `tools.set`・`link.ping`・transport接続を行う
 3. Linkは `link.ping` の定期送信で維持する。Coreは最終pingから失効期限を超えたLinkを削除する
 4. Link失効でTool宣言・紐付くcallはすべて消える（link-scoped）
@@ -111,14 +119,12 @@ Linkを確立する最初の呼出。
 
 | field | type | required | 意味 |
 |---|---|---|---|
-| `protocolVersion` | string | yes | 契約の版。`"<major>.<minor>.<patch>"` |
 | `linkId` | string | yes | Core発行のLink識別ID（形式は後述） |
 | `core.url` | string | yes | Plugin→Core操作・transport接続の宛先URL |
 | `core.version` | string | no | Core実装の版（参考情報） |
 
 ```jsonc
-{ "protocolVersion": "0.1.0",
-  "linkId": "link-…",
+{ "linkId": "link-…",
   "core": { "url": "http://127.0.0.1:7700", "version": "0.1.0" } }
 ```
 
@@ -130,7 +136,7 @@ Linkを確立する最初の呼出。
 | `plugin.version` | string | no | Plugin実装の版 |
 | `plugin.name` | string | no | 人間向け表示名 |
 
-- `protocolVersion` の**メジャー不一致**はPluginが `426 protocol_mismatch` で応答し、Linkは成立しない
+- helloはPluginがサポートする `/vN/` に対してのみ送る。サポート外versionには `426 protocol_mismatch` が返り、Linkは成立しない
 - Coreはhello送信「前」にLinkを登録する — Pluginはhello応答と並行して `tools.set`・transport接続を開始し得るため、応答後の登録では競合する（実装上の要求として規定）
 - hello失敗・426応答のLinkは登録から除去され、接続loopが再試行する
 

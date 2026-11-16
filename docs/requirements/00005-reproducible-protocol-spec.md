@@ -38,5 +38,5 @@ PlugumiのPluginは任意言語で独立に実装される。実装者（人間�
 
 ## 未解決の問い
 
-- 仕様の版管理（protocolVersionとcontract文書の対応付け、複数版の併記方式）
+- 仕様の版管理（URLの `/vN/` とcontract文書の対応付け、複数版の併記方式）
 - 適合度の機械的判定（conformance test suiteを別ツールとして持つか）

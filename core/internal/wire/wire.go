@@ -9,9 +9,8 @@ import (
 // ---- REST ----
 
 type HelloRequest struct {
-	ProtocolVersion string `json:"protocolVersion"`
-	LinkID          string `json:"linkId"`
-	Core            struct {
+	LinkID string `json:"linkId"`
+	Core   struct {
 		URL     string `json:"url"`
 		Version string `json:"version,omitempty"`
 	} `json:"core"`

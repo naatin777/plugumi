@@ -8,7 +8,6 @@ use serde_json::Value;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HelloRequest {
-    pub protocol_version: String,
     pub link_id: String,
     pub core: HelloCore,
 }

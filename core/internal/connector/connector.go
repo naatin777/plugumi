@@ -20,7 +20,6 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-const ProtocolVersion = "0.1.0"
 const CoreVersion = "0.1.0"
 
 // Connector はPlugin Endpointへの接続試行を管理する。
@@ -118,7 +117,6 @@ func hello(links *registry.Registry, endpoint, coreURL string) error {
 	links.Add(link)
 
 	var req wire.HelloRequest
-	req.ProtocolVersion = ProtocolVersion
 	req.LinkID = link.ID
 	req.Core.URL = coreURL
 	req.Core.Version = CoreVersion

@@ -31,7 +31,7 @@ relations:
 | L1-2 | Plugin起動 | `link.hello`→`tools.set`→transport upgradeが順に成功。Coreログに `link:` `tools.set:` `transport:` |
 | L1-3 | `POST /v1/plugins/list` | endpoint・`linkId`・`pluginId` が返る |
 | L1-4 | 異常: 未知`linkId`で `tools.set` | `401 unknown_link` |
-| L1-5 | 異常: protocolVersionメジャー不一致のhello | `426 protocol_mismatch`、Link未成立 |
+| L1-5 | 異常: サポート外version（`/v2/link/hello` 等）へのリクエスト | `426 protocol_mismatch`、Link未成立 |
 
 ### L2. Tool呼出
 
