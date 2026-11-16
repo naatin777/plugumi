@@ -1,20 +1,20 @@
-# Architecture — system-wide structure
+# Architecture — システム全体の構造
 
-**Location:** `docs/architecture/`. **Type:** `architecture`. **Required relations:** none.
+**置き場所:** `docs/architecture/`。**Type:** `architecture`。**必須relation:** なし。
 
-Use Architecture for boundaries crossing multiple features: component ownership, trust boundaries, deployment topology, process lifetimes, and high-level data/control flow. Keep detailed endpoint schemas and method behavior in Contracts/Designs.
+複数機能にまたがる境界に Architecture を使う: componentの責務、信頼境界、デプロイトポロジー、プロセス寿命、高レベルのデータ/制御フロー。詳細なendpoint schemaやメソッド動作は Contract/Design に置く。
 
-## Recommended content
+## 推奨する内容
 
-- **Context and scope:** system being described and affected actors.
-- **Components / ownership:** responsibilities; what each component deliberately does not own.
-- **Dependency directions:** which parts may call or depend on others.
-- **Runtime/deployment topology:** nodes, processes, ownership, lifecycle, and failures.
-- **Critical flows:** message and security boundaries, ideally with simple diagrams.
-- **Assumptions / unresolved questions:** unknowns especially relevant to a rewrite.
+- **コンテキストと範囲:** 記述するシステムと影響するactor。
+- **コンポーネント・責務:** 責務と、各componentが意図的に担わないこと。
+- **依存方向:** どの部分が他を呼び・依存してよいか。
+- **ランタイム・デプロイトポロジー:** Node・プロセス・所有・ライフサイクル・障害。
+- **重要なフロー:** メッセージとセキュリティ境界。簡単な図が望ましい。
+- **前提・未解決の問い:** 特に作り直しに関係する未知数。
 
-May declare `addresses` to applicable Requirements; unlike Design, this is not mandatory in the previous Specbook schema. `perspective` is allowed on Architecture and Design only. Keep one canonical architecture per scope and link related sub-architectures rather than duplicating.
+該当するRequirementへの `addresses` を宣言してよいが、Designと違って旧Specbook schemaでは必須ではない。`perspective` はArchitectureとDesignにのみ許可される。scopeごとに1つの正本Architectureを保ち、関連するsub-architectureは複製せずリンクする。
 
-## Review
+## レビュー
 
-Avoid imposing the *old* Plugumi process layout on a new architecture. Separate observed behavior from a proposed model. Do not hardcode Plugin domain logic into an AI-independent Core just for convenience unless newly decided.
+*旧*Plugumiのプロセス構成を新しいarchitectureへ押し込まない。観測された振る舞いと提案モデルを分ける。新たに決めない限り、便宜上の理由でAI非依存のCoreへPluginのドメインロジックを埋め込まない。

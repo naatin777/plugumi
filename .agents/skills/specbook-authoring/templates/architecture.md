@@ -1,26 +1,26 @@
 ---
 type: architecture
-title: Define system-wide boundaries
-description: Describe ownership and interactions across components.
+title: システム全体の境界を定義する
+description: component間の責務と関係を記述する。
 status: draft
 ---
 
-## Scope
+## 範囲
 
-What system boundary does this cover?
+このアーキテクチャがカバーするシステム境界は何か？
 
-## Components and responsibilities
+## コンポーネントと責務
 
-- Component: responsibility, non-responsibility
+- Component: 責務、担わないこと
 
-## Dependency and trust boundaries
+## 依存・信頼境界
 
-Describe allowed communication and security boundaries.
+許可される通信とセキュリティ境界を記述する。
 
-## Runtime / deployment model
+## ランタイム・デプロイモデル
 
-Describe processes, lifetimes, and failure behavior.
+プロセス・寿命・障害時の振る舞いを記述する。
 
-## Open questions
+## 未解決の問い
 
 - 

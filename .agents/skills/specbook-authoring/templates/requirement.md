@@ -1,22 +1,22 @@
 ---
 type: requirement
-title: Define a testable capability
-description: Describe the required observable behavior.
+title: 検証可能なcapabilityを定義する
+description: 必要とされる観測可能な振る舞いを記述する。
 status: draft
 ---
 
-## Context
+## コンテキスト
 
-Who needs this, and why?
+誰が必要とし、なぜか？
 
-## Requirements
+## 要求事項
 
-- The system MUST ...
+- システムは〜しなければならない（MUST）
 
-## Acceptance criteria
+## 受入基準
 
-- Given ..., when ..., then ...
+- 〜の条件下で、〜のとき、〜となる
 
-## Non-goals
+## 非目標
 
 - 

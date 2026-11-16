@@ -1,19 +1,19 @@
-# Goal — product outcomes
+# Goal — プロダクトの成果
 
-**Location:** `docs/goals/`. **Type:** `goal`. **Required relations:** none.
+**置き場所:** `docs/goals/`。**Type:** `goal`。**必須relation:** なし。
 
-Create a Goal when articulating a durable outcome or product-level success criterion. Do not use it as a list of implementation features or a roadmap of tasks.
+永続的な成果やプロダクトレベルの成功基準を表すときに Goal を作る。実装機能の一覧やタスクのロードマップとして使わない。
 
-## Recommended content
+## 推奨する内容
 
-- **Outcome:** who benefits, what changes, and why it matters.
-- **Scope:** what is inside/outside the outcome.
-- **Success signals:** observable criteria; numbers only when known or explicitly chosen as targets.
-- **Constraints / non-goals:** what the team intentionally does not pursue.
-- **Open questions:** uncertainties without presenting them as settled.
+- **成果:** 誰が恩恵を受け、何が変わり、なぜ大事か。
+- **範囲:** 成果の内側と外側は何か。
+- **成功シグナル:** 観測可能な基準。数値は既知か明示的に目標として選んだ場合のみ。
+- **制約・非目標:** 意図的に追わないもの。
+- **未解決の問い:** 確定したこととして提示しない不確実さ。
 
-Use `requirement.relations.contributes_to` to point from requirements to a Goal. A Goal does not store a generated list of children. Optional `parent` can link a subordinate Goal to another Goal.
+requirement から Goal へのリンクには `requirement.relations.contributes_to` を使う。Goal は生成された子一覧を保持しない。任意の `parent` で下位Goalを上位Goalへリンクできる。
 
-## Review
+## レビュー
 
-Reject vague slogans with no observable outcome; avoid declaring success based solely on finishing an implementation. For a product rewrite, start here only if the product outcome is actually unclear or changing.
+観測可能な成果を持たない曖昧なスローガンは却下する。実装が終わったことだけを根拠に成功を宣言しない。プロダクトの作り直しでは、成果が実際に不明確か変化している場合にだけここから始める。

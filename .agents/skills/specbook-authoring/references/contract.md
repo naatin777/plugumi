@@ -1,20 +1,20 @@
-# Contract — interoperable interface and data format
+# Contract — 相互運用可能なinterfaceとデータ形式
 
-**Location:** `docs/contracts/`. **Type:** `contract`. **Required relations:** none.
+**置き場所:** `docs/contracts/`。**Type:** `contract`。**必須relation:** なし。
 
-A Contract states the **observable obligations** between independently implemented parties (e.g., Core↔Plugin, Client↔App, SDK↔Panel). It is not an implementation tutorial.
+Contractは独立に実装される当事者間（例: Core↔Plugin、Client↔App、SDK↔Panel）の**観測可能な義務**を述べる。実装チュートリアルではない。
 
-## Recommended content
+## 推奨する内容
 
-- **Parties, version, and scope:** who implements which side; compatibility expectations.
-- **Operations/messages:** request/response or event shape, fields and value semantics.
-- **Errors and edge cases:** validation, cancellation, timeout, ordering, delivery/retry guarantees.
-- **Identity and security:** caller identity, authorization scope, trust boundaries.
-- **Conformance rules:** what independent implementations must pass.
-- **Schema/source references:** actual OpenAPI/JSON Schema/`.proto` paths when they exist; explicitly note when planned only.
+- **当事者・バージョン・範囲:** 誰がどちら側を実装するか。互換性の期待。
+- **操作・メッセージ:** request/responseまたはeventの形状、フィールドと値の意味。
+- **エラーと境界ケース:** 検証・キャンセル・タイムアウト・順序・配送/再試行の保証。
+- **識別とセキュリティ:** 呼出元identity、認可scope、信頼境界。
+- **適合ルール:** 独立実装がパスしなければならないこと。
+- **スキーマ・ソース参照:** 実在するOpenAPI/JSON Schema/`.proto`パス。計画のみの場合はその旨を明記。
 
-Use `related_to`, `depends_on` and (when replacing a contract) `supersedes`. If an actual schema file is the machine-readable source of truth, reference it, avoid diverging copies, and define exactly which document owns which rule.
+`related_to`・`depends_on`・（contractを置き換える場合）`supersedes` を使う。実際のschemaファイルが機械可読な正本ならそれを参照し、乖離するコピーを避け、どのドキュメントがどのルールを所有するかを正確に定義する。
 
-## Review
+## レビュー
 
-Do not infer HTTP/gRPC/WebSocket choices from the old code; contracts are rewritten under current decisions. Do not call a proposed message format accepted without explicit agreement.
+HTTP/gRPC/WebSocketの選択を旧コードから推測しない。contractは現在の決定の下で書き直す。明示的な合意なしに提案中のメッセージ形式をacceptedと呼ばない。

@@ -1,26 +1,26 @@
 ---
 type: contract
-title: Define an interface
-description: Specify a stable observable boundary.
+title: インターフェースを定義する
+description: 安定した観測可能な境界を規定する。
 status: draft
 ---
 
-## Parties and scope
+## 当事者と範囲
 
-Who produces and consumes this contract?
+誰が提供し、誰が利用するか？
 
-## Operations and schemas
+## 操作とスキーマ
 
-Define semantics; refer to actual machine-readable artifacts if any.
+意味を定義する。実在する機械可読artifactがあれば参照する。
 
-## Error, ordering, and lifecycle semantics
+## エラー・順序・ライフサイクル意味論
 
-What must an independent implementation handle?
+独立実装が扱わなければならないことは何か？
 
-## Security and conformance
+## セキュリティと適合性
 
-Which checks and boundaries are normative?
+どのチェックと境界が規範的か？
 
-## Open questions
+## 未解決の問い
 
 - 

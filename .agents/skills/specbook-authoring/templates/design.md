@@ -1,29 +1,29 @@
 ---
 type: design
-title: Design a feature
-description: Describe the mechanism fulfilling the referenced requirement.
+title: 機能を設計する
+description: 参照するrequirementを満たす機構を記述する。
 status: draft
 relations:
   addresses:
-    - '<requirement-id-REQUIRED>'
+    - '<requirement-id-必須>'
 ---
 
-## Requirements addressed
+## 対応するrequirement
 
-Explain how the referenced requirement will be met.
+参照するrequirementをどう満たすかを説明する。
 
-## Model and invariants
+## モデルと不変条件
 
-List states, ownership, and invariants.
+状態・所有・不変条件を列挙する。
 
-## Behavior
+## 振る舞い
 
-Describe normal, failure, and cancellation paths.
+正常系・失敗系・キャンセルの経路を記述する。
 
-## Interfaces
+## インターフェース
 
-Link to any separate Contract artifact; do not duplicate it.
+別のContract artifactへリンクする。ここに複製しない。
 
-## Open questions
+## 未解決の問い
 
 - 

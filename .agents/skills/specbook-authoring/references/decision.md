@@ -1,19 +1,19 @@
-# Decision — explicit choice and rationale
+# Decision — 明示的な選択と理由
 
-**Location:** `docs/decisions/`. **Type:** `decision`. **Required relations:** none. **`parent` is forbidden.**
+**置き場所:** `docs/decisions/`。**Type:** `decision`。**必須relation:** なし。**`parent` は禁止。**
 
-Write a Decision when a consequential choice is made (or proposed) between real alternatives. It should explain **why**, including tradeoffs, and make later reconsideration possible.
+重要な選択が実際の代替案の間で行われた（または提案された）ときに Decision を書く。**なぜ**かをトレードオフ込みで説明し、後で再検討できるようにする。
 
-## Recommended content
+## 推奨する内容
 
-- **Context and forces:** what prompted the decision.
-- **Decision:** exact selected option, with `draft` until explicitly approved.
-- **Alternatives considered:** realistic competitors, not straw men.
-- **Rationale and tradeoffs:** benefits, costs, rejected reasons.
-- **Consequences:** migration or future restrictions, risks, trigger for revisiting.
+- **コンテキストと要因:** 何がこの決定を促したか。
+- **決定:** 選んだ選択肢を正確に。明示承認されるまでは `draft`。
+- **検討した代替案:** 藁人形ではなく現実的な競合案。
+- **理由とトレードオフ:** 利点・コスト・棄却理由。
+- **帰結:** 移行や将来の制約、リスク、再検討の引き金。
 
-Use `applies_to` to point to the relevant Requirement, Design, Architecture, or Contract. Use `supersedes` for a newer Decision replacing a Decision of the same type, without cycles. Deprecated decisions remain readable; do not delete history as a side effect of a rewrite.
+`applies_to` で関連する Requirement・Design・Architecture・Contract を指す。同typeのDecisionを新しいものが置き換えるときは `supersedes` を使う（循環不可）。Deprecated decisionは読める状態で残し、作り直しの副作用として履歴を消さない。
 
-## Review
+## レビュー
 
-Do not treat old accepted ADRs as automatically binding in a brand-new Plugumi. Reevaluate them and record newly accepted decisions under `docs/decisions/`. Avoid copying decision reasoning into multiple designs.
+旧accepted ADRを新しいPlugumiで自動的に拘束力あるものとして扱わない。再評価し、新たに承認されたdecisionを `docs/decisions/` に記録する。decisionの推論を複数のdesignへコピーしない。
