@@ -27,7 +27,7 @@ Core と Plugin の双方が実装する通信境界。
 
 Coreは起動設定でPlugin Endpoint一覧を持ち、各Endpointへ接続を試みる。
 
-- 設定形式・場所は実装時に決定（候補: `plugumi.toml` 等の静的リスト）
+- 設定形式・場所は実装時に決定（候補: `plugumi.json` 等の静的リスト）
 - 接続不能なPluginは一定間隔で再試行する（MVPの方針。間隔・上限は実装詳細）
 
 ## Sessionのライフサイクル
