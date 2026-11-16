@@ -46,8 +46,16 @@ func newErr(status int, code, message string) error {
 }
 
 func init() {
+	// humaの入力バリデーションも契約のエラーcodeに揃える（docs/contracts/00001）。
 	huma.NewError = func(status int, message string, errs ...error) huma.StatusError {
-		return newErr(status, http.StatusText(status), message).(*apiErr)
+		code := map[int]string{
+			http.StatusBadRequest: "invalid_params",
+			http.StatusNotFound:   "unknown_endpoint",
+		}[status]
+		if code == "" {
+			code = http.StatusText(status)
+		}
+		return newErr(status, code, message).(*apiErr)
 	}
 }
 
