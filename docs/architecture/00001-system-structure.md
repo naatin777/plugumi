@@ -40,7 +40,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 ## Dependency and trust boundaries
 
-- Core ↔ Plugin: WebSocket + JSON-RPC 2.0 の双方向（`docs/contracts/00001`）。1 Pluginは複数Coreへ接続し得る
+- Core ↔ Plugin: WebSocket + JSON-RPC 2.0 の双方向（`docs/contracts/00001`）。接続は **Core → Plugin** で、Pluginが待受する。handshake時にCoreが `core_url` をPluginへ伝える
 - Plugin信頼モデルは VS Code型 — インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
 - 接続はローカル基本。リモート接続は任意追加（Tailscale・Cloudflare Tunnel + Access等、`docs/decisions/00003`）
 
