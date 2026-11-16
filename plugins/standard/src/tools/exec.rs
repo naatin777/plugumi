@@ -48,6 +48,14 @@ pub async fn handle(mut call: Call) {
             status = child.wait() => break status,
         }
     };
+    // wait()が先に返っても、パイプに残った出力をEOFまで読み切ってから
+    // resultを送る。読み切らずに抜けると最後のoutputが欠落する。
+    while let Ok(Some(line)) = out_lines.next_line().await {
+        call.output(json!({"stream": "stdout", "line": line}));
+    }
+    while let Ok(Some(line)) = err_lines.next_line().await {
+        call.output(json!({"stream": "stderr", "line": line}));
+    }
     match status {
         Ok(s) => call.result(json!({"exitCode": s.code()})),
         Err(e) => call.result_error(&e.to_string()),

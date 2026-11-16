@@ -35,6 +35,10 @@ type Conn struct {
 
 	OnRequest func(*wire.Incoming) (json.RawMessage, *wire.Error)
 	OnNotif   func(*wire.Incoming)
+	// OnResponded は受信requestへのresponseを書き終えた直後に呼ばれる。
+	// 中継側が「responseを先に届けてからnotificationを流す」順序を
+	// 組むためのhook（docs/contracts/00003）。
+	OnResponded func(id json.RawMessage)
 
 	done chan struct{}
 }
@@ -114,6 +118,19 @@ func (c *Conn) handleRequest(message *wire.Incoming) {
 		result, rpcErr = c.OnRequest(message)
 	}
 	_ = c.write(wire.Response{JSONRPC: "2.0", ID: message.ID, Result: result, Error: rpcErr})
+	if c.OnResponded != nil {
+		c.OnResponded(message.ID)
+	}
+}
+
+// InjectSequenced はconn内で生成した順序保証済みイベントをnotifQに挿入する。
+// wire上に流れない。「先行する全notificationのあとに処理したい」後始末
+// （route撤収マーカー等）に使う。conn終了後は黙って捨てる。
+func (c *Conn) InjectSequenced(message *wire.Incoming) {
+	select {
+	case c.notifQ <- message:
+	case <-c.done:
+	}
 }
 
 func (c *Conn) Request(ctx context.Context, method string, params any) (*wire.Incoming, error) {

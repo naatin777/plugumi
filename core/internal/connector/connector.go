@@ -42,15 +42,23 @@ type Connector struct {
 
 	// transport上のPlugin→Coreメッセージの振り分け先。
 	// serverがmessage semanticsを実装して設定する。
-	OnRequest func(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error)
-	OnNotif   func(conn *rpc.Conn, message *wire.Incoming)
+	OnRequest   func(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error)
+	OnNotif     func(conn *rpc.Conn, message *wire.Incoming)
+	OnResponded func(conn *rpc.Conn, id json.RawMessage)
 	// Link確立・失効のたびにtools.catalogを全Linkへ送る契約のため、
 	// catalogの変化時に呼ばれる（serverが設定）。
 	OnCatalogChanged func()
+
+	catalogCh chan struct{} // catalog push依頼（cap1。連続変更はcoalesce）
 }
 
 func New(ctx context.Context, links *registry.Registry, coreID string) *Connector {
-	return &Connector{ctx: ctx, links: links, coreID: coreID, endpoints: map[string]struct{}{}}
+	c := &Connector{
+		ctx: ctx, links: links, coreID: coreID,
+		endpoints: map[string]struct{}{}, catalogCh: make(chan struct{}, 1),
+	}
+	go c.catalogLoop()
+	return c
 }
 
 // Watch はEndpointへの接続loopを開始する。既知のEndpointならfalse。
@@ -231,6 +239,11 @@ func (c *Connector) connect(endpoint string) error {
 			c.OnNotif(conn, message)
 		}
 	}
+	conn.OnResponded = func(id json.RawMessage) {
+		if c.OnResponded != nil {
+			c.OnResponded(conn, id)
+		}
+	}
 	conn.LinkID = link.ID
 	link.BindTransport(conn)
 	c.links.Add(link)
@@ -273,24 +286,37 @@ func (c *Connector) connect(endpoint string) error {
 	return err
 }
 
-// BroadcastCatalog は登録中の全Toolを POST /v1/tools/catalog として全Linkへ送る。
-// catalogの内容が変わる契機（Link確立・失効・Tool宣言の変化）で呼ぶ。
-// 送信失敗はLinkの再確立時のpushで回復するため、呼び出しごとに非同期で投げる。
+// BroadcastCatalog はcatalog pushを依頼する。実際の送信はcatalogLoopが
+// 直列に行う。Linkごとに並列POSTすると到着順が逆転して古いcatalogで
+// 上書きされ得るため、pushは単一workerに集約する。workerは実行時の
+// 最新状態を読むので世代管理は要らない。
 func (c *Connector) BroadcastCatalog() {
-	// nilだと `"tools": null` になり受け手のserdeが落ちるため必ず配列にする。
-	tools := c.links.AllTools()
-	if tools == nil {
-		tools = []wire.ListedTool{}
+	select {
+	case c.catalogCh <- struct{}{}:
+	default: // 既に依頼が溜まっていればcoalesce（workerが最新状態を送る）
 	}
-	for _, l := range c.links.All() {
-		body := wire.ToolsCatalogParams{LinkID: l.ID, Tools: tools}
-		endpoint := l.Endpoint
-		go func() {
+}
+
+func (c *Connector) catalogLoop() {
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-c.catalogCh:
+		}
+		// nilだと `"tools": null` になり受け手のserdeが落ちるため必ず配列にする。
+		tools := c.links.AllTools()
+		if tools == nil {
+			tools = []wire.ListedTool{}
+		}
+		for _, l := range c.links.All() {
+			body := wire.ToolsCatalogParams{LinkID: l.ID, Tools: tools}
 			pushCtx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
-			defer cancel()
-			if err := httpJSON(pushCtx, http.MethodPost, endpoint+"/v1/tools/catalog", body, nil); err != nil {
-				log.Printf("[core] catalog push to %s failed: %v", endpoint, err)
+			err := httpJSON(pushCtx, http.MethodPost, l.Endpoint+"/v1/tools/catalog", body, nil)
+			cancel()
+			if err != nil {
+				log.Printf("[core] catalog push to %s failed: %v", l.Endpoint, err)
 			}
-		}()
+		}
 	}
 }

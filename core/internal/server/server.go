@@ -74,6 +74,7 @@ func New(registry *registry.Registry, router *router.Router, connector *connecto
 	// transport上のPlugin→Coreメッセージをここで捌く。
 	connector.OnRequest = s.onLinkRequest
 	connector.OnNotif = s.onLinkNotif
+	connector.OnResponded = s.router.NotifyResponded
 	connector.OnCatalogChanged = connector.BroadcastCatalog
 	return s
 }
