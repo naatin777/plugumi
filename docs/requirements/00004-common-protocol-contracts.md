@@ -15,7 +15,7 @@ relations:
 
 ## 要求事項
 
-- プラットフォームは **Communication Protocol** を提供しなければならない（MUST）。Tool Call・Event・非同期処理・Streaming・実行状態を異なるツール間で扱う共通の仕組み
+- プラットフォームは **Communication Protocol** を提供しなければならない（MUST）。Tool呼出・実行状態・通知を異なるツール間で扱う共通の仕組み
 - プラットフォームは **UI Protocol** を提供しなければならない（MUST）。Panel・Embed・表示・操作の連携を通じて人間がPluginの機能や結果を利用できる仕組み。特定のフロントエンド技術に依存してはならない（MUST NOT）
 - プラットフォームは **Shared Context / Resource Model** を提供すべきである（SHOULD）。何を対象に操作しているか・どの実行・作業に関係するかをPlugin間で参照できる仕組み。共有範囲と所有権は今後の設計事項
 - 各契約は、人間とAIが**それぞれに適した方法で**同じ意味へアクセスできるものでなければならない。人間専用・AI専用に固定された形式のみを提供してはならない（MUST NOT）

@@ -29,10 +29,11 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 | **toolPath** | 登録内で一意なTool識別子（構造は未確定） |
 | **Tag** | Toolに設定する検索用ラベル |
 | **Discovery** | Tag・Schema等でTool候補を検索する仕組み。結果は `registrationId + toolPath` が基本 |
-| **Tool Call / Invoke** | Toolの実行呼出。呼出元（Plugin）→ Core → 対象Plugin と仲介される |
-| **Streaming** | Tool実行中の中間出力を連続して返す仕組み。queue/hook/result等のメッセージを流す |
-| **Queue** | Agent等への入力の待ち受け機構（priority/timing付き）。`docs/decisions/00002` |
-| **Event** | 状態変化・完了等の通知。具体的な形は後続設計 |
+| **Tool Call / Invoke** | Toolの実行呼出。呼出元（Plugin）→ Core → 対象Plugin と仲介される。wireは `sync`/`async` の2形態（`docs/contracts/00003`） |
+| **callId** | Tool呼出に紐付く全メッセージの相関キー。呼出requestのJSON-RPC idをそのまま使う。追跡が要るときだけ保持するhandle |
+| **kind** | Tool宣言に付ける形態ラベル（`sync` / `async`）。呼出元への期待として宣言側が指定し、wire機構は共通 |
+| **Queue** | Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内部都合でありCore契約の外（`docs/decisions/00002`） |
+| **購読（subscribe）** | 「監視して随時知らせる」使い方。`kind: async` で終端を持たないcallとして表す。閉じるのは呼出元のcloseかSession失効 |
 
 ## Specbook・文書
 

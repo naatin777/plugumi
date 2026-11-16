@@ -33,7 +33,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 | Plugumi本体が提供するもの | Pluginが実現するもの |
 |---|---|
 | Toolの公開・呼び出し | ファイル操作、Git操作 |
-| Eventや非同期実行の仕組み | Agentの推論・Queue制御 |
+| 非同期実行・通知の仕組み | Agentの推論・Queue制御 |
 | UIを提供・配置する仕組み | Editor、Terminal、Chat |
 | ResourceやContextの参照・連携 | Project管理、Specbook |
 | Pluginの接続・組み合わせ | 開発支援、日常作業の自動化 |

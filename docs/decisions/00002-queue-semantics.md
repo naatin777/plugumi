@@ -1,7 +1,7 @@
 ---
 type: decision
-title: Queue意味論 — priority 3段階 / timing 3種 / streaming=配送機構
-description: Agent入力キューの priority・timing・streaming と queue の関係を決める。
+title: Queue意味論 — priority 3段階 / timing 3種 / 途中出力=配送機構
+description: Agent入力キューの priority・timing・途中出力 と queue の関係を決める。
 status: draft
 relations:
   requirement:
@@ -54,12 +54,12 @@ Agent Idle       ← after_all を投入
 
 `after_all` の入力を処理することで、新しいAgent Turnが始まることもある。
 
-### 3. StreamingとQueue — Streamingは配送の仕組み
+### 3. 途中出力とQueue — 途中出力は配送の仕組み
 
-Streaming は任意のタイミングで Tool Output Protocol を繰り返し返せる。**Queue専用のStreaming仕様は不要**であり、Queueにどう積むかは各出力メッセージが指定する。
+途中出力 は任意のタイミングで Tool Output Protocol を繰り返し返せる（wire上はasync形態の通知として届く — `docs/contracts/00003`）。**Queue専用の配送仕様は不要**であり、Queueにどう積むかは各出力メッセージが指定する。
 
 ```text
-Tool (Streaming)
+Tool（途中出力あり）
   │
   ├─ queue.append(...)
   ├─ queue.replace(...)
@@ -78,7 +78,7 @@ Tool (Streaming)
 
 - 数値priority: 細かい制御になるが、入力側に意味のある粒度を決めさせる負担が増え、実用上3段階で足りる
 - timing を `interrupt` のみ / turn終了のみ: 緊急性と意図の両方を表せない
-- Queue専用Streaming仕様 or Queue操作専用API: Queue操作を出力メッセージとして表現すれば、Streamingを汎用配送のまま共有できる
+- Queue専用の配送仕様 or Queue操作専用API: Queue操作を出力メッセージとして表現すれば、配送路を汎用のまま共有できる
 - Push通知・Hooksを別々の機構で実装: メッセージ種だけの拡張で済む統一モデルに対して経路が増える
 
 ## トレードオフと帰結
@@ -86,4 +86,4 @@ Tool (Streaming)
 - priorityとtimingの直積（3×3）で、「interruptほどじゃないけど緊急性あり」等を自然に表現できる
 - `after_all` の定義を「Idle」としたことで、Agent Turn境界の正確な意味をQueue実装側が持つ必要がある
 - Tool Output Protocol に `queue.*` / `hook.*` のメッセージ種を持たせる設計が必要になる
-- Queue自体は Agent Plugin 領域の概念であり、Core の AI 非依存性を侵さないこと — `queue.*` はCoreから見て単なるStreaming出力payload
+- Queue自体は Agent Plugin 領域の概念であり、Core の AI 非依存性を侵さないこと — `queue.*` はCoreから見て単なる途中出力payload

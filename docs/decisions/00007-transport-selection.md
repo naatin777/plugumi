@@ -20,14 +20,14 @@ Core↔Plugin通信のtransportとメッセージ形式を決める必要があ�
 これは通信モデルの変化であり、接続方向等の設計判断まで変わったわけではない。前提となる要件:
 
 - Plugin serverは**多様な言語で書ける**ことが必須。言語によって得意不得意があるため、Plugin実装言語を絞らない
-- request/responseで足りる処理（宣言・検索・Session管理）と、push・Streamingが要る処理（Tool呼出の中間出力等）が混在する
+- request/responseで足りる処理（宣言・検索・Session管理）と、push・途中出力が要る処理（Tool呼出の中間出力等）が混在する
 - Plugin→Core方向の送信は「いつでも・継続的に」起こり、RESTのrequest/responseでは表しにくい
 
 ## 決定
 
 - **基本は HTTP/1.1 + JSON のREST**（`docs/contracts/00001`）。OpenAPI化も見据える
-- **非同期channelは WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）。Tool呼出・Streaming出力等、request/responseで表せない送信をここに載せる
-- JSON-RPC 2.0 は基本的な Request・Response・Notification の形だけを提供する。Streaming・Queue・Event・キャンセル等のPlugumi固有の振る舞いは別のContract/Designで定義する
+- **非同期channelは WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）。Tool呼出・途中出力等、request/responseで表せない送信をここに載せる
+- JSON-RPC 2.0 は基本的な Request・Response・Notification の形だけを提供する。途中出力・Queue・通知・キャンセル等のPlugumi固有の振る舞いは別のContract/Designで定義する（呼出形態は `docs/contracts/00003` で定義）
 
 ## 代替案
 
@@ -41,5 +41,5 @@ Core↔Plugin通信のtransportとメッセージ形式を決める必要があ�
 ## トレードオフと帰結
 
 - transportが2系統になるため、Core・PluginともHTTP serverとWS client/serverの両面を実装する。ただし各面は独立して薄く保てる
-- 「どの操作がどちらに載るか」の分類が契約設計の論点になる。request/response中心はREST、push/StreamingはWS、という基準を明確にする
+- 「どの操作がどちらに載るか」の分類が契約設計の論点になる。request/response中心はREST、Tool呼出・途中出力・通知はWS、という基準を明確にする（`docs/contracts/00003`）
 - JSON-RPC 2.0の採用はメッセージ形式としての決定であり、WS固有ではない。REST側のoperationを後でWSに載せ替えることも形式上一貫する

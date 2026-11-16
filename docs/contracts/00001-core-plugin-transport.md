@@ -13,7 +13,7 @@ relations:
 Core と Plugin の双方が実装する通信境界。
 
 - 基本は **HTTP/1.1 + JSON の REST**。request/responseで足りる処理はすべてここに載せる（OpenAPI化を見据える）
-- 非同期push・Streaming・Tool呼出などrequest/responseで表せない部分は **WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）
+- Tool呼出・途中出力・通知などrequest/responseで表せない部分は **WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`、呼出形態は `docs/contracts/00003`）
 - **Panel ↔ Plugin の通信は本契約の対象外**。Pluginのフロントエンド⇄バックエンド間はWS・WebRTC・GraphQL等を自由に選んでよい。Plugumiが規定するのはCore↔Pluginと、UIを提供・配置する枠組みだけ
 - Pluginプロセスは外部起動を前提とする（Coreはspawnしない）
 

@@ -26,20 +26,22 @@ relations:
 1. **宣言**: Pluginが `tools.set` でTool一覧をアトミックに宣言する（`docs/contracts/00001`、MVP済み）。Node宣言は後続contract
 2. **Discovery**: 呼出元Pluginが検索し、結果は `registrationId + toolPath` を基本とする。Node等の追加情報は必要に応じて別APIから取得する（method形・tag/schemaのマッチング条件は後続contract。schema適合も対象に入れる方針）
 3. **選択**: 呼出元Pluginが候補をフィルタリングし、Default管理・選択UI・単発/複数判断を行う。Coreは候補を選ばない
-4. **Tool Call**: `registrationId + toolPath` を指定して呼び出す。Coreが対応Sessionへルーティングする
-5. **Streaming**: 中間出力は種別（queue/hook/result等）ごとのnotificationとして中継する方針。payload形状は後続contract
+4. **Tool Call**: `registrationId + toolPath` を指定して呼び出す。Coreが対応Sessionへルーティングする（wireは `docs/contracts/00003`）
+5. **途中出力**: callId相関のnotificationとして中継する（`docs/contracts/00003`）。payload形状は後続contract
 
 失敗パス: 未登録の registrationId・解決不能な toolPath・呼出不能はrouting/transport errorとして返す。Tool内部の失敗とは分離する。Coreが別候補・別Nodeへ暗黙退避しない。
 
 ## インターフェース
 
 - 接続・Session・Tool宣言は `docs/contracts/00001`（HTTP+JSON REST、MVP）
-- 非同期channelは `docs/contracts/00002`（WebSocket + JSON-RPC 2.0、Tool呼出・Streaming用）
-- Discovery・Tool Call・Streaming・Node宣言のmethod形は後続contractで定義する。transport（WS継続かHTTP分離か）も未確定
+- 非同期channelは `docs/contracts/00002`（WebSocket + JSON-RPC 2.0、Tool呼出・途中出力用）
+- Tool Call・途中出力・購読・closeは `docs/contracts/00003`
+- Discovery・Node宣言のmethod形は後続contractで定義する
 
 ## 未解決の問い
 
 - `toolPath` の構造（`seg/seg` 階層かflatか）
+- `kind` を Discovery の条件・結果に含めるか
 - Tag の語彙管理（宣言側自由記述か、Coreが管理するか）
 - 実行時権限検証を最小限（hello済み呼出のみ）以上に広げるか
 - 呼出元identityを対象Pluginへ伝えるか
