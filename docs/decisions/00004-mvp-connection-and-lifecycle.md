@@ -24,7 +24,7 @@ Coreの最初の実装を可能にするため、`docs/contracts/00001`・`docs/
 
 1. **接続開始は必ず Core → Plugin**。PluginからCoreへの逆接続（登録・ペアリングの開始）はサポートしない。旧実装（旧ADR-0024）と同方向を踏襲する
 2. **Pluginは接続前にCoreの情報を一切知らない**。Pluginは独立したサーバーとして待受、利用されるまでどのCoreに使われるかを知らなくてよい
-3. **handshakeでCoreが `core_url` をPluginへ伝える**。接続後にPlugin→Core操作やPlugin Viewからの到達が必要になるため。「接続前に知らない」は「接続後も知らない」ではない
+3. ~~**handshakeでCoreが `core_url` をPluginへ伝える**~~（`docs/decisions/00010` で廃止）。Pluginは接続後もCoreのURLを知らない。共通規格はCore→PluginのRESTで完結するため、`core_url` は不要になった。「接続前に知らない」は「接続後も知らない」に強化された
 4. **接続後の通信は双方向**。確立した接続上で、Core・PluginのどちらからでもRPCを呼べる
 5. **Pluginの起動方法と接続方法は分離する**。通常プロセス・Docker・外部アプリの拡張など起動形態が異なっても、CoreはEndpointへ接続するだけ。MVPでは外部起動のみ（Coreはspawnしない）
 6. **1つのPluginに複数のCoreが接続してよい**。Plugin側はLinkごとに独立して扱う

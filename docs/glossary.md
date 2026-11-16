@@ -40,7 +40,7 @@ Core発行の一意ID。同一Plugin実装の複数接続（複数Core・複数E
 
 ### Transport
 
-Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。CoreがPluginへ接続を開始し、全operationがこの1本を流れる。transportの寿命とLinkの寿命は一致する。
+Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。CoreがPluginへ接続を開始し、`tools.call` 系（呼び出し・途中出力・終端・中断）だけがこの1本を流れる。登録・検査系はPlugin RESTで行う。transportの寿命とLinkの寿命は一致する。
 
 ### Node
 
