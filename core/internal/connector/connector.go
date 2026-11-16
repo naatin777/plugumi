@@ -6,11 +6,12 @@ package connector
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/naatin777/plugumi/core/internal/registry"
@@ -20,8 +21,17 @@ import (
 const ProtocolVersion = "0.1.0"
 const CoreVersion = "0.1.0"
 
-var sessionSeq atomic.Int64
-var regSeq atomic.Int64
+// newID はUUIDv4形式のランダムIDをprefix付きで発行する。
+// 逐次カウンターにしない理由: hello失敗でIDが消費されるのを避けるのと、
+// SessionがCore再起動・複数Core間で実質一意であってほしいため。
+func newID(prefix string) string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
+	s := hex.EncodeToString(b[:])
+	return fmt.Sprintf("%s%s-%s-%s-%s-%s", prefix, s[0:8], s[8:12], s[12:16], s[16:20], s[20:32])
+}
 
 // Loop は1つのPlugin Endpointへの接続試行。Session確立まで再試行を続ける。
 // ctx終了で止まる。
@@ -54,8 +64,8 @@ func Loop(ctx context.Context, reg *registry.Registry, endpoint, coreURL string)
 // hello は session.hello（Core → Plugin）。IDを払い出してSessionを登録する。
 func hello(reg *registry.Registry, endpoint, coreURL string) error {
 	sess := &registry.Session{
-		ID:             fmt.Sprintf("s-%d", sessionSeq.Add(1)),
-		RegistrationID: fmt.Sprintf("reg-%d", regSeq.Add(1)),
+		ID:             newID("s-"),
+		RegistrationID: newID("reg-"),
 		Endpoint:       endpoint,
 		CreatedAt:      time.Now(),
 		LastPing:       time.Now(),
