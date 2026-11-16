@@ -19,8 +19,8 @@ Pluginエコシステムを育てるには「作る側の入口」と「使う�
 - **既存CLIを活用**: GitHubなら `gh plugumi` のようにGitHub CLI Extensionとして実装できる。独自CLIは必須にしない
 - **認証・設定はPluginに任せる**: `gh auth login` などPluginが属するエコシステムの既存の仕組みを利用。PlugumiのPanelでAPIキーやパスワードを管理する必要はない
 - **Coreは単体で管理可能**: CLI/TUIでPluginや設定を管理。独立したManagerは必須にしない
-- **Web/Electronは任意のHost**: 複数Coreに接続でき、CoreのBuilt-in PanelやPluginのPanelを表示する
-- **静的ファイル**: WebはGoサーバーから配信、Electronはアプリに同梱する方針
+- **web・electronは任意のUI Hostを提供するPlugin**: 複数Coreに接続でき、CoreのBuilt-in PanelやPluginのPanelを表示する
+- **静的ファイル**: webはGoサーバーから配信、electronはアプリに同梱する方針
 - **リモート接続は任意**: ローカル接続を基本に、TailscaleやCloudflare Tunnel + Accessなどを追加可能にする
 
 ## 代替案

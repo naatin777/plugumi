@@ -17,7 +17,7 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 ### UI Host
 
 Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
-Pluginが提供する（Web/Electron等のPluginがUI Hostを提供する）。表示専用で実行寿命を持たない。
+Pluginが提供する（web・electron等のPluginがUI Hostを提供する）。表示専用で実行寿命を持たない。
 
 ### Plugin Views
 

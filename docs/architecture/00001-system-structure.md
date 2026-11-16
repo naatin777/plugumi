@@ -16,7 +16,7 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 | Core（Go） | Plugin登録・LinkとNode対応の管理、Tool仲介・ルーティング・実行時権限検証 | AI・Plugin業務ロジック、Tool候補の自動選択、Plugin Viewの描画 |
 | Plugin | Tool・Plugin View（Panel等）の機能提供。Plugumi専用でも既存アプリの拡張としても実装できる。UI Hostを提供できる | Coreへの言語・フロントエンド依存 |
 | Node | Pluginの実行場所。ローカルホスト・リモートPC・Docker等を含む | 単一マシンへの限定 |
-| UI Host | Plugin Viewsの実行・配信環境。Coreとの接続・環境固有の機能。Pluginが提供する（Web/Electron等のPlugin） | 実行の寿命。任意コンポーネント |
+| UI Host | Plugin Viewsの実行・配信環境。Coreとの接続・環境固有の機能。Pluginが提供する（web・electron等のPlugin） | 実行の寿命。任意コンポーネント |
 | Plugin Views | Panel・Embed・Indicator等を表示する共通インターフェース（仕様） | 実行環境ではない（実行・配信はUI Host） |
 
 ## 設計思想（旧実装から引き継ぐ不変条件）
@@ -24,7 +24,7 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 - **CoreはAI非依存の汎用プラットフォーム**。AI Agent・Filesystem・Browser等はすべてPluginとして実装する（旧 `REQ-CORE-001` / ADR-0001 と同じ思想）
 - **Plugin間の直接通信は禁止**。Tool呼び出しは `Plugin A → Core → Plugin B` の仲介経路のみ
 - **UI Hostは表示専用**。UI Hostの起動・終了・切断はCore・Plugin・Tool実行の寿命に影響しない
-- **UI HostはPluginが提供する**。Web・Electron等もUI Hostを提供するPluginであり、UI Host自体は独立したコンポーネントではなく提供物
+- **UI HostはPluginが提供する**。web・electron等もUI Hostを提供するPluginであり、UI Host自体は独立したコンポーネントではなく提供物
 - **NodeはPluginが宣言する「実行環境」の共有識別**であり、Coreはその意味を解釈しない（ローカル・Docker sandbox・リモートホスト等）
 - **同一Pluginは複数登録できる**（複数Node・同一Node上）。例外として `standard` PluginはNodeごと最大1登録（旧実装の既存仕様・再検証対象）
 
@@ -58,7 +58,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 - CoreはCLI/TUIで単体管理可能。独立したManagerは必須にしない（`docs/decisions/00003`）
 - UI Host無しでもCore+Pluginは動作する
-- 静的ファイル: WebはGoサーバーから配信、Electronはアプリ同梱
+- 静的ファイル: webはGoサーバーから配信、electronはアプリ同梱
 
 ## 旧実装からの継承・非継承
 
