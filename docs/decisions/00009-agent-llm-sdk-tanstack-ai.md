@@ -37,7 +37,7 @@ agent Plugin（TypeScript）のLLM通信レイヤを、自前実装せずSDKに�
 
 Plugumiには大量のToolが登録される可能性がある。TanStack AIには、初めから全ToolのSchemaをモデルに渡すのではなく、必要なToolを後から発見する仕組みがある。
 
-ただし、Plugumiの `registrationId + toolPath` によるDiscoveryや階層的な検索は別途実装が必要。
+ただし、Plugumiの `linkId + toolPath` によるDiscoveryや階層的な検索は別途実装が必要。
 
 ### ② Structured OutputとTool Callingの併用
 

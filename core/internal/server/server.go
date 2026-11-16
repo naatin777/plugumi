@@ -1,6 +1,6 @@
 // Package server はPlugin→Core側のHTTP server。
 // REST呼出（tools.set/ping/tools.list）はOpenAPI (huma) で定義し、
-// WS channelの受付はOpenAPI対象外としてraw handlerのまま同居させる
+// transportの受付はOpenAPI対象外としてraw handlerのまま同居させる
 // （docs/contracts/00001・00002）。
 package server
 
@@ -65,21 +65,21 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	api := humago.New(mux, huma.DefaultConfig("Plugumi Core", "0.1.0"))
 
-	// WS channelはOpenAPI対象外。同じmuxにraw handlerで同居させる。
-	mux.HandleFunc("GET /v1/ws", s.handleWebSocket)
+	// transportはOpenAPI対象外。同じmuxにraw handlerで同居させる。
+	mux.HandleFunc("GET /v1/transport", s.handleTransport)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "tools-set",
 		Method:      http.MethodPost,
 		Path:        "/v1/tools/set",
 		Summary:     "Tool宣言のアトミック置換",
-		Description: "このRegistrationが提供するTool一覧を置き換える。接続時と宣言変更時に呼ぶ。",
+		Description: "このLinkが提供するTool一覧を置き換える。接続時と宣言変更時に呼ぶ。",
 	}, s.toolsSet)
 	huma.Register(api, huma.Operation{
-		OperationID: "session-ping",
+		OperationID: "link-ping",
 		Method:      http.MethodPost,
-		Path:        "/v1/session/ping",
-		Summary:     "Sessionの維持信号",
+		Path:        "/v1/link/ping",
+		Summary:     "Linkの維持信号",
 	}, s.ping)
 	huma.Register(api, huma.Operation{
 		OperationID: "tools-list",
@@ -92,7 +92,7 @@ func (s *Server) Handler() http.Handler {
 		Method:      http.MethodPost,
 		Path:        "/v1/plugins",
 		Summary:     "Plugin Endpointの動的登録",
-		Description: "Endpointを接続対象に追加する。受理のみ — Session確立は非同期（connectorが再試行する）。",
+		Description: "Endpointを接続対象に追加する。受理のみ — Link確立は非同期（connectorが再試行する）。",
 	}, s.pluginsAdd)
 	huma.Register(api, huma.Operation{
 		OperationID: "plugins-list",
@@ -116,14 +116,14 @@ type ToolsSetOutput struct {
 }
 
 func (s *Server) toolsSet(_ context.Context, input *ToolsSetInput) (*ToolsSetOutput, error) {
-	if err := s.registry.SetTools(input.Body.SessionID, input.Body.Tools); err != nil {
-		if errors.Is(err, registry.ErrNoSession) {
-			return nil, newErr(http.StatusUnauthorized, "unknown_session", "unknown sessionId")
+	if err := s.registry.SetTools(input.Body.LinkID, input.Body.Tools); err != nil {
+		if errors.Is(err, registry.ErrNoLink) {
+			return nil, newErr(http.StatusUnauthorized, "unknown_link", "unknown linkId")
 		}
 		return nil, newErr(http.StatusConflict, "duplicate_tool_path", err.Error())
 	}
-	if session, ok := s.registry.FindSession(input.Body.SessionID); ok {
-		log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), session.Plugin().ID)
+	if link, ok := s.registry.Find(input.Body.LinkID); ok {
+		log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), link.Plugin().ID)
 	}
 	out := &ToolsSetOutput{}
 	out.Body.Count = len(input.Body.Tools)
@@ -140,8 +140,8 @@ type PingOutput struct {
 }
 
 func (s *Server) ping(_ context.Context, input *PingInput) (*PingOutput, error) {
-	if err := s.registry.Touch(input.Body.SessionID); err != nil {
-		return nil, newErr(http.StatusUnauthorized, "unknown_session", "unknown sessionId")
+	if err := s.registry.Touch(input.Body.LinkID); err != nil {
+		return nil, newErr(http.StatusUnauthorized, "unknown_link", "unknown linkId")
 	}
 	out := &PingOutput{}
 	out.Body.Ok = true
@@ -156,8 +156,8 @@ type ToolsListOutput struct {
 }
 
 func (s *Server) toolsList(_ context.Context, input *ToolsListInput) (*ToolsListOutput, error) {
-	if _, ok := s.registry.FindSession(input.Body.SessionID); !ok {
-		return nil, newErr(http.StatusUnauthorized, "unknown_session", "unknown sessionId")
+	if _, ok := s.registry.Find(input.Body.LinkID); !ok {
+		return nil, newErr(http.StatusUnauthorized, "unknown_link", "unknown linkId")
 	}
 	out := &ToolsListOutput{}
 	out.Body.Tools = s.registry.AllTools()
@@ -196,42 +196,42 @@ func (s *Server) pluginsList(_ context.Context, _ *struct{}) (*PluginsListOutput
 	out := &PluginsListOutput{}
 	for _, endpoint := range s.connector.Known() {
 		entry := wire.RegisteredPlugin{Endpoint: endpoint}
-		if session, ok := s.registry.FindEndpoint(endpoint); ok {
-			entry.SessionID = session.ID
-			entry.PluginID = session.Plugin().ID
+		if link, ok := s.registry.FindEndpoint(endpoint); ok {
+			entry.LinkID = link.ID
+			entry.PluginID = link.Plugin().ID
 		}
 		out.Body.Plugins = append(out.Body.Plugins, entry)
 	}
 	return out, nil
 }
 
-// ---- WS channel（OpenAPI対象外）----
+// ---- transport（OpenAPI対象外）----
 
-// handleWebSocket はPlugin→CoreのWS channel受付（hello後に張られる）。
-// ?sessionId= でSessionに紐付ける。
-func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.URL.Query().Get("sessionId")
-	session, ok := s.registry.FindSession(sessionID)
+// handleTransport はPlugin→Coreのtransport受付（hello後に張られる）。
+// ?linkId= でLinkに紐付ける。
+func (s *Server) handleTransport(w http.ResponseWriter, r *http.Request) {
+	linkID := r.URL.Query().Get("linkId")
+	link, ok := s.registry.Find(linkID)
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
-			"code": "unknown_session", "message": "unknown sessionId"}})
+			"code": "unknown_link", "message": "unknown linkId"}})
 		return
 	}
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: []string{"*"},
 	})
 	if err != nil {
-		log.Printf("[core] ws accept failed: %v", err)
+		log.Printf("[core] transport accept failed: %v", err)
 		return
 	}
-	conn := rpc.NewConn(c, "c-")
-	if err := s.registry.SetChannel(sessionID, conn); err != nil {
+	conn := rpc.NewConn(c, "core-")
+	if err := s.registry.SetTransport(linkID, conn); err != nil {
 		conn.Close()
 		return
 	}
-	log.Printf("[core] ws channel: %s (%s)", session.Plugin().ID, sessionID)
+	log.Printf("[core] transport: %s (%s)", link.Plugin().ID, linkID)
 
 	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
 		if message.Method == wire.MethodCall {
@@ -242,9 +242,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn.OnNotif = func(message *wire.Incoming) { s.router.DispatchNotif(conn, message) }
 
 	err = conn.Run(r.Context())
-	log.Printf("[core] ws closed: %s (%s): %v", session.Plugin().ID, sessionID, err)
+	log.Printf("[core] transport closed: %s (%s): %v", link.Plugin().ID, linkID, err)
 	s.router.DropConn(conn)
-	// WS切断はSession失効とは別（contracts/00002）— channelだけ外し、
-	// Sessionはpingの失効か再helloでの差替えで消える。
-	s.registry.ClearChannel(sessionID, conn)
+	// transport切断はLink失効とは別（contracts/00002）— transportだけ外し、
+	// Linkはpingの失効か再helloでの差替えで消える。
+	s.registry.ClearTransport(linkID, conn)
 }

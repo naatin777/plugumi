@@ -1,6 +1,6 @@
-// Package registry はSession Registry（docs/designs/00002）。
-// SessionはCore↔Pluginの接続・登録単位で、失効時に
-// Registration・Tool・進行中callがすべて消える（session-scoped）。
+// Package registry はLink Registry（docs/designs/00002）。
+// LinkはCore↔Pluginの接続・登録単位で、失効時に
+// Tool宣言・進行中callがすべて消える（link-scoped）。
 package registry
 
 import (
@@ -13,107 +13,102 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-// Session の公開field（ID・RegistrationID・Endpoint・CreatedAt）は
+// Link の公開field（ID・Endpoint・CreatedAt）は
 // 登録時に一度だけ書かれ、その後変更しないためlockなしで読んでよい。
-// 可変な4つ（plugin・channel・tools・lastPing）は各method経由で
-// session-levelのlockを取って触れる（pluginはhello応答受取時に埋まる）。
-type Session struct {
-	ID             string
-	RegistrationID string
-	Endpoint       string
-	CreatedAt      time.Time
+// 可変な4つ（plugin・transport・tools・lastPing）は各method経由で
+// link-levelのlockを取って触れる（pluginはhello応答受取時に埋まる）。
+type Link struct {
+	ID        string
+	Endpoint  string
+	CreatedAt time.Time
 
-	mu       sync.RWMutex
-	plugin   wire.PluginInfo
-	channel  *rpc.Conn // Plugin→CoreのWebSocket channel（張られるまではnil）
-	tools    []wire.ToolDecl
-	lastPing time.Time
+	mu        sync.RWMutex
+	plugin    wire.PluginInfo
+	transport *rpc.Conn // Plugin→Coreのtransport（張られるまではnil）
+	tools     []wire.ToolDecl
+	lastPing  time.Time
 }
 
 // Plugin はhello応答で受け取ったPlugin情報（未確立時はzero）。
-func (s *Session) Plugin() wire.PluginInfo {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.plugin
+func (l *Link) Plugin() wire.PluginInfo {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.plugin
 }
 
-func (s *Session) SetPlugin(info wire.PluginInfo) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.plugin = info
+func (l *Link) SetPlugin(info wire.PluginInfo) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.plugin = info
 }
 
-// Channel はPlugin→Coreのchannel（未接続ならnil）。
-func (s *Session) Channel() *rpc.Conn {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.channel
+// Transport はPlugin→Coreのtransport（未接続ならnil）。
+func (l *Link) Transport() *rpc.Conn {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.transport
 }
 
-func (s *Session) SetChannel(c *rpc.Conn) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.channel = c
+func (l *Link) SetTransport(c *rpc.Conn) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.transport = c
 }
 
 // Tools は現行のTool宣言一覧（tools.setのたびに丸ごと差し替わる）。
-func (s *Session) Tools() []wire.ToolDecl {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.tools
+func (l *Link) Tools() []wire.ToolDecl {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.tools
 }
 
-func (s *Session) SetTools(tools []wire.ToolDecl) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.tools = tools
+func (l *Link) SetTools(tools []wire.ToolDecl) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.tools = tools
 }
 
-func (s *Session) Touch() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.lastPing = time.Now()
+func (l *Link) Touch() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.lastPing = time.Now()
 }
 
-func (s *Session) LastPingAt() time.Time {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.lastPing
+func (l *Link) LastPingAt() time.Time {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.lastPing
 }
 
-var ErrNoSession = errors.New("unknown session")
+var ErrNoLink = errors.New("unknown link")
 
 type Registry struct {
 	mu         sync.RWMutex
-	sessions   map[string]*Session // sessionID →
-	byReg      map[string]*Session // registrationID →
-	byEndpoint map[string]*Session // endpoint → （1 Endpoint = 1 Session想定のMVP）
-	OnExpired  func(*Session)
+	links      map[string]*Link // linkID →
+	byEndpoint map[string]*Link // endpoint → （1 Endpoint = 1 Link想定のMVP）
+	OnExpired  func(*Link)
 }
 
 func New() *Registry {
 	return &Registry{
-		sessions:   map[string]*Session{},
-		byReg:      map[string]*Session{},
-		byEndpoint: map[string]*Session{},
+		links:      map[string]*Link{},
+		byEndpoint: map[string]*Link{},
 	}
 }
 
-// Add はSessionを登録する。同じEndpointの旧Session（plugin再起動・再hello）が
+// Add はLinkを登録する。同じEndpointの旧Link（plugin再起動・再hello）が
 // 残っていれば失効させてから差し替える — 残すとtools.listに
-// 死んだToolが並び、旧registrationIdへの呼出が死んだconnへforwardされる。
-func (r *Registry) Add(s *Session) {
+// 死んだToolが並び、旧linkIdへの呼出が死んだconnへforwardされる。
+func (r *Registry) Add(l *Link) {
 	r.mu.Lock()
-	stale := r.byEndpoint[s.Endpoint]
-	if stale != nil && stale.ID != s.ID {
-		delete(r.sessions, stale.ID)
-		delete(r.byReg, stale.RegistrationID)
+	stale := r.byEndpoint[l.Endpoint]
+	if stale != nil && stale.ID != l.ID {
+		delete(r.links, stale.ID)
 	} else {
 		stale = nil
 	}
-	r.sessions[s.ID] = s
-	r.byReg[s.RegistrationID] = s
-	r.byEndpoint[s.Endpoint] = s
+	r.links[l.ID] = l
+	r.byEndpoint[l.Endpoint] = l
 	r.mu.Unlock()
 
 	if stale != nil {
@@ -121,34 +116,27 @@ func (r *Registry) Add(s *Session) {
 	}
 }
 
-func (r *Registry) FindSession(id string) (*Session, bool) {
+func (r *Registry) Find(id string) (*Link, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	s, ok := r.sessions[id]
-	return s, ok
+	l, ok := r.links[id]
+	return l, ok
 }
 
-func (r *Registry) FindRegistration(id string) (*Session, bool) {
+func (r *Registry) FindEndpoint(endpoint string) (*Link, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	s, ok := r.byReg[id]
-	return s, ok
-}
-
-func (r *Registry) FindEndpoint(endpoint string) (*Session, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	s, ok := r.byEndpoint[endpoint]
-	return s, ok
+	l, ok := r.byEndpoint[endpoint]
+	return l, ok
 }
 
 // SetTools は tools.set を反映する（アトミック置換）。toolPath重複は409相当。
-func (r *Registry) SetTools(sessionID string, tools []wire.ToolDecl) error {
+func (r *Registry) SetTools(linkID string, tools []wire.ToolDecl) error {
 	r.mu.RLock()
-	s, ok := r.sessions[sessionID]
+	l, ok := r.links[linkID]
 	r.mu.RUnlock()
 	if !ok {
-		return ErrNoSession
+		return ErrNoLink
 	}
 	seen := map[string]bool{}
 	for i := range tools {
@@ -160,26 +148,26 @@ func (r *Registry) SetTools(sessionID string, tools []wire.ToolDecl) error {
 			tools[i].Kind = "sync"
 		}
 	}
-	s.SetTools(tools)
+	l.SetTools(tools)
 	return nil
 }
 
-func (r *Registry) Touch(sessionID string) error {
-	s, ok := r.FindSession(sessionID)
+func (r *Registry) Touch(linkID string) error {
+	l, ok := r.Find(linkID)
 	if !ok {
-		return ErrNoSession
+		return ErrNoLink
 	}
-	s.Touch()
+	l.Touch()
 	return nil
 }
 
-// SetChannel はSessionのchannelを張る。
-func (r *Registry) SetChannel(sessionID string, c *rpc.Conn) error {
-	s, ok := r.FindSession(sessionID)
+// SetTransport はLinkのtransportを張る。
+func (r *Registry) SetTransport(linkID string, c *rpc.Conn) error {
+	l, ok := r.Find(linkID)
 	if !ok {
-		return ErrNoSession
+		return ErrNoLink
 	}
-	s.SetChannel(c)
+	l.SetTransport(c)
 	return nil
 }
 
@@ -187,66 +175,65 @@ func (r *Registry) AllTools() []wire.ListedTool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var out []wire.ListedTool
-	for _, s := range r.sessions {
-		for _, t := range s.Tools() {
-			out = append(out, wire.ListedTool{RegistrationID: s.RegistrationID, ToolDecl: t})
+	for _, l := range r.links {
+		for _, t := range l.Tools() {
+			out = append(out, wire.ListedTool{LinkID: l.ID, ToolDecl: t})
 		}
 	}
 	return out
 }
 
-func (r *Registry) All() []*Session {
+func (r *Registry) All() []*Link {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	out := make([]*Session, 0, len(r.sessions))
-	for _, s := range r.sessions {
-		out = append(out, s)
+	out := make([]*Link, 0, len(r.links))
+	for _, l := range r.links {
+		out = append(out, l)
 	}
 	return out
 }
 
-// Remove はSessionを失効させる（ping期限切れ・WebSocket切断・再起動hello時の張替え）。
+// Remove はLinkを失効させる（ping期限切れ・再起動hello時の張替え）。
 func (r *Registry) Remove(id string) {
 	r.mu.Lock()
-	s, ok := r.sessions[id]
+	l, ok := r.links[id]
 	if !ok {
 		r.mu.Unlock()
 		return
 	}
-	delete(r.sessions, s.ID)
-	delete(r.byReg, s.RegistrationID)
-	delete(r.byEndpoint, s.Endpoint)
+	delete(r.links, l.ID)
+	delete(r.byEndpoint, l.Endpoint)
 	r.mu.Unlock()
-	r.teardown(s)
+	r.teardown(l)
 }
 
-// ClearChannel はSessionの現行channelがこのconnのとき、channelだけを外す。
-// Session自体は消さない — channelの切断とSession失効は別
-// （docs/contracts/00002。Session寿命はsession.pingが管理する）。
-// Pluginは同じsessionIdでchannelを張り直せる。
-func (r *Registry) ClearChannel(id string, c *rpc.Conn) {
-	s, ok := r.FindSession(id)
+// ClearTransport はLinkの現行transportがこのconnのとき、transportだけを外す。
+// Link自体は消さない — transportの切断とLink失効は別
+// （docs/contracts/00002。Link寿命はlink.pingが管理する）。
+// Pluginは同じlinkIdでtransportを張り直せる。
+func (r *Registry) ClearTransport(id string, c *rpc.Conn) {
+	l, ok := r.Find(id)
 	if !ok {
 		return
 	}
-	s.mu.Lock()
-	if s.channel == c {
-		s.channel = nil
+	l.mu.Lock()
+	if l.transport == c {
+		l.transport = nil
 	}
-	s.mu.Unlock()
+	l.mu.Unlock()
 }
 
-// teardown はSession失効の後始末（mapから外れた後に呼ぶ）。
-func (r *Registry) teardown(s *Session) {
-	if c := s.Channel(); c != nil {
+// teardown はLink失効の後始末（mapから外れた後に呼ぶ）。
+func (r *Registry) teardown(l *Link) {
+	if c := l.Transport(); c != nil {
 		c.Close()
 	}
 	if r.OnExpired != nil {
-		r.OnExpired(s)
+		r.OnExpired(l)
 	}
 }
 
-// ExpireLoop はLastPingがidleTimeoutを超えたSessionを失効させる。
+// ExpireLoop はLastPingがidleTimeoutを超えたLinkを失効させる。
 func (r *Registry) ExpireLoop(ctx context.Context, idleTimeout, tick time.Duration) {
 	t := time.NewTicker(tick)
 	defer t.Stop()
@@ -255,9 +242,9 @@ func (r *Registry) ExpireLoop(ctx context.Context, idleTimeout, tick time.Durati
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			for _, s := range r.All() {
-				if time.Since(s.LastPingAt()) > idleTimeout {
-					r.Remove(s.ID)
+			for _, l := range r.All() {
+				if time.Since(l.LastPingAt()) > idleTimeout {
+					r.Remove(l.ID)
 				}
 			}
 		}

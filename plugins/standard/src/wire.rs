@@ -9,8 +9,7 @@ use serde_json::Value;
 #[serde(rename_all = "camelCase")]
 pub struct HelloRequest {
     pub protocol_version: String,
-    pub session_id: String,
-    pub registration_id: String,
+    pub link_id: String,
     pub core: HelloCore,
 }
 
@@ -49,14 +48,14 @@ pub struct ToolDecl {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolsSetRequest {
-    pub session_id: String,
+    pub link_id: String,
     pub tools: Vec<ToolDecl>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PingRequest {
-    pub session_id: String,
+    pub link_id: String,
 }
 
 // ---- JSON-RPC 2.0 ----

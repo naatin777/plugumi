@@ -42,7 +42,7 @@ impl Conn {
             tx,
             pending: pending.clone(),
             seq: Arc::new(AtomicU64::new(0)),
-            prefix: "p-".into(),
+            prefix: "plugin-".into(),
         };
 
         // writer task

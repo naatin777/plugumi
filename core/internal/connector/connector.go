@@ -1,5 +1,5 @@
-// Package connector はCore→Pluginへの接続試行（session.hello）。
-// Session確立は起動と分離する — 到達不能なPluginは再試行を続けるだけ
+// Package connector はCore→Pluginへの接続試行（link.hello）。
+// Link確立は起動と分離する — 到達不能なPluginは再試行を続けるだけ
 // （docs/contracts/00001「Plugin Endpointの解決」）。
 package connector
 
@@ -26,18 +26,18 @@ const CoreVersion = "0.1.0"
 // Connector はPlugin Endpointへの接続試行を管理する。
 // 静的configと動的登録（POST /v1/plugins）の両方からWatchを受け、
 // Endpointごとに接続loopを1本だけ張る。
-// Endpointの集合はSessionとは別に持つ — Session未確立（到達不能）でも
+// Endpointの集合はLinkとは別に持つ — Link未確立（到達不能）でも
 // 再登録を防げるようにするため。
 type Connector struct {
 	ctx       context.Context // loopの寿命はCoreプロセス
-	sessions  *registry.Registry
+	links     *registry.Registry
 	coreURL   string
 	mu        sync.Mutex
 	endpoints map[string]struct{}
 }
 
-func New(ctx context.Context, sessions *registry.Registry, coreURL string) *Connector {
-	return &Connector{ctx: ctx, sessions: sessions, coreURL: coreURL, endpoints: map[string]struct{}{}}
+func New(ctx context.Context, links *registry.Registry, coreURL string) *Connector {
+	return &Connector{ctx: ctx, links: links, coreURL: coreURL, endpoints: map[string]struct{}{}}
 }
 
 // Watch はEndpointへの接続loopを開始する。既知のEndpointならfalse。
@@ -65,7 +65,7 @@ func (c *Connector) Known() []string {
 	return out
 }
 
-// loop は1つのPlugin Endpointへの接続試行。Session確立まで再試行を続ける。
+// loop は1つのPlugin Endpointへの接続試行。Link確立まで再試行を続ける。
 func (c *Connector) loop(endpoint string) {
 	failed := false
 	for {
@@ -74,8 +74,8 @@ func (c *Connector) loop(endpoint string) {
 			return
 		default:
 		}
-		if _, ok := c.sessions.FindEndpoint(endpoint); !ok {
-			if err := hello(c.sessions, endpoint, c.coreURL); err != nil {
+		if _, ok := c.links.FindEndpoint(endpoint); !ok {
+			if err := hello(c.links, endpoint, c.coreURL); err != nil {
 				if !failed {
 					log.Printf("[core] plugin %s unreachable: %v (retrying)", endpoint, err)
 					failed = true
@@ -94,7 +94,7 @@ func (c *Connector) loop(endpoint string) {
 
 // newID はUUIDv4形式のランダムIDをprefix付きで発行する。
 // 逐次カウンターにしない理由: hello失敗でIDが消費されるのを避けるのと、
-// SessionがCore再起動・複数Core間で実質一意であってほしいため。
+// LinkがCore再起動・複数Core間で実質一意であってほしいため。
 func newID(prefix string) string {
 	var b [16]byte
 	_, _ = rand.Read(b[:])
@@ -104,45 +104,43 @@ func newID(prefix string) string {
 	return fmt.Sprintf("%s%s-%s-%s-%s-%s", prefix, s[0:8], s[8:12], s[12:16], s[16:20], s[20:32])
 }
 
-// hello は session.hello（Core → Plugin）。IDを払い出してSessionを登録する。
-// Sessionはhello送信「前」に登録する — Pluginはhello応答と並行して
-// tools.set・WS接続を開始し得るため、応答を受けてから登録すると
-// tools.set が unknown_session で落ちる競合になる（contracts/00002）。
-func hello(sessions *registry.Registry, endpoint, coreURL string) error {
-	session := &registry.Session{
-		ID:             newID("s-"),
-		RegistrationID: newID("reg-"),
-		Endpoint:       endpoint,
-		CreatedAt:      time.Now(),
+// hello は link.hello（Core → Plugin）。IDを払い出してLinkを登録する。
+// Linkはhello送信「前」に登録する — Pluginはhello応答と並行して
+// tools.set・transport接続を開始し得るため、応答を受けてから登録すると
+// tools.set が unknown_link で落ちる競合になる（contracts/00002）。
+func hello(links *registry.Registry, endpoint, coreURL string) error {
+	link := &registry.Link{
+		ID:        newID("link-"),
+		Endpoint:  endpoint,
+		CreatedAt: time.Now(),
 	}
-	session.Touch() // 失効判定の基準時刻を登録直後に合わせる
-	sessions.Add(session)
+	link.Touch() // 失効判定の基準時刻を登録直後に合わせる
+	links.Add(link)
 
 	var req wire.HelloRequest
 	req.ProtocolVersion = ProtocolVersion
-	req.SessionID = session.ID
-	req.RegistrationID = session.RegistrationID
+	req.LinkID = link.ID
 	req.Core.URL = coreURL
 	req.Core.Version = CoreVersion
 
 	body, _ := json.Marshal(req)
 	client := &http.Client{Timeout: 5 * time.Second}
-	res, err := client.Post(endpoint+"/v1/session/hello", "application/json", bytes.NewReader(body))
+	res, err := client.Post(endpoint+"/v1/link/hello", "application/json", bytes.NewReader(body))
 	if err != nil {
-		sessions.Remove(session.ID)
+		links.Remove(link.ID)
 		return err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		sessions.Remove(session.ID)
+		links.Remove(link.ID)
 		return fmt.Errorf("hello: %s", res.Status)
 	}
 	var helloResponse wire.HelloResponse
 	if err := json.NewDecoder(res.Body).Decode(&helloResponse); err != nil {
-		sessions.Remove(session.ID)
+		links.Remove(link.ID)
 		return err
 	}
-	session.SetPlugin(helloResponse.Plugin)
-	log.Printf("[core] session: %s (%s) → %s @ %s", session.Plugin().ID, session.ID, session.RegistrationID, endpoint)
+	link.SetPlugin(helloResponse.Plugin)
+	log.Printf("[core] link: %s (%s) → %s", link.Plugin().ID, link.ID, endpoint)
 	return nil
 }

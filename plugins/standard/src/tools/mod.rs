@@ -15,8 +15,8 @@ mod ticks;
 use serde_json::Value;
 use tokio::sync::watch;
 
+use crate::link::SharedLink;
 use crate::rpc::Conn;
-use crate::session::SharedSession;
 use crate::wire::{self, CallParams, ToolDecl};
 
 /// 登録するTool一覧。`toolPath` と `kind` のみを持ち、
@@ -77,7 +77,7 @@ impl Call {
         );
     }
 
-    /// 呼出元のclose（またはSession終了）を待つ。購読系toolはこれで終わる。
+    /// 呼出元のclose（またはLink終了）を待つ。購読系toolはこれで終わる。
     pub async fn closed(&mut self) {
         while !*self.close_rx.borrow() {
             if self.close_rx.changed().await.is_err() {
@@ -89,7 +89,7 @@ impl Call {
 
 /// 着信 tools.call を捌く。callIdでclose配送できるよう登録し、
 /// kindに応じて受理・終端を分ける。
-pub fn dispatch(session: SharedSession, conn: Conn, req_id: Value, params: CallParams) {
+pub fn dispatch(link: SharedLink, conn: Conn, req_id: Value, params: CallParams) {
     let (close_tx, close_rx) = watch::channel(false);
     let call = Call {
         conn: conn.clone(),
@@ -98,8 +98,7 @@ pub fn dispatch(session: SharedSession, conn: Conn, req_id: Value, params: CallP
         input: params.input,
         close_rx,
     };
-    session
-        .lock()
+    link.lock()
         .unwrap()
         .calls
         .insert(req_id.to_string(), close_tx);
@@ -123,7 +122,7 @@ pub fn dispatch(session: SharedSession, conn: Conn, req_id: Value, params: CallP
                         data: None,
                     }),
                 );
-                session.lock().unwrap().calls.remove(&id_key);
+                link.lock().unwrap().calls.remove(&id_key);
             });
         }
 
@@ -136,7 +135,7 @@ pub fn dispatch(session: SharedSession, conn: Conn, req_id: Value, params: CallP
                     "exec" => exec::handle(call).await,
                     _ => ticks::handle(call).await,
                 }
-                session.lock().unwrap().calls.remove(&id_key);
+                link.lock().unwrap().calls.remove(&id_key);
             });
         }
 

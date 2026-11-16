@@ -31,24 +31,24 @@ func main() {
 	coreURL := settings.Core.URL
 
 	ctx := context.Background()
-	sessions := registry.New()
-	sessions.OnExpired = func(session *registry.Session) {
-		// hello未完了で落ちたSession（plugin未到達のretry毎）はログを出さない。
-		if plugin := session.Plugin(); plugin.ID != "" {
-			log.Printf("[core] session expired: %s (%s)", plugin.ID, session.ID)
+	links := registry.New()
+	links.OnExpired = func(link *registry.Link) {
+		// hello未完了で落ちたLink（plugin未到達のretry毎）はログを出さない。
+		if plugin := link.Plugin(); plugin.ID != "" {
+			log.Printf("[core] link expired: %s (%s)", plugin.ID, link.ID)
 		}
 	}
-	go sessions.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
+	go links.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
 
-	callRouter := router.New(sessions)
-	pluginConnector := connector.New(ctx, sessions, coreURL)
+	callRouter := router.New(links)
+	pluginConnector := connector.New(ctx, links, coreURL)
 
 	// 設定された各Plugin Endpointへ接続を試みる（動的登録はPOST /v1/plugins）。
 	for _, plugin := range settings.Plugins {
 		pluginConnector.Watch(plugin.Endpoint)
 	}
 
-	srv := &http.Server{Addr: settings.Core.Listen, Handler: server.New(sessions, callRouter, pluginConnector).Handler()}
+	srv := &http.Server{Addr: settings.Core.Listen, Handler: server.New(links, callRouter, pluginConnector).Handler()}
 	log.Printf("[core] listening on %s (config %s)", settings.Core.Listen, *configPath)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("serve: %v", err)

@@ -14,10 +14,10 @@ relations:
 
 ## 当事者と範囲
 
-呼出元Plugin・Core・対象Pluginの3者が実装する呼出契約。全メッセージは `docs/contracts/00002` のWS channel（JSON-RPC 2.0）上を流れる。
+呼出元Plugin・Core・対象Pluginの3者が実装する呼出契約。全メッセージは `docs/contracts/00002` のtransport（JSON-RPC 2.0）上を流れる。
 
 - 呼出経路は **呼出元Plugin → Core → 対象Plugin** 固定。Coreは宛先を解決・転送し、Tool内部の意味には踏み込まない
-- 対象は**呼出元自身のRegistrationでもよい**（Pluginが自分のToolを経由呼出する用途。例: subagentがAgentのToolを呼ぶ）
+- 対象は**呼出元自身のLinkでもよい**（Pluginが自分のToolを経由呼出する用途。例: subagentがAgentのToolを呼ぶ）
 - Tool呼出のwireは **sync と async の2形態のみ**。途中出力・通知・購読は別形態ではなく、async形態の意味論として表す
 
 ## 形態 — kind 宣言
@@ -29,7 +29,7 @@ Tool宣言（`tools.set`）は `kind: "sync" | "async"` を持つ。宣言側が
 | `sync` | 呼出元は完了まで待って次に進む。実行中に途中出力が流れてもよいが、終端が来るまで呼出元は結果を待つ |
 | `async` | 呼出元は受理を受け取って先に進み、以後の出力・結果は呼出と並行して届く |
 
-「監視して随時知らせる」購読は `async` の特殊な使い方とする: 終端を持たず開き続けるcall = subscribe。呼出元が閉じるかSession失効で終わる。
+「監視して随時知らせる」購読は `async` の特殊な使い方とする: 終端を持たず開き続けるcall = subscribe。呼出元が閉じるかLink失効で終わる。
 
 ## 相関 — callId
 
@@ -59,7 +59,7 @@ requestの `id` は **接続ごと・送信者ごとの空間**で一意なら�
 ### sync
 
 ```
-caller → Core → target:  tools.call request { target: { registrationId, toolPath }, input }
+caller → Core → target:  tools.call request { target: { linkId, toolPath }, input }
 target → Core → caller:  tools.call.output  notification { callId, payload }*   // 途中出力（あってもよい）
 target → Core → caller:  tools.call response                                   // 最終resultまたはerror
 ```
@@ -69,7 +69,7 @@ target → Core → caller:  tools.call response                                
 ### async
 
 ```
-caller → Core → target:  tools.call request { target: { registrationId, toolPath }, input }
+caller → Core → target:  tools.call request { target: { linkId, toolPath }, input }
 target → Core → caller:  tools.call response { accepted: true }                 // 受理
 target → Core → caller:  tools.call.output  notification { callId, payload }*   // 途中出力（0〜N回）
 target → Core → caller:  tools.call.result  notification { callId, result }     // 終端resultまたはerror
@@ -81,7 +81,7 @@ target → Core → caller:  tools.call.result  notification { callId, result } 
 ### 閉じる
 
 - `tools.call.close` notification `{ callId }`（呼出元 → 対象）— 開いているcall（購読・長時間実行）を呼出元側から閉じる
-- Session失効で、そのSessionに紐付く全call・全購読は消える
+- Link失効で、そのLinkに紐付く全call・全購読は消える
 
 ## 途中出力とQueue
 
@@ -89,7 +89,7 @@ target → Core → caller:  tools.call.result  notification { callId, result } 
 
 ## エラー
 
-- **経路の失敗**（未登録registrationId・未知toolPath・転送不可）はJSON-RPC errorとして呼出元へ返る。Tool内部の失敗と区別する
+- **経路の失敗**（未知linkId・未知toolPath・転送不可）はJSON-RPC errorとして呼出元へ返る。Tool内部の失敗と区別する
 - **Toolの失敗**は終端result/errorに乗る。暗黙の成功扱いはしない
 - Coreは別候補・別Nodeへの暗黙退避をしない（`docs/designs/00001`）
 

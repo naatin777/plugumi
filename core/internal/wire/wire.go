@@ -10,8 +10,7 @@ import (
 
 type HelloRequest struct {
 	ProtocolVersion string `json:"protocolVersion"`
-	SessionID       string `json:"sessionId"`
-	RegistrationID  string `json:"registrationId"`
+	LinkID          string `json:"linkId"`
 	Core            struct {
 		URL     string `json:"url"`
 		Version string `json:"version,omitempty"`
@@ -38,20 +37,20 @@ type ToolDecl struct {
 }
 
 type ToolsSetRequest struct {
-	SessionID string     `json:"sessionId"`
-	Tools     []ToolDecl `json:"tools"`
+	LinkID string     `json:"linkId"`
+	Tools  []ToolDecl `json:"tools"`
 }
 
 type PingRequest struct {
-	SessionID string `json:"sessionId"`
+	LinkID string `json:"linkId"`
 }
 
 type ToolsListRequest struct {
-	SessionID string `json:"sessionId"`
+	LinkID string `json:"linkId"`
 }
 
 type ListedTool struct {
-	RegistrationID string `json:"registrationId"`
+	LinkID string `json:"linkId"`
 	ToolDecl
 }
 
@@ -60,17 +59,17 @@ type ToolsListResponse struct {
 }
 
 // PluginsAddRequest はPlugin Endpointの動的登録（POST /v1/plugins）。
-// 登録は受理のみ — Sessionの確立は非同期（connectorが再試行する）。
+// 登録は受理のみ — Linkの確立は非同期（connectorが再試行する）。
 type PluginsAddRequest struct {
 	Endpoint string `json:"endpoint"`
 }
 
-// RegisteredPlugin は登録済みEndpoint1行分。Session未確立なら
-// sessionId/pluginIdは空（接続再試行中）。
+// RegisteredPlugin は登録済みEndpoint1行分。Link未確立なら
+// linkId/pluginIdは空（接続再試行中）。
 type RegisteredPlugin struct {
-	Endpoint  string `json:"endpoint"`
-	SessionID string `json:"sessionId,omitempty"`
-	PluginID  string `json:"pluginId,omitempty"`
+	Endpoint string `json:"endpoint"`
+	LinkID   string `json:"linkId,omitempty"`
+	PluginID string `json:"pluginId,omitempty"`
 }
 
 type PluginsListResponse struct {
@@ -142,8 +141,8 @@ const (
 )
 
 type CallTarget struct {
-	RegistrationID string `json:"registrationId"`
-	ToolPath       string `json:"toolPath"`
+	LinkID   string `json:"linkId"`
+	ToolPath string `json:"toolPath"`
 }
 
 type CallParams struct {

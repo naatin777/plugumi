@@ -1,8 +1,8 @@
-//! Plugin側のSession機構。hello応答・tools.set送信・ping・WS接続・
+//! Plugin側のLink機構。hello応答・tools.set送信・ping・transport接続・
 //! tools.callの配送までをまとめる。PluginはCoreを事前に知らず、
 //! helloで受け取った core_url 宛てに以後の送信を行う。
 //!
-//! SessionはsessionIdごとに独立して管理する — 複数のCoreが
+//! LinkはlinkIdごとに独立して管理する — 複数のCoreが
 //! 同じPluginへhelloしてよい（docs/decisionsの複数Core方針）。
 
 use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
@@ -19,22 +19,20 @@ use crate::wire::{self, CallParams, HelloRequest, HelloResponse, Incoming, Plugi
 
 const PROTOCOL_VERSION: &str = "0.1.0";
 
-/// 1つのSessionの状態。Coreが増えてもsessionIdごとに分かれる。
-pub struct SessionInner {
-    session_id: String,
-    #[allow(dead_code)]
-    registration_id: String,
+/// 1つのLinkの状態。Coreが増えてもlinkIdごとに分かれる。
+pub struct LinkInner {
+    link_id: String,
     core_url: String,
     conn: Option<Conn>,
     /// 実行中callのcloseシグナル（callId → close_tx）。
     pub(crate) calls: HashMap<String, watch::Sender<bool>>,
 }
 
-pub type SharedSession = Arc<Mutex<SessionInner>>;
+pub type SharedLink = Arc<Mutex<LinkInner>>;
 
-/// Plugin全体の状態。Core別のSessionを束ねる。
+/// Plugin全体の状態。Core別のLinkを束ねる。
 pub struct PluginState {
-    sessions: HashMap<String, SharedSession>, // sessionId →
+    links: HashMap<String, SharedLink>, // linkId →
 }
 
 pub type Shared = Arc<Mutex<PluginState>>;
@@ -42,10 +40,10 @@ pub type Shared = Arc<Mutex<PluginState>>;
 /// Plugin HTTP serverを立てる（hello受付）。
 pub async fn serve(listen: &str) -> Result<(), String> {
     let shared: Shared = Arc::new(Mutex::new(PluginState {
-        sessions: HashMap::new(),
+        links: HashMap::new(),
     }));
     let app = Router::new()
-        .route("/v1/session/hello", post(handle_hello))
+        .route("/v1/link/hello", post(handle_hello))
         .with_state(shared);
     let listener = TcpListener::bind(listen).await.map_err(|e| e.to_string())?;
     eprintln!("[standard] listening on {listen}");
@@ -68,26 +66,25 @@ async fn handle_hello(
         ));
     }
 
-    // 同じCoreからの再helloは、そのCoreの旧Sessionを畳んでから受け入れる。
-    // （別CoreのSessionは生かす — 複数Core接続を許すため）
+    // 同じCoreからの再helloは、そのCoreの旧Linkを畳んでから受け入れる。
+    // （別CoreのLinkは生かす — 複数Core接続を許すため）
     let stale_ids: Vec<String> = {
         let state = shared.lock().unwrap();
         state
-            .sessions
+            .links
             .iter()
-            .filter(|(_, s)| s.lock().unwrap().core_url == req.core.url)
+            .filter(|(_, l)| l.lock().unwrap().core_url == req.core.url)
             .map(|(id, _)| id.clone())
             .collect()
     };
     for id in stale_ids {
-        if let Some(stale) = shared.lock().unwrap().sessions.remove(&id) {
-            teardown_session(&stale);
+        if let Some(stale) = shared.lock().unwrap().links.remove(&id) {
+            teardown_link(&stale);
         }
     }
 
-    let session: SharedSession = Arc::new(Mutex::new(SessionInner {
-        session_id: req.session_id.clone(),
-        registration_id: req.registration_id.clone(),
+    let link: SharedLink = Arc::new(Mutex::new(LinkInner {
+        link_id: req.link_id.clone(),
         core_url: req.core.url.clone(),
         conn: None,
         calls: HashMap::new(),
@@ -95,14 +92,14 @@ async fn handle_hello(
     shared
         .lock()
         .unwrap()
-        .sessions
-        .insert(req.session_id.clone(), session.clone());
+        .links
+        .insert(req.link_id.clone(), link.clone());
 
     eprintln!(
-        "[standard] session established: {} (reg {}, core {})",
-        req.session_id, req.registration_id, req.core.url
+        "[standard] link established: {} (core {})",
+        req.link_id, req.core.url
     );
-    tokio::spawn(start_session(shared, session));
+    tokio::spawn(start_link(shared, link));
     Ok(Json(HelloResponse {
         plugin: PluginInfo {
             id: "standard".into(),
@@ -112,35 +109,35 @@ async fn handle_hello(
     }))
 }
 
-/// Sessionを畳む: 実行中callにcloseを送り、channelを切る。
-fn teardown_session(session: &SharedSession) {
-    let mut inner = session.lock().unwrap();
+/// Linkを畳む: 実行中callにcloseを送り、transportを切る。
+fn teardown_link(link: &SharedLink) {
+    let mut inner = link.lock().unwrap();
     for (_, close_tx) in inner.calls.drain() {
         let _ = close_tx.send(true);
     }
-    // connを捨てればwriter taskが終わり、WSも閉じる。
+    // connを捨てればwriter taskが終わり、transportも閉じる。
     inner.conn = None;
 }
 
-/// Session確立後のライフサイクル: tools.set → pingループ → WS channel。
-/// 途中でSessionが畳まれても（Core側の失効・再起動hello）、
-/// ping/接続loopはsessions mapを見て終わる。
-async fn start_session(shared: Shared, session: SharedSession) {
-    let (session_id, core_url) = {
-        let inner = session.lock().unwrap();
-        (inner.session_id.clone(), inner.core_url.clone())
+/// Link確立後のライフサイクル: tools.set → pingループ → transport。
+/// 途中でLinkが畳まれても（Core側の失効・再起動hello）、
+/// ping/接続loopはlinks mapを見て終わる。
+async fn start_link(shared: Shared, link: SharedLink) {
+    let (link_id, core_url) = {
+        let inner = link.lock().unwrap();
+        (inner.link_id.clone(), inner.core_url.clone())
     };
 
-    // tools.setは短く再試行する — 直列失敗でもsessionを無toolにしない。
+    // tools.setは短く再試行する — 直列失敗でもLinkを無toolにしない。
     let tools = tools::decls();
     for attempt in 1..=5 {
-        if !session_alive(&shared, &session_id) {
+        if !link_alive(&shared, &link_id) {
             return;
         }
         match http_post_json(
             &format!("{core_url}/v1/tools/set"),
             &wire::ToolsSetRequest {
-                session_id: session_id.clone(),
+                link_id: link_id.clone(),
                 tools: tools.clone(),
             },
         )
@@ -154,49 +151,45 @@ async fn start_session(shared: Shared, session: SharedSession) {
         }
     }
 
-    tokio::spawn(ping_loop(
-        shared.clone(),
-        core_url.clone(),
-        session_id.clone(),
-    ));
-    connect_websocket_loop(shared, session, &session_id).await;
+    tokio::spawn(ping_loop(shared.clone(), core_url.clone(), link_id.clone()));
+    connect_transport_loop(shared, link, &link_id).await;
 }
 
-/// Sessionがまだ生きているか（mapに残っているか）。
-fn session_alive(shared: &Shared, session_id: &str) -> bool {
-    shared.lock().unwrap().sessions.contains_key(session_id)
+/// Linkがまだ生きているか（mapに残っているか）。
+fn link_alive(shared: &Shared, link_id: &str) -> bool {
+    shared.lock().unwrap().links.contains_key(link_id)
 }
 
-async fn ping_loop(shared: Shared, core_url: String, session_id: String) {
+async fn ping_loop(shared: Shared, core_url: String, link_id: String) {
     let mut t = tokio::time::interval(Duration::from_secs(30));
     loop {
         t.tick().await;
-        if !session_alive(&shared, &session_id) {
+        if !link_alive(&shared, &link_id) {
             return;
         }
         let _ = http_post_json(
-            &format!("{core_url}/v1/session/ping"),
+            &format!("{core_url}/v1/link/ping"),
             &wire::PingRequest {
-                session_id: session_id.clone(),
+                link_id: link_id.clone(),
             },
         )
         .await;
     }
 }
 
-/// WS channelを張り続ける。切断されてもSessionが生きている限り再試行する
-/// （channel切断とSession失効は別 — contracts/00002）。
-async fn connect_websocket_loop(shared: Shared, session: SharedSession, session_id: &str) {
+/// transportを張り続ける。切断されてもLinkが生きている限り再試行する
+/// （transport切断とLink失効は別 — contracts/00002）。
+async fn connect_transport_loop(shared: Shared, link: SharedLink, link_id: &str) {
     loop {
-        if !session_alive(&shared, session_id) {
+        if !link_alive(&shared, link_id) {
             return;
         }
-        match connect_once(shared.clone(), session.clone(), session_id).await {
+        match connect_once(shared.clone(), link.clone(), link_id).await {
             Ok(pump) => {
                 pump.await.ok();
-                session.lock().unwrap().conn = None;
+                link.lock().unwrap().conn = None;
             }
-            Err(e) => eprintln!("[standard] ws connect failed: {e}"),
+            Err(e) => eprintln!("[standard] transport connect failed: {e}"),
         }
         tokio::time::sleep(Duration::from_secs(3)).await;
     }
@@ -204,24 +197,24 @@ async fn connect_websocket_loop(shared: Shared, session: SharedSession, session_
 
 async fn connect_once(
     shared: Shared,
-    session: SharedSession,
-    session_id: &str,
+    link: SharedLink,
+    link_id: &str,
 ) -> Result<tokio::task::JoinHandle<()>, String> {
-    let core_url = session.lock().unwrap().core_url.clone();
-    let url = core_url.replace("http://", "ws://") + "/v1/ws?sessionId=" + session_id;
+    let core_url = link.lock().unwrap().core_url.clone();
+    let url = core_url.replace("http://", "ws://") + "/v1/transport?linkId=" + link_id;
     let on_msg = {
-        let session = session.clone();
+        let link = link.clone();
         move |message: Incoming, conn: Conn| {
-            on_websocket_message(shared.clone(), session.clone(), message, conn)
+            on_transport_message(shared.clone(), link.clone(), message, conn)
         }
     };
     let (conn, pump) = Conn::connect(&url, on_msg).await?;
-    session.lock().unwrap().conn = Some(conn);
+    link.lock().unwrap().conn = Some(conn);
     Ok(pump)
 }
 
-/// WS上のrequest/notification配送。
-fn on_websocket_message(_shared: Shared, session: SharedSession, message: Incoming, conn: Conn) {
+/// transport上のrequest/notification配送。
+fn on_transport_message(_shared: Shared, link: SharedLink, message: Incoming, conn: Conn) {
     let Some(method) = message.method.as_deref() else {
         return;
     };
@@ -246,7 +239,7 @@ fn on_websocket_message(_shared: Shared, session: SharedSession, message: Incomi
                     return;
                 }
             };
-            tools::dispatch(session, conn, id, params);
+            tools::dispatch(link, conn, id, params);
         }
         wire::METHOD_CALL_CLOSE => {
             let call_id = message
@@ -255,7 +248,7 @@ fn on_websocket_message(_shared: Shared, session: SharedSession, message: Incomi
                 .and_then(|p| p.get("callId"))
                 .cloned();
             if let Some(call_id) = call_id {
-                if let Some(tx) = session.lock().unwrap().calls.remove(&call_id.to_string()) {
+                if let Some(tx) = link.lock().unwrap().calls.remove(&call_id.to_string()) {
                     let _ = tx.send(true);
                 }
             }

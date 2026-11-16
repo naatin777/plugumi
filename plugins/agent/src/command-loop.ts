@@ -3,7 +3,7 @@
 // 応答と届くnotificationをstdoutに表示する。
 
 import * as readline from "node:readline";
-import { currentSession, postJSON } from "./session.js";
+import { currentLink, postJSON } from "./link.js";
 import { METHOD_CALL, METHOD_CALL_CLOSE } from "./wire.js";
 
 export function startCommandLoop(): void {
@@ -37,7 +37,7 @@ async function handle(line: string): Promise<void> {
         await plugins();
         return;
       case "help":
-        console.log("commands: list | call <registrationId> <toolPath> [json] | close <callId> | register <endpoint> | plugins");
+        console.log("commands: list | call <linkId> <toolPath> [json] | close <callId> | register <endpoint> | plugins");
         return;
       default:
         console.log(`unknown command: ${command} (try "help")`);
@@ -48,34 +48,34 @@ async function handle(line: string): Promise<void> {
 }
 
 async function list(): Promise<void> {
-  const session = currentSession();
-  if (!session) {
-    console.log("no session yet");
+  const link = currentLink();
+  if (!link) {
+    console.log("no link yet");
     return;
   }
-  const response = (await postJSON(`${session.coreUrl}/v1/tools/list`, {
-    sessionId: session.sessionId,
+  const response = (await postJSON(`${link.coreUrl}/v1/tools/list`, {
+    linkId: link.linkId,
   })) as { tools: unknown[] };
   for (const tool of response.tools) console.log(JSON.stringify(tool));
 }
 
 async function call(args: string[]): Promise<void> {
-  const [registrationId, toolPath, ...rest] = args;
-  if (!registrationId || !toolPath) {
-    console.log("usage: call <registrationId> <toolPath> [json]");
+  const [linkId, toolPath, ...rest] = args;
+  if (!linkId || !toolPath) {
+    console.log("usage: call <linkId> <toolPath> [json]");
     return;
   }
-  const session = currentSession();
-  if (!session?.conn) {
-    console.log("no session yet");
+  const link = currentLink();
+  if (!link?.conn) {
+    console.log("no link yet");
     return;
   }
   const input = rest.length > 0 ? JSON.parse(rest.join(" ")) : undefined;
-  const response = await session.conn.request(METHOD_CALL, {
-    target: { registrationId, toolPath },
+  const response = await link.conn.request(METHOD_CALL, {
+    target: { linkId, toolPath },
     input,
   });
-  // async受理後もnotificationはcallId相関で届き続ける（session.tsで表示）。
+  // async受理後もnotificationはcallId相関で届き続ける（link.tsで表示）。
   // responseのJSON-RPC idがこの呼出のcallId（closeはこれを指定する）。
   console.log(
     `[res callId=${JSON.stringify(response.id)}] ${JSON.stringify(response.result ?? response.error)}`,
@@ -84,35 +84,35 @@ async function call(args: string[]): Promise<void> {
 
 async function close(args: string[]): Promise<void> {
   const [callId] = args;
-  const session = currentSession();
-  if (!callId || !session?.conn) {
+  const link = currentLink();
+  if (!callId || !link?.conn) {
     console.log("usage: close <callId>");
     return;
   }
-  session.conn.notify(METHOD_CALL_CLOSE, { callId });
+  link.conn.notify(METHOD_CALL_CLOSE, { callId });
   console.log(`[close] sent for ${callId}`);
 }
 
 // Plugin EndpointをCoreへ動的登録する（POST /v1/plugins）。
 async function register(args: string[]): Promise<void> {
   const [endpoint] = args;
-  const session = currentSession();
-  if (!endpoint || !session) {
+  const link = currentLink();
+  if (!endpoint || !link) {
     console.log("usage: register <endpoint>");
     return;
   }
-  const response = await postJSON(`${session.coreUrl}/v1/plugins`, { endpoint });
+  const response = await postJSON(`${link.coreUrl}/v1/plugins`, { endpoint });
   console.log(`[register] ${JSON.stringify(response)}`);
 }
 
 // 登録済みPlugin Endpoint一覧（POST /v1/plugins/list）。
 async function plugins(): Promise<void> {
-  const session = currentSession();
-  if (!session) {
-    console.log("no session yet");
+  const link = currentLink();
+  if (!link) {
+    console.log("no link yet");
     return;
   }
-  const response = (await postJSON(`${session.coreUrl}/v1/plugins/list`, {})) as {
+  const response = (await postJSON(`${link.coreUrl}/v1/plugins/list`, {})) as {
     plugins: unknown[];
   };
   for (const plugin of response.plugins) console.log(JSON.stringify(plugin));

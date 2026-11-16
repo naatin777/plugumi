@@ -47,22 +47,22 @@ cd core
 
 | 操作 | 内容 |
 |---|---|
-| `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（session確立は非同期） |
-| `POST /v1/plugins/list` | 登録済みEndpoint一覧（sessionId/pluginId付き） |
-| `POST /v1/tools/list` `{sessionId}` | 登録中の全Tool（最小Discovery・仮置き） |
-| `POST /v1/tools/set` `{sessionId, tools}` | Tool宣言のアトミック置換（Pluginが呼ぶ） |
-| `POST /v1/session/ping` `{sessionId}` | Session維持信号（Pluginが30秒間隔で呼ぶ） |
-| `GET /v1/ws?sessionId=` | Plugin→CoreのWS channel（呼出専用・OpenAPI対象外） |
+| `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（Link確立は非同期） |
+| `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId/pluginId付き） |
+| `POST /v1/tools/list` `{linkId}` | 登録中の全Tool（最小Discovery・仮置き） |
+| `POST /v1/tools/set` `{linkId, tools}` | Tool宣言のアトミック置換（Pluginが呼ぶ） |
+| `POST /v1/link/ping` `{linkId}` | Link維持信号（Pluginが30秒間隔で呼ぶ） |
+| `GET /v1/transport?linkId=` | Plugin→Coreのtransport（呼出専用・OpenAPI対象外） |
 | `GET /openapi.json` | OpenAPI 3.1 spec（`/openapi.yaml`も） |
 | `GET /docs` | API仕様の閲覧UI（Stoplight Elements） |
 
 ### 動作モデル
 
-- CoreはPluginへ `POST /v1/session/hello` し、sessionId/registrationId（UUID）を払い出す
-- Pluginはhelloの `core_url` 宛てに `tools.set`・`ping`・WS channelを張る
-- ping 90秒無しでSession失効。WS切断はchannelを外すだけでSessionは残り、Pluginがchannelを張り直す
-- Plugin再起動（再hello）は同endpointの旧Sessionを差し替える
-- 1つのPluginに複数Coreが接続してよい（Core別のSessionが共存する）
+- CoreはPluginへ `POST /v1/link/hello` し、linkId（UUID）を払い出す
+- Pluginはhelloの `core_url` 宛てに `tools.set`・`ping`・transportを張る
+- ping 90秒無しでLink失効。transport切断はtransportを外すだけでLinkは残り、Pluginがtransportを張り直す
+- Plugin再起動（再hello）は同endpointの旧Linkを差し替える
+- 1つのPluginに複数Coreが接続してよい（Core別のLinkが共存する）
 
 ## 手順
 
@@ -70,7 +70,7 @@ cd core
 2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定 `127.0.0.1:9001`）
 3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定 `127.0.0.1:9002`、stdinコマンドループが開く）
 
-PluginはCoreを事前に知らない。Coreが `POST /v1/session/hello` で接続し、Pluginは受け取った `core_url` 宛てに `tools.set`・`ping`・WS channelを張る。
+PluginはCoreを事前に知らない。Coreが `POST /v1/link/hello` で接続し、Pluginは受け取った `core_url` 宛てに `tools.set`・`ping`・transportを張る。
 
 ## Pluginの動的登録
 
@@ -82,27 +82,27 @@ curl -X POST http://127.0.0.1:7700/v1/plugins \
   -d '{"endpoint":"http://127.0.0.1:9001"}'
 ```
 
-登録は受理のみ — Session確立は非同期（Coreが再試行しながらhelloを送る）。登録済み一覧は `POST /v1/plugins/list`。agentのコマンドループからも `register <endpoint>`・`plugins` で操作できる。
+登録は受理のみ — Link確立は非同期（Coreが再試行しながらhelloを送る）。登録済み一覧は `POST /v1/plugins/list`。agentのコマンドループからも `register <endpoint>`・`plugins` で操作できる。
 
 動的登録はランタイムのみ（再起動で消える）。定常構成は `plugumi.json` に書く。
 
 ## 期待される結果
 
-Coreログに session → tools.set → ws channel が順に出る。agentのコマンドループで:
+Coreログに link → tools.set → transport が順に出る。agentのコマンドループで:
 
 ```
-list                                        # 登録済みの全Tool（registrationId + toolPath）
+list                                        # 登録済みの全Tool（linkId + toolPath）
 plugins                                     # 登録済みPlugin Endpoint一覧
 register <endpoint>                         # Plugin Endpointを動的登録
-call <registrationId> echo {"hello":"w"}    # sync: responseに結果
-call <registrationId> exec {"command":"echo hi"}  # async: 受理response + 途中出力 + 終端result
-call <registrationId> ticks {"intervalMs":500}    # 購読: closeまで継続
+call <linkId> echo {"hello":"w"}            # sync: responseに結果
+call <linkId> exec {"command":"echo hi"}    # async: 受理response + 途中出力 + 終端result
+call <linkId> ticks {"intervalMs":500}      # 購読: closeまで継続
 close <callId>                              # 開いているcallを閉じる
-call <agentのregistrationId> agent/echo {}   # 自己呼出（呼出元自身をtargetにできる）
+call <agentのlinkId> agent/echo {}          # 自己呼出（呼出元自身をtargetにできる）
 ```
 
 ## トラブルシューティングと制限
 
 - `serve` のbind失敗はエラー終了（別portへの自動退避はしない）
-- Pluginを再起動すると新しい `sessionId`/`registrationId` が払い出される（session-scoped）
-- ping 30秒・失効90秒。Plugin再起動時は同endpointの旧Sessionが新helloで差し替えられる
+- Pluginを再起動すると新しい `linkId` が払い出される（link-scoped）
+- ping 30秒・失効90秒。Plugin再起動時は同endpointの旧Linkが新helloで差し替えられる

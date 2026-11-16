@@ -4,8 +4,7 @@
 
 export interface HelloRequest {
   protocolVersion: string;
-  sessionId: string;
-  registrationId: string;
+  linkId: string;
   core: { url: string; version?: string };
 }
 
@@ -23,7 +22,7 @@ export interface ToolDecl {
 }
 
 export interface ListedTool extends ToolDecl {
-  registrationId: string;
+  linkId: string;
 }
 
 // ---- JSON-RPC 2.0 ----

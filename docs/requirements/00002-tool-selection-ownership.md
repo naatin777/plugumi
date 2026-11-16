@@ -18,17 +18,17 @@ relations:
 
 - CoreはToolの登録・検索・呼出の転送・実行時の権限検証を担う MUST
 - Coreは候補を勝手に選択してはならない MUST NOT
-- Tool呼出は `registrationId + toolPath` による厳格指定でなければならない MUST
+- Tool呼出は `linkId + toolPath` による厳格指定でなければならない MUST
 - 呼出元Pluginは、候補のフィルタリング・Default管理・選択UI・単発/複数実行の判断を自前で行う MUST
 - Discoveryは Tag + Input Schema + Output Schema で検索できなければならない MUST
-- Discovery結果は基本的に `registrationId + toolPath` のみとする SHOULD（Node等の追加情報は必要時に別APIから取得）
+- Discovery結果は基本的に `linkId + toolPath` のみとする SHOULD（Node等の追加情報は必要時に別APIから取得）
 
 ## 受入基準
 
 ```text
 Tool Discovery（Tag + Input/Output Schema）
     ↓
-候補一覧（registrationId + toolPath）
+候補一覧（linkId + toolPath）
     ↓
 呼出元Pluginがフィルタリング・選択
     ↓

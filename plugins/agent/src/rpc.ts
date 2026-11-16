@@ -60,7 +60,7 @@ export class Conn {
   }
 
   private nextId(): string {
-    return `p-${++this.seq}`;
+    return `plugin-${++this.seq}`;
   }
 
   /** request を送り、responseを待つ。 */

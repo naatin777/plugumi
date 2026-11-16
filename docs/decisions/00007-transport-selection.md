@@ -1,6 +1,6 @@
 ---
 type: decision
-title: 通信transport — REST基本 + WS非同期channel
+title: 通信transport — REST基本 + WStransport
 description: Core↔Plugin通信をHTTP/1.1+JSON RESTとWebSocket+JSON-RPC 2.0の2層で構成する理由。gRPC・Connect等の不採用理由を含む。
 status: draft
 relations:
@@ -15,18 +15,18 @@ Core↔Plugin通信のtransportとメッセージ形式を決める必要があ�
 
 - 当初: gRPC/Protobuf 双方向Stream（後に廃止）
 - その後: HTTP/JSON + Session Handshake（旧ADR-0079。当時WebSocketを明示的に不採用）
-- 本設計: WebSocket + JSON-RPC 2.0 の非同期channelを追加（旧ADR-0024の接続方向は継承）
+- 本設計: WebSocket + JSON-RPC 2.0 のtransportを追加（旧ADR-0024の接続方向は継承）
 
 これは通信モデルの変化であり、接続方向等の設計判断まで変わったわけではない。前提となる要件:
 
 - Plugin serverは**多様な言語で書ける**ことが必須。言語によって得意不得意があるため、Plugin実装言語を絞らない
-- request/responseで足りる処理（宣言・検索・Session管理）と、push・途中出力が要る処理（Tool呼出の中間出力等）が混在する
+- request/responseで足りる処理（宣言・検索・Link管理）と、push・途中出力が要る処理（Tool呼出の中間出力等）が混在する
 - Plugin→Core方向の送信は「いつでも・継続的に」起こり、RESTのrequest/responseでは表しにくい
 
 ## 決定
 
 - **基本は HTTP/1.1 + JSON のREST**（`docs/contracts/00001`）。OpenAPI化も見据える
-- **非同期channelは WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）。Tool呼出・途中出力等、request/responseで表せない送信をここに載せる
+- **transportは WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）。Tool呼出・途中出力等、request/responseで表せない送信をここに載せる
 - JSON-RPC 2.0 は基本的な Request・Response・Notification の形だけを提供する。途中出力・Queue・通知・キャンセル等のPlugumi固有の振る舞いは別のContract/Designで定義する（呼出形態は `docs/contracts/00003` で定義）
 
 ## 代替案

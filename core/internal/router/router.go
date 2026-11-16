@@ -26,7 +26,7 @@ type Route struct {
 	CallerID json.RawMessage // caller側conn上のid
 	Target   *rpc.Conn
 	TargetID json.RawMessage // Coreが発行したforward id
-	RegID    string
+	LinkID   string
 	ToolPath string
 	Kind     string
 }
@@ -46,16 +46,16 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 		return nil, &wire.Error{Code: -32602, Message: "invalid params"}
 	}
 
-	session, ok := r.registry.FindRegistration(params.Target.RegistrationID)
+	link, ok := r.registry.Find(params.Target.LinkID)
 	if !ok {
-		return nil, &wire.Error{Code: -32602, Message: "no such registrationId: " + params.Target.RegistrationID}
+		return nil, &wire.Error{Code: -32602, Message: "no such linkId: " + params.Target.LinkID}
 	}
-	if session.Channel() == nil {
-		return nil, &wire.Error{Code: -32000, Message: "plugin channel unavailable"}
+	if link.Transport() == nil {
+		return nil, &wire.Error{Code: -32000, Message: "plugin transport unavailable"}
 	}
 	kind := "sync"
 	toolFound := false
-	for _, tool := range session.Tools() {
+	for _, tool := range link.Tools() {
 		if tool.ToolPath == params.Target.ToolPath {
 			toolFound = true
 			kind = tool.Kind
@@ -65,12 +65,12 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 		return nil, &wire.Error{Code: -32601, Message: "no such toolPath: " + params.Target.ToolPath}
 	}
 
-	target := session.Channel()
+	target := link.Transport()
 	forwardID := target.NextID()
 	route := &Route{
 		Caller: caller, CallerID: message.ID,
 		Target: target, TargetID: forwardID,
-		RegID: params.Target.RegistrationID, ToolPath: params.Target.ToolPath, Kind: kind,
+		LinkID: params.Target.LinkID, ToolPath: params.Target.ToolPath, Kind: kind,
 	}
 	r.mu.Lock()
 	r.routes[routeKey(target, forwardID)] = route
@@ -216,7 +216,7 @@ func (r *Router) DropConn(c *rpc.Conn) {
 		if route.Target == c && route.Caller != c {
 			_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
 				CallID: route.CallerID,
-				Error:  &wire.Error{Code: -32000, Message: "target channel closed"},
+				Error:  &wire.Error{Code: -32000, Message: "target transport closed"},
 			})
 		}
 		if route.Caller == c && route.Target != c {
