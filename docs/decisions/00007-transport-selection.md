@@ -11,6 +11,8 @@ relations:
 
 ## コンテキスト
 
+> **注記（`docs/decisions/00010` で上書き）**: 「REST基本 + WS transport」の2層構成は、Core↔Plugin通信をWS+JSON-RPC 2.0に一本化する決定に置き換わった。REST+OpenAPIはCore管理・UI向けAPIとしてのみ残る。
+
 Core↔Plugin通信のtransportとメッセージ形式を決める必要がある。旧実装では方針が段階的に変わってきた:
 
 - 当初: gRPC/Protobuf 双方向Stream（後に廃止）

@@ -24,8 +24,8 @@ Coreはメモリ上に **Link Registry** を持つ。永続化しない（`docs/
 Link {
   linkId           // Core発行、Link識別・Tool呼び出しの宛先識別を兼ねる
   plugin: { id, version?, name? }   // link.hello応答の識別情報
-  endpoint         // Pluginの接続先（Core→Plugin REST用）
-  tools: ToolDecl[]        // tools.set で置き換えられる宣言リスト
+  endpoint         // Pluginの接続先（Core→Plugin WS接続用）
+  tools: ToolDeclaration[]   // tools.set で置き換えられる宣言リスト
   nodes: NodeDecl[]        // Node宣言は後続contract
   lastPingAt       // link.ping の最終受信時刻
   state: active | expired

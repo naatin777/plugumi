@@ -26,7 +26,7 @@ UI Host上に表示されるPlugin提供のUI面。Panel↔Plugin間の通信は
 
 ### Link
 
-CoreとPluginが確立する1つの接続・登録単位。`link.hello` で始まり失効で終わる。`linkId` で識別。Tool呼び出しの宛先でもある。
+CoreとPluginが確立する1つの接続・登録単位。transport上の `link.hello` で始まり、transport切断または失効で終わる。`linkId` で識別。Tool呼び出しの宛先でもある。
 
 ### linkId
 
@@ -34,11 +34,7 @@ Core発行の一意ID。同一Plugin実装の複数接続（複数Core・複数E
 
 ### Transport
 
-Link配下の双方向通信路（MVPではWebSocket + JSON-RPC 2.0）。transportの切断とLinkの失効は別のライフサイクル。
-
-### core_url
-
-handshakeでCoreがPluginへ伝えるCore自身のURL。Plugin→Core操作・Plugin UIからの到達に使う。
+Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。CoreがPluginへ接続を開始し、全operationがこの1本を流れる。transportの寿命とLinkの寿命は一致する。
 
 ### Node
 

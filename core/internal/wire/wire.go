@@ -6,12 +6,14 @@ import (
 	"fmt"
 )
 
-// ---- REST ----
+// ---- Link確立（transport上のJSON-RPC） ----
 
+// HelloRequest は link.hello（Core→Plugin request）のparams。
+// PluginはCoreのURLを知らないため、渡すのは識別子のみ。
 type HelloRequest struct {
 	LinkID string `json:"linkId"`
 	Core   struct {
-		URL     string `json:"url"`
+		ID      string `json:"id"`
 		Version string `json:"version,omitempty"`
 	} `json:"core"`
 }
@@ -35,31 +37,36 @@ type ToolDeclaration struct {
 	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
 }
 
+// ToolsSetRequest は tools.set（Plugin→Core request）のparams。
+// transportがLinkに紐付くため linkId は持たない。
 type ToolsSetRequest struct {
-	LinkID string            `json:"linkId"`
-	Tools  []ToolDeclaration `json:"tools"`
+	Tools []ToolDeclaration `json:"tools"`
 }
 
-type PingRequest struct {
-	LinkID string `json:"linkId"`
+type ToolsSetResult struct {
+	Count int `json:"count"`
 }
 
-type ToolsListRequest struct {
-	LinkID string `json:"linkId"`
-}
-
+// ListedTool は tools.catalog・管理REST tools.list の1要素。
+// linkId がTool呼び出しの宛先になる。
 type ListedTool struct {
 	LinkID string `json:"linkId"`
 	ToolDeclaration
 }
 
-type ToolsListResponse struct {
+// ToolsCatalogParams は tools.catalog（Core→Plugin notification）のparams。
+// 登録中の全Toolを全置換でpushする。
+type ToolsCatalogParams struct {
 	Tools []ListedTool `json:"tools"`
 }
 
-// PluginsAddRequest はPlugin Endpointの動的登録（POST /v1/plugins）。
+// PluginsAddRequest は plugins.add（transport）と管理REST POST /v1/plugins のparams。
 // 登録は受理のみ。Linkの確立は非同期（connectorが再試行する）。
 type PluginsAddRequest struct {
+	Endpoint string `json:"endpoint"`
+}
+
+type PluginsAddResult struct {
 	Endpoint string `json:"endpoint"`
 }
 
@@ -71,7 +78,7 @@ type RegisteredPlugin struct {
 	PluginID string `json:"pluginId,omitempty"`
 }
 
-type PluginsListResponse struct {
+type PluginsListResult struct {
 	Plugins []RegisteredPlugin `json:"plugins"`
 }
 
@@ -133,10 +140,16 @@ func Unmarshal(raw json.RawMessage, v any) error {
 }
 
 const (
-	MethodCall       = "tools.call"
-	MethodCallOutput = "tools.call.output"
-	MethodCallResult = "tools.call.result"
-	MethodCallClose  = "tools.call.close"
+	MethodLinkHello    = "link.hello"
+	MethodLinkPing     = "link.ping"
+	MethodToolsSet     = "tools.set"
+	MethodToolsCatalog = "tools.catalog"
+	MethodPluginsAdd   = "plugins.add"
+	MethodPluginsList  = "plugins.list"
+	MethodCall         = "tools.call"
+	MethodCallOutput   = "tools.call.output"
+	MethodCallResult   = "tools.call.result"
+	MethodCallClose    = "tools.call.close"
 )
 
 type CallTarget struct {

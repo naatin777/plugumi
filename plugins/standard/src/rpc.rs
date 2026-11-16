@@ -2,15 +2,16 @@
 //! request/response のid相関と、相手からのrequest・notificationの配送を担う。
 //! 同一conn上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
 //! （docs/contracts/00003「idの一意性」）。
+//!
+//! Pluginは接続を開始しない。CoreがupgradeしたWSをattachして使う。
 
+use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
-use tokio_tungstenite::connect_async;
-use tokio_tungstenite::tungstenite::Message;
 
 use crate::wire::{Incoming, Notification, Response, RpcError};
 
@@ -25,16 +26,13 @@ pub struct Conn {
 }
 
 impl Conn {
-    /// WS接続を開き、受信pumpを開始する。
+    /// CoreがupgradeしたWSに取り付け、受信pumpを開始する。
     /// `handler` はrequest/notificationを受け取る（responseは内部で相関処理）。
-    pub async fn connect<F>(
-        url: &str,
-        handler: F,
-    ) -> Result<(Self, tokio::task::JoinHandle<()>), String>
+    /// 返り値のJoinHandleはtransport切断で終了する。
+    pub fn attach<F>(ws: WebSocket, handler: F) -> (Self, tokio::task::JoinHandle<()>)
     where
         F: Fn(Incoming, Conn) + Send + Sync + 'static,
     {
-        let (ws, _) = connect_async(url).await.map_err(|e| e.to_string())?;
         let (mut sink, mut stream) = ws.split();
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
         let pending: PendingMap = Arc::new(Mutex::new(HashMap::new()));
@@ -76,7 +74,7 @@ impl Conn {
                 }
             }
         });
-        Ok((conn, handle))
+        (conn, handle)
     }
 
     fn next_id(&self) -> Value {

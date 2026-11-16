@@ -1,7 +1,7 @@
-// Package server はPlugin→Core側のHTTP server。
-// REST呼び出し（tools.set/ping/tools.list）はOpenAPI (huma) で定義し、
-// transportの受付はOpenAPI対象外としてraw handlerのまま同居させる
-// （docs/contracts/00001・00002）。
+// Package server は管理REST API（UI Host・人間向け）と、
+// transport上のPlugin→Coreメッセージの振り分けを担う。
+// RESTはOpenAPI (huma) で定義する。PluginはこのAPIを使わない
+// （docs/contracts/00001・00002、decisions/00010）。
 package server
 
 import (
@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/coder/websocket"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
@@ -71,34 +70,23 @@ type Server struct {
 }
 
 func New(registry *registry.Registry, router *router.Router, connector *connector.Connector) *Server {
-	return &Server{registry: registry, router: router, connector: connector}
+	s := &Server{registry: registry, router: router, connector: connector}
+	// transport上のPlugin→Coreメッセージをここで捌く。
+	connector.OnRequest = s.onLinkRequest
+	connector.OnNotif = s.onLinkNotif
+	connector.OnCatalogChanged = connector.BroadcastCatalog
+	return s
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	api := humago.New(mux, huma.DefaultConfig("Plugumi Core", "0.1.0"))
 
-	// transportはOpenAPI対象外。同じmuxにraw handlerで同居させる。
-	mux.HandleFunc("GET /v1/transport", s.handleTransport)
-
-	huma.Register(api, huma.Operation{
-		OperationID: "tools-set",
-		Method:      http.MethodPost,
-		Path:        "/v1/tools/set",
-		Summary:     "Tool宣言のアトミック置換",
-		Description: "このLinkが提供するTool一覧を置き換える。接続時と宣言変更時に呼ぶ。",
-	}, s.toolsSet)
-	huma.Register(api, huma.Operation{
-		OperationID: "link-ping",
-		Method:      http.MethodPost,
-		Path:        "/v1/link/ping",
-		Summary:     "Linkを維持するping",
-	}, s.ping)
 	huma.Register(api, huma.Operation{
 		OperationID: "tools-list",
 		Method:      http.MethodPost,
 		Path:        "/v1/tools/list",
-		Summary:     "登録中の全Toolを返す最小Discovery（MVP暫定）",
+		Summary:     "登録中の全Toolを返す（管理・UI向け）",
 	}, s.toolsList)
 	huma.Register(api, huma.Operation{
 		OperationID: "plugins-add",
@@ -140,61 +128,16 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 
-// ---- huma operations ----
+// ---- 管理REST operations ----
 
-type ToolsSetInput struct {
-	Body wire.ToolsSetRequest
-}
-type ToolsSetOutput struct {
-	Body struct {
-		Count int `json:"count"`
-	}
-}
-
-func (s *Server) toolsSet(_ context.Context, input *ToolsSetInput) (*ToolsSetOutput, error) {
-	if err := s.registry.SetTools(input.Body.LinkID, input.Body.Tools); err != nil {
-		if errors.Is(err, registry.ErrNoLink) {
-			return nil, newErr(http.StatusUnauthorized, "unknown_link", "unknown linkId")
-		}
-		return nil, newErr(http.StatusConflict, "duplicate_tool_path", err.Error())
-	}
-	if link, ok := s.registry.Find(input.Body.LinkID); ok {
-		log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), link.Plugin().ID)
-	}
-	out := &ToolsSetOutput{}
-	out.Body.Count = len(input.Body.Tools)
-	return out, nil
-}
-
-type PingInput struct {
-	Body wire.PingRequest
-}
-type PingOutput struct {
-	Body struct {
-		Ok bool `json:"ok"`
-	}
-}
-
-func (s *Server) ping(_ context.Context, input *PingInput) (*PingOutput, error) {
-	if err := s.registry.Touch(input.Body.LinkID); err != nil {
-		return nil, newErr(http.StatusUnauthorized, "unknown_link", "unknown linkId")
-	}
-	out := &PingOutput{}
-	out.Body.Ok = true
-	return out, nil
-}
-
-type ToolsListInput struct {
-	Body wire.ToolsListRequest
-}
+type ToolsListInput struct{}
 type ToolsListOutput struct {
-	Body wire.ToolsListResponse
+	Body struct {
+		Tools []wire.ListedTool `json:"tools"`
+	}
 }
 
-func (s *Server) toolsList(_ context.Context, input *ToolsListInput) (*ToolsListOutput, error) {
-	if _, ok := s.registry.Find(input.Body.LinkID); !ok {
-		return nil, newErr(http.StatusUnauthorized, "unknown_link", "unknown linkId")
-	}
+func (s *Server) toolsList(_ context.Context, _ *ToolsListInput) (*ToolsListOutput, error) {
 	out := &ToolsListOutput{}
 	out.Body.Tools = s.registry.AllTools()
 	return out, nil
@@ -204,83 +147,107 @@ type PluginsAddInput struct {
 	Body wire.PluginsAddRequest
 }
 type PluginsAddOutput struct {
-	Body struct {
-		Endpoint string `json:"endpoint"`
-	}
+	Body wire.PluginsAddResult
 }
 
 func (s *Server) pluginsAdd(_ context.Context, input *PluginsAddInput) (*PluginsAddOutput, error) {
-	endpoint := input.Body.Endpoint
-	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-		return nil, newErr(http.StatusBadRequest, "invalid_endpoint",
-			"endpoint must be an http(s) URL")
+	if err := validateEndpoint(input.Body.Endpoint); err != nil {
+		return nil, newErr(http.StatusBadRequest, "invalid_endpoint", err.Error())
 	}
-	if !s.connector.Watch(endpoint) {
+	if !s.connector.Watch(input.Body.Endpoint) {
 		return nil, newErr(http.StatusConflict, "duplicate_endpoint", "endpoint already registered")
 	}
-	log.Printf("[core] plugin endpoint registered: %s", endpoint)
+	log.Printf("[core] plugin endpoint registered: %s", input.Body.Endpoint)
 	out := &PluginsAddOutput{}
-	out.Body.Endpoint = endpoint
+	out.Body.Endpoint = input.Body.Endpoint
 	return out, nil
 }
 
+func validateEndpoint(endpoint string) error {
+	if !strings.HasPrefix(endpoint, "ws://") && !strings.HasPrefix(endpoint, "wss://") {
+		return errors.New("endpoint must be a ws(s):// URL")
+	}
+	return nil
+}
+
 type PluginsListOutput struct {
-	Body wire.PluginsListResponse
+	Body wire.PluginsListResult
 }
 
 func (s *Server) pluginsList(_ context.Context, _ *struct{}) (*PluginsListOutput, error) {
 	out := &PluginsListOutput{}
+	out.Body.Plugins = s.registeredPlugins()
+	return out, nil
+}
+
+func (s *Server) registeredPlugins() []wire.RegisteredPlugin {
+	var out []wire.RegisteredPlugin
 	for _, endpoint := range s.connector.Known() {
 		entry := wire.RegisteredPlugin{Endpoint: endpoint}
 		if link, ok := s.registry.FindEndpoint(endpoint); ok {
 			entry.LinkID = link.ID
 			entry.PluginID = link.Plugin().ID
 		}
-		out.Body.Plugins = append(out.Body.Plugins, entry)
+		out = append(out, entry)
 	}
-	return out, nil
+	return out
 }
 
-// ---- transport（OpenAPI対象外）----
+// ---- transport上のPlugin→Coreメッセージ ----
 
-// handleTransport はPlugin→Coreのtransport受付（hello後に接続される）。
-// ?linkId= でLinkに紐付ける。
-func (s *Server) handleTransport(w http.ResponseWriter, r *http.Request) {
-	linkID := r.URL.Query().Get("linkId")
-	link, ok := s.registry.Find(linkID)
-	if !ok {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
-			"code": "unknown_link", "message": "unknown linkId"}})
-		return
-	}
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"*"},
-	})
-	if err != nil {
-		log.Printf("[core] transport accept failed: %v", err)
-		return
-	}
-	conn := rpc.NewConn(c, "core-")
-	if err := s.registry.SetTransport(linkID, conn); err != nil {
-		conn.Close()
-		return
-	}
-	log.Printf("[core] transport: %s (%s)", link.Plugin().ID, linkID)
-
-	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
-		if message.Method == wire.MethodCall {
-			return s.router.HandleCall(conn, message)
-		}
+func (s *Server) onLinkRequest(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
+	switch message.Method {
+	case wire.MethodToolsSet:
+		return s.onToolsSet(conn, message)
+	case wire.MethodPluginsAdd:
+		return s.onPluginsAdd(message)
+	case wire.MethodPluginsList:
+		return wire.Marshal(wire.PluginsListResult{Plugins: s.registeredPlugins()}), nil
+	case wire.MethodCall:
+		return s.router.HandleCall(conn, message)
+	default:
 		return nil, &wire.Error{Code: -32601, Message: "method not found"}
 	}
-	conn.OnNotif = func(message *wire.Incoming) { s.router.DispatchNotif(conn, message) }
+}
 
-	err = conn.Run(r.Context())
-	log.Printf("[core] transport closed: %s (%s): %v", link.Plugin().ID, linkID, err)
-	s.router.DropConn(conn)
-	// transport切断はLink失効とは別（contracts/00002）— transportだけ外し、
-	// Linkはpingの失効か再helloでの差替えで消える。
-	s.registry.ClearTransport(linkID, conn)
+// onToolsSet はPluginのTool宣言をアトミック置換する。
+// transportがLinkに紐付くため linkId はparamsに無く、conn.LinkIDで引く。
+func (s *Server) onToolsSet(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
+	var params wire.ToolsSetRequest
+	if err := wire.Unmarshal(message.Params, &params); err != nil {
+		return nil, &wire.Error{Code: -32602, Message: "invalid params"}
+	}
+	if err := s.registry.SetTools(conn.LinkID, params.Tools); err != nil {
+		return nil, &wire.Error{Code: -32602, Message: err.Error()}
+	}
+	if link, ok := s.registry.Find(conn.LinkID); ok {
+		log.Printf("[core] tools.set: %d tool(s) from %s", len(params.Tools), link.Plugin().ID)
+	}
+	// tools.setはcatalogを変えるため、全Linkへpushし直す契約。
+	s.connector.BroadcastCatalog()
+	return wire.Marshal(wire.ToolsSetResult{Count: len(params.Tools)}), nil
+}
+
+func (s *Server) onPluginsAdd(message *wire.Incoming) (json.RawMessage, *wire.Error) {
+	var params wire.PluginsAddRequest
+	if err := wire.Unmarshal(message.Params, &params); err != nil {
+		return nil, &wire.Error{Code: -32602, Message: "invalid params"}
+	}
+	if err := validateEndpoint(params.Endpoint); err != nil {
+		return nil, &wire.Error{Code: -32602, Message: err.Error()}
+	}
+	if !s.connector.Watch(params.Endpoint) {
+		return nil, &wire.Error{Code: -32602, Message: "endpoint already registered"}
+	}
+	log.Printf("[core] plugin endpoint registered (via transport): %s", params.Endpoint)
+	return wire.Marshal(wire.PluginsAddResult{Endpoint: params.Endpoint}), nil
+}
+
+func (s *Server) onLinkNotif(conn *rpc.Conn, message *wire.Incoming) {
+	if message.Method == wire.MethodLinkPing {
+		// 最終応答時刻の更新。失効済みならもうLinkはない（何もしない）。
+		_ = s.registry.Touch(conn.LinkID)
+		return
+	}
+	s.router.DispatchNotif(conn, message)
 }

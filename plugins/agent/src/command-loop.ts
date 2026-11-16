@@ -1,10 +1,15 @@
 // 最小の呼び出し元コマンドループ。LLMなし・Queueなし。stdinから指示を受けて
-// tools.list / tools.call / tools.call.close を送り、
-// 応答と届くnotificationをstdoutに表示する。
+// tools.catalog / tools.call / tools.call.close / plugins.add / plugins.list を
+// transport上で送り、応答と届くnotificationをstdoutに表示する。
 
 import * as readline from "node:readline";
-import { currentLink, postJSON } from "./link.js";
-import { METHOD_CALL, METHOD_CALL_CLOSE } from "./wire.js";
+import { currentCatalog, currentLink } from "./link.js";
+import {
+  METHOD_CALL,
+  METHOD_CALL_CLOSE,
+  METHOD_PLUGINS_ADD,
+  METHOD_PLUGINS_LIST,
+} from "./wire.js";
 
 export function startCommandLoop(): void {
   const rl = readline.createInterface({ input: process.stdin });
@@ -22,13 +27,13 @@ async function handle(line: string): Promise<void> {
       case "":
         return;
       case "list":
-        await list();
+        list();
         return;
       case "call":
         await call(args);
         return;
       case "close":
-        await close(args);
+        close(args);
         return;
       case "register":
         await register(args);
@@ -47,16 +52,15 @@ async function handle(line: string): Promise<void> {
   }
 }
 
-async function list(): Promise<void> {
-  const link = currentLink();
-  if (!link) {
-    console.log("no link yet");
+// Tool一覧はCoreが接続時・変化時にpushするtools.catalogの最新版を見る
+// （docs/contracts/00001）。PluginがCoreへ問い合わせる必要はない。
+function list(): void {
+  const tools = currentCatalog();
+  if (tools.length === 0) {
+    console.log("(no tools yet)");
     return;
   }
-  const response = (await postJSON(`${link.coreUrl}/v1/tools/list`, {
-    linkId: link.linkId,
-  })) as { tools: unknown[] };
-  for (const tool of response.tools) console.log(JSON.stringify(tool));
+  for (const tool of tools) console.log(JSON.stringify(tool));
 }
 
 async function call(args: string[]): Promise<void> {
@@ -66,7 +70,7 @@ async function call(args: string[]): Promise<void> {
     return;
   }
   const link = currentLink();
-  if (!link?.conn) {
+  if (!link) {
     console.log("no link yet");
     return;
   }
@@ -82,10 +86,10 @@ async function call(args: string[]): Promise<void> {
   );
 }
 
-async function close(args: string[]): Promise<void> {
+function close(args: string[]): void {
   const [callId] = args;
   const link = currentLink();
-  if (!callId || !link?.conn) {
+  if (!callId || !link) {
     console.log("usage: close <callId>");
     return;
   }
@@ -93,7 +97,7 @@ async function close(args: string[]): Promise<void> {
   console.log(`[close] sent for ${callId}`);
 }
 
-// Plugin EndpointをCoreへ動的登録する（POST /v1/plugins）。
+// Plugin EndpointをCoreへ動的登録する（transport上の plugins.add request）。
 async function register(args: string[]): Promise<void> {
   const [endpoint] = args;
   const link = currentLink();
@@ -101,19 +105,18 @@ async function register(args: string[]): Promise<void> {
     console.log("usage: register <endpoint>");
     return;
   }
-  const response = await postJSON(`${link.coreUrl}/v1/plugins`, { endpoint });
-  console.log(`[register] ${JSON.stringify(response)}`);
+  const response = await link.conn.request(METHOD_PLUGINS_ADD, { endpoint });
+  console.log(`[register] ${JSON.stringify(response.result ?? response.error)}`);
 }
 
-// 登録済みPlugin Endpoint一覧（POST /v1/plugins/list）。
+// 登録済みPlugin Endpoint一覧（transport上の plugins.list request）。
 async function plugins(): Promise<void> {
   const link = currentLink();
   if (!link) {
     console.log("no link yet");
     return;
   }
-  const response = (await postJSON(`${link.coreUrl}/v1/plugins/list`, {})) as {
-    plugins: unknown[];
-  };
-  for (const plugin of response.plugins) console.log(JSON.stringify(plugin));
+  const response = await link.conn.request(METHOD_PLUGINS_LIST, {});
+  const result = response.result as { plugins?: unknown[] } | undefined;
+  for (const plugin of result?.plugins ?? []) console.log(JSON.stringify(plugin));
 }

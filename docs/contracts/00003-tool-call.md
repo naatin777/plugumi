@@ -72,7 +72,7 @@ sequenceDiagram
 
 | field | type | required | 意味 |
 |---|---|---|---|
-| `target.linkId` | string | yes | 呼び出し対象のLinkの `linkId`（`tools.list` で得る） |
+| `target.linkId` | string | yes | 呼び出し対象のLinkの `linkId`（`tools.catalog` で得る） |
 | `target.toolPath` | string | yes | 呼び出し対象のtoolPath |
 | `input` | any | no | Toolへの入力（toolPathごとのinputSchemaに従う） |
 
@@ -211,7 +211,7 @@ stateDiagram-v2
 | params不正・`linkId` 未知 | `-32602` | invalid params |
 | `toolPath` 未知 | `-32601` | no such toolPath |
 | method未知 | `-32601` | method not found |
-| transport未接続・転送失敗 | `-32000` | plugin transport unavailable / forward failed |
+| 転送失敗 | `-32000` | forward failed |
 | 対象conn切断でroute消失 | `-32000` | target transport closed |
 | Tool内部の失敗 | `-32000` 等 | toolPath側が選ぶ。暗黙の成功扱いはしない |
 
@@ -231,7 +231,6 @@ stateDiagram-v2
 
 - `input`・`payload`・終端resultの中身（toolPathごとのスキーマ。宣言側のinputSchema/outputSchemaが参照）
 - 受理response以外の追加受理情報（`accepted` 以外のfieldを将来足すか）
-- transport未接続時の待ち合わせ（即座に失敗か待機か。MVPは即座失敗）
 
 **未解決の問い（後で決める）:**
 

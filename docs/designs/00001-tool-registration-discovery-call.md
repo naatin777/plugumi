@@ -33,8 +33,7 @@ relations:
 
 ## インターフェース
 
-- 接続・Link・Tool宣言は `docs/contracts/00001`（HTTP+JSON REST、MVP）
-- transportは `docs/contracts/00002`（WebSocket + JSON-RPC 2.0、Tool呼び出し・途中出力用）
+- 接続・Link・Tool宣言は `docs/contracts/00001`・`00002`（WebSocket + JSON-RPC 2.0 に統一。Pluginは受動で、Coreが接続を開始する）
 - Tool Call・途中出力・購読・closeは `docs/contracts/00003`
 - Discovery・Node宣言のmethod形は後続contractで定義する
 

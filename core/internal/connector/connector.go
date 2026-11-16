@@ -1,42 +1,51 @@
-// Package connector はCore→Pluginへの接続試行（link.hello）。
-// Link確立は起動と分離する。到達不能なPluginは再試行を続けるだけ
-// （docs/contracts/00001「Plugin Endpointの解決」）。
+// Package connector はCore→Pluginへの接続（WS dial）とLink確立を担う。
+// 全ての接続はCoreが開始し、Pluginは受け付けるだけ
+// （docs/decisions/00010・contracts/00001）。
 package connector
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"github.com/naatin777/plugumi/core/internal/registry"
+	"github.com/naatin777/plugumi/core/internal/rpc"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
 const CoreVersion = "0.1.0"
 
-// Connector はPlugin Endpointへの接続試行を管理する。
-// 静的configと動的登録（POST /v1/plugins）の両方からWatchを受け、
-// Endpointごとに接続loopを1本だけ起動する。
+// Connector はPlugin EndpointへのWS接続を管理する。
+// 静的configと動的登録（POST /v1/plugins・plugins.add）の両方から
+// Watchを受け、Endpointごとに接続loopを1本だけ起動する。
 // Endpointの集合はLinkとは別に持つ。Link未確立（到達不能）でも
 // 再登録を防げるようにするため。
 type Connector struct {
 	ctx       context.Context // loopの寿命はCoreプロセス
 	links     *registry.Registry
-	coreURL   string
+	coreID    string
 	mu        sync.Mutex
 	endpoints map[string]struct{}
+
+	// transport上のPlugin→Coreメッセージの振り分け先。
+	// serverがmessage semanticsを実装して設定する。
+	OnRequest func(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error)
+	OnNotif   func(conn *rpc.Conn, message *wire.Incoming)
+	// Link確立・失効のたびにtools.catalogを全Linkへ送る契約のため、
+	// catalogの変化時に呼ばれる（serverが設定）。
+	OnCatalogChanged func()
 }
 
-func New(ctx context.Context, links *registry.Registry, coreURL string) *Connector {
-	return &Connector{ctx: ctx, links: links, coreURL: coreURL, endpoints: map[string]struct{}{}}
+func New(ctx context.Context, links *registry.Registry, coreID string) *Connector {
+	return &Connector{ctx: ctx, links: links, coreID: coreID, endpoints: map[string]struct{}{}}
 }
 
 // Watch はEndpointへの接続loopを開始する。既知のEndpointならfalse。
@@ -74,12 +83,14 @@ func (c *Connector) loop(endpoint string) {
 		default:
 		}
 		if _, ok := c.links.FindEndpoint(endpoint); !ok {
-			if err := hello(c.links, endpoint, c.coreURL); err != nil {
+			if err := c.connect(endpoint); err != nil {
 				if !failed {
 					log.Printf("[core] plugin %s unreachable: %v (retrying)", endpoint, err)
 					failed = true
 				}
 			} else {
+				// connectはtransportが生きている間ブロックする。
+				// 戻った=Link失効なので再試行に戻る。
 				failed = false
 			}
 		}
@@ -91,10 +102,10 @@ func (c *Connector) loop(endpoint string) {
 	}
 }
 
-// newID はUUIDv4形式のランダムIDをprefix付きで発行する。
-// 逐次カウンターにしない理由: hello失敗でIDが消費されるのを避けるのと、
+// NewID はUUIDv4形式のランダムIDをprefix付きで発行する。
+// 逐次カウンターにしない理由: 接続失敗でIDが消費されるのを避けるのと、
 // LinkがCore再起動・複数Core間で実質一意であってほしいため。
-func newID(prefix string) string {
+func NewID(prefix string) string {
 	var b [16]byte
 	_, _ = rand.Read(b[:])
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
@@ -103,42 +114,87 @@ func newID(prefix string) string {
 	return fmt.Sprintf("%s%s-%s-%s-%s-%s", prefix, s[0:8], s[8:12], s[12:16], s[16:20], s[20:32])
 }
 
-// hello は link.hello（Core → Plugin）。IDを払い出してLinkを登録する。
-// Linkはhello送信「前」に登録する。Pluginはhello応答と並行して
-// tools.set・transport接続を開始し得るため、応答を受けてから登録すると
-// tools.set が unknown_link で落ちる競合になる（contracts/00002）。
-func hello(links *registry.Registry, endpoint, coreURL string) error {
+// connect はEndpointへのWS接続とlink.helloを行い、確立したLinkで
+// transportが生きている間ブロックする。切断したらLinkを失効させて戻る。
+func (c *Connector) connect(endpoint string) error {
+	wsURL := endpoint + "/v1/transport"
+	raw, _, err := websocket.Dial(c.ctx, wsURL, nil)
+	if err != nil {
+		return err
+	}
+	conn := rpc.NewConn(raw, "core-")
+	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
+		if c.OnRequest != nil {
+			return c.OnRequest(conn, message)
+		}
+		return nil, &wire.Error{Code: -32601, Message: "method not found"}
+	}
+	conn.OnNotif = func(message *wire.Incoming) {
+		if c.OnNotif != nil {
+			c.OnNotif(conn, message)
+		}
+	}
+	// 受信ループを先に動かす。RequestはRunが応答を配送しない限り
+	// 完了しないため、hello送信の前に起動が必要。
+	connDone := make(chan error, 1)
+	go func() { connDone <- conn.Run(c.ctx) }()
+
 	link := &registry.Link{
-		ID:        newID("link-"),
+		ID:        NewID("link-"),
 		Endpoint:  endpoint,
 		CreatedAt: time.Now(),
 	}
-	link.Touch() // 失効判定の基準時刻を登録直後に合わせる
-	links.Add(link)
+	conn.LinkID = link.ID
+	link.BindTransport(conn)
+	link.Touch() // 失効判定の基準時刻を接続直後に合わせる
+	c.links.Add(link)
 
+	// hello応答を待つ前にPluginが tools.set を送り得るため、
+	// Linkは送信「前」に登録する（docs/contracts/00001）。
 	var req wire.HelloRequest
 	req.LinkID = link.ID
-	req.Core.URL = coreURL
+	req.Core.ID = c.coreID
 	req.Core.Version = CoreVersion
 
-	body, _ := json.Marshal(req)
-	client := &http.Client{Timeout: 5 * time.Second}
-	res, err := client.Post(endpoint+"/v1/link/hello", "application/json", bytes.NewReader(body))
+	helloCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+	defer cancel()
+	res, err := conn.Request(helloCtx, wire.MethodLinkHello, req)
 	if err != nil {
-		links.Remove(link.ID)
+		c.links.Remove(link.ID)
+		conn.Close()
+		return fmt.Errorf("hello: %w", err)
+	}
+	if res.Error != nil {
+		c.links.Remove(link.ID)
+		conn.Close()
+		return fmt.Errorf("hello: %s", res.Error.Message)
+	}
+	var helloResult wire.HelloResponse
+	if err := wire.Unmarshal(res.Result, &helloResult); err != nil {
+		c.links.Remove(link.ID)
+		conn.Close()
 		return err
 	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		links.Remove(link.ID)
-		return fmt.Errorf("hello: %s", res.Status)
-	}
-	var helloResponse wire.HelloResponse
-	if err := json.NewDecoder(res.Body).Decode(&helloResponse); err != nil {
-		links.Remove(link.ID)
-		return err
-	}
-	link.SetPlugin(helloResponse.Plugin)
+	link.SetPlugin(helloResult.Plugin)
 	log.Printf("[core] link: %s (%s) → %s", link.Plugin().ID, link.ID, endpoint)
-	return nil
+	if c.OnCatalogChanged != nil {
+		c.OnCatalogChanged()
+	}
+
+	err = <-connDone
+	log.Printf("[core] transport closed: %s (%s): %v", link.Plugin().ID, link.ID, err)
+	// transport切断 = Link失効（contracts/00002）。Tool宣言・callはすべて消える。
+	c.links.Remove(link.ID)
+	return err
+}
+
+// BroadcastCatalog は登録中の全Toolを tools.catalog として全Linkへ送る。
+// catalogの内容が変わる契機（Link確立・失効・tools.set受理）で呼ぶ。
+func (c *Connector) BroadcastCatalog() {
+	params := wire.ToolsCatalogParams{Tools: c.links.AllTools()}
+	for _, l := range c.links.All() {
+		if conn := l.Transport(); conn != nil {
+			_ = conn.Notify(wire.MethodToolsCatalog, params)
+		}
+	}
 }

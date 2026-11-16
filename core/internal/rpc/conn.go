@@ -23,6 +23,9 @@ var connCounter atomic.Int64
 type Conn struct {
 	ID       string
 	IDPrefix string
+	// LinkID はこのconnが紐付くLink。transportとLinkは1対1。
+	// Core側ではconn→Linkの逆引きに使う（設定はconnector）。
+	LinkID string
 
 	c       *websocket.Conn
 	writeMu sync.Mutex

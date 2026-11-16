@@ -40,12 +40,12 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 ## 依存・信頼境界
 
-- Core ↔ Plugin: 基本はHTTP+JSON REST、transportはWebSocket + JSON-RPC 2.0（`docs/contracts/00001` `00002`）。接続は **Core → Plugin** で、Pluginが待受する。handshake時にCoreが `core_url` をPluginへ伝える
+- Core ↔ Plugin: WebSocket + JSON-RPC 2.0 に統一（`docs/contracts/00001` `00002`、`docs/decisions/00010`）。接続は **Core → Plugin** で、Pluginは待受と応答だけを行い、CoreのURL・Domainを知らない
 
 ## Link / Transport / Node の関係
 
 - **Link**: CoreがPluginと確立する1つの接続・登録の単位。`link.hello` で開始し、Link失効で終わる。`linkId` がLink識別とTool呼び出しの宛先を兼ねる
-- **Transport**: Link配下の双方向通信路（MVPではWebSocket + JSON-RPC 2.0）。transport切断はLink失効とは別のライフサイクル
+- **Transport**: Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。transportの寿命とLinkの寿命は一致する
 - **Node**: Pluginが宣言する実行環境の共有識別。LinkがどのNodeで動くかの対応をCoreが保持する
 
 つまり `Link ⊃ (Transport・Tool宣言・Node宣言)` の包含関係で、MVPではすべてlink-scoped（`docs/decisions/00004`）。用語の定義は `docs/glossary.md` を正本とする。

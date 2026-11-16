@@ -13,7 +13,7 @@ import (
 // Coreは起動設定でPlugin Endpoint一覧を持ち、各Endpointへ接続を試みる。
 type Config struct {
 	Core struct {
-		// Coreの外部向けURL。Pluginへ渡すcore_urlにそのまま使う。
+		// Core管理REST APIの待受URL（Plugin向けではなく人間・UI向け）。
 		URL string `json:"url"`
 		// Listen はURLから導出した待受アドレス（host:port）。
 		// Loadが設定する派生値で、configファイルには書かない。
@@ -23,7 +23,7 @@ type Config struct {
 }
 
 type PluginEndpoint struct {
-	Endpoint string `json:"endpoint"` // PluginのHTTP base URL
+	Endpoint string `json:"endpoint"` // Pluginのws(s) URL
 }
 
 func Load(path string) (*Config, error) {
@@ -55,6 +55,12 @@ func Load(path string) (*Config, error) {
 		addr := net.ParseIP(host)
 		if addr == nil || !addr.IsLoopback() {
 			return nil, fmt.Errorf("%s: core.url must be a loopback address (got %q)", path, settings.Core.URL)
+		}
+	}
+	for i, plugin := range settings.Plugins {
+		u, err := url.Parse(plugin.Endpoint)
+		if err != nil || (u.Scheme != "ws" && u.Scheme != "wss") || u.Host == "" {
+			return nil, fmt.Errorf("%s: plugins[%d].endpoint must be a ws(s):// URL (got %q)", path, i, plugin.Endpoint)
 		}
 	}
 	settings.Core.Listen = parsed.Host

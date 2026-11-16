@@ -2,10 +2,20 @@
 // request/response のid相関と、相手からのrequest・notificationの配送を担う。
 // 同一conn上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
 // （docs/contracts/00003「idの一意性」）。
-// WS clientはNode 24のnative WebSocketを使う。
+//
+// Pluginは接続を開始しない。CoreがupgradeしたWSをattachして使う。
 
 import { isNotif, isRequest, isResponse } from "./wire.js";
 import type { Incoming, RpcError } from "./wire.js";
+
+// WebSocket実装差を吸収する最小IF。Core側がupgradeした
+// socket（wsパッケージのWebSocket等）をlink.tsがこの形に包んで渡す。
+export interface Socket {
+  send(data: string): void;
+  close(): void;
+  onMessage(listener: (data: string) => void): void;
+  onClose(listener: () => void): void;
+}
 
 type Pending = {
   resolve: (message: Incoming) => void;
@@ -20,11 +30,11 @@ export class Conn {
   onNotif?: (message: Incoming) => void;
   onClose?: () => void;
 
-  private constructor(private socket: WebSocket) {
-    socket.addEventListener("message", (event) => {
+  private constructor(private socket: Socket) {
+    socket.onMessage((data) => {
       let message: Incoming;
       try {
-        message = JSON.parse(String(event.data));
+        message = JSON.parse(data);
       } catch {
         return;
       }
@@ -41,7 +51,7 @@ export class Conn {
         }
       }
     });
-    socket.addEventListener("close", () => {
+    socket.onClose(() => {
       for (const entry of this.pending.values())
         entry.reject(new Error("conn closed"));
       this.pending.clear();
@@ -49,14 +59,12 @@ export class Conn {
     });
   }
 
-  static connect(url: string): Promise<Conn> {
-    return new Promise((resolve, reject) => {
-      const socket = new WebSocket(url);
-      socket.addEventListener("open", () => resolve(new Conn(socket)), { once: true });
-      socket.addEventListener("error", () => reject(new Error("ws connect failed")), {
-        once: true,
-      });
-    });
+  static attach(socket: Socket): Conn {
+    return new Conn(socket);
+  }
+
+  close(): void {
+    this.socket.close();
   }
 
   private nextId(): string {

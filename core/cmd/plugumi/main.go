@@ -28,20 +28,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	coreURL := settings.Core.URL
 
 	ctx := context.Background()
 	links := registry.New()
+	callRouter := router.New(links)
+	// core.idはプロセスごとの識別子。永続化は未解決
+	// （contracts/00001。再起動では旧Linkが失効期限で消える）。
+	pluginConnector := connector.New(ctx, links, connector.NewID("core-"))
 	links.OnExpired = func(link *registry.Link) {
 		// hello未完了で落ちたLink（plugin未到達のretry毎）はログを出さない。
 		if plugin := link.Plugin(); plugin.ID != "" {
 			log.Printf("[core] link expired: %s (%s)", plugin.ID, link.ID)
 		}
+		// Link失効でそのconnに紐付く経路を閉じる。閉じないと呼び出し中の
+		// 相手側（caller/target）に終端もcloseも届かない。
+		if conn := link.Transport(); conn != nil {
+			callRouter.DropConn(conn)
+		}
+		// Link失効でもcatalogが変わる（そのLinkのToolが消えるため）。
+		pluginConnector.BroadcastCatalog()
 	}
 	go links.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
-
-	callRouter := router.New(links)
-	pluginConnector := connector.New(ctx, links, coreURL)
 
 	// 設定された各Plugin Endpointへ接続を試みる（動的登録はPOST /v1/plugins）。
 	for _, plugin := range settings.Plugins {

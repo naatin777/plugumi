@@ -161,14 +161,10 @@ func (r *Registry) Touch(linkID string) error {
 	return nil
 }
 
-// SetTransport はLinkのtransportを接続する。
-func (r *Registry) SetTransport(linkID string, c *rpc.Conn) error {
-	l, ok := r.Find(linkID)
-	if !ok {
-		return ErrNoLink
-	}
+// SetTransport はLink生成時にtransportを結び付ける（Add前に呼ぶ）。
+// transport=Linkで1対1のため、後から差し替える用途はない。
+func (l *Link) BindTransport(c *rpc.Conn) {
 	l.SetTransport(c)
-	return nil
 }
 
 func (r *Registry) AllTools() []wire.ListedTool {
@@ -207,21 +203,8 @@ func (r *Registry) Remove(id string) {
 	r.teardown(l)
 }
 
-// ClearTransport はLinkの現行transportがこのconnのとき、transportだけを外す。
-// Link自体は消さない。transportの切断とLink失効は別
-// （docs/contracts/00002。Link寿命はlink.pingが管理する）。
-// Pluginは同じlinkIdでtransportを接続し直せる。
-func (r *Registry) ClearTransport(id string, c *rpc.Conn) {
-	l, ok := r.Find(id)
-	if !ok {
-		return
-	}
-	l.mu.Lock()
-	if l.transport == c {
-		l.transport = nil
-	}
-	l.mu.Unlock()
-}
+// transportとLinkの寿命は一致する（docs/contracts/00002）ため、
+// transportだけを外す操作は存在しない。切断時はLinkごと失効させる（Remove）。
 
 // teardown はLink失効の後始末（mapから外れた後に呼ぶ）。
 func (r *Registry) teardown(l *Link) {

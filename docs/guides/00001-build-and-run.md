@@ -36,33 +36,31 @@ cd core
 ```json
 {
   "core": { "url": "http://127.0.0.1:7700" },
-  "plugins": [ { "endpoint": "http://127.0.0.1:9001" } ]
+  "plugins": [ { "endpoint": "ws://127.0.0.1:9001" } ]
 }
 ```
 
-- `core.url`: Coreの外部向けURL。REST+WSの待受アドレス（host:port）はここから導出し、Pluginへ渡す`core_url`にもそのまま使う。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
-- `plugins[]`: 静的なPlugin Endpoint一覧。空でも起動できる
+- `core.url`: Coreの管理REST APIの待受URL（Plugin向けではなく人間・UI向け）。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
+- `plugins[]`: 静的なPlugin Endpoint一覧（`ws://` または `wss://` URL）。空でも起動できる
 
-### Coreが提供する操作
+### Coreが提供する操作（管理REST・Plugin向けではない）
 
 | 操作 | 内容 |
 |---|---|
 | `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（Link確立は非同期） |
 | `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId/pluginId付き） |
-| `POST /v1/tools/list` `{linkId}` | 登録中の全Tool（最小Discovery・暫定） |
-| `POST /v1/tools/set` `{linkId, tools}` | Tool宣言のアトミック置換（Pluginが呼ぶ） |
-| `POST /v1/link/ping` `{linkId}` | Linkを維持するping（Pluginが30秒間隔で呼ぶ） |
-| `GET /v1/transport?linkId=` | Plugin→Coreのtransport（呼び出し専用・OpenAPI対象外） |
+| `POST /v1/tools/list` | 登録中の全Tool（人間・UI向け確認用） |
 | `GET /openapi.json` | OpenAPI 3.1 spec（`/openapi.yaml`も） |
 | `GET /docs` | API仕様の閲覧UI（Stoplight Elements） |
 
 ### 動作モデル
 
-- CoreはPluginへ `POST /v1/link/hello` し、linkId（UUID）を払い出す
-- Pluginはhelloの `core_url` 宛てに `tools.set`・`ping`・transport接続を行う
-- ping 90秒無しでLink失効。transport切断はtransportを外すだけでLinkは残り、Pluginがtransportを接続し直す
-- Plugin再起動（再hello）は同endpointの旧Linkを差し替える
-- 1つのPluginに複数Coreが接続してよい（Core別のLinkが共存する）
+- CoreはPlugin Endpointへ WS接続（`GET /v1/transport`）を開始し、その上で `link.hello` を送ってlinkId（UUID）を払い出す
+- Pluginはhello応答のあと、同じWS上で `tools.set` を送る。Coreは `tools.catalog` で全Tool一覧をPluginへpushする
+- **PluginはCoreのURL・Domainを知らない**。全てCore→Pluginの接続で、Pluginは受け答えだけを行う
+- transport切断 = Link失効。再接続は新しいWS接続と `link.hello` からやり直し（新linkId）
+- ping 90秒無しでLink失効（半開き検出用）
+- 1つのPluginに複数Coreが接続してよい（`core.id` 別のLinkが共存する）
 
 ## 手順
 
@@ -70,7 +68,7 @@ cd core
 2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定 `127.0.0.1:9001`）
 3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定 `127.0.0.1:9002`、stdinコマンドループが開く）
 
-PluginはCoreを事前に知らない。Coreが `POST /v1/link/hello` で接続し、Pluginは受け取った `core_url` 宛てに `tools.set`・`ping`・transport接続を行う。
+PluginはCoreを知らない。CoreがWS接続を開いて `link.hello` を送り、Pluginは同じWS上で `tools.set`・`link.ping` を返すだけである。
 
 ## Pluginの動的登録
 
@@ -79,19 +77,19 @@ PluginはCoreを事前に知らない。Coreが `POST /v1/link/hello` で接続�
 ```sh
 curl -X POST http://127.0.0.1:7700/v1/plugins \
   -H 'content-type: application/json' \
-  -d '{"endpoint":"http://127.0.0.1:9001"}'
+  -d '{"endpoint":"ws://127.0.0.1:9001"}'
 ```
 
-登録は受理のみで、Link確立は非同期（Coreが再試行しながらhelloを送る）。登録済み一覧は `POST /v1/plugins/list`。agentのコマンドループからも `register <endpoint>`・`plugins` で操作できる。
+登録は受理のみで、Link確立は非同期（Coreが再試行しながらWS接続を試みる）。登録済み一覧は `POST /v1/plugins/list`。agentのコマンドループからも `register <endpoint>`・`plugins` で操作できる。
 
 動的登録はランタイムのみ（再起動で消える）。定常構成は `plugumi.json` に書く。
 
 ## 期待される結果
 
-Coreログに link → tools.set → transport が順に出る。agentのコマンドループで:
+Coreログに transport確立 → link.hello → tools.set が順に出る。agentのコマンドループで:
 
 ```
-list                                        # 登録済みの全Tool（linkId + toolPath）
+list                                        # tools.catalogで受け取った全Tool（linkId + toolPath）
 plugins                                     # 登録済みPlugin Endpoint一覧
 register <endpoint>                         # Plugin Endpointを動的登録
 call <linkId> echo {"hello":"w"}            # sync: responseに結果
@@ -105,4 +103,4 @@ call <agentのlinkId> agent/echo {}          # 自己呼び出し（呼び出し
 
 - `serve` のbind失敗はエラー終了（別portへの自動退避はしない）
 - Pluginを再起動すると新しい `linkId` が払い出される（link-scoped）
-- ping 30秒・失効90秒。Plugin再起動時は同endpointの旧Linkが新helloで差し替えられる
+- ping 30秒・失効90秒。Core再起動後はCoreが再dialし、同じ `core.id` の旧Linkは新helloで差し替えられる
