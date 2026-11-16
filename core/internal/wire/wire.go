@@ -76,6 +76,16 @@ type PluginsAddResult struct {
 	Endpoint string `json:"endpoint"`
 }
 
+// PluginsRemoveRequest は管理REST POST /v1/plugins/remove のbody。
+// 登録解除は受理のみ。Link失効・再試行停止は非同期。
+type PluginsRemoveRequest struct {
+	Endpoint string `json:"endpoint"`
+}
+
+type PluginsRemoveResult struct {
+	Endpoint string `json:"endpoint"`
+}
+
 // RegisteredPlugin は登録済みEndpoint1行分。Link未確立なら
 // linkId/pluginIdは空（接続再試行中）。
 type RegisteredPlugin struct {

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/coder/websocket"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
@@ -71,9 +72,11 @@ type Server struct {
 
 func New(registry *registry.Registry, router *router.Router, connector *connector.Connector) *Server {
 	s := &Server{registry: registry, router: router, connector: connector}
-	// transport上のPlugin→Coreメッセージをここで捌く。
-	connector.OnRequest = s.onLinkRequest
-	connector.OnNotif = s.onLinkNotif
+	// transport上のcall系メッセージをここで捌く。
+	// Plugin transport connとcaller channel connの両方に同じ振り分けを使う
+	// （Route.Callerはconn抽象で、Link所属を要求しない）。
+	connector.OnRequest = s.onTransportRequest
+	connector.OnNotif = s.onTransportNotif
 	connector.OnResponded = s.router.NotifyResponded
 	connector.OnCatalogChanged = connector.BroadcastCatalog
 	return s
@@ -102,6 +105,17 @@ func (s *Server) Handler() http.Handler {
 		Path:        "/v1/plugins/list",
 		Summary:     "登録済みPlugin Endpoint一覧",
 	}, s.pluginsList)
+	huma.Register(api, huma.Operation{
+		OperationID: "plugins-remove",
+		Method:      http.MethodPost,
+		Path:        "/v1/plugins/remove",
+		Summary:     "Plugin Endpointの登録解除",
+		Description: "Endpointを接続対象から外す。確立済みLinkは失効し、再試行loopは停止する。",
+	}, s.pluginsRemove)
+
+	// caller channel: Pluginでない呼び出し元（TUI・UI Host・スクリプト）が
+	// tools.call系だけを流すWS。Linkには紐付かず、connの寿命=接続の寿命。
+	mux.HandleFunc("/v1/call", s.handleCall)
 
 	// 未知のoperationも契約のエラー形で返す（contracts/00001）。
 	// ServeMuxはパターン競合で最長一致するため、"/" は未知pathだけに届く。
@@ -141,6 +155,10 @@ type ToolsListOutput struct {
 func (s *Server) toolsList(_ context.Context, _ *ToolsListInput) (*ToolsListOutput, error) {
 	out := &ToolsListOutput{}
 	out.Body.Tools = s.registry.AllTools()
+	// nilだと `"tools": null` になり受け手のdecodeが面倒になるため空配列に揃える
+	if out.Body.Tools == nil {
+		out.Body.Tools = []wire.ListedTool{}
+	}
 	return out, nil
 }
 
@@ -178,6 +196,26 @@ type PluginsListOutput struct {
 func (s *Server) pluginsList(_ context.Context, _ *struct{}) (*PluginsListOutput, error) {
 	out := &PluginsListOutput{}
 	out.Body.Plugins = s.registeredPlugins()
+	if out.Body.Plugins == nil {
+		out.Body.Plugins = []wire.RegisteredPlugin{}
+	}
+	return out, nil
+}
+
+type PluginsRemoveInput struct {
+	Body wire.PluginsRemoveRequest
+}
+type PluginsRemoveOutput struct {
+	Body wire.PluginsRemoveResult
+}
+
+func (s *Server) pluginsRemove(_ context.Context, input *PluginsRemoveInput) (*PluginsRemoveOutput, error) {
+	if !s.connector.Unwatch(input.Body.Endpoint) {
+		return nil, newErr(http.StatusNotFound, "unknown_endpoint", "endpoint not registered: "+input.Body.Endpoint)
+	}
+	log.Printf("[core] plugin endpoint unregistered: %s", input.Body.Endpoint)
+	out := &PluginsRemoveOutput{}
+	out.Body.Endpoint = input.Body.Endpoint
 	return out, nil
 }
 
@@ -194,15 +232,71 @@ func (s *Server) registeredPlugins() []wire.RegisteredPlugin {
 	return out
 }
 
-// ---- transport上のPlugin→Coreメッセージ（tools.call系のみ） ----
+// ---- caller channel（GET /v1/call） ----
 
-func (s *Server) onLinkRequest(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
+// handleCall はcaller向けWS upgradeを受け付ける。callerはLinkを持たず、
+// tools.call request・tools.call.close notificationを送り、responseと
+// output/result notificationを受け取る（contracts/00003のcaller側）。
+func (s *Server) handleCall(w http.ResponseWriter, r *http.Request) {
+	if !isWebSocketUpgrade(r) {
+		writeAPIError(w, http.StatusBadRequest, "invalid_params", "websocket upgrade required")
+		return
+	}
+	// Origin検証はしない。MVPはloopback限定で認証自体が未解決事項
+	// （contracts/00001）。将来のweb UI HostはbrowserがOriginを送るため、
+	// ここを締めるときはOriginPatternsの設計とセットで行う。
+	raw, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	if err != nil {
+		return // AcceptがHTTPエラー応答を書き込み済み
+	}
+	conn := rpc.NewConn(raw, "caller-")
+	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
+		return s.onTransportRequest(conn, message)
+	}
+	conn.OnNotif = func(message *wire.Incoming) {
+		s.onTransportNotif(conn, message)
+	}
+	conn.OnResponded = func(id json.RawMessage) {
+		s.router.NotifyResponded(conn, id)
+	}
+	go func() {
+		_ = conn.Run(context.Background())
+		// caller切断時、実行中callへはtarget側へcloseが転送される
+		// （router.DropConn。購読・長時間callを残さないため）。
+		s.router.DropConn(conn)
+	}()
+}
+
+func isWebSocketUpgrade(r *http.Request) bool {
+	if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	for _, value := range r.Header.Values("Connection") {
+		for _, token := range strings.Split(value, ",") {
+			if strings.EqualFold(strings.TrimSpace(token), "upgrade") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func writeAPIError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
+		"code": code, "message": message}})
+}
+
+// ---- transport上のcall系メッセージ（tools.call系のみ） ----
+
+func (s *Server) onTransportRequest(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
 	if message.Method == wire.MethodCall {
 		return s.router.HandleCall(conn, message)
 	}
 	return nil, &wire.Error{Code: -32601, Message: "method not found"}
 }
 
-func (s *Server) onLinkNotif(conn *rpc.Conn, message *wire.Incoming) {
+func (s *Server) onTransportNotif(conn *rpc.Conn, message *wire.Incoming) {
 	s.router.DispatchNotif(conn, message)
 }

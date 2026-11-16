@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -86,6 +87,31 @@ func (c *Connector) Known() []string {
 	return out
 }
 
+// Watched はEndpointが登録対象かを返す。
+func (c *Connector) Watched(endpoint string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, ok := c.endpoints[endpoint]
+	return ok
+}
+
+// Unwatch はEndpointの登録を解除する。接続loopは次の反復で自死し、
+// 確立済みLinkがあれば失効させる（transport切断相当。catalogも更新される）。
+// 戻り値は「登録が存在したか」。
+func (c *Connector) Unwatch(endpoint string) bool {
+	c.mu.Lock()
+	if _, ok := c.endpoints[endpoint]; !ok {
+		c.mu.Unlock()
+		return false
+	}
+	delete(c.endpoints, endpoint)
+	c.mu.Unlock()
+	if link, ok := c.links.FindEndpoint(endpoint); ok {
+		c.links.Remove(link.ID)
+	}
+	return true
+}
+
 // loop は1つのPlugin Endpointへの接続試行。Link確立まで再試行を続ける。
 func (c *Connector) loop(endpoint string) {
 	failed := false
@@ -94,6 +120,11 @@ func (c *Connector) loop(endpoint string) {
 		case <-c.ctx.Done():
 			return
 		default:
+		}
+		// Unwatch済みならloopを終える。connectがブロック中にUnwatchされても
+		// Link失効→transport切断でconnectが戻り、ここで検出される。
+		if !c.Watched(endpoint) {
+			return
 		}
 		if _, ok := c.links.FindEndpoint(endpoint); !ok {
 			if err := c.connect(endpoint); err != nil {
@@ -247,6 +278,12 @@ func (c *Connector) connect(endpoint string) error {
 	conn.LinkID = link.ID
 	link.BindTransport(conn)
 	c.links.Add(link)
+	// connect中にUnwatchされた場合、ここでLinkを残さない
+	// （残すと誰も監視しないLinkが生き続ける）。
+	if !c.Watched(endpoint) {
+		c.links.Remove(link.ID)
+		return errors.New("endpoint unwatched during connect")
+	}
 	connDone := make(chan error, 1)
 	go func() { connDone <- conn.Run(c.ctx) }()
 

@@ -1,13 +1,18 @@
-// plugumi core daemon。MVPは serve のみ（フォアグラウンド常駐）。
+// plugumi core。serveはheadless常駐、tuiは管理TUI
+// （core.urlに既にcoreが応答するならアタッチ、いなければ同時に起動）。
 package main
 
 import (
 	"context"
-	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/naatin777/plugumi/core/internal/config"
 	"github.com/naatin777/plugumi/core/internal/connector"
@@ -17,19 +22,56 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 || os.Args[1] != "serve" {
-		log.Fatalf("usage: plugumi serve [-config plugumi.json]")
+	root := &cobra.Command{
+		Use:   "plugumi",
+		Short: "Plugumi core",
 	}
-	serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
-	configPath := serveFlags.String("config", "plugumi.json", "config file path")
-	_ = serveFlags.Parse(os.Args[2:])
 
-	settings, err := config.Load(*configPath)
+	var serveConfig, tuiConfig string
+
+	serveCmd := &cobra.Command{
+		Use:          "serve",
+		Short:        "Run the core daemon in the foreground",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServe(serveConfig)
+		},
+	}
+	serveCmd.Flags().StringVar(&serveConfig, "config", "plugumi.json", "config file path")
+
+	tuiCmd := &cobra.Command{
+		Use:          "tui",
+		Short:        "Open the management TUI (starts core unless already running)",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTUI(tuiConfig)
+		},
+	}
+	tuiCmd.Flags().StringVar(&tuiConfig, "config", "plugumi.json", "config file path")
+
+	root.AddCommand(serveCmd, tuiCmd)
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// runtime はserveとtuiで共有するcoreの配線一式。
+type runtime struct {
+	ctx             context.Context
+	cancel          context.CancelFunc
+	settings        *config.Config
+	links           *registry.Registry
+	callRouter      *router.Router
+	pluginConnector *connector.Connector
+	srv             *http.Server
+}
+
+func newRuntime(configPath string) (*runtime, error) {
+	settings, err := config.Load(configPath)
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		return nil, err
 	}
-
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	links := registry.New()
 	callRouter := router.New(links)
 	// core.idはプロセスごとの識別子。永続化は未解決
@@ -48,16 +90,70 @@ func main() {
 		// Link失効でもcatalogが変わる（そのLinkのToolが消えるため）。
 		pluginConnector.BroadcastCatalog()
 	}
-	go links.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
+	return &runtime{
+		ctx: ctx, cancel: cancel, settings: settings,
+		links: links, callRouter: callRouter, pluginConnector: pluginConnector,
+		srv: &http.Server{
+			Addr:    settings.Core.Listen,
+			Handler: server.New(links, callRouter, pluginConnector).Handler(),
+		},
+	}, nil
+}
 
-	// 設定された各Plugin Endpointへ接続を試みる（動的登録はPOST /v1/plugins）。
-	for _, plugin := range settings.Plugins {
-		pluginConnector.Watch(plugin.Endpoint)
+// start はHTTP listenとPlugin Endpointへの接続loopを開始する。
+// listen失敗は同期的に返す（tuiがbind失敗のまま起動しないように）。
+func (r *runtime) start(configPath string) error {
+	for _, plugin := range r.settings.Plugins {
+		r.pluginConnector.Watch(plugin.Endpoint)
 	}
+	go r.links.ExpireLoop(r.ctx, 90*time.Second, 15*time.Second)
 
-	srv := &http.Server{Addr: settings.Core.Listen, Handler: server.New(links, callRouter, pluginConnector).Handler()}
-	log.Printf("[core] listening on %s (config %s)", settings.Core.Listen, *configPath)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("serve: %v", err)
+	listener, err := net.Listen("tcp", r.settings.Core.Listen)
+	if err != nil {
+		return err
 	}
+	log.Printf("[core] listening on %s (config %s)", r.settings.Core.Listen, configPath)
+	go func() {
+		if err := r.srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("serve: %v", err)
+		}
+	}()
+	return nil
+}
+
+// shutdown はHTTP serverと全接続loopを止める。
+func (r *runtime) shutdown() {
+	r.cancel()
+	if r.srv != nil {
+		_ = r.srv.Close()
+	}
+}
+
+func runServe(configPath string) error {
+	rt, err := newRuntime(configPath)
+	if err != nil {
+		return err
+	}
+	defer rt.shutdown()
+	if err := rt.start(configPath); err != nil {
+		return err
+	}
+	// SIGINT/SIGTERMまでブロック。gracefulにconnector loopとLinkを畳む。
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	<-sigCh
+	return nil
+}
+
+// coreIsRunning はcore.urlの管理RESTが応答するかを調べる。
+// 200が返ればserve済みのcoreへTUIがアタッチできる。
+func coreIsRunning(coreURL string) bool {
+	client := &http.Client{Timeout: 800 * time.Millisecond}
+	resp, err := client.Post(coreURL+"/v1/tools/list", "application/json", nil)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }

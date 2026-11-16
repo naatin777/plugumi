@@ -115,7 +115,7 @@ HTTP段階では、次の形のbodyで返す。
 |---|---|---|
 | 400 | `invalid_params` | 必須フィールドの欠落・型の不一致 |
 | 400 | `invalid_endpoint` | `POST /v1/plugins` のendpointがhttp(s) URLでない |
-| 404 | `unknown_endpoint` | 存在しないoperation・path |
+| 404 | `unknown_endpoint` | 存在しないoperation・path、または未登録endpointへの `POST /v1/plugins/remove` |
 | 404 | `unknown_link` | `linkId` が現存しない（transport upgrade・ping等） |
 | 409 | `duplicate_endpoint` | `POST /v1/plugins` で既知のendpointを再登録 |
 | 426 | `protocol_mismatch` | サポート外の `/vN/` prefix へのリクエスト |
@@ -183,12 +183,22 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 | operation | 用途 |
 |---|---|
 | `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "http://…"}`。受理のみで接続は非同期） |
+| `POST /v1/plugins/remove` | Plugin Endpointの登録解除（Link失効・再試行loop停止。未登録endpointは404 `unknown_endpoint`） |
 | `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId・pluginId付き） |
 | `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI Host向け確認用） |
+| `GET /v1/call` | caller向けTool呼び出しchannelのWS upgrade（後述） |
 | `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧画面 |
 
 - 管理RESTのエラー応答は上表のHTTPエラー形に従う
 - 認証なしのため待受はloopback必須（MVPの安全性前提）
+
+### caller channel（`GET /v1/call`）
+
+Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼ぶためのWS接続。Linkには紐付かず、connの寿命=接続の寿命。
+
+- upgrade成功後は `docs/contracts/00003` の **caller側** をそのまま喋る: `tools.call` request（`{target:{linkId,toolPath},input}`）を送り、responseと `tools.call.output`/`tools.call.result` notificationを受け取り、`tools.call.close` notificationを送れる
+- このWS上を流れるのも `tools.call` 系のみ（Plugin transportと同じ制約）
+- callerが送れるrequestは `tools.call` のみ。他methodはJSON-RPC `-32601`
 
 ## IDの形式
 

@@ -1,7 +1,7 @@
 ---
 type: contract
 title: Tool呼び出し（transport + JSON-RPC 2.0）
-description: 呼び出し元Plugin → Core → 対象Plugin のTool呼び出し契約。sync/asyncの2形態、callId相関、終端・close・購読の扱いを規定する。
+description: 呼び出し元 → Core → 対象Plugin のTool呼び出し契約。呼び出し元はPluginとは限らず、非Plugin callerはCoreのcaller channel経由で同じcaller側プロトコルを喋る。sync/asyncの2形態、callId相関、終端・close・購読の扱いを規定する。
 status: draft
 relations:
   contract:
@@ -15,11 +15,12 @@ relations:
 
 ## 当事者と範囲
 
-呼び出し元Plugin・Core・対象Pluginの3者が実装する呼び出し契約。全メッセージは `docs/contracts/00002` のtransport（JSON-RPC 2.0）上を流れる。
+呼び出し元・Core・対象Pluginの3者が実装する呼び出し契約。呼び出し元はPluginとは限らない — Pluginは自身のtransport接続上で、Pluginでないcaller（TUI・UI Host・スクリプト）はCoreのcaller channel `GET /v1/call`（`docs/contracts/00001`）上で、同じcaller側プロトコルを喋る。全メッセージは `docs/contracts/00002` のtransport（JSON-RPC 2.0）上を流れる。
 
-- 呼び出し経路は **呼び出し元Plugin → Core → 対象Plugin** 固定。Coreは宛先を解決・転送し、Tool内部の意味には踏み込まない
+- 呼び出し経路は **呼び出し元 → Core → 対象Plugin** 固定。Coreは宛先を解決・転送し、Tool内部の意味には踏み込まない
 - 対象は**呼び出し元自身のLinkでもよい**（Pluginが自分のToolを経由して呼び出す用途。例: subagentがAgentのToolを呼ぶ）
 - Tool呼び出しのwireは **sync と async の2形態のみ**。途中出力・通知・購読は別形態ではなく、async形態の意味論として表す
+- caller側の規則（request形式・callId相関・close・切断時の伝播）はcallerの種類を問わず同じ。違いは接続の張り方だけ（PluginはLink transport、非Plugin callerは `/v1/call`）
 
 ## 形態: kind 宣言
 

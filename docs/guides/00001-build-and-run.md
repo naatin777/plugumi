@@ -26,10 +26,11 @@ cd plugins/agent && npm install && npm run build
 
 ```sh
 cd core
-./plugumi serve -config plugumi.json   # -config省略時は ./plugumi.json
+./plugumi serve --config plugumi.json   # --config省略時は ./plugumi.json
+./plugumi tui --config plugumi.json     # 管理TUI（後述）
 ```
 
-サブコマンドは `serve` のみ（フォアグラウンド常駐）。`start`/`ps`/`stop` のdaemon機構は未実装。
+サブコマンドは `serve`（フォアグラウンド常駐）と `tui`（管理TUI）。`start`/`ps`/`stop` のdaemon機構は未実装。
 
 ### 設定 `plugumi.json`
 
@@ -48,10 +49,31 @@ cd core
 | 操作 | 内容 |
 |---|---|
 | `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（Link確立は非同期） |
+| `POST /v1/plugins/remove` `{endpoint}` | Plugin Endpointの登録解除（Link失効・再試行停止） |
 | `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId/pluginId付き） |
 | `POST /v1/tools/list` | 登録中の全Tool（人間・UI Host向け確認用） |
+| `GET /v1/call` | Tool呼び出し用WS接続（caller向け。後述） |
 | `GET /openapi.json` | OpenAPI 3.1 spec（`/openapi.yaml`も） |
 | `GET /docs` | API仕様の閲覧画面（Stoplight Elements） |
+
+### 管理TUI（`plugumi tui`）
+
+`plugumi tui` はPlugin・Toolの一覧とTool呼び出しを行うTUI。`core.url` に既にcoreが応答するならそれへアタッチし、いなければconfigどおりにcoreをこのプロセスで起動する（TUIを閉じるとcoreも終了）。coreのログはTUI内のログ画面に流れる。
+
+| キー | 動作 |
+|---|---|
+| `tab` / `←` `→` | Plugins / Tools パネル切替 |
+| `↑` `j` `↓` `k` | 選択移動（`pgup`/`pgdown`で加速） |
+| `enter` / `c` | Toolsパネルで選択中のToolを呼び出す |
+| `ctrl+s` | call画面でJSON inputを送信（空=入力なし） |
+| `esc` | call画面: 実行中ならclose送信→再度で戻る / 編集中は戻る |
+| `a` | Plugin Endpoint追加 |
+| `d` | Plugin Endpoint削除（2回押しで確定） |
+| `l` | coreログ画面 |
+| `r` | 一覧の手動更新（2秒ごとの自動更新もあり） |
+| `q` / `ctrl+c` | 終了 |
+
+caller channel（`GET /v1/call`）はcontracts/00003のcaller側プロトコルをそのまま喋るWS。TUI以外のcaller（スクリプト・将来のUI Host）も同じ経路を使える。
 
 ### 動作モデル
 
