@@ -7,39 +7,43 @@
 import { isNotif, isRequest, isResponse } from "./wire.js";
 import type { Incoming, RpcError } from "./wire.js";
 
-type Pending = { resolve: (m: Incoming) => void; reject: (e: Error) => void };
+type Pending = {
+  resolve: (message: Incoming) => void;
+  reject: (error: Error) => void;
+};
 
 export class Conn {
   private seq = 0;
   private pending = new Map<string, Pending>();
 
-  onRequest?: (m: Incoming) => Promise<{ result?: unknown; error?: RpcError }>;
-  onNotif?: (m: Incoming) => void;
+  onRequest?: (message: Incoming) => Promise<{ result?: unknown; error?: RpcError }>;
+  onNotif?: (message: Incoming) => void;
   onClose?: () => void;
 
-  private constructor(private ws: WebSocket) {
-    ws.addEventListener("message", (ev) => {
-      let inMsg: Incoming;
+  private constructor(private socket: WebSocket) {
+    socket.addEventListener("message", (event) => {
+      let message: Incoming;
       try {
-        inMsg = JSON.parse(String(ev.data));
+        message = JSON.parse(String(event.data));
       } catch {
         return;
       }
-      if (isRequest(inMsg)) {
-        void this.handleRequest(inMsg);
-      } else if (isNotif(inMsg)) {
-        this.onNotif?.(inMsg);
-      } else if (isResponse(inMsg)) {
-        const key = JSON.stringify(inMsg.id);
-        const p = this.pending.get(key);
-        if (p) {
+      if (isRequest(message)) {
+        void this.handleRequest(message);
+      } else if (isNotif(message)) {
+        this.onNotif?.(message);
+      } else if (isResponse(message)) {
+        const key = JSON.stringify(message.id);
+        const entry = this.pending.get(key);
+        if (entry) {
           this.pending.delete(key);
-          p.resolve(inMsg);
+          entry.resolve(message);
         }
       }
     });
-    ws.addEventListener("close", () => {
-      for (const p of this.pending.values()) p.reject(new Error("conn closed"));
+    socket.addEventListener("close", () => {
+      for (const entry of this.pending.values())
+        entry.reject(new Error("conn closed"));
       this.pending.clear();
       this.onClose?.();
     });
@@ -47,9 +51,11 @@ export class Conn {
 
   static connect(url: string): Promise<Conn> {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(url);
-      ws.addEventListener("open", () => resolve(new Conn(ws)), { once: true });
-      ws.addEventListener("error", (e) => reject(new Error(`ws error: ${e}`)), { once: true });
+      const socket = new WebSocket(url);
+      socket.addEventListener("open", () => resolve(new Conn(socket)), { once: true });
+      socket.addEventListener("error", () => reject(new Error("ws connect failed")), {
+        once: true,
+      });
     });
   }
 
@@ -76,16 +82,16 @@ export class Conn {
     this.send({ jsonrpc: "2.0", method, params });
   }
 
-  private async handleRequest(m: Incoming): Promise<void> {
+  private async handleRequest(message: Incoming): Promise<void> {
     if (!this.onRequest) {
-      this.respond(m.id, { error: { code: -32601, message: "method not found" } });
+      this.respond(message.id, { error: { code: -32601, message: "method not found" } });
       return;
     }
-    const res = await this.onRequest(m);
-    this.respond(m.id, res);
+    const response = await this.onRequest(message);
+    this.respond(message.id, response);
   }
 
-  private send(v: object): void {
-    this.ws.send(JSON.stringify(v));
+  private send(value: object): void {
+    this.socket.send(JSON.stringify(value));
   }
 }

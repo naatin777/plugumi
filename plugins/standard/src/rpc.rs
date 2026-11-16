@@ -57,22 +57,22 @@ impl Conn {
         // reader pump
         let read_conn = conn.clone();
         let handle = tokio::spawn(async move {
-            while let Some(msg) = stream.next().await {
-                let Ok(Message::Text(data)) = msg else {
+            while let Some(frame) = stream.next().await {
+                let Ok(Message::Text(data)) = frame else {
                     continue;
                 };
-                let Ok(in_msg) = serde_json::from_str::<Incoming>(&data) else {
+                let Ok(message) = serde_json::from_str::<Incoming>(&data) else {
                     continue;
                 };
-                if in_msg.is_response() {
-                    if let Some(id) = &in_msg.id {
+                if message.is_response() {
+                    if let Some(id) = &message.id {
                         let ch = pending.lock().unwrap().remove(&id.to_string());
                         if let Some(ch) = ch {
-                            let _ = ch.send(in_msg);
+                            let _ = ch.send(message);
                         }
                     }
                 } else {
-                    handler(in_msg, read_conn.clone());
+                    handler(message, read_conn.clone());
                 }
             }
         });
@@ -90,10 +90,13 @@ impl Conn {
     /// request を送り、responseを待つ。
     pub async fn request(&self, method: &str, params: Value) -> Result<Incoming, String> {
         let id = self.next_id();
-        let (ch_tx, ch_rx) = oneshot::channel();
-        self.pending.lock().unwrap().insert(id.to_string(), ch_tx);
+        let (response_tx, response_rx) = oneshot::channel();
+        self.pending
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), response_tx);
         self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))?;
-        ch_rx.await.map_err(|_| "conn closed".to_string())
+        response_rx.await.map_err(|_| "conn closed".to_string())
     }
 
     /// 受け取ったrequestへのresponseを送る。

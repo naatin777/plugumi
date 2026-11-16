@@ -35,7 +35,7 @@ func newID(prefix string) string {
 
 // Loop は1つのPlugin Endpointへの接続試行。Session確立まで再試行を続ける。
 // ctx終了で止まる。
-func Loop(ctx context.Context, reg *registry.Registry, endpoint, coreURL string) {
+func Loop(ctx context.Context, sessions *registry.Registry, endpoint, coreURL string) {
 	failed := false
 	for {
 		select {
@@ -43,8 +43,8 @@ func Loop(ctx context.Context, reg *registry.Registry, endpoint, coreURL string)
 			return
 		default:
 		}
-		if _, ok := reg.FindEndpoint(endpoint); !ok {
-			if err := hello(reg, endpoint, coreURL); err != nil {
+		if _, ok := sessions.FindEndpoint(endpoint); !ok {
+			if err := hello(sessions, endpoint, coreURL); err != nil {
 				if !failed {
 					log.Printf("[core] plugin %s unreachable: %v (retrying)", endpoint, err)
 					failed = true
@@ -62,18 +62,18 @@ func Loop(ctx context.Context, reg *registry.Registry, endpoint, coreURL string)
 }
 
 // hello は session.hello（Core → Plugin）。IDを払い出してSessionを登録する。
-func hello(reg *registry.Registry, endpoint, coreURL string) error {
-	sess := &registry.Session{
+func hello(sessions *registry.Registry, endpoint, coreURL string) error {
+	session := &registry.Session{
 		ID:             newID("s-"),
-		RegistrationID: newID("reg-"),
+		RegistrationID: newID("registry-"),
 		Endpoint:       endpoint,
 		CreatedAt:      time.Now(),
 		LastPing:       time.Now(),
 	}
 	var req wire.HelloRequest
 	req.ProtocolVersion = ProtocolVersion
-	req.SessionID = sess.ID
-	req.RegistrationID = sess.RegistrationID
+	req.SessionID = session.ID
+	req.RegistrationID = session.RegistrationID
 	req.Core.URL = coreURL
 	req.Core.Version = CoreVersion
 
@@ -87,12 +87,12 @@ func hello(reg *registry.Registry, endpoint, coreURL string) error {
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("hello: %s", res.Status)
 	}
-	var hr wire.HelloResponse
-	if err := json.NewDecoder(res.Body).Decode(&hr); err != nil {
+	var helloResponse wire.HelloResponse
+	if err := json.NewDecoder(res.Body).Decode(&helloResponse); err != nil {
 		return err
 	}
-	sess.Plugin = hr.Plugin
-	reg.Add(sess)
-	log.Printf("[core] session: %s (%s) → %s @ %s", sess.Plugin.ID, sess.ID, sess.RegistrationID, endpoint)
+	session.Plugin = helloResponse.Plugin
+	sessions.Add(session)
+	log.Printf("[core] session: %s (%s) → %s @ %s", session.Plugin.ID, session.ID, session.RegistrationID, endpoint)
 	return nil
 }

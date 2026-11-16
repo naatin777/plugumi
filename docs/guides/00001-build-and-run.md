@@ -32,7 +32,7 @@ PluginはCoreを事前に知らない。Coreが `POST /v1/session/hello` で接�
 
 ## 期待される結果
 
-Coreログに session → tools.set → ws channel が順に出る。agent REPLで:
+Coreログに session → tools.set → ws channel が順に出る。agentのコマンドループで:
 
 ```
 list                                        # 登録済みの全Tool（registrationId + toolPath）

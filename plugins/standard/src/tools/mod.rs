@@ -31,7 +31,8 @@ const TOOLS: &[(&str, &str)] = &[
 
 /// tools.set で宣言するTool一覧。
 pub fn decls() -> Vec<ToolDecl> {
-    TOOLS.iter()
+    TOOLS
+        .iter()
         .map(|&(path, kind)| ToolDecl {
             tool_path: path.to_string(),
             kind: kind.to_string(),
@@ -68,11 +69,11 @@ impl Call {
         );
     }
 
-    pub fn result_error(&self, msg: &str) {
+    pub fn result_error(&self, message: &str) {
         self.conn.notify(
             wire::METHOD_CALL_RESULT,
             serde_json::json!({"callId": self.id,
-                "error": {"code": -32000, "message": msg}}),
+                "error": {"code": -32000, "message": message}}),
         );
     }
 

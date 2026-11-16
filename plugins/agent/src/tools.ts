@@ -34,7 +34,7 @@ export async function dispatchCall(
   }
   try {
     return { result: await tool.handler(params.input) };
-  } catch (e) {
-    return { error: { code: -32000, message: String(e) } };
+  } catch (error) {
+    return { error: { code: -32000, message: String(error) } };
   }
 }

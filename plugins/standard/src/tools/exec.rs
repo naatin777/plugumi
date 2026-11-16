@@ -33,11 +33,11 @@ pub async fn handle(mut call: Call) {
     let status = loop {
         tokio::select! {
             line = out_lines.next_line(), if out_open => match line {
-                Ok(Some(l)) => call.output(json!({"stream": "stdout", "line": l})),
+                Ok(Some(line)) => call.output(json!({"stream": "stdout", "line": line})),
                 _ => out_open = false,
             },
             line = err_lines.next_line(), if err_open => match line {
-                Ok(Some(l)) => call.output(json!({"stream": "stderr", "line": l})),
+                Ok(Some(line)) => call.output(json!({"stream": "stderr", "line": line})),
                 _ => err_open = false,
             },
             _ = call.closed() => {

@@ -36,26 +36,26 @@ type apiErr struct {
 func (e *apiErr) Error() string  { return e.Body.Message }
 func (e *apiErr) GetStatus() int { return e.status }
 
-func newErr(status int, code, msg string) error {
-	e := &apiErr{status: status}
-	e.Body.Code = code
-	e.Body.Message = msg
-	return e
+func newErr(status int, code, message string) error {
+	apiError := &apiErr{status: status}
+	apiError.Body.Code = code
+	apiError.Body.Message = message
+	return apiError
 }
 
 func init() {
-	huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
-		return newErr(status, http.StatusText(status), msg).(*apiErr)
+	huma.NewError = func(status int, message string, errs ...error) huma.StatusError {
+		return newErr(status, http.StatusText(status), message).(*apiErr)
 	}
 }
 
 type Server struct {
-	reg *registry.Registry
-	rt  *router.Router
+	registry *registry.Registry
+	router   *router.Router
 }
 
-func New(reg *registry.Registry, rt *router.Router) *Server {
-	return &Server{reg: reg, rt: rt}
+func New(registry *registry.Registry, router *router.Router) *Server {
+	return &Server{registry: registry, router: router}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -63,7 +63,7 @@ func (s *Server) Handler() http.Handler {
 	api := humago.New(mux, huma.DefaultConfig("Plugumi Core", "0.1.0"))
 
 	// WS channelはOpenAPI対象外。同じmuxにraw handlerで同居させる。
-	mux.HandleFunc("GET /v1/ws", s.handleWS)
+	mux.HandleFunc("GET /v1/ws", s.handleWebSocket)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "tools-set",
@@ -99,17 +99,17 @@ type ToolsSetOutput struct {
 	}
 }
 
-func (s *Server) toolsSet(_ context.Context, in *ToolsSetInput) (*ToolsSetOutput, error) {
-	if err := s.reg.SetTools(in.Body.SessionID, in.Body.Tools); err != nil {
+func (s *Server) toolsSet(_ context.Context, input *ToolsSetInput) (*ToolsSetOutput, error) {
+	if err := s.registry.SetTools(input.Body.SessionID, input.Body.Tools); err != nil {
 		if errors.Is(err, registry.ErrNoSession) {
 			return nil, newErr(http.StatusUnauthorized, "unknown_session", "unknown sessionId")
 		}
 		return nil, newErr(http.StatusConflict, "duplicate_tool_path", err.Error())
 	}
-	sess, _ := s.reg.FindSession(in.Body.SessionID)
-	log.Printf("[core] tools.set: %d tool(s) from %s", len(in.Body.Tools), sess.Plugin.ID)
+	session, _ := s.registry.FindSession(input.Body.SessionID)
+	log.Printf("[core] tools.set: %d tool(s) from %s", len(input.Body.Tools), session.Plugin.ID)
 	out := &ToolsSetOutput{}
-	out.Body.Count = len(in.Body.Tools)
+	out.Body.Count = len(input.Body.Tools)
 	return out, nil
 }
 
@@ -122,8 +122,8 @@ type PingOutput struct {
 	}
 }
 
-func (s *Server) ping(_ context.Context, in *PingInput) (*PingOutput, error) {
-	if err := s.reg.Touch(in.Body.SessionID); err != nil {
+func (s *Server) ping(_ context.Context, input *PingInput) (*PingOutput, error) {
+	if err := s.registry.Touch(input.Body.SessionID); err != nil {
 		return nil, newErr(http.StatusUnauthorized, "unknown_session", "unknown sessionId")
 	}
 	out := &PingOutput{}
@@ -138,22 +138,22 @@ type ToolsListOutput struct {
 	Body wire.ToolsListResponse
 }
 
-func (s *Server) toolsList(_ context.Context, in *ToolsListInput) (*ToolsListOutput, error) {
-	if _, ok := s.reg.FindSession(in.Body.SessionID); !ok {
+func (s *Server) toolsList(_ context.Context, input *ToolsListInput) (*ToolsListOutput, error) {
+	if _, ok := s.registry.FindSession(input.Body.SessionID); !ok {
 		return nil, newErr(http.StatusUnauthorized, "unknown_session", "unknown sessionId")
 	}
 	out := &ToolsListOutput{}
-	out.Body.Tools = s.reg.AllTools()
+	out.Body.Tools = s.registry.AllTools()
 	return out, nil
 }
 
 // ---- WS channel（OpenAPI対象外）----
 
-// handleWS はPlugin→CoreのWS channel受付（hello後に張られる）。
+// handleWebSocket はPlugin→CoreのWS channel受付（hello後に張られる）。
 // ?sessionId= でSessionに紐付ける。
-func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("sessionId")
-	sess, ok := s.reg.FindSession(sessionID)
+	session, ok := s.registry.FindSession(sessionID)
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
@@ -169,22 +169,22 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conn := rpc.NewConn(c, "c-")
-	if err := s.reg.SetWS(sessionID, conn); err != nil {
+	if err := s.registry.SetWebSocket(sessionID, conn); err != nil {
 		conn.Close()
 		return
 	}
-	log.Printf("[core] ws channel: %s (%s)", sess.Plugin.ID, sessionID)
+	log.Printf("[core] ws channel: %s (%s)", session.Plugin.ID, sessionID)
 
-	conn.OnRequest = func(in *wire.Incoming) (json.RawMessage, *wire.Error) {
-		if in.Method == wire.MethodCall {
-			return s.rt.HandleCall(conn, in)
+	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
+		if message.Method == wire.MethodCall {
+			return s.router.HandleCall(conn, message)
 		}
 		return nil, &wire.Error{Code: -32601, Message: "method not found"}
 	}
-	conn.OnNotif = func(in *wire.Incoming) { s.rt.DispatchNotif(conn, in) }
+	conn.OnNotif = func(message *wire.Incoming) { s.router.DispatchNotif(conn, message) }
 
 	err = conn.Run(r.Context())
-	log.Printf("[core] ws closed: %s (%s): %v", sess.Plugin.ID, sessionID, err)
-	s.rt.DropConn(conn)
-	s.reg.Remove(sessionID)
+	log.Printf("[core] ws closed: %s (%s): %v", session.Plugin.ID, sessionID, err)
+	s.router.DropConn(conn)
+	s.registry.Remove(sessionID)
 }

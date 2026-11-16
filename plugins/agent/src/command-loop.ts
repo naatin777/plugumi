@@ -1,4 +1,4 @@
-// 最小の呼出元REPL。LLMなし・Queueなし — stdinから指示を受けて
+// 最小の呼出元コマンドループ。LLMなし・Queueなし — stdinから指示を受けて
 // tools.list / tools.call / tools.call.close を送り、
 // 応答と届くnotificationをstdoutに表示する。
 
@@ -6,7 +6,7 @@ import * as readline from "node:readline";
 import { postJSON, state } from "./session.js";
 import { METHOD_CALL, METHOD_CALL_CLOSE } from "./wire.js";
 
-export function startRepl(): void {
+export function startCommandLoop(): void {
   const rl = readline.createInterface({ input: process.stdin });
   rl.setPrompt("agent> ");
   rl.prompt();
@@ -36,8 +36,8 @@ async function handle(line: string): Promise<void> {
       default:
         console.log(`unknown command: ${cmd} (try "help")`);
     }
-  } catch (e) {
-    console.log(`error: ${e}`);
+  } catch (error) {
+    console.log(`error: ${error}`);
   }
 }
 

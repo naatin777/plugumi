@@ -35,4 +35,9 @@ PlugumiではAIがコードを書くことも多いので、AIが生成しやす
 
 簡潔さ・明示性・抽象化は、いずれも読みやすさを実現するための手段であって目的ではない。短縮で意図が隠れる・細分化で処理を追いにくくなる・過剰な抽象化が認知負荷を増やす場合がある。
 
+### 命名
+
+- ドメイン語の切り詰め・略称を名前に使わない。`reg`→`registration`、`rt`→`router`、`sess`→`session`、`fwd`→`forward`、`ep`→`endpoint`、`REPL`→`command loop` のように、読み手が展開を推測せずに済む形にする
+- プロトコル自体の名称（HTTP・WebSocket・JSON-RPC）と、その言語の慣用的な短い変数名（Goの`ctx`・`err`・レシーバ、Rustの`res`、catchの`error`等）は対象外
+
 プロトコル由来の値・形にはコメントで出典を添える（例: `{accepted:true}` は contracts/00003 の受理response）。ファイル冒頭にそのファイルがプロトコルのどの部分を担うか一言添える。

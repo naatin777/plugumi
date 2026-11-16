@@ -31,20 +31,20 @@ func main() {
 	coreURL := "http://" + cfg.Core.Listen
 
 	ctx := context.Background()
-	reg := registry.New()
-	reg.OnExpired = func(s *registry.Session) {
+	sessions := registry.New()
+	sessions.OnExpired = func(s *registry.Session) {
 		log.Printf("[core] session expired: %s (%s)", s.Plugin.ID, s.ID)
 	}
-	go reg.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
+	go sessions.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
 
-	rt := router.New(reg)
+	callRouter := router.New(sessions)
 
 	// 設定された各Plugin Endpointへ接続を試みる。
-	for _, ep := range cfg.Plugins {
-		go connector.Loop(ctx, reg, ep.Endpoint, coreURL)
+	for _, plugin := range cfg.Plugins {
+		go connector.Loop(ctx, sessions, plugin.Endpoint, coreURL)
 	}
 
-	srv := &http.Server{Addr: cfg.Core.Listen, Handler: server.New(reg, rt).Handler()}
+	srv := &http.Server{Addr: cfg.Core.Listen, Handler: server.New(sessions, callRouter).Handler()}
 	log.Printf("[core] listening on %s (config %s)", cfg.Core.Listen, *configPath)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("serve: %v", err)

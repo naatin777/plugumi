@@ -16,9 +16,9 @@ import (
 )
 
 type Router struct {
-	reg    *registry.Registry
-	routes map[string]*Route // conn.UID + "\x00" + callId →
-	mu     sync.Mutex
+	registry *registry.Registry
+	routes   map[string]*Route // conn.ID + "\x00" + callId →
+	mu       sync.Mutex
 }
 
 type Route struct {
@@ -31,132 +31,132 @@ type Route struct {
 	Kind     string
 }
 
-func New(reg *registry.Registry) *Router {
-	return &Router{reg: reg, routes: map[string]*Route{}}
+func New(registry *registry.Registry) *Router {
+	return &Router{registry: registry, routes: map[string]*Route{}}
 }
 
-func routeKey(c *rpc.Conn, id json.RawMessage) string { return c.UID + "\x00" + string(id) }
+func routeKey(c *rpc.Conn, id json.RawMessage) string { return c.ID + "\x00" + string(id) }
 
 // HandleCall はconn上の tools.call request を捌く。targetへforwardし、
 // responseをそのままこのrequestのresponseとして返す。
 // OnRequestのgoroutine内で同期的に完結させる。
-func (rt *Router) HandleCall(caller *rpc.Conn, in *wire.Incoming) (json.RawMessage, *wire.Error) {
+func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
 	var params wire.CallParams
-	if err := wire.Unmarshal(in.Params, &params); err != nil {
+	if err := wire.Unmarshal(message.Params, &params); err != nil {
 		return nil, &wire.Error{Code: -32602, Message: "invalid params"}
 	}
 
-	sess, ok := rt.reg.FindRegistration(params.Target.RegistrationID)
+	session, ok := r.registry.FindRegistration(params.Target.RegistrationID)
 	if !ok {
 		return nil, &wire.Error{Code: -32602, Message: "no such registrationId: " + params.Target.RegistrationID}
 	}
-	if sess.WS == nil {
+	if session.WebSocket == nil {
 		return nil, &wire.Error{Code: -32000, Message: "plugin channel unavailable"}
 	}
 	kind := "sync"
 	toolFound := false
-	for _, t := range sess.Tools {
-		if t.ToolPath == params.Target.ToolPath {
+	for _, tool := range session.Tools {
+		if tool.ToolPath == params.Target.ToolPath {
 			toolFound = true
-			kind = t.Kind
+			kind = tool.Kind
 		}
 	}
 	if !toolFound {
 		return nil, &wire.Error{Code: -32601, Message: "no such toolPath: " + params.Target.ToolPath}
 	}
 
-	target := sess.WS
-	fwdID := target.NextID()
+	target := session.WebSocket
+	forwardID := target.NextID()
 	route := &Route{
-		Caller: caller, CallerID: in.ID,
-		Target: target, TargetID: fwdID,
+		Caller: caller, CallerID: message.ID,
+		Target: target, TargetID: forwardID,
 		RegID: params.Target.RegistrationID, ToolPath: params.Target.ToolPath, Kind: kind,
 	}
-	rt.mu.Lock()
-	rt.routes[routeKey(target, fwdID)] = route
-	rt.mu.Unlock()
+	r.mu.Lock()
+	r.routes[routeKey(target, forwardID)] = route
+	r.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	res, err := target.RequestWithID(ctx, fwdID, wire.MethodCall,
+	res, err := target.RequestWithID(ctx, forwardID, wire.MethodCall,
 		wire.ForwardCallParams{ToolPath: params.Target.ToolPath, Input: params.Input})
 	if err != nil {
-		rt.removeRoute(route)
+		r.removeRoute(route)
 		return nil, &wire.Error{Code: -32000, Message: "forward failed: " + err.Error()}
 	}
 
 	// sync呼出・または受理がエラーなら経路はここで終了。
 	// async受理後はrouteを残してnotification中継を継続する。
 	if kind != "async" || res.Error != nil {
-		rt.removeRoute(route)
+		r.removeRoute(route)
 	}
 	return res.Result, res.Error
 }
 
 // HandleTargetNotif はtarget側connからのnotification中継（途中出力・終端）。
 // callIdをcaller側のidへ書き換えて配送する。
-func (rt *Router) HandleTargetNotif(c *rpc.Conn, in *wire.Incoming) {
+func (r *Router) HandleTargetNotif(c *rpc.Conn, message *wire.Incoming) {
 	var callID json.RawMessage
-	switch in.Method {
+	switch message.Method {
 	case wire.MethodCallOutput:
-		var p wire.CallOutputParams
-		if err := wire.Unmarshal(in.Params, &p); err != nil {
+		var outputParams wire.CallOutputParams
+		if err := wire.Unmarshal(message.Params, &outputParams); err != nil {
 			return
 		}
-		callID = p.CallID
+		callID = outputParams.CallID
 	case wire.MethodCallResult:
-		var p wire.CallResultParams
-		if err := wire.Unmarshal(in.Params, &p); err != nil {
+		var resultParams wire.CallResultParams
+		if err := wire.Unmarshal(message.Params, &resultParams); err != nil {
 			return
 		}
-		callID = p.CallID
+		callID = resultParams.CallID
 	default:
 		return
 	}
 
-	rt.mu.Lock()
-	route := rt.routes[routeKey(c, callID)]
-	if in.Method == wire.MethodCallResult && route != nil {
-		delete(rt.routes, routeKey(c, callID))
+	r.mu.Lock()
+	route := r.routes[routeKey(c, callID)]
+	if message.Method == wire.MethodCallResult && route != nil {
+		delete(r.routes, routeKey(c, callID))
 	}
-	rt.mu.Unlock()
+	r.mu.Unlock()
 	if route == nil {
 		return
 	}
 
 	var params json.RawMessage
-	switch in.Method {
+	switch message.Method {
 	case wire.MethodCallOutput:
-		var p wire.CallOutputParams
-		_ = wire.Unmarshal(in.Params, &p)
-		p.CallID = route.CallerID
-		params = wire.Marshal(p)
+		var outputParams wire.CallOutputParams
+		_ = wire.Unmarshal(message.Params, &outputParams)
+		outputParams.CallID = route.CallerID
+		params = wire.Marshal(outputParams)
 	case wire.MethodCallResult:
-		var p wire.CallResultParams
-		_ = wire.Unmarshal(in.Params, &p)
-		p.CallID = route.CallerID
-		params = wire.Marshal(p)
+		var resultParams wire.CallResultParams
+		_ = wire.Unmarshal(message.Params, &resultParams)
+		resultParams.CallID = route.CallerID
+		params = wire.Marshal(resultParams)
 	}
-	_ = route.Caller.Notify(in.Method, json.RawMessage(params))
+	_ = route.Caller.Notify(message.Method, json.RawMessage(params))
 }
 
 // HandleCallerNotif は呼出元側connからの tools.call.close notification。
 // 対応routeを引き、callIdをforward idへ書き換えてtargetへ配送する。
-func (rt *Router) HandleCallerNotif(c *rpc.Conn, in *wire.Incoming) {
-	var p wire.CallCloseParams
-	if err := wire.Unmarshal(in.Params, &p); err != nil {
+func (r *Router) HandleCallerNotif(c *rpc.Conn, message *wire.Incoming) {
+	var closeParams wire.CallCloseParams
+	if err := wire.Unmarshal(message.Params, &closeParams); err != nil {
 		return
 	}
-	rt.mu.Lock()
+	r.mu.Lock()
 	var route *Route
-	for _, r := range rt.routes {
-		if r.Caller == c && string(r.CallerID) == string(p.CallID) {
-			route = r
-			delete(rt.routes, routeKey(r.Target, r.TargetID))
+	for _, candidate := range r.routes {
+		if candidate.Caller == c && string(candidate.CallerID) == string(closeParams.CallID) {
+			route = candidate
+			delete(r.routes, routeKey(candidate.Target, candidate.TargetID))
 			break
 		}
 	}
-	rt.mu.Unlock()
+	r.mu.Unlock()
 	if route == nil {
 		return
 	}
@@ -165,46 +165,46 @@ func (rt *Router) HandleCallerNotif(c *rpc.Conn, in *wire.Incoming) {
 
 // DispatchNotif はWS上のnotificationの振り分け。plugin conn上でcaller/target
 // 両方の役割を持ち得るため、callIdでrouteを引いて適切な方向へ流す。
-func (rt *Router) DispatchNotif(c *rpc.Conn, in *wire.Incoming) {
+func (r *Router) DispatchNotif(c *rpc.Conn, message *wire.Incoming) {
 	var callID json.RawMessage
-	switch in.Method {
+	switch message.Method {
 	case wire.MethodCallOutput:
-		var p wire.CallOutputParams
-		_ = wire.Unmarshal(in.Params, &p)
-		callID = p.CallID
+		var outputParams wire.CallOutputParams
+		_ = wire.Unmarshal(message.Params, &outputParams)
+		callID = outputParams.CallID
 	case wire.MethodCallResult:
-		var p wire.CallResultParams
-		_ = wire.Unmarshal(in.Params, &p)
-		callID = p.CallID
+		var resultParams wire.CallResultParams
+		_ = wire.Unmarshal(message.Params, &resultParams)
+		callID = resultParams.CallID
 	case wire.MethodCallClose:
-		var p wire.CallCloseParams
-		_ = wire.Unmarshal(in.Params, &p)
-		callID = p.CallID
+		var closeParams wire.CallCloseParams
+		_ = wire.Unmarshal(message.Params, &closeParams)
+		callID = closeParams.CallID
 	default:
 		return
 	}
-	rt.mu.Lock()
-	_, isTargetSide := rt.routes[routeKey(c, callID)]
-	rt.mu.Unlock()
+	r.mu.Lock()
+	_, isTargetSide := r.routes[routeKey(c, callID)]
+	r.mu.Unlock()
 	if isTargetSide {
-		rt.HandleTargetNotif(c, in)
+		r.HandleTargetNotif(c, message)
 		return
 	}
-	if in.Method == wire.MethodCallClose {
-		rt.HandleCallerNotif(c, in)
+	if message.Method == wire.MethodCallClose {
+		r.HandleCallerNotif(c, message)
 	}
 }
 
 // DropConn はconn終了時の後始末。そのconnに紐付くrouteを失敗として閉じる。
-func (rt *Router) DropConn(c *rpc.Conn) {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	for key, r := range rt.routes {
-		if r.Target == c || r.Caller == c {
-			delete(rt.routes, key)
-			if r.Caller != c {
-				_ = r.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
-					CallID: r.CallerID,
+func (r *Router) DropConn(c *rpc.Conn) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for key, route := range r.routes {
+		if route.Target == c || route.Caller == c {
+			delete(r.routes, key)
+			if route.Caller != c {
+				_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
+					CallID: route.CallerID,
 					Error:  &wire.Error{Code: -32000, Message: "target channel closed"},
 				})
 			}
@@ -212,8 +212,8 @@ func (rt *Router) DropConn(c *rpc.Conn) {
 	}
 }
 
-func (rt *Router) removeRoute(r *Route) {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	delete(rt.routes, routeKey(r.Target, r.TargetID))
+func (r *Router) removeRoute(route *Route) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.routes, routeKey(route.Target, route.TargetID))
 }

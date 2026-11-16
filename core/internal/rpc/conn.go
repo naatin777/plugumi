@@ -14,19 +14,19 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-var connSeq atomic.Int64
+var connCounter atomic.Int64
 
 // Conn はJSON-RPC 2.0を流すWS接続。request/responseのid相関と、
 // 相手からのrequest・notificationの配送を担う。
 // 同一conn上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
 // （docs/contracts/00003「idの一意性」）。
 type Conn struct {
-	UID      string
+	ID       string
 	IDPrefix string
 
 	c       *websocket.Conn
-	wmu     sync.Mutex
-	seq     atomic.Int64
+	writeMu sync.Mutex
+	counter atomic.Int64
 	pending map[string]chan *wire.Incoming
 
 	OnRequest func(*wire.Incoming) (json.RawMessage, *wire.Error)
@@ -37,7 +37,7 @@ type Conn struct {
 
 func NewConn(c *websocket.Conn, idPrefix string) *Conn {
 	return &Conn{
-		UID:      fmt.Sprintf("conn-%d", connSeq.Add(1)),
+		ID:       fmt.Sprintf("conn-%d", connCounter.Add(1)),
 		IDPrefix: idPrefix,
 		c:        c,
 		pending:  map[string]chan *wire.Incoming{},
@@ -47,7 +47,7 @@ func NewConn(c *websocket.Conn, idPrefix string) *Conn {
 
 // NextID はこのconnのid空間から次のidを発行する（中継時のforward id用途）。
 func (c *Conn) NextID() json.RawMessage {
-	return wire.Marshal(c.IDPrefix + fmt.Sprint(c.seq.Add(1)))
+	return wire.Marshal(c.IDPrefix + fmt.Sprint(c.counter.Add(1)))
 }
 
 // Run は受信ループ。ctx終了または切断までブロックする。
@@ -58,37 +58,37 @@ func (c *Conn) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		var in wire.Incoming
-		if err := json.Unmarshal(data, &in); err != nil {
+		var message wire.Incoming
+		if err := json.Unmarshal(data, &message); err != nil {
 			continue
 		}
 		switch {
-		case in.IsRequest():
-			go c.handleRequest(&in)
-		case in.IsNotif():
+		case message.IsRequest():
+			go c.handleRequest(&message)
+		case message.IsNotif():
 			if c.OnNotif != nil {
-				go c.OnNotif(&in)
+				go c.OnNotif(&message)
 			}
-		case in.IsResponse():
-			key := string(in.ID)
-			c.wmu.Lock()
+		case message.IsResponse():
+			key := string(message.ID)
+			c.writeMu.Lock()
 			ch, ok := c.pending[key]
 			delete(c.pending, key)
-			c.wmu.Unlock()
+			c.writeMu.Unlock()
 			if ok {
-				ch <- &in
+				ch <- &message
 			}
 		}
 	}
 }
 
-func (c *Conn) handleRequest(in *wire.Incoming) {
+func (c *Conn) handleRequest(message *wire.Incoming) {
 	var result json.RawMessage
 	var rpcErr *wire.Error
 	if c.OnRequest != nil {
-		result, rpcErr = c.OnRequest(in)
+		result, rpcErr = c.OnRequest(message)
 	}
-	_ = c.write(wire.Response{JSONRPC: "2.0", ID: in.ID, Result: result, Error: rpcErr})
+	_ = c.write(wire.Response{JSONRPC: "2.0", ID: message.ID, Result: result, Error: rpcErr})
 }
 
 func (c *Conn) Request(ctx context.Context, method string, params any) (*wire.Incoming, error) {
@@ -97,19 +97,19 @@ func (c *Conn) Request(ctx context.Context, method string, params any) (*wire.In
 
 // RequestWithID はidを指定してrequestを送る。中継でforward idを自空間から発行する用途。
 func (c *Conn) RequestWithID(ctx context.Context, id json.RawMessage, method string, params any) (*wire.Incoming, error) {
-	var pm json.RawMessage
+	var rawParams json.RawMessage
 	if params != nil {
-		pm = wire.Marshal(params)
+		rawParams = wire.Marshal(params)
 	}
 	ch := make(chan *wire.Incoming, 1)
-	c.wmu.Lock()
+	c.writeMu.Lock()
 	c.pending[string(id)] = ch
-	c.wmu.Unlock()
+	c.writeMu.Unlock()
 
-	if err := c.write(wire.Request{JSONRPC: "2.0", ID: id, Method: method, Params: pm}); err != nil {
-		c.wmu.Lock()
+	if err := c.write(wire.Request{JSONRPC: "2.0", ID: id, Method: method, Params: rawParams}); err != nil {
+		c.writeMu.Lock()
 		delete(c.pending, string(id))
-		c.wmu.Unlock()
+		c.writeMu.Unlock()
 		return nil, err
 	}
 	select {
@@ -123,20 +123,20 @@ func (c *Conn) RequestWithID(ctx context.Context, id json.RawMessage, method str
 }
 
 func (c *Conn) Notify(method string, params any) error {
-	var pm json.RawMessage
+	var rawParams json.RawMessage
 	if params != nil {
-		pm = wire.Marshal(params)
+		rawParams = wire.Marshal(params)
 	}
-	return c.write(wire.Notification{JSONRPC: "2.0", Method: method, Params: pm})
+	return c.write(wire.Notification{JSONRPC: "2.0", Method: method, Params: rawParams})
 }
 
-func (c *Conn) write(v any) error {
-	data, err := json.Marshal(v)
+func (c *Conn) write(value any) error {
+	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	c.wmu.Lock()
-	defer c.wmu.Unlock()
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	return c.c.Write(context.Background(), websocket.MessageText, data)
 }
 

@@ -64,7 +64,7 @@ async function startSession(): Promise<void> {
   await postJSON(`${state.coreUrl}/v1/tools/set`, {
     sessionId: state.sessionId,
     tools: toolDecls(),
-  }).catch((e) => console.error(`[agent] tools.set failed: ${e}`));
+  }).catch((error) => console.error(`[agent] tools.set failed: ${error}`));
 
   setInterval(() => {
     void postJSON(`${state.coreUrl}/v1/session/ping`, {
@@ -72,24 +72,24 @@ async function startSession(): Promise<void> {
     }).catch(() => {});
   }, 30_000);
 
-  await connectWs();
+  await connectWebSocket();
 }
 
-async function connectWs(): Promise<void> {
+async function connectWebSocket(): Promise<void> {
   const url =
     state.coreUrl.replace("http://", "ws://") +
     `/v1/ws?sessionId=${state.sessionId}`;
   const conn = await Conn.connect(url);
   state.conn = conn;
-  conn.onRequest = async (m) => {
-    if (m.method === METHOD_CALL) {
-      return dispatchCall(conn, m.id, m.params as CallParams);
+  conn.onRequest = async (message) => {
+    if (message.method === METHOD_CALL) {
+      return dispatchCall(conn, message.id, message.params as CallParams);
     }
     return { error: { code: -32601, message: "method not found" } };
   };
-  conn.onNotif = (m) => {
+  conn.onNotif = (message) => {
     // caller側として届く途中出力・終端はそのまま表示。
-    console.log(`\n[out ${m.method}] ${JSON.stringify(m.params)}`);
+    console.log(`\n[out ${message.method}] ${JSON.stringify(message.params)}`);
   };
   conn.onClose = () => {
     console.log("\n[agent] ws closed");

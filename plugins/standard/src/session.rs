@@ -61,10 +61,10 @@ async fn handle_hello(
         ));
     }
     {
-        let mut st = shared.lock().unwrap();
-        st.session_id = req.session_id.clone();
-        st.registration_id = req.registration_id.clone();
-        st.core_url = req.core.url.clone();
+        let mut state = shared.lock().unwrap();
+        state.session_id = req.session_id.clone();
+        state.registration_id = req.registration_id.clone();
+        state.core_url = req.core.url.clone();
     }
     eprintln!(
         "[standard] session established: {} (reg {}, core {})",
@@ -83,8 +83,8 @@ async fn handle_hello(
 /// Session確立後のライフサイクル: tools.set → pingループ → WS channel。
 async fn start_session(shared: Shared) {
     let (core_url, session_id) = {
-        let st = shared.lock().unwrap();
-        (st.core_url.clone(), st.session_id.clone())
+        let state = shared.lock().unwrap();
+        (state.core_url.clone(), state.session_id.clone())
     };
     let tools = tools::decls();
     if let Err(e) = http_post_json(
@@ -99,7 +99,7 @@ async fn start_session(shared: Shared) {
         eprintln!("[standard] tools.set failed: {e}");
     }
     tokio::spawn(ping_loop(core_url.clone(), session_id.clone()));
-    if let Err(e) = connect_ws(shared, &core_url, &session_id).await {
+    if let Err(e) = connect_websocket(shared, &core_url, &session_id).await {
         eprintln!("[standard] ws connect failed: {e}");
     }
 }
@@ -118,11 +118,11 @@ async fn ping_loop(core_url: String, session_id: String) {
     }
 }
 
-async fn connect_ws(shared: Shared, core_url: &str, session_id: &str) -> Result<(), String> {
+async fn connect_websocket(shared: Shared, core_url: &str, session_id: &str) -> Result<(), String> {
     let url = core_url.replace("http://", "ws://") + "/v1/ws?sessionId=" + session_id;
     let on_msg = {
         let shared = shared.clone();
-        move |in_msg: Incoming, conn: Conn| on_ws_message(shared.clone(), in_msg, conn)
+        move |message: Incoming, conn: Conn| on_websocket_message(shared.clone(), message, conn)
     };
     let (conn, _pump) = Conn::connect(&url, on_msg).await?;
     shared.lock().unwrap().conn = Some(conn);
@@ -131,14 +131,14 @@ async fn connect_ws(shared: Shared, core_url: &str, session_id: &str) -> Result<
 }
 
 /// WS上のrequest/notification配送。
-fn on_ws_message(shared: Shared, in_msg: Incoming, conn: Conn) {
-    let Some(method) = in_msg.method.as_deref() else {
+fn on_websocket_message(shared: Shared, message: Incoming, conn: Conn) {
+    let Some(method) = message.method.as_deref() else {
         return;
     };
     match method {
         wire::METHOD_CALL => {
-            let Some(id) = in_msg.id.clone() else { return };
-            let params: CallParams = match in_msg
+            let Some(id) = message.id.clone() else { return };
+            let params: CallParams = match message
                 .params
                 .clone()
                 .and_then(|p| serde_json::from_value(p).ok())
@@ -159,7 +159,7 @@ fn on_ws_message(shared: Shared, in_msg: Incoming, conn: Conn) {
             tools::dispatch(shared, conn, id, params);
         }
         wire::METHOD_CALL_CLOSE => {
-            let call_id = in_msg
+            let call_id = message
                 .params
                 .as_ref()
                 .and_then(|p| p.get("callId"))
