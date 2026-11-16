@@ -65,8 +65,10 @@ cd core
 ## 手順
 
 1. Core を起動: `cd core && ./plugumi serve`
-2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定 `127.0.0.1:9001`）
-3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定 `127.0.0.1:9002`、stdinコマンドループが開く）
+2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定endpoint `ws://127.0.0.1:9001`）
+3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定endpoint `ws://127.0.0.1:9002`、stdinコマンドループが開く）
+
+Pluginの起動引数は `ws://<host>:<port>` のendpointそのもの（CoreがdialするURLと同じ文字列）。`wss://` はTLS未実装のため受理しない。
 
 PluginはCoreを知らない。CoreがWS接続を開いて `link.hello` を送り、Pluginは同じWS上で `tools.set`・`link.ping` を返すだけである。
 
