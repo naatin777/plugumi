@@ -26,6 +26,18 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 - **NodeはPluginが宣言する「実行環境」の共有識別**であり、Coreはその意味を解釈しない（ローカル・Docker sandbox・リモートホスト等）
 - **同一Pluginは複数登録できる**（複数Node・同一Node上）。例外として `standard` PluginはNodeごと最大1登録 — 旧実装の既存仕様であり、再検証対象
 
+## 本体が提供するもの vs Pluginが実現するもの
+
+Plugumi本体はアプリケーション機能を持たず、協調のための共通契約と実行基盤を提供する（`docs/requirements/00004`）。
+
+| Plugumi本体が提供するもの | Pluginが実現するもの |
+|---|---|
+| Toolの公開・呼び出し | ファイル操作、Git操作 |
+| Eventや非同期実行の仕組み | Agentの推論・Queue制御 |
+| UIを提供・配置する仕組み | Editor、Terminal、Chat |
+| ResourceやContextの参照・連携 | Project管理、Specbook |
+| Pluginの接続・組み合わせ | 開発支援、日常作業の自動化 |
+
 ## Dependency and trust boundaries
 
 - Core ↔ Plugin: WebSocket + JSON-RPC 2.0 の双方向（`docs/contracts/00001`）。1 Pluginは複数Coreへ接続し得る
