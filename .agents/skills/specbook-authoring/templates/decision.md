@@ -1,23 +1,22 @@
 ---
 type: decision
-title: Choose an implementation direction
-description: Record a deliberate design choice and rationale.
+title: 実装方針を選択する
+description: 意図的な設計上の選択とその理由を記録する。
 status: draft
 ---
 
-## Context
+## コンテキスト
 
-Why is this decision needed?
+なぜこの決定が必要か？
 
-## Decision
+## 決定
 
-What is chosen? Keep draft until accepted explicitly.
+何を選ぶか？明示承認されるまではdraftに保つ。
 
-## Alternatives
+## 代替案
 
-What other plausible approaches exist?
+他にどんな妥当な案があるか？
 
-## Tradeoffs and consequences
+## トレードオフと帰結
 
-What do we gain, lose, or revisit?
-
+何を得て、何を失い、何を再検討するか？

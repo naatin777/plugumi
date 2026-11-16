@@ -1,23 +1,23 @@
 ---
 type: guide
-title: Perform a development or operations task
-description: Explain repeatable steps for a specific audience.
+title: 開発・運用タスクを実行する
+description: 特定の読者向けに反復可能な手順を説明する。
 status: draft
 ---
 
-## Audience and prerequisites
+## 対象読者と前提条件
 
-Requirements and supported environments.
+要件と対応環境。
 
-## Procedure
+## 手順
 
-1. Step one
-2. Step two
+1. 手順1
+2. 手順2
 
-## Expected outcome
+## 期待される結果
 
-How to recognize success.
+成功をどう認識するか。
 
-## Troubleshooting and limitations
+## トラブルシューティングと制限
 
 - 

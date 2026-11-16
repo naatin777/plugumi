@@ -1,19 +1,19 @@
-# Guide — repeatable operating/development instructions
+# Guide — 反復可能な運用・開発手順
 
-**Location:** `docs/guides/`. **Type:** `guide`. **Required relations:** none.
+**置き場所:** `docs/guides/`。**Type:** `guide`。**必須relation:** なし。
 
-Use a Guide for the **how-to** that a contributor, operator, or Plugin author follows. Unlike a Design, it should be directly executable and grounded in implemented behavior.
+Guideは、貢献者・運用者・Plugin作者が従う **how-to** に使う。Designと違い、直接実行可能で実装済みの振る舞いに根拠を置く。
 
-## Recommended content
+## 推奨する内容
 
-- **Audience and prerequisites:** supported environments, versions, permissions.
-- **Steps and commands:** complete invocations, expected responses, cleanup.
-- **Troubleshooting:** common failure cases, diagnostics, recovery.
-- **Boundaries:** what is not yet supported; behavior conditional on platform.
-- **Canonical links:** reference Contracts, Designs, and Requirements instead of copying them.
+- **対象読者と前提条件:** 対応環境・バージョン・権限。
+- **手順とコマンド:** 完全な呼出し・期待される応答・後片付け。
+- **トラブルシューティング:** よくある失敗・診断・復旧。
+- **境界:** 未対応のもの、プラットフォーム条件付きの振る舞い。
+- **正本リンク:** 複製せずContract・Design・Requirementを参照。
 
-Use `documents` to link any artifacts whose implementation/usage the guide explains. `sources` only for actual repository files. For a fresh rewrite with no implementation yet, keep instructions clearly proposed or delay creating them.
+`documents` で、実装や利用法を説明するartifactへリンクする。`sources` は実際のリポジトリファイルのみ。実装の無い作り直し直後では、手順を明確に提案とするか、作成を遅らせる。
 
-## Review
+## レビュー
 
-Do not present old Plugumi commands, paths or setup as currently working. Distinguish examples from verified copy/paste commands.
+旧Plugumiのコマンド・パス・セットアップが現在も動くかのように提示しない。例と検証済みのコピペ可能なコマンドを区別する。

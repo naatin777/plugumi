@@ -1,19 +1,19 @@
-# Requirement — externally observable need
+# Requirement — 外部から観測可能な必要性
 
-**Location:** `docs/requirements/`. **Type:** `requirement`. **Required relations:** none.
+**置き場所:** `docs/requirements/`。**Type:** `requirement`。**必須relation:** なし。
 
-Define **what must be satisfied**, not the code structure that happens to satisfy it. Prefer one coherent, testable capability per document. Do not split artificial one-sentence micro-requirements or bundle unrelated demands.
+**何を満たさなければならないか**を定義する。それをたまたま満たすコード構造ではない。ドキュメントごとに一貫した検証可能な1つのcapabilityを好む。人工的な一文のmicro-requirementに分割したり、無関係な要求を束ねたりしない。
 
-## Recommended content
+## 推奨する内容
 
-- **Context / actor:** who needs this and under what conditions.
-- **Normative behavior:** precise MUST / MUST NOT / SHOULD where helpful.
-- **Acceptance criteria:** concrete, falsifiable observations, including error and denial cases.
-- **Constraints / non-goals:** reliability, portability, trust boundaries, or intentionally excluded behavior.
-- **Open questions:** unresolved policies and tradeoffs.
+- **コンテキスト・行為者:** 誰が、どんな条件で必要とするか。
+- **規範的振る舞い:** 有用なら正確な MUST / MUST NOT / SHOULD。
+- **受入基準:** 反証可能な具体的観測。エラーや拒否のケースを含む。
+- **制約・非目標:** 信頼性・可搬性・信頼境界、あるいは意図的に除外する振る舞い。
+- **未解決の問い:** 未解決の方針やトレードオフ。
 
-`contributes_to: ['00001']` may link a requirement to a Goal; it is optional in the prior Specbook format. Use `depends_on` for prerequisite requirements and `parent` for actual same-type hierarchy, not as a substitute for `contributes_to`.
+`contributes_to: ['00001']` で requirement を Goal へリンクできる（旧Specbook形式では任意）。`depends_on` は前提requirementに、`parent` は実際の同type階層に使い、`contributes_to` の代用にしない。
 
-## Review
+## レビュー
 
-Do not require a specific framework, transport, or package structure unless it is itself a product requirement. Do not mark requirements `accepted` by assumption. A design may later `address` this requirement.
+それ自体がプロダクト要件でない限り、特定のフレームワーク・トランスポート・パッケージ構造を要求しない。requirementを思い込みで `accepted` にしない。後でdesignがこのrequirementを `address` し得る。

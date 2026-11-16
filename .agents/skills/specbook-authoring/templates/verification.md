@@ -1,31 +1,31 @@
 ---
 type: verification
-title: Verify a capability or contract
-description: Define checks and expected results for existing artifacts.
+title: capabilityまたはcontractを検証する
+description: 既存artifactへのチェックと期待結果を定義する。
 status: draft
 relations:
   verifies:
-    - '<requirement-design-architecture-or-contract-id-REQUIRED>'
+    - '<対象artifact-id-必須>'
 ---
 
-## Targets and scope
+## 対象と範囲
 
-Why these artifacts need verification.
+なぜこれらのartifactが検証を要するか。
 
-## Preconditions and environment
+## 前提条件と環境
 
-Versions, fixtures, and setup.
+バージョン・fixture・セットアップ。
 
-## Test scenarios
+## テストシナリオ
 
-1. Input/action
-2. Expected result
-3. Negative/boundary cases
+1. 入力/操作
+2. 期待結果
+3. 異常/境界ケース
 
-## Results and evidence
+## 結果と証拠
 
-Not executed yet. Record measured outcomes and dates after running tests.
+未実行。テスト実行後に実測結果と日付を記録する。
 
-## Limitations
+## 制限
 
 - 

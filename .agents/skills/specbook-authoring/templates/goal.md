@@ -1,22 +1,22 @@
 ---
 type: goal
-title: What outcome will the product achieve?
-description: Describe the durable product outcome.
+title: プロダクトが達成する成果は何か？
+description: 永続的なプロダクト成果を記述する。
 status: draft
 ---
 
-## Outcome
+## 成果
 
-Who benefits, and what changes?
+誰が恩恵を受け、何が変わるか？
 
-## Scope
+## 範囲
 
-What is in scope and out of scope?
+スコープの内側と外側は何か？
 
-## Success signals
+## 成功シグナル
 
-What observable evidence would indicate progress?
+進捗を示す観測可能な証拠は何か？
 
-## Open questions
+## 未解決の問い
 
 - 
