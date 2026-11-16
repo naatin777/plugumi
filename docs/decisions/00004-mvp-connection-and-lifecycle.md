@@ -20,21 +20,24 @@ Coreの最初の実装を可能にするため、`docs/contracts/00001`・`docs/
 
 以下を採用する（MVP時点）。
 
-1. **接続方向は Core → Plugin**（PluginがWSサーバーとして待受）。旧実装（旧ADR-0024）と同方向を踏襲する
-2. **handshakeでCoreが `core_url` をPluginへ伝える**。PluginのWeb UI等がCoreへ到達するために必要（旧実装と同じ方式）
-3. **Pluginは外部起動のみ**。CoreはPluginプロセスをspawnしない。接続先endpoint一覧はCoreの設定で持つ
-4. **registrationId はsession毎に払い出し**。永続化しない — 切断で失効し再接続で新IDになる
-5. **MVPの可視化は標準出力**。接続中のPlugin・Tool一覧をログに出す。TUI統合は後続
-6. **リポジトリ構成は `core/` と `plugins/` に分割**
+1. **接続開始は必ず Core → Plugin**。PluginからCoreへの逆接続（登録・ペアリングの開始）はサポートしない。旧実装（旧ADR-0024）と同方向を踏襲する
+2. **Pluginは接続前にCoreの情報を一切知らない**。Pluginは独立したサーバーとして待受け、利用されるまでどのCoreに使われるかを知らなくてよい
+3. **handshakeでCoreが `core_url` をPluginへ伝える**。接続後にPlugin→Core操作やPlugin UIからの到達が必要になるため。「接続前に知らない」は「接続後も知らない」ではない
+4. **接続後の通信は双方向**。確立した接続上で、Core・PluginのどちらからでもRPCを呼べる
+5. **Pluginの起動方法と接続方法は分離する**。通常プロセス・Docker・外部アプリの拡張など起動形態が異なっても、Coreはendpointへ接続するだけ。MVPでは外部起動のみ（Coreはspawnしない）
+6. **1つのPluginに複数のCoreが接続してよい**。Plugin側はsessionごとに独立して扱う
+7. **Coreから到達できないPluginは利用対象外**。リモート環境の到達性（NAT越え等）は利用者がネットワーク構成で確保する
+8. **registrationId はsession毎に払い出し**。永続化しない — 切断で失効し再接続で新IDになる
+9. **MVPの可視化は標準出力**。接続中のPlugin・Tool一覧をログに出す。TUI統合は後続
+10. **リポジトリ構成は `core/` と `plugins/` に分割**
 
 ## 代替案
 
-- **Plugin→Core接続**: PluginがCore URLを知る必要がある。以下の理由で採用しない:
-  - Pluginが「呼ばれる側」が基本であり、URLを持たない方が自然。Web UI等でCoreへ戻る必要がある場合は handshake で `core_url` を教えれば足りる
-  - **Plugin側の実装負担が増える**。Plugin→Core接続だと「Coreがまだ起きていない」場合の再接続・待機ロジックを各言語のPlugin SDKがそれぞれ実装する必要がある。Core→Pluginなら再試行はGo実装のCore1箇所に集約できる
-  - **Pluginはゼロ設定で起動できる**。serverを立てて待つだけで、Coreの所在・起動順序を一切知らなくてよい
-  - **N:MでPlugin側の作業が増えない**。Plugin→Coreだと新しいCoreが増えるたびにPlugin側の接続設定を増やす必要がある。Core→PluginならPluginは受け入れるだけ
-  - **Web UIと整合する**。Panel↔Plugin間はPluginが自由に選んだ通信を使う（`docs/contracts/00001` scope外）ため、Pluginがserverとして待受けることはブラウザからの到達性の前提でもある
+- **Plugin→Core接続**: Pluginが接続先Coreを事前に把握する必要が生じる。以下の設計思想と矛盾するため採用しない:
+  - **Pluginは特定のCoreに依存しない独立した機能提供者**。Core AとCore Bが同じPluginを使うために、Plugin側へ両方のURLを設定する必要はない。Pluginを起動しておくだけで、どのCoreからも使われ得る
+  - **登録・利用の責務はCoreに集中する**。どのPluginを登録・利用するかはCoreが決め、Pluginが接続先を探す責務を持たない。「どのCoreへ接続するか」をPlugin自身が管理する形にしない
+  - **再接続ロジックをCore1箇所に集約できる**。Plugin→Coreだと「Coreがまだ起きていない」場合の待機・再接続を各言語のPlugin SDKがそれぞれ実装する必要がある
+  - リモート環境・NAT越えではPlugin→Coreの方が有利な場合もあるが、**Coreから到達できないPluginをサポート対象外とする**方針を採る
 - **CoreがPluginをspawn**: プロセス監視・再起動方針・環境引継ぎまで決める必要がありMVPの範囲を超える。外部起動でも動作するため後付け可能
 - **registrationId永続発行（旧踏襲）**: Default選択・履歴紐付けが安定するが、再登録キー・state永続化まで設計が要る。Discovery→選択の流れを前提とすればsession-scopedでも成立するため先送り
 - **TUIを最初から統合**: 見栄えは良いが、Core内部の登録・session管理が先。一覧は標準出力で足りる

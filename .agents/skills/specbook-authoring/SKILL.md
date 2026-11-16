@@ -24,6 +24,22 @@ description: docs/goals, requirements, architecture, designs, decisions, contrac
 
 `docs/designs/`（複数形・artifact type）と旧来の `docs/design/` ディレクトリを混同しない。現行のdecisionディレクトリとして旧 `docs/adr/` を作らない。
 
+## 設計調査時の原則（情報の優先順位）
+
+設計の判断材料は次の優先順位で扱う:
+
+1. 現在の会話で明示的に決めたこと
+2. 本リポジトリの採用済み（accepted）文書
+3. 本リポジトリのdraftと未解決事項
+4. 旧リポジトリ（旧Plugumi/modstrata）のADR・設計文書・PR — **判断理由の調査に限る**
+5. さらに古い会話・構想
+
+- 新リポジトリの文書を最初に確認し、`draft` と `accepted` を区別する
+- 旧ADRの `accepted` を新Plugumiの採用状態として扱わない。旧資料は「なぜそう決めたか」を調べるためのものであり、仕様の正本ではない
+- 仕様が決まっていない領域を、過去の案で勝手に穴埋めしない。複数の判断がある論点は日付と置き換え関係を確認する
+- 会話での新しい方針と本リポジトリのdraftが異なる場合、どちらかを自動的に確定せず差分としてユーザーに提示する
+- 文章の書き直しと新しい設計判断を混同しない
+
 ## ワークフロー
 
 1. **コンテキストを確立する。** まずリポジトリと既存 `docs/` ファイルを調べる。accepted の requirement/decision と draft・deprecated を区別する。旧Plugumiリポジトリ・過去のPoC・過去の議論は検討の入力であり、今回の作り直しの拘束力ある仕様ではない。
