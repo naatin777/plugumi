@@ -10,7 +10,7 @@ relations:
 
 ## コンテキスト
 
-`docs/requirements/00001` の制御をどう表現するか。旧実装では Agent の Run は入力受付後に閉じており、実行中の投入経路そのものが無かった。同時に Push通知・複数Part結果・Dynamic Hooks が長年Proposedのまま並立していた。今回の議論で以下3点を採用する方向で明確になった。
+`docs/requirements/00001` の制御をどう表現するか。旧実装では Agent の Run は入力受付後に閉じており、実行中の投入経路そのものが無かった。同時に Push通知・複数Part結果・Dynamic Hooks が長年Proposedのまま並立していた。今回の議論で、以下の3点が決まった。
 
 ## 決定
 

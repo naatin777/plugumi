@@ -20,7 +20,7 @@ Core↔Plugin通信のtransportとメッセージ形式を決める必要があ�
 これは通信モデルの変化であり、接続方向等の設計判断まで変わったわけではない。前提となる要件:
 
 - Plugin serverは**多様な言語で書ける**ことが必須。言語によって得意不得意があるため、Plugin実装言語を絞らない
-- request/responseで足りる処理（宣言・検索・session管理）と、push・Streamingが要る処理（Tool呼出の中間出力等）が混在する
+- request/responseで足りる処理（宣言・検索・Session管理）と、push・Streamingが要る処理（Tool呼出の中間出力等）が混在する
 - Plugin→Core方向の送信は「いつでも・継続的に」起こり、RESTのrequest/responseでは表しにくい
 
 ## 決定

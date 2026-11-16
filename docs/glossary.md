@@ -6,7 +6,7 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 | 用語 | 定義 |
 |---|---|
-| **Core** | 中央の仲介プロセス（`core/`、Go実装）。Plugin登録・Tool呼出のルーティング・session管理を担い、機能ロジックは持たない |
+| **Core** | 中央の仲介プロセス（`core/`、Go実装）。Plugin登録・Tool呼出のルーティング・Session管理を担い、機能ロジックは持たない |
 | **Plugin** | 機能を提供する任意言語のプロセス（`plugins/`）。Plugumi専用でも既存アプリの拡張としても作れる |
 | **UI Host** | Panel等のUIを表示する任意コンポーネント（Web/Electron等）。表示専用で実行寿命を持たない |
 | **Panel** | UI Host上に表示されるPlugin提供のUI面。Panel↔Plugin間の通信はPluginの自由で、Plugumiの契約対象外 |
@@ -16,7 +16,7 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 | 用語 | 定義 |
 |---|---|
 | **Session** | CoreとPluginが確立する1つの接続・登録単位。`session.hello` で始まり失効で終わる。`sessionId` で識別 |
-| **Registration** | session内でCoreが払い出す「このPlugin登録」を指す識別。`registrationId` で識別し、Tool呼出の宛先になる |
+| **Registration** | Session内でCoreが払い出す「このPlugin登録」を指す識別。`registrationId` で識別し、Tool呼出の宛先になる |
 | **registrationId** | Core発行の一意ID。同一Plugin実装の複数登録（複数Node等）を区別するため実装IDとは別に持つ。MVPではsession-scoped |
 | **core_url** | handshakeでCoreがPluginへ伝えるCore自身のURL。Plugin→Core操作・Plugin UIからの到達に使う |
 | **Node** | Pluginが宣言する「実行環境」の共有識別（ローカル・Docker・リモートPC等）。Coreは意味を解釈しない |

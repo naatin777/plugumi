@@ -13,7 +13,7 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 
 | Component | 責務 | 担わないこと |
 |---|---|---|
-| Core（Go） | Plugin登録・Registration IDとNode対応の管理、Tool仲介・ルーティング・実行時権限検証、session管理 | AI・Plugin業務ロジック、Tool候補の自動選択、UI描画 |
+| Core（Go） | Plugin登録・Registration IDとNode対応の管理、Tool仲介・ルーティング・実行時権限検証、Session管理 | AI・Plugin業務ロジック、Tool候補の自動選択、UI描画 |
 | Plugin | Tool・Panel等の機能提供。Plugumi専用でも既存アプリの拡張としても実装できる | Coreへの言語・フロントエンド依存 |
 | Node | Pluginの実行場所。ローカルホスト・リモートPC・Docker等を含む | 単一マシンへの限定 |
 | UI Host（Web / Electron） | Panel表示・ユーザー操作面 | 実行の寿命。任意コンポーネント |
@@ -44,9 +44,9 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 ## Session / Registration / Node の関係
 
-- **Session**: CoreがPluginと確立する1つの接続・登録の単位。`session.hello` で開始し、session失効で終わる
-- **Registration**: session内でCoreが払い出す「このPlugin登録」を指す識別（`registrationId`）。1 session = 1 registration。Tool・Node宣言はこのregistrationに紐づく
-- **Node**: Pluginが宣言する実行環境の共有識別。registrationがどのNodeで動くかの対応をCoreが保持する
+- **Session**: CoreがPluginと確立する1つの接続・登録の単位。`session.hello` で開始し、Session失効で終わる
+- **Registration**: Session内でCoreが払い出す「このPlugin登録」を指す識別（`registrationId`）。1 Session = 1 Registration。Tool・Node宣言はこのRegistrationに紐づく
+- **Node**: Pluginが宣言する実行環境の共有識別。RegistrationがどのNodeで動くかの対応をCoreが保持する
 
 つまり `Session ⊃ Registration ⊃ (Tool宣言・Node宣言)` の包含関係で、MVPではすべてsession-scoped（`docs/decisions/00004`）。用語の定義は `docs/glossary.md` を正本とする。
 - Plugin信頼モデルは VS Code型 — インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
@@ -76,7 +76,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 ## 未解決の問い
 
-- Node宣言の実装形態（旧実装はPluginがsession上で動的登録・実行時メモリのみ）
+- Node宣言の実装形態（旧実装はPluginがSession上で動的登録・実行時メモリのみ）
 - 複数Core接続時のPlugin状態の分離・共有範囲（旧ADR-0025は「妨げない」以上の保証をしていない）
 - Plugin UIの隔離方式（Light DOM・iframe等。旧実装も方針が複数回変わっており未確定）
 - Workspace共有Stateの所有権（Core・Client間の配分は未確定）
