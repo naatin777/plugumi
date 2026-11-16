@@ -23,7 +23,7 @@ relations:
 
 ## 振る舞い
 
-1. **宣言**: Pluginが `tools.set` でTool一覧をアトミックに宣言する（`docs/contracts/00001`、MVP済み）。Node宣言は後続contract
+1. **宣言**: Pluginが `tools.set` でTool一覧をアトミックに宣言する（`docs/contracts/00001`、MVP仕様として定義済み）。Node宣言は後続contract
 2. **Discovery**: 呼出元Pluginが検索し、結果は `registrationId + toolPath` を基本とする。Node等の追加情報は必要に応じて別APIから取得する（method形・tag/schemaのマッチング条件は後続contract。schema適合も対象に入れる方針）
 3. **選択**: 呼出元Pluginが候補をフィルタリングし、Default管理・選択UI・単発/複数判断を行う。Coreは候補を選ばない
 4. **Tool Call**: `registrationId + toolPath` を指定して呼び出す。Coreが対応Sessionへルーティングする（wireは `docs/contracts/00003`）

@@ -33,7 +33,7 @@ Core↔Plugin通信のtransportとメッセージ形式を決める必要があ�
 
 | 候補 | 不採用理由 |
 |---|---|
-| **gRPC** | 本命候補だったが、gRPCはHTTP/2必須でREST系のHTTP/1.1とportを分けなければならず、Plugin serverの構成が複雑になる。また双方向Streamは「双方が独立したRPCを開始する」モデルではなく対称性が違う。動的に登録されるToolには静的なProtobuf定義が合いにくく、JSON Schemaとの二重管理になる。gRPC-Webは双方向Streamingに制約がある |
+| **gRPC** | 本命候補だったが不採用。gRPCはHTTP/2を必須とし、HTTP/1.1のRESTとの同居は条件付きながら可能だが、実装・運用上の考慮が増える — 多様な言語で書くPlugin serverには負担が重い。また双方向Streamは「双方が独立したRPCを開始する」モデルではなく対称性が違う。動的に登録されるToolには静的なProtobuf定義が合いにくく、JSON Schemaとの二重管理になる。gRPC-Webは双方向Streamingに制約がある |
 | **Connect** | ブラウザ・gRPC両対応で有力だが、対応言語がまだ狭い。Plugin serverを多様な言語で書ける前提と衝突する |
 | **WS一本** | 全部をWSに載せるとREST/OpenAPIの資産が使えず、request/response中心の処理まで常時接続が前提になる |
 | **REST一本（SSE等でpush）** | 一方向pushは可能だが、Plugin→Coreの継続的な送信や双方向対称性が弱い |
