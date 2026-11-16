@@ -4,15 +4,15 @@ title: Coreの実装言語にGoを採用
 description: CoreをGoで書く理由と、実装時点での主要ライブラリ方針。
 status: draft
 relations:
-  applies_to:
+  architecture:
     - '00001'
 ---
 
-## Context
+## コンテキスト
 
 Core（`core/` ディレクトリ）の実装言語を確定する。Pluginは任意言語で書けるため、ここで決めるのはCore本体のみ。
 
-## Decision
+## 決定
 
 Coreは **Go** で実装する。
 
@@ -24,13 +24,13 @@ Coreは **Go** で実装する。
 - **クロスコンパイル**: ローカル・リモート・コンテナ等の複数環境へ容易にビルドできる
 - **標準ライブラリの充実**: net/http・json・flag等で外部依存を抑えられる
 
-## Alternatives
+## 代替案
 
 - **Rust**: 安全性・性能は上だが、開発速度とエコシステムの学習コストを考えるとMVPには重い
 - **TypeScript/Node**: Plugin側と同じ言語で書ける利点はあるが、単体配布・常駐プロセスとしての運用がGoより重い
 - **既存モノリスに載せる**: `docs/decisions/00005` の分割根拠と矛盾する
 
-## Tradeoffs and consequences
+## トレードオフと帰結
 
 - Plugin SDKをGo以外にも提供する場合、言語数だけ実装・検証コストが増える（Coreとは別の話だが関連する）
 - MVP時点の主要選択:

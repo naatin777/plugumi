@@ -1,107 +1,107 @@
 ---
 type: contract
-title: Core↔Plugin 接続契約（MVP）
-description: CoreがPluginへ接続し、sessionを確立してTool宣言を受け取るまでの最小契約。
+title: Core↔Plugin 接続契約（MVP・REST）
+description: CoreがPluginへ接続し、sessionを確立してTool宣言を受け取るまでの最小契約。HTTP+JSONのRESTで構成する。
 status: draft
 relations:
-  related_to:
+  architecture:
     - '00001'
 ---
 
-## Parties and scope
+## 当事者と範囲
 
-Core と Plugin の双方が実装する通信境界。UI Host ↔ Core の境界は別contractとする。
+Core と Plugin の双方が実装する通信境界。
 
-**MVPの範囲は「接続・session確立・Tool宣言」まで**。Tool呼出・Discovery・Streaming・Node宣言は後続のcontractで定義する。
-
-- 通信は **WebSocket + JSON-RPC 2.0**
-- **Core → Plugin 方向に接続する**（PluginがWSサーバーとして待受）。Coreは接続先Pluginのendpoint一覧を設定で持つ
-- handshakeでCoreが自身の **core_url** をPluginへ伝える。PluginがWeb UI等からCoreへ到達するための情報
+- 基本は **HTTP/1.1 + JSON の REST**。request/responseで足りる処理はすべてここに載せる（OpenAPI化を見据える）
+- 非同期push・Streaming・Tool呼出などrequest/responseで表せない部分は **WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）
+- **Panel ↔ Plugin の通信は本契約の対象外**。Pluginのフロントエンド⇄バックエンド間はWS・WebRTC・GraphQL等を自由に選んでよい。Plugumiが規定するのはCore↔Pluginと、UIを提供・配置する枠組みだけ
 - Pluginプロセスは外部起動を前提とする（Coreはspawnしない）
-- 全メッセージは1接続上で順序保証される。切断中の未配送・再接続時のreplayは行わない
-
-## なぜWebSocketか
-
-MVPの目的は「CoreとPluginが接続状態を持つ」ことであり、session=接続の存在そのものである。永続接続が前提なので、接続・切断の検出が自然な双方向channel（WebSocket）を採る。JSON-RPC 2.0 は request/response/notification のフレーミング・id相関・error形状を自前で発明せず済むため。
-
-宣言・検索・呼出などrequest/responseで足りる機能は、後続設計で別transport（HTTP等）に載せる可能性を排除しない — 本contractは接続路だけを定める。
 
 ## Endpoint
 
-- Pluginは `ws://<host>:<port>/ws` で待受（各Pluginが自分のportを持つ）
-- Coreは `ws://<host>:<port>/ws` でも待受し、`core_url` としてPluginに提示する（Plugin側UIや将来のPlugin→Core経路のため）
-- いずれもMVPではloopback・認証トークン無し。リモート接続・TLS・認証は `docs/decisions/00003` に従い後付け可能な別設計事項
+- Pluginは `http://<host>:<port>` で待受し、CoreからのREST呼出を受ける
+- Coreは `http://<host>:<port>` で待受し、PluginからのREST呼出を受ける。CoreのURLは handshake でPluginに伝える
+- いずれもMVPではloopback・認証トークン無し（安全性の前提は後述）。リモート接続・TLS・認証は `docs/decisions/00003` に従い後付け可能な別設計事項
 
-## Plugin endpoint の解決
+## Plugin endpointの解決
 
 Coreは起動設定でPlugin endpoint一覧を持ち、各endpointへ接続を試みる。
 
 - 設定形式・場所は実装時に決定（候補: `plugumi.toml` 等の静的リスト）
 - 接続不能なPluginは一定間隔で再試行する（MVPの方針。間隔・上限は実装詳細）
 
-## Session lifecycle
+## sessionのライフサイクル
 
-1. CoreがPluginのWS endpointへ接続する
-2. Coreが `session.hello` を送信し、`registrationId`・`core_url`・protocolVersionを伝える
-3. Pluginは自身の識別情報（plugin.id等）を返す
-4. Pluginが `tools.set` で提供Tool一覧を宣言する
-5. WS切断でsession終了。`registrationId`・Tool宣言はすべて失効する（session-scoped）
+1. CoreがPluginのHTTP endpointへ `POST /v1/session/hello` を送る
+2. Coreが払い出した `registrationId`・`sessionId`・`core_url`・protocolVersionを伝え、Pluginは自身の識別情報を返す
+3. Pluginは以後 `core_url` 宛てに `tools.set` 等のPlugin→Core操作を呼ぶ
+4. sessionは `session.ping` の定期送信で維持し、一定期間pingが無い場合Coreが失効させる（詳細は `docs/designs/00002`）
+5. session失効で `registrationId`・Tool宣言はすべて消える（session-scoped）
 
 再接続は新しい `session.hello` からやり直し、新IDが払い出される。
 
-## Methods
+## Operations
 
-### `session.hello`（Core → Plugin、request）
+### `POST /v1/session/hello`（Core → Plugin）
 
-接続直後の最初のrequest。Coreがsessionを確立し、自分のURLと払い出したIDを伝える。
+sessionを確立する最初の呼出。Coreが払い出したIDと自身のURLを伝える。
 
 ```jsonc
-// params
+// request body
 { "protocolVersion": "0.1.0",
+  "sessionId": "s-…",
   "registrationId": "reg-…",
-  "core": { "url": "ws://127.0.0.1:PORT/ws", "version": "…" } }
-// result
+  "core": { "url": "http://127.0.0.1:PORT", "version": "…" } }
+// response body
 { "plugin": { "id": "my-plugin", "version": "0.1.0", "name": "My Plugin" } }
 ```
 
-- `protocolVersion` のメジャー不一致はPlugin側がerrorで応答し、Coreは接続を閉じる
+- `protocolVersion` のメジャー不一致はPluginが4xxで応答し、sessionは成立しない
 - `plugin.id` は実装を識別する文字列。一意性はCoreに要求しない（同一実装の複数登録を許す）
 
-### `tools.set`（Plugin → Core、request）
+### `POST /v1/tools/set`（Plugin → Core）
 
 このregistrationが提供するTool一覧を**アトミックに置き換える**。接続時と宣言変更時に送る。
 
 ```jsonc
-// params
-{ "tools": [ { "toolPath": "fs/read",
+// request body
+{ "sessionId": "s-…",
+  "tools": [ { "toolPath": "fs/read",
                "description": "…",
                "tags": ["fs", "read"],
                "inputSchema": {…}, "outputSchema": {…} } ] }
-// result
+// response body
 { "count": 1 }
 ```
 
-- `toolPath` は登録内で一意な文字列（構造は open question）。重複はerror
+- `sessionId` で呼出元sessionを識別する（Coreはsessionから呼出元を判断し、自己申告の信頼性はsession確立に依存する）
+- `toolPath` は登録内で一意な文字列（構造は open question）。重複は4xx
 - `description` `tags` `inputSchema` `outputSchema` は任意フィールド
-- `session.hello` 完了前の `tools.set` はerror
 
-## Error codes
+### `POST /v1/session/ping`（Plugin → Core）
 
-JSON-RPC 2.0 標準（-32700 parse / -32600 invalid request / -32601 method not found / -32602 invalid params / -32603 internal）に加え:
+sessionの維持信号。
 
-| code | 意味 |
-|---|---|
-| -32004 | 許可されない呼出（`session.hello` 前の `tools.set` 等） |
-| -32005 | `protocolVersion` 不一致 |
+```jsonc
+// request body
+{ "sessionId": "s-…" }
+// response body
+{ "ok": true }
+```
 
-## Security and conformance
+## エラー
 
-- 接続はloopback前提・認証なし。呼出元identityはsessionからCoreが判断する
-- MVPの権限モデルは「hello済みsessionからの要求のみ受理」の最小限
+- HTTPステータス: 400 invalid params / 401 未hello・未知session / 404 未知endpoint / 409 状態衝突（toolPath重複等）/ 426 `protocolVersion` 不一致
+- error body は `{ "error": { "code": "…", "message": "…" } }` の形を基本とする
 
-## Open questions
+## セキュリティと適合性
+
+- **安全性の前提**: MVPはloopbackのみで、外部ネットワークから到達できないことが前提。Coreと同じユーザー権限のプロセスは本契約上すべて信頼できる呼出元とみなす（`docs/decisions/00001` の信頼モデルと整合）
+- loopback外へ公開する場合は、認証・TLSを必須とする別contractが必要になる
+- 1 Pluginは複数Coreからの接続を受け付け得る。sessionはCoreごとに独立し、`registrationId` はCore内の名前空間で衝突しない
+
+## 未解決の問い
 
 - `toolPath` の構造（`seg/seg` 階層か、flat文字列か）
-- Tool呼出・Discovery・Streaming・Node宣言のmethod形（後続contract）
-- 上記機能のtransport（このWSに載せ続けるか、request/response系はHTTPに分けるか）
-- 明示的な切断挨拶（`session.bye` 等）を定義するか
+- `session.ping` の間隔・失効期限（`docs/designs/00002` で詳細化）
+- 明示的な終了操作（`session.bye` 等）を定義するか

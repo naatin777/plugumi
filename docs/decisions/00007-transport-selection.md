@@ -1,0 +1,39 @@
+---
+type: decision
+title: 通信transport — REST基本 + WS非同期channel
+description: Core↔Plugin通信をHTTP/1.1+JSON RESTとWebSocket+JSON-RPC 2.0の2層で構成する理由。gRPC・Connect等の不採用理由を含む。
+status: draft
+relations:
+  contract:
+    - '00001'
+    - '00002'
+---
+
+## コンテキスト
+
+Core↔Plugin通信のtransportとメッセージ形式を決める必要がある。前提となる要件:
+
+- Plugin serverは**多様な言語で書ける**ことが必須。言語によって得意不得意があるため、Plugin実装言語を絞らない
+- request/responseで足りる処理（宣言・検索・session管理）と、push・Streamingが要る処理（Tool呼出の中間出力等）が混在する
+- Plugin→Core方向の送信は「いつでも・継続的に」起こり、RESTのrequest/responseでは表しにくい
+
+## 決定
+
+- **基本は HTTP/1.1 + JSON のREST**（`docs/contracts/00001`）。OpenAPI化も見据える
+- **非同期channelは WebSocket + JSON-RPC 2.0**（`docs/contracts/00002`）。Tool呼出・Streaming出力等、request/responseで表せない送信をここに載せる
+- JSON-RPC 2.0 は基本的な Request・Response・Notification の形だけを提供する。Streaming・Queue・Event・キャンセル等のPlugumi固有の振る舞いは別のContract/Designで定義する
+
+## 代替案
+
+| 候補 | 不採用理由 |
+|---|---|
+| **gRPC** | 本命候補だったが、gRPCはHTTP/2必須でREST系のHTTP/1.1とportを分けなければならず、Plugin serverの構成が複雑になる。また双方向Streamは「双方が独立したRPCを開始する」モデルではなく対称性が違う。動的に登録されるToolには静的なProtobuf定義が合いにくく、JSON Schemaとの二重管理になる。gRPC-Webは双方向Streamingに制約がある |
+| **Connect** | ブラウザ・gRPC両対応で有力だが、対応言語がまだ狭い。Plugin serverを多様な言語で書ける前提と衝突する |
+| **WS一本** | 全部をWSに載せるとREST/OpenAPIの資産が使えず、request/response中心の処理まで常時接続が前提になる |
+| **REST一本（SSE等でpush）** | 一方向pushは可能だが、Plugin→Coreの継続的な送信や双方向対称性が弱い |
+
+## トレードオフと帰結
+
+- transportが2系統になるため、Core・PluginともHTTP serverとWS client/serverの両面を実装する。ただし各面は独立して薄く保てる
+- 「どの操作がどちらに載るか」の分類が契約設計の論点になる。request/response中心はREST、push/StreamingはWS、という基準を明確にする
+- JSON-RPC 2.0の採用はメッセージ形式としての決定であり、WS固有ではない。REST側のoperationを後でWSに載せ替えることも形式上一貫する

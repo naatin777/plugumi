@@ -5,11 +5,11 @@ description: Plugumiの構成要素・責務・接続関係。旧実装から引
 status: draft
 ---
 
-## Scope
+## 範囲
 
 Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/contracts/00001`、信頼モデルは `docs/decisions/00001`、配布・運用面は `docs/decisions/00003` を参照。
 
-## Components and responsibilities
+## コンポーネントと責務
 
 | Component | 責務 | 担わないこと |
 |---|---|---|
@@ -38,18 +38,26 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 | ResourceやContextの参照・連携 | Project管理、Specbook |
 | Pluginの接続・組み合わせ | 開発支援、日常作業の自動化 |
 
-## Dependency and trust boundaries
+## 依存・信頼境界
 
-- Core ↔ Plugin: WebSocket + JSON-RPC 2.0 の双方向（`docs/contracts/00001`）。接続は **Core → Plugin** で、Pluginが待受する。handshake時にCoreが `core_url` をPluginへ伝える
+- Core ↔ Plugin: 基本はHTTP+JSON REST、非同期channelはWebSocket + JSON-RPC 2.0（`docs/contracts/00001` `00002`）。接続は **Core → Plugin** で、Pluginが待受する。handshake時にCoreが `core_url` をPluginへ伝える
+
+## Session / Registration / Node の関係
+
+- **Session**: CoreがPluginと確立する1つの接続・登録の単位。`session.hello` で開始し、session失効で終わる
+- **Registration**: session内でCoreが払い出す「このPlugin登録」を指す識別（`registrationId`）。1 session = 1 registration。Tool・Node宣言はこのregistrationに紐づく
+- **Node**: Pluginが宣言する実行環境の共有識別。registrationがどのNodeで動くかの対応をCoreが保持する
+
+つまり `Session ⊃ Registration ⊃ (Tool宣言・Node宣言)` の包含関係で、MVPではすべてsession-scoped（`docs/decisions/00004`）。用語の定義は `docs/glossary.md` を正本とする。
 - Plugin信頼モデルは VS Code型 — インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
 - 接続はローカル基本。リモート接続は任意追加（Tailscale・Cloudflare Tunnel + Access等、`docs/decisions/00003`）
 
-## Runtime / deployment model
+## ランタイム・デプロイモデル
 
 - CoreはCLI/TUIで単体管理可能。独立したManagerは必須にしない（`docs/decisions/00003`）
 - UI Host無しでもCore+Pluginは動作する
 - 静的ファイル: WebはGoサーバーから配信、Electronはアプリ同梱
 
-## Open questions
+## 未解決の問い
 
 - Node宣言の実装形態（旧実装はPluginがsession上で動的登録・実行時メモリのみ）

@@ -4,22 +4,22 @@ title: 柔軟な作業環境
 description: ソフトウェア開発から日常作業まで、必要な機能を自由に追加・組み合わせて自分に合った環境へ育てられる。
 status: draft
 relations:
-  parent:
+  goal:
     - '00001'
 ---
 
-## Outcome
+## 成果
 
 Composability — 必要な機能を自由に追加・連携し、自分に合った環境へ育てられる。
 
 ソフトウェア開発を中心にしつつ、日常的な作業にも使える統合環境。PluginはPlugumi専用でも既存アプリの拡張としても作れ、好きな言語・フロントエンドで書ける。
 
-## Scope
+## 範囲
 
 - Plugin機構、開発環境（SDK・skill）、他者Pluginの採用支援
 - 対象外: 個別Pluginの機能そのもの
 
-## Success signals
+## 成功シグナル
 
 - 第三者がCore実装を読まずにPluginを開発できる
 - 組み合わせたPlugin群だけで実際の作業が完結する

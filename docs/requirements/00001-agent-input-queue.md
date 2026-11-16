@@ -4,11 +4,11 @@ title: Agent入力キューの順序とタイミング制御
 description: 実行中のAgentへの外部入力を「いつ渡すか」と「どの順で渡すか」を分離して制御できなければならない。
 status: draft
 relations:
-  contributes_to:
+  goal:
     - '00002'
 ---
 
-## Context
+## コンテキスト
 
 Agent Pluginは「LLM推論 → Tool実行 → 次の推論」のループを回す。旧実装のRunは開始後に入力を受け付けなかったが、実際には実行中にも外部入力が届く — ユーザーの追記、別Pluginからの通知、バックグラウンド処理の結果など。
 
@@ -16,7 +16,7 @@ Agent Pluginは「LLM推論 → Tool実行 → 次の推論」のループを回
 
 QueueやEventはAIの無駄な待機を削減するだけでなく、人間が待機状況・実行の進行を追いやすくするための仕組みとしても位置づく（`docs/goals/00002`）。これは AI Plugin 領域の要求であり、Core の AI 非依存性を侵さない。
 
-## Requirements
+## 要求事項
 
 - 入力は「いつ処理されるか」（timing）を指定できなければならない MUST
 - 同一タイミング待ちの入力に「順序」（priority）を指定できなければならない MUST
@@ -25,13 +25,13 @@ QueueやEventはAIの無駄な待機を削減するだけでなく、人間が�
 - 緊急入力で現在の実行を中断し即処理する経路がなければならない MUST
 - 実行中のToolが出力を介して入力をqueueへ積めること SHOULD
 
-## Acceptance criteria
+## 受入基準
 
 - 緊急性の高い入力は、現在推論を強制停止せずとも次の推論前に優先して渡せる
 - 割込み指定の入力は現在のAgent実行を中断して即座に処理される
 - AgentがIdleになったタイミングで処理される入力を積める。その処理が新しいAgent Turnを開始し得る
 
-## Non-goals
+## 非目標
 
 - 複数Agent・複数Conversation間のキュー共有
 - キューの永続化・再起動後の復元

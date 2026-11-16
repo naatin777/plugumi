@@ -4,15 +4,15 @@ title: Tool登録・Discovery・呼出ルーティング
 description: registrationId と toolPath によるTool識別、Node対応、Discoveryから厳格呼出までの設計。呼出系は後続contractで具体化する。
 status: draft
 relations:
-  addresses:
+  requirement:
     - '00002'
 ---
 
-## Requirements addressed
+## 対応するrequirement
 
 `docs/requirements/00002`: 選択を呼出元Pluginの責務としつつ、Coreが厳格なルーティングと権限検証を担うための識別・検索・転送モデル。
 
-## Model and invariants
+## モデルと不変条件
 
 - **registrationId**: `session.hello` 時にCoreが発行する一意ID。同一Plugin実装を複数登録（複数Node・同一Node上）できる
   - **MVPではsession-scoped**（`docs/decisions/00004`）: 接続のたびに新IDを払い出し、切断で失効する。旧実装の「再起動後も同一登録を維持する永続ID」は将来の拡張とする
@@ -21,7 +21,7 @@ relations:
 - **toolPath**: 登録内で一意なTool識別子。構造（`seg/seg` 階層かflatか）は open question
 - **Tag**: Toolに複数設定できる検索用ラベル。宣言側が自由に付ける案。Coreが語彙を管理するかは未確定
 
-## Behavior
+## 振る舞い
 
 1. **宣言**: Pluginが `tools.set` でTool一覧をアトミックに宣言する（`docs/contracts/00001`、MVP済み）。Node宣言は後続contract
 2. **Discovery**: 呼出元Pluginが検索し、結果は `registrationId + toolPath` を基本とする。Node等の追加情報は必要に応じて別APIから取得する（method形・tag/schemaのマッチング条件は後続contract。schema適合も対象に入れる方針）
@@ -31,12 +31,13 @@ relations:
 
 失敗パス: 未登録の registrationId・解決不能な toolPath・呼出不能はrouting/transport errorとして返す。Tool内部の失敗とは分離する。Coreが別候補・別Nodeへ暗黙退避しない。
 
-## Interfaces
+## インターフェース
 
-- 接続・session・Tool宣言は `docs/contracts/00001`（WebSocket + JSON-RPC 2.0、MVP）
+- 接続・session・Tool宣言は `docs/contracts/00001`（HTTP+JSON REST、MVP）
+- 非同期channelは `docs/contracts/00002`（WebSocket + JSON-RPC 2.0、Tool呼出・Streaming用）
 - Discovery・Tool Call・Streaming・Node宣言のmethod形は後続contractで定義する。transport（WS継続かHTTP分離か）も未確定
 
-## Open questions
+## 未解決の問い
 
 - `toolPath` の構造（`seg/seg` 階層かflatか）
 - Tag の語彙管理（宣言側自由記述か、Coreが管理するか）

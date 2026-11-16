@@ -4,15 +4,15 @@ title: 配布・管理・認証の置き場所
 description: Pluginの配布形態・Core管理面・認証の委譲先・UI Hostの任意性を決める。
 status: draft
 relations:
-  applies_to:
+  architecture:
     - '00001'
 ---
 
-## Context
+## コンテキスト
 
 Pluginエコシステムを育てるには「作る側の入口」と「使う側の運用面」をどこに置くかの方向が要る。旧実装は独自の配布・install機構（Starter kit・install layout・release管理）を整えていたが、その水準の独自機構を今回も前提とするかは別の話。
 
-## Decision
+## 決定
 
 以下を採用する方向。
 
@@ -23,13 +23,13 @@ Pluginエコシステムを育てるには「作る側の入口」と「使う�
 - **静的ファイル**: WebはGoサーバーから配信、Electronはアプリに同梱する方針
 - **リモート接続は任意**: ローカル接続を基本に、TailscaleやCloudflare Tunnel + Accessなどを追加可能にする
 
-## Alternatives
+## 代替案
 
 - 独自配布CLI・レジストリの整備: 配布面の自由度は増すが、既存CLIの認証・更新・発見の仕組みを再実装するコストが大きい。旧実装が独自install機構を持っていたのとは方向が違う
 - Plugumi側での認証一元管理: 秘密管理をCoreに集めると信頼モデル（`docs/decisions/00001`）以上の保証が要る
 - 専用Manager GUIを必須化: UI Hostの任意性と矛盾し、ローカル単体利用の入口を重くする
 
-## Tradeoffs and consequences
+## トレードオフと帰結
 
 - 管理面を複数持たせず、まずCLI/TUIの単体管理を正本にできる
 - 認証をPluginに委任するため、秘密の保管・期限切れは各Pluginの品質に依存する

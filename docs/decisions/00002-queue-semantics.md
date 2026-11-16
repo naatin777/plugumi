@@ -4,15 +4,15 @@ title: Queue意味論 — priority 3段階 / timing 3種 / streaming=配送機�
 description: Agent入力キューの priority・timing・streaming と queue の関係を決める。
 status: draft
 relations:
-  applies_to:
+  requirement:
     - '00001'
 ---
 
-## Context
+## コンテキスト
 
 `docs/requirements/00001` の制御をどう表現するか。旧実装では Agent の Run は入力受付後に閉じており、実行中の投入経路そのものが無かった。同時に Push通知・複数Part結果・Dynamic Hooks が長年Proposedのまま並立していた。今回の議論で以下3点を採用する方向で明確になった。
 
-## Decision
+## 決定
 
 ### 1. Queue Priority — `high` / `medium` / `low` の3段階
 
@@ -74,14 +74,14 @@ Tool (Streaming)
 
 この統一により、旧実装で別々に検討されていた3つの問題が同じ機構で片付く: 進行中出力のPush（queue/hookメッセージ自体がpush）、複数PartのTool出力（`queue.*`群+`result`がPartに相当）、Dynamic Hooks（`hook.set/patch`として表現）。
 
-## Alternatives
+## 代替案
 
 - 数値priority: 細かい制御になるが、入力側に意味のある粒度を決めさせる負担が増え、実用上3段階で足りる
 - timing を `interrupt` のみ / turn終了のみ: 緊急性と意図の両方を表せない
 - Queue専用Streaming仕様 or Queue操作専用API: Queue操作を出力メッセージとして表現すれば、Streamingを汎用配送のまま共有できる
 - Push通知・Hooksを別々の機構で実装: メッセージ種だけの拡張で済む統一モデルに対して経路が増える
 
-## Tradeoffs and consequences
+## トレードオフと帰結
 
 - priorityとtimingの直積（3×3）で、「interruptほどじゃないけど緊急性あり」等を自然に表現できる
 - `after_all` の定義を「Idle」としたことで、Agent Turn境界の正確な意味をQueue実装側が持つ必要がある
