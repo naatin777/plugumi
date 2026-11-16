@@ -58,6 +58,26 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 - UI Host無しでもCore+Pluginは動作する
 - 静的ファイル: WebはGoサーバーから配信、Electronはアプリ同梱
 
+## 旧実装からの継承・非継承
+
+旧ADRは判断理由の参照であり、採用仕様ではない（`.agents/skills/specbook-authoring` の情報優先順位）。主な対応:
+
+| 旧ADR | 判断 | 新Plugumi |
+|---|---|---|
+| ADR-0001 | CoreをAI非依存に | 継承（設計思想） |
+| ADR-0021 | Plugin起動と接続を分離 | 継承（`docs/decisions/00004`） |
+| ADR-0024 | Core→Plugin接続・逆接続禁止 | 継承（`docs/decisions/00004`） |
+| ADR-0025 | 複数Core接続を妨げない | 受け入れるが、状態分離・競合の保証範囲は未確定 |
+| ADR-0040 | 永続Registration ID | **非継承** — MVPはsession-scoped（`docs/decisions/00004`） |
+| ADR-0071 | 階層Tool Path（配列表現） | toolPath構造は未確定 |
+| ADR-0078 | CoreがPluginをspawn・管理 | MVPは外部起動のみ |
+| ADR-0079 | HTTP/JSON Session Handshake | REST面は継承するがWS channel追加で一部置換 |
+| ADR-0093/0094 | Panel/Embed・共有State | 概念は参考。継承は未確定 |
+
 ## 未解決の問い
 
 - Node宣言の実装形態（旧実装はPluginがsession上で動的登録・実行時メモリのみ）
+- 複数Core接続時のPlugin状態の分離・共有範囲（旧ADR-0025は「妨げない」以上の保証をしていない）
+- Plugin UIの隔離方式（Light DOM・iframe等。旧実装も方針が複数回変わっており未確定）
+- Workspace共有Stateの所有権（Core・Client間の配分は未確定）
+- Agent固有の意味論（`after_current` 等のQueue timing）はPlugin側の責務。Coreに持ち込まない境界の確認（`docs/decisions/00002` と整合）

@@ -11,7 +11,13 @@ relations:
 
 ## コンテキスト
 
-Core↔Plugin通信のtransportとメッセージ形式を決める必要がある。前提となる要件:
+Core↔Plugin通信のtransportとメッセージ形式を決める必要がある。旧実装では方針が段階的に変わってきた:
+
+- 当初: gRPC/Protobuf 双方向Stream（後に廃止）
+- その後: HTTP/JSON + Session Handshake（旧ADR-0079。当時WebSocketを明示的に不採用）
+- 本設計: WebSocket + JSON-RPC 2.0 の非同期channelを追加（旧ADR-0024の接続方向は継承）
+
+これは通信モデルの変化であり、接続方向等の設計判断まで変わったわけではない。前提となる要件:
 
 - Plugin serverは**多様な言語で書ける**ことが必須。言語によって得意不得意があるため、Plugin実装言語を絞らない
 - request/responseで足りる処理（宣言・検索・session管理）と、push・Streamingが要る処理（Tool呼出の中間出力等）が混在する

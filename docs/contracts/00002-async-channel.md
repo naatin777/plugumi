@@ -42,4 +42,5 @@ Plugin → Core 方向の非同期送信を担うchannel。REST（`docs/contract
 - このchannelに載せるmethod一覧（Tool呼出・Streaming出力・queue/hook操作・Core→Plugin通知）
 - Core→PluginのinvokeをRESTで行うか、このWS上で行うか
 - sessionとの紐付け方法（初回メッセージ・クエリパラメータ・別handshake）
-- 再接続時の未配送メッセージの扱い
+- 切断・再接続の扱い（未配送メッセージ・配送保証・再送）
+- フロー制御（大量streaming出力時の背圧）
