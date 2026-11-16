@@ -76,7 +76,38 @@ relations:
 
 ## 結果と証拠
 
-未実行。各シナリオの手動実施結果と日付をここに追記する（現状は `feat/core-mvp` の手動疎通で概ね確認済みだが、formalな記録はこれから）。
+`feat/core-mvp`（`b05860f` 時点、2026-11-16）で実施した手動疎通の記録。
+
+| # | 結果 | 証拠 |
+|---|---|---|
+| L1-1 | PASS | Core起動時に未到達endpointへ `[core] plugin … unreachable … (retrying)` が3秒間隔で出る |
+| L1-2 | PASS | Coreログに `link:` → `catalog push` が順に出る。standard/agent両方で `POST /v1/link/hello`→`GET /v1/tools`→`GET /v1/transport`→`POST /v1/tools/catalog` が成功 |
+| L1-3 | PASS | `POST /v1/plugins/list` が endpoint・`linkId`・`pluginId` を返す |
+| L1-4 | PASS | `/v2/…` へ `426 protocol_mismatch` |
+| L1-5 | PASS | 未知pathへ `404 unknown_endpoint` |
+| L1-6 | PASS | `GET /v1/transport?linkId=link-bad` へ `404` |
+| L2-1 | PASS | `echo` → responseにresult直接返却 |
+| L2-2 | PASS | `exec` 200行出力で `{accepted:true}` → output×200 → `{exitCode:0}` の厳密順序（response↔notification順序修正の確認を兼ねる） |
+| L2-3 | PASS | `ticks` がoutput継続、`close <callId>` で停止 |
+| L2-4 | PASS | caller切断でtarget側callも停止（close伝播） |
+| L2-5 | PASS | target切断でcallerへ `tools.call.result` error終端 `-32000` |
+| L2-6 | PASS | 旧linkIdへのcall → `-32602 no such linkId` |
+| L2-7 | PASS | 未知`toolPath` → `-32601 no such toolPath` |
+| L2-8 | PASS | `call <agentのlinkId> agent/echo` → `{"echo":{…},"from":"agent"}` |
+| L2-9 | PASS | agentの `list` が `POST /v1/tools/catalog` 受信分を表示しcallできる |
+| L3-1 | PASS | transport切断 → `link expired`、tools一覧から消えcatalog pushが走る |
+| L3-2 | 未実施 | 90秒待機シナリオは未実施（ping送信自体は `lastPingAt` 更新で間接確認） |
+| L3-3 | PASS | standard再起動 → 新linkId確立・旧linkIdへのcallは `no such linkId` |
+| L4-1 | PASS | Plugin再起動で旧Link失効・新Linkに差し替わり、tools一覧に重複なし |
+| L4-2 | PASS | Core再起動で全Link失効→再接続・新linkId |
+| L4-3 | 未実施 | 2つ目のCore（別port）接続は未実施 |
+| L4-4 | PASS | `POST /v1/plugins` `{"endpoint":"http://…"}` で受理→Link確立 |
+| L4-5 | PASS | 既知endpoint再登録 → `409 duplicate_endpoint` |
+| L4-6 | PASS | `{"endpoint":"ws://…"}` → `400 invalid_endpoint` |
+| L5-1 | PASS | `core.url` の非loopbackはconfig.Loadが起動エラー |
+| L5-2 | PASS | Plugin実装に外向きHTTP/WS clientなし（待受と応答のみ。構造的確認） |
+
+未実施は L3-2・L4-3 の2件。いずれも契約違反の懸念ではなく時間・環境を要するシナリオ。
 
 ## 制限
 
