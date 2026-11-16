@@ -1,16 +1,21 @@
-// Package connector はCore→Pluginへの接続（WS dial）とLink確立を担う。
-// 全ての接続はCoreが開始し、Pluginは受け付けるだけ
-// （docs/decisions/00010・contracts/00001）。
+// Package connector はCore→Pluginへの接続とLink確立を担う。
+// 共通規格はREST（hello・tools pull・ping・catalog push）、
+// Tool呼び出し路だけWS dialする。全ての接続はCoreが開始し、
+// Pluginは受け付けるだけ（docs/decisions/00010・contracts/00001）。
 package connector
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -114,13 +119,105 @@ func NewID(prefix string) string {
 	return fmt.Sprintf("%s%s-%s-%s-%s-%s", prefix, s[0:8], s[8:12], s[12:16], s[16:20], s[20:32])
 }
 
-// connect はEndpointへのWS接続とlink.helloを行い、確立したLinkで
-// transportが生きている間ブロックする。切断したらLinkを失効させて戻る。
-func (c *Connector) connect(endpoint string) error {
-	wsURL := endpoint + "/v1/transport"
-	raw, _, err := websocket.Dial(c.ctx, wsURL, nil)
+// httpJSON はCore→Plugin REST呼び出し。GETはbodyを送らず、
+// POSTはreqをJSONで送る。resが非nilなら応答bodyをunmarshalする。
+// REST呼び出しがLink確立の入口なので、エラー応答は契約の
+// `{error:{code,message}}` 形からmessageだけ拾って返す。
+func httpJSON(ctx context.Context, method, url string, req, res any) error {
+	var body io.Reader
+	if req != nil {
+		payload, err := json.Marshal(req)
+		if err != nil {
+			return err
+		}
+		body = bytes.NewReader(payload)
+	}
+	request, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return err
+	}
+	if req != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode >= 400 {
+		var apiError struct {
+			Error struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		_ = json.NewDecoder(response.Body).Decode(&apiError)
+		if apiError.Error.Message != "" {
+			return fmt.Errorf("%s %s: %s", method, url, apiError.Error.Message)
+		}
+		return fmt.Errorf("%s %s: HTTP %d", method, url, response.StatusCode)
+	}
+	if res != nil {
+		return json.NewDecoder(response.Body).Decode(res)
+	}
+	return nil
+}
+
+// connect はEndpointへのLink確立（REST hello→tools pull→WS upgrade）を行い、
+// transportが生きている間ブロックする。切断したらLinkを失効させて戻る。
+func (c *Connector) connect(endpoint string) error {
+	link := &registry.Link{
+		ID:        NewID("link-"),
+		Endpoint:  endpoint,
+		CreatedAt: time.Now(),
+	}
+	link.Touch() // 失効判定の基準時刻を接続直後に合わせる
+
+	fail := func(err error) error {
+		c.links.Remove(link.ID)
+		return err
+	}
+
+	var req wire.HelloRequest
+	req.LinkID = link.ID
+	req.Core.ID = c.coreID
+	req.Core.Version = CoreVersion
+
+	// Linkはhello+tools pull+transportまで揃ってから登録する。
+	// 中途半端なLinkをregistryに置くと、catalog pushが
+	// plugin側に未登録のlinkIdへ飛んで失敗する。
+	helloCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+	var helloResult wire.HelloResponse
+	err := httpJSON(helloCtx, http.MethodPost, endpoint+"/v1/link/hello", req, &helloResult)
+	cancel()
+	if err != nil {
+		return fail(fmt.Errorf("hello: %w", err))
+	}
+	link.SetPlugin(helloResult.Plugin)
+
+	// Tool宣言はREST pullで取る（POST /v1/tools/catalog の内容を変える
+	// ため、登録「前」に揃える）。
+	toolsCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+	var toolsResult wire.ToolsGetResponse
+	err = httpJSON(toolsCtx, http.MethodGet, endpoint+"/v1/tools", nil, &toolsResult)
+	cancel()
+	if err != nil {
+		return fail(fmt.Errorf("tools: %w", err))
+	}
+	seen := map[string]struct{}{}
+	for _, tool := range toolsResult.Tools {
+		if _, dup := seen[tool.ToolPath]; dup {
+			return fail(fmt.Errorf("tools: duplicate toolPath %q", tool.ToolPath))
+		}
+		seen[tool.ToolPath] = struct{}{}
+	}
+	link.SetTools(toolsResult.Tools)
+
+	// tools.call用のtransportだけWS。schemeはendpointのhttp→ws対応で導く。
+	wsURL := "ws" + strings.TrimPrefix(endpoint, "http") + "/v1/transport?linkId=" + link.ID
+	raw, _, err := websocket.Dial(c.ctx, wsURL, nil)
+	if err != nil {
+		return fail(err)
 	}
 	conn := rpc.NewConn(raw, "core-")
 	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
@@ -134,49 +231,37 @@ func (c *Connector) connect(endpoint string) error {
 			c.OnNotif(conn, message)
 		}
 	}
-	// 受信ループを先に動かす。RequestはRunが応答を配送しない限り
-	// 完了しないため、hello送信の前に起動が必要。
+	conn.LinkID = link.ID
+	link.BindTransport(conn)
+	c.links.Add(link)
 	connDone := make(chan error, 1)
 	go func() { connDone <- conn.Run(c.ctx) }()
 
-	link := &registry.Link{
-		ID:        NewID("link-"),
-		Endpoint:  endpoint,
-		CreatedAt: time.Now(),
-	}
-	conn.LinkID = link.ID
-	link.BindTransport(conn)
-	link.Touch() // 失効判定の基準時刻を接続直後に合わせる
-	c.links.Add(link)
-
-	// hello応答を待つ前にPluginが tools.set を送り得るため、
-	// Linkは送信「前」に登録する（docs/contracts/00001）。
-	var req wire.HelloRequest
-	req.LinkID = link.ID
-	req.Core.ID = c.coreID
-	req.Core.Version = CoreVersion
-
-	helloCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
-	defer cancel()
-	res, err := conn.Request(helloCtx, wire.MethodLinkHello, req)
-	if err != nil {
-		c.links.Remove(link.ID)
-		conn.Close()
-		return fmt.Errorf("hello: %w", err)
-	}
-	if res.Error != nil {
-		c.links.Remove(link.ID)
-		conn.Close()
-		return fmt.Errorf("hello: %s", res.Error.Message)
-	}
-	var helloResult wire.HelloResponse
-	if err := wire.Unmarshal(res.Result, &helloResult); err != nil {
-		c.links.Remove(link.ID)
-		conn.Close()
-		return err
-	}
-	link.SetPlugin(helloResult.Plugin)
 	log.Printf("[core] link: %s (%s) → %s", link.Plugin().ID, link.ID, endpoint)
+
+	// pingはCore→PluginのREST probe。応答成功が生存証拠になる。
+	pingDone := make(chan struct{})
+	defer close(pingDone)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pingDone:
+				return
+			case <-ticker.C:
+				pingCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+				err := httpJSON(pingCtx, http.MethodPost, endpoint+"/v1/link/ping",
+					wire.LinkPingParams{LinkID: link.ID}, nil)
+				cancel()
+				if err == nil {
+					link.Touch()
+				}
+			}
+		}
+	}()
+
+	// 新Linkが入るとcatalogの内容が変わるため全Linkへpushし直す契約。
 	if c.OnCatalogChanged != nil {
 		c.OnCatalogChanged()
 	}
@@ -188,13 +273,24 @@ func (c *Connector) connect(endpoint string) error {
 	return err
 }
 
-// BroadcastCatalog は登録中の全Toolを tools.catalog として全Linkへ送る。
-// catalogの内容が変わる契機（Link確立・失効・tools.set受理）で呼ぶ。
+// BroadcastCatalog は登録中の全Toolを POST /v1/tools/catalog として全Linkへ送る。
+// catalogの内容が変わる契機（Link確立・失効・Tool宣言の変化）で呼ぶ。
+// 送信失敗はLinkの再確立時のpushで回復するため、呼び出しごとに非同期で投げる。
 func (c *Connector) BroadcastCatalog() {
-	params := wire.ToolsCatalogParams{Tools: c.links.AllTools()}
+	// nilだと `"tools": null` になり受け手のserdeが落ちるため必ず配列にする。
+	tools := c.links.AllTools()
+	if tools == nil {
+		tools = []wire.ListedTool{}
+	}
 	for _, l := range c.links.All() {
-		if conn := l.Transport(); conn != nil {
-			_ = conn.Notify(wire.MethodToolsCatalog, params)
-		}
+		body := wire.ToolsCatalogParams{LinkID: l.ID, Tools: tools}
+		endpoint := l.Endpoint
+		go func() {
+			pushCtx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+			defer cancel()
+			if err := httpJSON(pushCtx, http.MethodPost, endpoint+"/v1/tools/catalog", body, nil); err != nil {
+				log.Printf("[core] catalog push to %s failed: %v", endpoint, err)
+			}
+		}()
 	}
 }

@@ -36,12 +36,12 @@ cd core
 ```json
 {
   "core": { "url": "http://127.0.0.1:7700" },
-  "plugins": [ { "endpoint": "ws://127.0.0.1:9001" } ]
+  "plugins": [ { "endpoint": "http://127.0.0.1:9001" } ]
 }
 ```
 
 - `core.url`: Coreの管理REST APIの待受URL（Plugin向けではなく人間・UI Host向け）。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
-- `plugins[]`: 静的なPlugin Endpoint一覧（`ws://` または `wss://` URL）。空でも起動できる
+- `plugins[]`: 静的なPlugin Endpoint一覧（`http://` または `https://` URL）。空でも起動できる
 
 ### Coreが提供する操作（管理REST・Plugin向けではない）
 
@@ -55,22 +55,22 @@ cd core
 
 ### 動作モデル
 
-- CoreはPlugin Endpointへ WS接続（`GET /v1/transport`）を開始し、その上で `link.hello` を送ってlinkId（UUID）を払い出す
-- Pluginはhello応答のあと、同じWS上で `tools.set` を送る。Coreは `tools.catalog` で全Tool一覧をPluginへpushする
+- Coreは `POST /v1/link/hello` でLinkを確立しlinkId（UUID）を払い出し、`GET /v1/tools` でTool宣言をpullする。`GET /v1/transport` のWS upgradeはTool呼び出し用のみ
+- Coreは `POST /v1/tools/catalog` で全Tool一覧をPluginへpushする
 - **PluginはCoreのURL・Domainを知らない**。全てCore→Pluginの接続で、Pluginは受け答えだけを行う
-- transport切断 = Link失効。再接続は新しいWS接続と `link.hello` からやり直し（新linkId）
-- ping 90秒無しでLink失効（半開き検出用）
+- transport切断 = Link失効。再接続は `POST /v1/link/hello` からやり直し（新linkId）
+- `POST /v1/link/ping` が90秒成功しないとLink失効（半開き検出用）
 - 1つのPluginに複数Coreが接続してよい（`core.id` 別のLinkが共存する）
 
 ## 手順
 
 1. Core を起動: `cd core && ./plugumi serve`
-2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定endpoint `ws://127.0.0.1:9001`）
-3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定endpoint `ws://127.0.0.1:9002`、stdinコマンドループが開く）
+2. standard Plugin を起動: `cd plugins/standard && cargo run`（既定endpoint `http://127.0.0.1:9001`）
+3. agent Plugin を起動: `cd plugins/agent && node dist/main.js`（既定endpoint `http://127.0.0.1:9002`、stdinコマンドループが開く）
 
-Pluginの起動引数は `ws://<host>:<port>` のendpointそのもの（CoreがdialするURLと同じ文字列）。`wss://` はTLS未実装のため受理しない。
+Pluginの起動引数は `http://<host>:<port>` のendpointそのもの（Coreが接続するURLと同じ文字列）。`https://` はTLS未実装のため受理しない。
 
-PluginはCoreを知らない。CoreがWS接続を開いて `link.hello` を送り、Pluginは同じWS上で `tools.set`・`link.ping` を返すだけである。
+PluginはCoreを知らない。Coreが `POST /v1/link/hello` でLinkを確立し `GET /v1/tools` でTool宣言を取りに来る。PluginはREST応答とWS upgradeの受付だけを行う。
 
 ## Pluginの動的登録
 
@@ -79,21 +79,19 @@ PluginはCoreを知らない。CoreがWS接続を開いて `link.hello` を送�
 ```sh
 curl -X POST http://127.0.0.1:7700/v1/plugins \
   -H 'content-type: application/json' \
-  -d '{"endpoint":"ws://127.0.0.1:9001"}'
+  -d '{"endpoint":"http://127.0.0.1:9001"}'
 ```
 
-登録は受理のみで、Link確立は非同期（Coreが再試行しながらWS接続を試みる）。登録済み一覧は `POST /v1/plugins/list`。agentのコマンドループからも `register <endpoint>`・`plugins` で操作できる。
+登録は受理のみで、Link確立は非同期（Coreが再試行しながら接続を試みる）。登録済み一覧は `POST /v1/plugins/list`。
 
 動的登録はランタイムのみ（再起動で消える）。定常構成は `plugumi.json` に書く。
 
 ## 期待される結果
 
-Coreログに transport確立 → link.hello → tools.set が順に出る。agentのコマンドループで:
+Coreログに hello → GET tools → transport upgrade → catalog push が順に出る。agentのコマンドループで:
 
 ```
-list                                        # tools.catalogで受け取った全Tool（linkId + toolPath）
-plugins                                     # 登録済みPlugin Endpoint一覧
-register <endpoint>                         # Plugin Endpointを動的登録
+list                                        # POST /v1/tools/catalogで受け取った全Tool（linkId + toolPath）
 call <linkId> echo {"hello":"w"}            # sync: responseに結果
 call <linkId> exec {"command":"echo hi"}    # async: 受理response + 途中出力 + 終端result
 call <linkId> ticks {"intervalMs":500}      # 購読: closeまで継続

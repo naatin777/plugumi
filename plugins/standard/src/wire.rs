@@ -1,12 +1,13 @@
 //! Core↔Plugin契約のwire型（docs/contracts/00001-00003）。
-//! 通信はtransport（WS + JSON-RPC 2.0）に統一。PluginはCoreのURLを知らない。
+//! 共通規格はCore→Plugin REST、tools.call系のみtransport（WS + JSON-RPC 2.0）。
+//! PluginはCoreのURLを知らない。
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-// ---- Link確立（transport上のJSON-RPC） ----
+// ---- Link確立（Core→Plugin REST。contracts/00001） ----
 
-/// link.hello（Core→Plugin request）のparams。
+/// POST /v1/link/hello のbody。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HelloRequest {
@@ -46,15 +47,24 @@ pub struct ToolDeclaration {
     pub tags: Option<Vec<String>>,
 }
 
-/// tools.set（Plugin→Core request）のparams。
-/// transportがLinkに紐付くため linkId は持たない。
-#[derive(Debug, Serialize)]
+/// POST /v1/link/ping のbody（Core→Pluginの生存確認probe）。
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolsSetRequest {
-    pub tools: Vec<ToolDeclaration>,
+pub struct PingRequest {
+    pub link_id: String,
 }
 
-/// tools.catalog（Core→Plugin notification）の各要素。
+/// POST /v1/tools/catalog のbody。linkIdは宛先Linkの識別
+/// （複数CoreからのLinkを区別するため）。
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogRequest {
+    pub link_id: String,
+    #[serde(default)]
+    pub tools: Vec<ListedTool>,
+}
+
+/// tools.catalog・GET /v1/tools の各要素。
 /// linkId がTool呼び出しの宛先になる。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,10 +132,7 @@ impl Incoming {
     }
 }
 
-pub const METHOD_LINK_HELLO: &str = "link.hello";
-pub const METHOD_LINK_PING: &str = "link.ping";
-pub const METHOD_TOOLS_SET: &str = "tools.set";
-pub const METHOD_TOOLS_CATALOG: &str = "tools.catalog";
+// transport（WS）上のmethodはtools.call系のみ。
 pub const METHOD_CALL: &str = "tools.call";
 pub const METHOD_CALL_OUTPUT: &str = "tools.call.output";
 pub const METHOD_CALL_RESULT: &str = "tools.call.result";

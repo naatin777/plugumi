@@ -23,7 +23,7 @@ type Config struct {
 }
 
 type PluginEndpoint struct {
-	Endpoint string `json:"endpoint"` // Pluginのws(s) URL
+	Endpoint string `json:"endpoint"` // Pluginのhttp(s) URL
 }
 
 func Load(path string) (*Config, error) {
@@ -59,8 +59,8 @@ func Load(path string) (*Config, error) {
 	}
 	for i, plugin := range settings.Plugins {
 		u, err := url.Parse(plugin.Endpoint)
-		if err != nil || (u.Scheme != "ws" && u.Scheme != "wss") || u.Host == "" {
-			return nil, fmt.Errorf("%s: plugins[%d].endpoint must be a ws(s):// URL (got %q)", path, i, plugin.Endpoint)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return nil, fmt.Errorf("%s: plugins[%d].endpoint must be an http(s):// URL (got %q)", path, i, plugin.Endpoint)
 		}
 	}
 	settings.Core.Listen = parsed.Host

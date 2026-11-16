@@ -1,12 +1,18 @@
 // Core↔Plugin契約のwire型（docs/contracts/00001-00003）。
-// 通信はtransport（WS + JSON-RPC 2.0）に統一。PluginはCoreのURLを知らない。
+// 共通規格はCore→Plugin REST、tools.call系のみtransport（WS + JSON-RPC 2.0）。
+// PluginはCoreのURLを知らない。
 
-// ---- Link確立（transport上のJSON-RPC） ----
+// ---- Link確立（Core→Plugin REST。contracts/00001） ----
 
-// link.hello（Core→Plugin request）のparams。
+// POST /v1/link/hello のbody。
 export interface HelloRequest {
   linkId: string;
   core: { id: string; version?: string };
+}
+
+// POST /v1/link/ping のbody（Core→Pluginの生存確認probe）。
+export interface PingRequest {
+  linkId: string;
 }
 
 export interface PluginInfo {
@@ -22,7 +28,14 @@ export interface ToolDeclaration {
   tags?: string[];
 }
 
-// tools.catalog（Core→Plugin notification）の各要素。
+// POST /v1/tools/catalog のbody。linkIdは宛先Linkの識別
+// （複数CoreからのLinkを区別するため）。
+export interface CatalogRequest {
+  linkId: string;
+  tools: ListedTool[];
+}
+
+// tools.catalog・GET /v1/tools の各要素。
 // linkId がTool呼び出しの宛先になる。
 export interface ListedTool extends ToolDeclaration {
   linkId: string;
@@ -50,12 +63,8 @@ export const isRequest = (m: Incoming) => m.method !== undefined && m.id !== und
 export const isNotif = (m: Incoming) => m.method !== undefined && m.id === undefined;
 export const isResponse = (m: Incoming) => m.method === undefined;
 
-export const METHOD_LINK_HELLO = "link.hello";
-export const METHOD_LINK_PING = "link.ping";
-export const METHOD_TOOLS_SET = "tools.set";
-export const METHOD_TOOLS_CATALOG = "tools.catalog";
-export const METHOD_PLUGINS_ADD = "plugins.add";
-export const METHOD_PLUGINS_LIST = "plugins.list";
+// transport（WS）上のmethodはtools.call系のみ。
+// 登録・検査系はRESTで流れ、ここには現れない。
 export const METHOD_CALL = "tools.call";
 export const METHOD_CALL_OUTPUT = "tools.call.output";
 export const METHOD_CALL_RESULT = "tools.call.result";

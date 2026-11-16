@@ -32,7 +32,7 @@ UI Host上に表示されるPlugin提供のView。Panel↔Plugin間の通信はP
 
 ### Link
 
-CoreとPluginが確立する1つの接続・登録単位。transport上の `link.hello` で始まり、transport切断または失効で終わる。`linkId` で識別。Tool呼び出しの宛先でもある。
+CoreとPluginが確立する1つの接続・登録単位。`POST /v1/link/hello` で始まり、transport切断または失効で終わる。`linkId` で識別。Tool呼び出しの宛先でもある。
 
 ### linkId
 

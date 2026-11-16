@@ -1,4 +1,6 @@
 // Package wire はCore↔Plugin契約（docs/contracts/00001-00003）のGoバインディング。
+// 共通規格（hello・ping・tools取得・catalog）はCore→Plugin REST、
+// tools.call系だけがtransport（WS + JSON-RPC 2.0）を流れる。
 package wire
 
 import (
@@ -6,9 +8,9 @@ import (
 	"fmt"
 )
 
-// ---- Link確立（transport上のJSON-RPC） ----
+// ---- Link確立（Core→Plugin REST。docs/contracts/00001） ----
 
-// HelloRequest は link.hello（Core→Plugin request）のparams。
+// HelloRequest は POST /v1/link/hello のbody。
 // PluginはCoreのURLを知らないため、渡すのは識別子のみ。
 type HelloRequest struct {
 	LinkID string `json:"linkId"`
@@ -37,14 +39,16 @@ type ToolDeclaration struct {
 	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
 }
 
-// ToolsSetRequest は tools.set（Plugin→Core request）のparams。
-// transportがLinkに紐付くため linkId は持たない。
-type ToolsSetRequest struct {
-	Tools []ToolDeclaration `json:"tools"`
+// LinkPingParams は POST /v1/link/ping のbody（生存確認probe）。
+// 方向はCore→Pluginで、応答成功がそのLinkの生存証拠になる。
+type LinkPingParams struct {
+	LinkID string `json:"linkId"`
 }
 
-type ToolsSetResult struct {
-	Count int `json:"count"`
+// ToolsGetResponse は GET /v1/tools の応答。
+// CoreはLink確立後にPluginのTool宣言をpullする。
+type ToolsGetResponse struct {
+	Tools []ToolDeclaration `json:"tools"`
 }
 
 // ListedTool は tools.catalog・管理REST tools.list の1要素。
@@ -54,13 +58,15 @@ type ListedTool struct {
 	ToolDeclaration
 }
 
-// ToolsCatalogParams は tools.catalog（Core→Plugin notification）のparams。
-// 登録中の全Toolを全置換でpushする。
+// ToolsCatalogParams は POST /v1/tools/catalog のbody。
+// 登録中の全Toolを全置換でpushする。linkId は宛先Linkの識別
+// （1つのPluginが複数CoreからLinkを持ち得るため判別に使う）。
 type ToolsCatalogParams struct {
-	Tools []ListedTool `json:"tools"`
+	LinkID string       `json:"linkId"`
+	Tools  []ListedTool `json:"tools"`
 }
 
-// PluginsAddRequest は plugins.add（transport）と管理REST POST /v1/plugins のparams。
+// PluginsAddRequest は管理REST POST /v1/plugins のbody。
 // 登録は受理のみ。Linkの確立は非同期（connectorが再試行する）。
 type PluginsAddRequest struct {
 	Endpoint string `json:"endpoint"`
@@ -139,17 +145,13 @@ func Unmarshal(raw json.RawMessage, v any) error {
 	return json.Unmarshal(raw, v)
 }
 
+// transport（WS）上のmethodはtools.call系のみ。
+// 登録・検査系はPlugin REST（contracts/00001）で流れ、ここには現れない。
 const (
-	MethodLinkHello    = "link.hello"
-	MethodLinkPing     = "link.ping"
-	MethodToolsSet     = "tools.set"
-	MethodToolsCatalog = "tools.catalog"
-	MethodPluginsAdd   = "plugins.add"
-	MethodPluginsList  = "plugins.list"
-	MethodCall         = "tools.call"
-	MethodCallOutput   = "tools.call.output"
-	MethodCallResult   = "tools.call.result"
-	MethodCallClose    = "tools.call.close"
+	MethodCall       = "tools.call"
+	MethodCallOutput = "tools.call.output"
+	MethodCallResult = "tools.call.result"
+	MethodCallClose  = "tools.call.close"
 )
 
 type CallTarget struct {

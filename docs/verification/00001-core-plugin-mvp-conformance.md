@@ -27,12 +27,12 @@ relations:
 
 | # | 操作 | 期待 |
 |---|---|---|
-| L1-1 | Core起動（plugins[]に未到達endpoint） | WS接続の再試行が走る（3秒程度間隔） |
-| L1-2 | Plugin起動 | `WS upgrade`→`link.hello`→`tools.set`→`tools.catalog` が順に成功。Coreログに `link:` `tools.set:` |
+| L1-1 | Core起動（plugins[]に未到達endpoint） | 接続の再試行が走る（3秒程度間隔） |
+| L1-2 | Plugin起動 | `POST /v1/link/hello`→`GET /v1/tools`→`GET /v1/transport`→`POST /v1/tools/catalog` が順に成功。Coreログに `link:` `tools:` が出る |
 | L1-3 | `POST /v1/plugins/list`（管理REST） | endpoint・`linkId`・`pluginId` が返る |
-| L1-4 | 異常: サポート外version（`/v2/transport`）へのupgrade | `426 protocol_mismatch`、Link未成立 |
-| L1-5 | 異常: 未知pathへのupgrade | `404 unknown_endpoint`、Link未成立 |
-| L1-6 | `plugins.list` request（transport経由） | 管理RESTと同等の一覧が返る |
+| L1-4 | 異常: サポート外version（`/v2/…`）へのrequest | `426 protocol_mismatch`、Link未成立 |
+| L1-5 | 異常: 未知pathへのrequest | `404 unknown_endpoint`、Link未成立 |
+| L1-6 | `GET /v1/transport?linkId=<不正>` へのupgrade | `404 unknown_link`、upgrade失敗 |
 
 ### L2. Tool呼び出し
 
@@ -46,26 +46,26 @@ relations:
 | L2-6 | 異常: 未知`linkId`へcall | `-32602 no such linkId` |
 | L2-7 | 異常: 未知`toolPath`へcall | `-32601 no such toolPath` |
 | L2-8 | 自己呼び出し（`call <自分のlinkId> <tool>`） | 同一conn上でcaller/target両役が動く |
-| L2-9 | `tools.catalog` の受信 | caller Pluginがcatalogを受け、push内容で `linkId`+`toolPath` を得てcallできる |
+| L2-9 | `tools.catalog` の受信 | caller Pluginがcatalog（REST POST）を受け、push内容で `linkId`+`toolPath` を得てcallできる |
 
 ### L3. transport = Linkの寿命
 
 | # | 操作 | 期待 |
 |---|---|---|
-| L3-1 | transport切断（どちら側の都合でも） | Link失効。`tools.catalog`・管理RESTのtools一覧から消える |
+| L3-1 | transport切断（どちら側の都合でも） | Link失効。管理RESTのtools一覧から消え、次の `POST /v1/tools/catalog` で全Pluginへ伝搬する |
 | L3-2 | ping停止90秒超 | Link失効。transportも閉じられる |
-| L3-3 | 切断後の再接続 | 新しいWS接続と `link.hello` で新Link。旧`linkId`へのcallは `no such linkId` |
+| L3-3 | 切断後の再接続 | `POST /v1/link/hello` からやり直し新Link。旧`linkId`へのcallは `no such linkId` |
 
 ### L4. 再起動・複数Core
 
 | # | 操作 | 期待 |
 |---|---|---|
 | L4-1 | Plugin再起動→再接続 | 旧Linkが失効し新Linkに差し替わる。tools一覧に新旧が重複しない |
-| L4-2 | Core再起動 | 全Link失効→Coreが再dial→`link.hello`で新Link。旧linkIdへのcallは `no such linkId` |
+| L4-2 | Core再起動 | 全Link失効→Coreが再接続→`POST /v1/link/hello`で新Link。旧linkIdへのcallは `no such linkId` |
 | L4-3 | 別Core（別port）から同じPluginへ接続 | Plugin側に2つのLinkが独立共存（`core.id` で区別）。両Coreのcatalogが生きている |
-| L4-4 | 動的登録 `POST /v1/plugins` | 受理→非同期でWS接続→Link確立 |
+| L4-4 | 動的登録 `POST /v1/plugins` | 受理→非同期で接続→Link確立 |
 | L4-5 | 異常: `POST /v1/plugins` 既知endpoint | `409 duplicate_endpoint` |
-| L4-6 | 異常: `POST /v1/plugins` 非ws(s) URL endpoint | `400 invalid_endpoint` |
+| L4-6 | 異常: `POST /v1/plugins` 非http(s) URL endpoint | `400 invalid_endpoint` |
 
 ### L5. セキュリティ境界
 

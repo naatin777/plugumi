@@ -23,11 +23,11 @@ Coreはメモリ上に **Link Registry** を持つ。永続化しない（`docs/
 ```
 Link {
   linkId           // Core発行、Link識別・Tool呼び出しの宛先識別を兼ねる
-  plugin: { id, version?, name? }   // link.hello応答の識別情報
-  endpoint         // Pluginの接続先（Core→Plugin WS接続用）
-  tools: ToolDeclaration[]   // tools.set で置き換えられる宣言リスト
+  plugin: { id, version?, name? }   // POST /v1/link/hello 応答の識別情報
+  endpoint         // Pluginの接続先（Core→Plugin HTTP接続用）
+  tools: ToolDeclaration[]   // GET /v1/tools の応答で置き換えられる宣言リスト
   nodes: NodeDecl[]        // Node宣言は後続contract
-  lastPingAt       // link.ping の最終受信時刻
+  lastPingAt       // link.ping（Core→Plugin probe）の最終成功時刻
   state: active | expired
 }
 ```
@@ -35,20 +35,20 @@ Link {
 不変条件:
 
 - `linkId` はLinkごとに新規発行・再利用しない
-- `tools` は `tools.set` によるアトミック置き換えのみで変化する
+- `tools` は `GET /v1/tools` のpullによるアトミック置き換えのみで変化する
 - Link失効時、tools・nodesは同時に消える
 - Core再起動でregistryは空になる
 
 ## 振る舞い
 
-1. **確立**: `link.hello` 成功で entry を `active` として登録する
-2. **維持**: Pluginが `link.ping` を定期送信する（MVP目安: 30秒間隔）。Coreは受信ごとに `lastPingAt` を更新する
-3. **失効**: `lastPingAt` から一定時間（MVP目安: 90秒 = ping 3回分）経過したLinkを `expired` にし、registryから除去する
+1. **確立**: `POST /v1/link/hello` 成功で entry を `active` として登録する
+2. **維持**: Coreが `POST /v1/link/ping` を定期送信する（MVP目安: 30秒間隔）。応答成功ごとに `lastPingAt` を更新する
+3. **失効**: `lastPingAt` から一定時間（MVP目安: 90秒 = ping 3回分）経過したLinkを `expired` にし、registryから除去する。transport切断でも失効
 4. **再試行**: 設定で指定されたPlugin Endpointへの接続失敗は、Coreが一定間隔で再試行する（Link未成立状態は registry entryを持たない）
 
 ## インターフェース
 
-- `link.hello` `tools.set` `link.ping`（`docs/contracts/00001`）のCore側処理として実装する
+- `POST /v1/link/hello` `GET /v1/tools` `POST /v1/link/ping` `POST /v1/tools/catalog` `GET /v1/transport`（`docs/contracts/00001`）のCore側処理として実装する
 - 標準出力でregistryの一覧を表示する（MVPの可視化）
 
 ## 未解決の問い

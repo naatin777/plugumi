@@ -164,8 +164,8 @@ func (s *Server) pluginsAdd(_ context.Context, input *PluginsAddInput) (*Plugins
 }
 
 func validateEndpoint(endpoint string) error {
-	if !strings.HasPrefix(endpoint, "ws://") && !strings.HasPrefix(endpoint, "wss://") {
-		return errors.New("endpoint must be a ws(s):// URL")
+	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+		return errors.New("endpoint must be an http(s):// URL")
 	}
 	return nil
 }
@@ -193,61 +193,15 @@ func (s *Server) registeredPlugins() []wire.RegisteredPlugin {
 	return out
 }
 
-// ---- transport上のPlugin→Coreメッセージ ----
+// ---- transport上のPlugin→Coreメッセージ（tools.call系のみ） ----
 
 func (s *Server) onLinkRequest(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
-	switch message.Method {
-	case wire.MethodToolsSet:
-		return s.onToolsSet(conn, message)
-	case wire.MethodPluginsAdd:
-		return s.onPluginsAdd(message)
-	case wire.MethodPluginsList:
-		return wire.Marshal(wire.PluginsListResult{Plugins: s.registeredPlugins()}), nil
-	case wire.MethodCall:
+	if message.Method == wire.MethodCall {
 		return s.router.HandleCall(conn, message)
-	default:
-		return nil, &wire.Error{Code: -32601, Message: "method not found"}
 	}
-}
-
-// onToolsSet はPluginのTool宣言をアトミック置換する。
-// transportがLinkに紐付くため linkId はparamsに無く、conn.LinkIDで引く。
-func (s *Server) onToolsSet(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
-	var params wire.ToolsSetRequest
-	if err := wire.Unmarshal(message.Params, &params); err != nil {
-		return nil, &wire.Error{Code: -32602, Message: "invalid params"}
-	}
-	if err := s.registry.SetTools(conn.LinkID, params.Tools); err != nil {
-		return nil, &wire.Error{Code: -32602, Message: err.Error()}
-	}
-	if link, ok := s.registry.Find(conn.LinkID); ok {
-		log.Printf("[core] tools.set: %d tool(s) from %s", len(params.Tools), link.Plugin().ID)
-	}
-	// tools.setはcatalogを変えるため、全Linkへpushし直す契約。
-	s.connector.BroadcastCatalog()
-	return wire.Marshal(wire.ToolsSetResult{Count: len(params.Tools)}), nil
-}
-
-func (s *Server) onPluginsAdd(message *wire.Incoming) (json.RawMessage, *wire.Error) {
-	var params wire.PluginsAddRequest
-	if err := wire.Unmarshal(message.Params, &params); err != nil {
-		return nil, &wire.Error{Code: -32602, Message: "invalid params"}
-	}
-	if err := validateEndpoint(params.Endpoint); err != nil {
-		return nil, &wire.Error{Code: -32602, Message: err.Error()}
-	}
-	if !s.connector.Watch(params.Endpoint) {
-		return nil, &wire.Error{Code: -32602, Message: "endpoint already registered"}
-	}
-	log.Printf("[core] plugin endpoint registered (via transport): %s", params.Endpoint)
-	return wire.Marshal(wire.PluginsAddResult{Endpoint: params.Endpoint}), nil
+	return nil, &wire.Error{Code: -32601, Message: "method not found"}
 }
 
 func (s *Server) onLinkNotif(conn *rpc.Conn, message *wire.Incoming) {
-	if message.Method == wire.MethodLinkPing {
-		// 最終応答時刻の更新。失効済みならもうLinkはない（何もしない）。
-		_ = s.registry.Touch(conn.LinkID)
-		return
-	}
 	s.router.DispatchNotif(conn, message)
 }

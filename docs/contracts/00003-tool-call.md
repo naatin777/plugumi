@@ -23,7 +23,7 @@ relations:
 
 ## 形態: kind 宣言
 
-Tool宣言（`tools.set`）は `kind: "sync" | "async"` を持つ。宣言側が呼び出し元への期待として付けるラベルであり、wire機構は共通である。
+Tool宣言（`GET /v1/tools` の応答）は `kind: "sync" | "async"` を持つ。宣言側が呼び出し元への期待として付けるラベルであり、wire機構は共通である。
 
 | kind | 意味論 |
 |---|---|
@@ -72,7 +72,7 @@ sequenceDiagram
 
 | field | type | required | 意味 |
 |---|---|---|---|
-| `target.linkId` | string | yes | 呼び出し対象のLinkの `linkId`（`tools.catalog` で得る） |
+| `target.linkId` | string | yes | 呼び出し対象のLinkの `linkId`（`POST /v1/tools/catalog` で得る） |
 | `target.toolPath` | string | yes | 呼び出し対象のtoolPath |
 | `input` | any | no | Toolへの入力（toolPathごとのinputSchemaに従う） |
 

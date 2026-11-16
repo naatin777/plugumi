@@ -14,7 +14,7 @@ relations:
 
 ## コンテキスト
 
-> **注記（`docs/decisions/00010` で一部上書き）**: 項目3の `core_url` は廃止された。Pluginは接続後もCoreのURLを知らず、通信はWS+JSON-RPCに統一された。「接続前に知らない」は「接続後も知らない」に強化されている。
+> **注記（`docs/decisions/00010` で一部上書き）**: 項目3の `core_url` は廃止された。Pluginは接続後もCoreのURLを知らず、共通規格はCore→PluginのREST、Tool呼び出しのみWSとなった。「接続前に知らない」は「接続後も知らない」に強化されている。
 
 Coreの最初の実装を可能にするため、`docs/contracts/00001`・`docs/designs/00001` の open questions のうちMVPに必須のものを確定させる。対象は contracts/00001・designs/00001・architecture/00001。
 

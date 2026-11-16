@@ -1,7 +1,7 @@
 ---
 type: contract
 title: Core↔Plugin 接続契約
-description: CoreがPluginへWebSocket接続を開始し、Linkを確立してTool宣言を受け取るまでの契約。接続手順・Linkの状態遷移・ID・時間定数を規定する。
+description: CoreがPluginへHTTP経由で接続し、Linkを確立してTool宣言を受け取るまでの契約。接続手順・Linkの状態遷移・ID・時間定数を規定する。
 status: draft
 relations:
   architecture:
@@ -14,7 +14,7 @@ relations:
 
 ## 当事者と範囲
 
-Core と Plugin の双方が実装する通信境界。Core↔Plugin通信は **WebSocket + JSON-RPC 2.0 の1本に統一**する（`docs/decisions/00010`）。メッセージ形式と全operationは `docs/contracts/00002`、呼び出し形態は `docs/contracts/00003`、本contractは接続手順とLinkのライフサイクルを規定する。
+Core と Plugin の双方が実装する通信境界。**共通規格（登録・検査系）はCore→PluginのREST、Tool呼び出しの流路だけをWS + JSON-RPC 2.0とする**（`docs/decisions/00010`）。WS上のメッセージ形式は `docs/contracts/00002`、呼び出し形態は `docs/contracts/00003`、本contractは接続手順とLinkのライフサイクルを規定する。
 
 - Pluginプロセスは外部起動を前提とする（Coreはspawnしない）
 - Panel ↔ Plugin の通信は本契約の対象外。Pluginのフロントエンド⇄バックエンド間はWS・WebRTC・GraphQL等を自由に選んでよい
@@ -22,14 +22,76 @@ Core と Plugin の双方が実装する通信境界。Core↔Plugin通信は **
 
 ## Endpoint
 
-- **Pluginは `ws://<host>:<port>`（リモートなら `wss://`）のWS server**として待受し、Coreからのupgrade `GET /v1/transport` を受け付ける。PluginのHTTP面はこのupgrade受付のみで、REST operationは持たない
+- **Pluginは `http://<host>:<port>`（リモートなら `https://`）のHTTP server**として待受し、下表のREST operationとWS upgradeを受け付ける
 - **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host向けAPI**（後述）。PluginがこのURLを知ることはない
 - CoreとPluginは別マシンにあり得る。到達性は利用者がネットワーク構成で確保する（`docs/decisions/00010`）
 - TLS・認証は未解決の別設計事項。MVPはloopback・認証トークン無し
 
+## Plugin REST operations
+
+PluginのHTTP serverが受け付けるoperation。全てCore→Plugin方向。
+
+| operation | 役割 |
+|---|---|
+| `POST /v1/link/hello` | Link確立: linkId払い出し・plugin情報取得 |
+| `POST /v1/link/ping` | Link維持の生存確認（Core→Pluginにprobe） |
+| `GET /v1/tools` | PluginのTool宣言一覧を返す |
+| `POST /v1/tools/catalog` | 登録中の全Tool一覧のpush受信 |
+| `GET /v1/transport?linkId=` | Tool呼び出し用WS接続のupgrade受付 |
+
+### `POST /v1/link/hello`
+
+```jsonc
+// request
+{ "linkId": "link-<UUIDv4>", "core": { "id": "<core.id>", "version": "<semver?>" } }
+// response 200
+{ "plugin": { "id": "agent", "version": "0.1.0", "name": "…" } }
+```
+
+- Coreが払い出した `linkId` と不透明な識別子 `core.id` を伝え、Pluginは自身の識別情報を返す
+- 同じ `core.id` からの再helloは、その `core.id` の旧Linkを失効させてから差し替える（plugin再起動・Core再接続時。別CoreのLinkは生かす）
+
+### `POST /v1/link/ping`
+
+```jsonc
+// request
+{ "linkId": "link-<UUIDv4>" }
+// response 200
+{ }
+```
+
+- 生存確認probe。Coreが定期的に送り、応答成功でそのLinkの `lastPing` を更新する
+- 応答失敗・不明なlinkIdはLink失効に向けてカウントされる
+
+### `GET /v1/tools`
+
+```jsonc
+// response 200
+{ "tools": [ { "toolPath": "echo", "kind": "sync" }, … ] }
+```
+
+- Pluginが提供するTool宣言を返す。CoreはLink確立後にpullする
+- `kind` は `sync | async`（省略時 `sync`）。宣言の構造は `docs/contracts/00003`
+
+### `POST /v1/tools/catalog`
+
+```jsonc
+// request
+{ "tools": [ { "linkId": "link-…", "toolPath": "echo", "kind": "sync" }, … ] }
+// response 200
+{ }
+```
+
+- Coreが「現在登録中の全Tool」を全置換でpushする。Tool呼び出しの宛先 `linkId` が各要素に付く
+- 送信契機: Link確立・Link失効・Tool宣言の変化（`GET /v1/tools` の結果が変わったとき）
+
+### `GET /v1/transport?linkId=`
+
+- Tool呼び出し用WS接続のupgrade受付。`linkId` queryで既存Linkに紐付ける
+- このWS上を流れるのは `tools.call` 系のみ（`docs/contracts/00002`）
+
 ## 共通規則
 
-- transport上のメッセージはすべて **JSON-RPC 2.0**（`docs/contracts/00002`）
 - 本書のJSON例は説明用であり、フィールドの順序・余分な空白に意味はない
 - 未知のフィールドを受け取った側は無視してよい（forward compatibility）
 
@@ -38,12 +100,12 @@ Core と Plugin の双方が実装する通信境界。Core↔Plugin通信は **
 - **URL prefix `/vN/` がプロトコル版である**（`v1`・`v2`…の整数版）。transportのupgrade path `/v1/transport` にもこのprefixが付く
 - version情報はメッセージbodyに持たない。pathだけがversion情報源
 - **互換性ルール**: 同じ `/vN/` 同士は互換。破壊的変更はversionを進めて `/v2/` 等を新設する
-- サポート外の `/vN/`（Nは数字）へのupgrade・リクエストは、upgrade受理前にHTTP **`426 protocol_mismatch`** で応答する。Pluginは `/v1/` 以外の `/vN/` を知らない場合426を返す
+- サポート外の `/vN/`（Nは数字）へのリクエスト・upgradeは、受理前にHTTP **`426 protocol_mismatch`** で応答する
 - `/vN/` 以外の未知pathは `404` のエラーbody（下表の形）を返す
 
 ### エラー応答
 
-transport確立前のHTTP段階では、次の形のbodyで返す。
+HTTP段階では、次の形のbodyで返す。
 
 ```jsonc
 { "error": { "code": "<error-code>", "message": "<人間向け説明文>" } }
@@ -51,13 +113,14 @@ transport確立前のHTTP段階では、次の形のbodyで返す。
 
 | HTTP | code | 発生条件 |
 |---|---|---|
-| 400 | `invalid_params` | 必須フィールドの欠落・型の不一致（管理REST API含む） |
-| 400 | `invalid_endpoint` | `POST /v1/plugins` のendpointがws(s) URLでない |
+| 400 | `invalid_params` | 必須フィールドの欠落・型の不一致 |
+| 400 | `invalid_endpoint` | `POST /v1/plugins` のendpointがhttp(s) URLでない |
 | 404 | `unknown_endpoint` | 存在しないoperation・path |
+| 404 | `unknown_link` | `linkId` が現存しない（transport upgrade・ping等） |
 | 409 | `duplicate_endpoint` | `POST /v1/plugins` で既知のendpointを再登録 |
 | 426 | `protocol_mismatch` | サポート外の `/vN/` prefix へのリクエスト |
 
-transport確立後のエラーはJSON-RPC error objectで返す（`docs/contracts/00002`）。`message` は人間向けで自由。実装は `code` とHTTPステータスのみで判定すること。
+transport確立後（WS上）のエラーはJSON-RPC error objectで返す（`docs/contracts/00002`）。`message` は人間向けで自由。実装は `code` とHTTPステータスのみで判定すること。
 
 ## 用語
 
@@ -68,19 +131,19 @@ Link・linkId・Transport 等の定義は `docs/glossary.md` を正本とする�
 
 ## Plugin Endpointの解決
 
-Coreは起動設定（`plugumi.json` の `plugins[]`）でPlugin Endpoint一覧を持ち、各EndpointへのWS接続を試みる。実行中に `POST /v1/plugins`（管理REST）または `plugins.add`（transport経由）で追加登録もできる。
+Coreは起動設定（`plugumi.json` の `plugins[]`）でPlugin Endpoint一覧を持ち、各Endpointへの接続を試みる。実行中に `POST /v1/plugins`（管理REST）で追加登録もできる。
 
 - 接続不能なEndpointへの接続は再試行を続ける（間隔は実装詳細・推奨値は後述）
 - 動的登録はランタイムのみ有効で、再起動で消える
-- Endpointの形式は `ws://<host>:<port>` または `wss://<host>:<port>`（pathは持たない。接続先pathは `/v1/transport` に固定）
+- Endpointの形式は `http://<host>:<port>` または `https://<host>:<port>`（pathは持たない）
 
 ## Linkのライフサイクル
 
 ```mermaid
 stateDiagram-v2
-    [*] --> connecting: CoreがWS接続を開始(linkIdを発行)
-    connecting --> established: link.hello応答でplugin情報が届く
-    connecting --> [*]: 接続・hello失敗 → Link削除・再試行
+    [*] --> connecting: Coreがhello送信(linkIdを発行)
+    connecting --> established: hello応答でplugin情報が届く
+    connecting --> [*]: hello失敗 → Link削除・再試行
     established --> [*]: transport切断 → Link失効
     established --> [*]: ping期限切れ → 失効・削除
     note right of established
@@ -94,38 +157,24 @@ sequenceDiagram
     participant Core
     participant Plugin
 
-    Core->>Plugin: WS upgrade GET /v1/transport
-    Core->>Plugin: link.hello { linkId, core.id }
-    Plugin-->>Core: { plugin: { id, ... } }
-    Plugin->>Core: tools.set { tools }
-    Core-->>Plugin: { count }
-    Core->>Plugin: tools.catalog { tools } (登録済み全Tool)
+    Core->>Plugin: POST /v1/link/hello { linkId, core.id }
+    Plugin-->>Core: { plugin: { id, … } }
+    Core->>Plugin: GET /v1/tools
+    Plugin-->>Core: { tools: […] }
+    Core->>Plugin: GET /v1/transport?linkId= (WS upgrade)
+    Core->>Plugin: POST /v1/tools/catalog { tools } (登録済み全Tool)
     Note over Core,Plugin: Link established
     loop 維持
-        Plugin->>Core: link.ping
+        Core->>Plugin: POST /v1/link/ping
     end
 ```
 
-1. CoreはPlugin EndpointへWS接続を開始し、`link.hello` requestを送る。Coreが払い出した `linkId` と `core.id` を伝え、Pluginは自身の識別情報を返す
-2. Pluginは `tools.set` でこのLinkが提供するTool一覧を宣言する（接続直後と宣言変更時）
-3. CoreはLink確立後と登録内容の変化ごとに `tools.catalog` notificationを全Linkへ送り、現在の全Tool一覧を知らせる
-4. Linkは `link.ping` の定期送信で半開きを検出する。Coreは最終pingから失効期限を超えたLinkを削除する
-5. **transport切断 = Link失効**。Tool宣言・紐付くcallはすべて消える（link-scoped）。再接続は新しいWS接続と `link.hello` からやり直し、新 `linkId` が払い出される
-6. 同じ `core.id` からの新しいhelloは、同じ `core.id` の旧Linkを失効させてから差し替える（plugin再起動・Core再接続時）
-
-## 確立時のoperation
-
-transport上の各operationの詳細なparams・responseは `docs/contracts/00002` に規定する。ここでは確立順序だけを示す。
-
-| method | 方向 | 役割 |
-|---|---|---|
-| `link.hello` | Core→Plugin request | linkId払い出し・plugin情報の取得 |
-| `tools.set` | Plugin→Core request | Tool宣言のアトミック置換 |
-| `tools.catalog` | Core→Plugin notification | 登録中の全Tool一覧のpush |
-| `link.ping` | Plugin→Core notification | Link維持信号（30秒間隔） |
-
-- `tools.set`・`link.ping` はtransportがLinkに紐付いているため `linkId` をparamsに持たない
-- `link.hello` の応答が返る前に `tools.set` が届く場合に備え、CoreはWS接続開始前にLinkを登録する（実装上の要求として規定）
+1. Coreは `POST /v1/link/hello` でLinkを確立する。払い出した `linkId` と `core.id` を伝え、Pluginは自身の識別情報を返す
+2. Coreは `GET /v1/tools` でTool宣言をpullする（宣言の変化検知は下記「未解決」）
+3. Coreは `GET /v1/transport?linkId=` でWSをupgradeし、Tool呼び出し用のtransportをLinkに結ぶ
+4. Coreは `POST /v1/tools/catalog` で現在の全Tool一覧をPluginへpushする（Link確立時と内容変化ごと）
+5. Coreは `POST /v1/link/ping` の定期送信で半開きを検出する。最終成功から失効期限を超えたLinkを削除する
+6. **transport切断 = Link失効**。Tool宣言・紐付くcallはすべて消える（link-scoped）。再接続はhelloからやり直し、新 `linkId` が払い出される
 
 ## Core管理REST API（Plugin向けではない）
 
@@ -133,7 +182,7 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 
 | operation | 用途 |
 |---|---|
-| `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "ws://…"}`。受理のみで接続は非同期） |
+| `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "http://…"}`。受理のみで接続は非同期） |
 | `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId・pluginId付き） |
 | `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI Host向け確認用） |
 | `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧画面 |
@@ -166,7 +215,7 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 ## セキュリティと適合性
 
 - **安全性の前提**: MVPはloopbackのみで、外部ネットワークから到達できないことが前提。Coreと同じユーザー権限のプロセスは本契約上すべて信頼できる呼び出し元とみなす（`docs/decisions/00001` の信頼モデルと整合）。Coreの管理REST待受はloopbackを要求する
-- Plugin Endpointがリモートの場合、TLS（`wss://`）・認証は別設計事項として必須になる（未解決）
+- Plugin Endpointがリモートの場合、TLS（`https://`）・認証は別設計事項として必須になる（未解決）
 - 1 Pluginは複数Coreからの接続を受け付け得る。LinkはCoreごとに独立し、`linkId` はCore内の名前空間で衝突しない
 - **Pluginが外部へ接続する経路は存在しない**。helloもtransportもCoreから来るものを受け付けるだけである
 
@@ -174,8 +223,8 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 
 独立実装が本contractに適合するには、次を満たす。
 
-- Core側実装は Plugin EndpointへのWS接続開始・`link.hello` 発行・linkId払出・ping維持・失効判定・endpoint登録・`tools.set` 受理・`tools.catalog` 送信の全operationを提供すること
-- Plugin側実装は `/v1/transport` のupgrade受付・`link.hello` 応答・`tools.set`/`link.ping` 送信を行えること。CoreのURL・Domainを保持しないこと
+- Core側実装は Plugin Endpointへの `POST /v1/link/hello` ・ `GET /v1/tools` ・ `POST /v1/tools/catalog` ・ `POST /v1/link/ping` ・ `GET /v1/transport` upgrade・linkId払出・失効判定・endpoint登録の全operationを提供すること
+- Plugin側実装は上表のREST operation全てと `/v1/transport` のupgrade受付を行えること。CoreのURL・Domainを保持しないこと
 - エラー応答は上記のコード・HTTPステータスと一致すること
 - `linkId`・`callId`の形式は実装側の自由ではなく上表に従うこと（`link-`prefix・UUIDv4）
 
@@ -190,6 +239,7 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 **未解決の問い（後で決める）:**
 
 - `toolPath` の構造（`seg/seg` 階層か、flat文字列か）
+- **Tool宣言の動的変更の伝え方**。`GET /v1/tools` はpull型なので、宣言が実行中に変わってもPluginから通知する術がない（MVPはLink確立時の1回pull。変更を伝えるにはtransport上のヒント通知か、明示的な再helloが要る）
 - `link.ping` の間隔・失効期限を適合必須値に格上げするか
 - 明示的な終了操作（`link.bye` 等）を定義するか
-- リモート接続のTLS・認証・権限管理（`wss://` 前提の別contract）
+- リモート接続のTLS・認証・権限管理（`https://` 前提の別contract）

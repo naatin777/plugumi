@@ -46,7 +46,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 ## Link / Transport / Node の関係
 
-- **Link**: CoreがPluginと確立する1つの接続・登録の単位。`link.hello` で開始し、Link失効で終わる。`linkId` がLink識別とTool呼び出しの宛先を兼ねる
+- **Link**: CoreがPluginと確立する1つの接続・登録の単位。`POST /v1/link/hello` で開始し、Link失効で終わる。`linkId` がLink識別とTool呼び出しの宛先を兼ねる
 - **Transport**: Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。transportの寿命とLinkの寿命は一致する
 - **Node**: Pluginが宣言する実行環境の共有識別。LinkがどのNodeで動くかの対応をCoreが保持する
 

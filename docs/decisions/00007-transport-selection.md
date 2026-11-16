@@ -11,7 +11,7 @@ relations:
 
 ## コンテキスト
 
-> **注記（`docs/decisions/00010` で上書き）**: 「REST基本 + WS transport」の2層構成は、Core↔Plugin通信をWS+JSON-RPC 2.0に一本化する決定に置き換わった。REST+OpenAPIはCore管理・UI Host向けAPIとしてのみ残る。
+> **注記（`docs/decisions/00010` で上書き）**: 「REST基本 + WS transport」の2層構成は、向きをCore→Pluginに反転した形で復活した。共通規格（登録・検査系）はCore→Plugin REST、WSはTool呼び出し専用となり、Plugin→CoreのRESTは廃止された。
 
 Core↔Plugin通信のtransportとメッセージ形式を決める必要がある。旧実装では方針が段階的に変わってきた:
 

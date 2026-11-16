@@ -14,7 +14,7 @@ relations:
 
 ## モデルと不変条件
 
-- **linkId**: `link.hello` 時にCoreが発行する一意ID。同一Plugin実装を複数登録（複数Node・同一Node上）できる
+- **linkId**: `POST /v1/link/hello` 時にCoreが発行する一意ID。同一Plugin実装を複数登録（複数Node・同一Node上）できる
   - **MVPではlink-scoped**（`docs/decisions/00004`）: 接続のたびに新IDを払い出し、切断で失効する。旧実装の「再起動後も同一登録を維持する永続ID」は将来の拡張とする
   - Plugin実装のグローバル一意IDは要求しない。`plugin.id` は参考情報として保持するだけ
 - **Node**: Pluginが宣言する「実行環境」の共有識別。宣言method・Link対応は後続contractで定義する。Coreは意味を解釈しない
