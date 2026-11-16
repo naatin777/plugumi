@@ -79,5 +79,5 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 - Node宣言の実装形態（旧実装はPluginが接続上で動的登録・実行時メモリのみ）
 - 複数Core接続時のPlugin状態の分離・共有範囲（旧ADR-0025は「妨げない」以上の保証をしていない）
 - Plugin UIの隔離方式（Light DOM・iframe等。旧実装も方針が複数回変わっており未確定）
-- Workspace共有Stateの所有権（Core・Client間の配分は未確定）
+- Workspace共有Stateの所有権（Core・UI Host間の配分は未確定）
 - Agent固有の意味論（`after_current` 等のQueue timing）はPlugin側の責務。Coreに持ち込まない境界の確認（`docs/decisions/00002` と整合）

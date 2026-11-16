@@ -2,7 +2,7 @@
 
 **置き場所:** `docs/contracts/`。**Type:** `contract`。**必須relation:** なし。
 
-Contractは独立に実装される当事者間（例: Core↔Plugin、Client↔App、SDK↔Panel）の**観測可能な義務**を述べる。実装チュートリアルではない。
+Contractは独立に実装される当事者間（例: Core↔Plugin、Core↔UI Host、SDK↔Panel）の**観測可能な義務**を述べる。実装チュートリアルではない。
 
 ## 推奨する内容
 
