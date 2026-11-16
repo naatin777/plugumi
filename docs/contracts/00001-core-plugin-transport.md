@@ -67,6 +67,7 @@ Sessionを確立する最初の呼出。Coreが払い出したIDと自身のURL�
 // request body
 { "sessionId": "s-…",
   "tools": [ { "toolPath": "fs/read",
+               "kind": "sync",
                "description": "…",
                "tags": ["fs", "read"],
                "inputSchema": {…}, "outputSchema": {…} } ] }
@@ -76,6 +77,7 @@ Sessionを確立する最初の呼出。Coreが払い出したIDと自身のURL�
 
 - `sessionId` で呼出元Sessionを識別する（CoreはSessionから呼出元を判断し、自己申告の信頼性はSession確立に依存する）
 - `toolPath` は登録内で一意な文字列（構造は open question）。重複は4xx
+- `kind` は呼出形態の期待ラベル（`sync` / `async`、詳細は `docs/contracts/00003`）。省略時は `sync` 扱い
 - `description` `tags` `inputSchema` `outputSchema` は任意フィールド
 
 ### `POST /v1/session/ping`（Plugin → Core）
@@ -87,6 +89,18 @@ Sessionの維持信号。
 { "sessionId": "s-…" }
 // response body
 { "ok": true }
+```
+
+### `POST /v1/tools/list`（Plugin → Core）
+
+呼出元がTool候補を得る最小のDiscovery（MVP仮置き）。登録中の全Toolを返し、tag/schema検索は後続contractへ。
+
+```jsonc
+// request body
+{ "sessionId": "s-…" }
+// response body
+{ "tools": [ { "registrationId": "reg-…", "toolPath": "fs/read", "kind": "sync",
+               "description": "…", "tags": ["fs"], "inputSchema": {…} } ] }
 ```
 
 ## エラー

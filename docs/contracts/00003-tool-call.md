@@ -17,6 +17,7 @@ relations:
 呼出元Plugin・Core・対象Pluginの3者が実装する呼出契約。全メッセージは `docs/contracts/00002` のWS channel（JSON-RPC 2.0）上を流れる。
 
 - 呼出経路は **呼出元Plugin → Core → 対象Plugin** 固定。Coreは宛先を解決・転送し、Tool内部の意味には踏み込まない
+- 対象は**呼出元自身のRegistrationでもよい**（Pluginが自分のToolを経由呼出する用途。例: subagentがAgentのToolを呼ぶ）
 - Tool呼出のwireは **sync と async の2形態のみ**。途中出力・通知・購読は別形態ではなく、async形態の意味論として表す
 
 ## 形態 — kind 宣言

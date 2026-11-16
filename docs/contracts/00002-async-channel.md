@@ -24,7 +24,7 @@ Plugin → Core 方向の非同期送信を担うchannel。REST（`docs/contract
 ## ライフサイクル
 
 1. `session.hello` 成立後、Pluginは `core_url` のWS Endpointへ接続する
-2. 接続開始時にSessionを紐付ける（`sessionId` を初回メッセージまたは接続パラメータで提示 — 形式は後続で確定）
+2. 接続開始時にSessionを紐付ける（MVP仮決め: WS URLのクエリ `?sessionId=…` で提示）
 3. WS切断はSession失効とは別に扱う（REST側のsession.pingがSession寿命を管理する想定）
 
 ## メッセージ意味論
@@ -39,6 +39,5 @@ Plugin → Core 方向の非同期送信を担うchannel。REST（`docs/contract
 
 ## 未解決の問い
 
-- Sessionとの紐付け方法（初回メッセージ・クエリパラメータ・別handshake）
 - 切断・再接続の扱い（未配送メッセージ・配送保証・再送）
 - フロー制御（大量の途中出力時の背圧）
