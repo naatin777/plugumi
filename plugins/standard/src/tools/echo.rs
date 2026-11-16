@@ -1,12 +1,8 @@
 //! echo — 入力をそのまま返すsync tool（疎通確認用）。
 
-use super::{boxed, mkdef, Call, Handler, ToolDef};
+use super::Call;
+use serde_json::Value;
 
-pub(super) fn def() -> ToolDef {
-    mkdef("echo", "sync", Handler::Sync(handle))
-}
-
-fn handle(call: &mut Call) -> super::BoxFut<Result<serde_json::Value, String>> {
-    let input = call.input.clone();
-    boxed(async move { Ok(input) })
+pub async fn handle(call: &mut Call) -> Result<Value, String> {
+    Ok(call.input.clone())
 }

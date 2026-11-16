@@ -1,6 +1,11 @@
 //! Tool群の宣言と呼出配送。
-//! kind（sync/async）に応じて受理・終端の流れが分かれる
-//! （docs/contracts/00003）。
+//!
+//! 各toolは対応するmoduleの `async fn` として実装する。
+//! `kind`（sync/async）で受理・終端の流れが分かれる（docs/contracts/00003）:
+//!
+//! - sync: handlerの戻り値が呼出のresponseになる
+//! - async: 受理 `{accepted:true}` を返してから実処理し、
+//!   途中出力・終端は `Call` 経由のnotificationで送る
 
 mod echo;
 mod exec;
@@ -8,23 +13,32 @@ mod fs;
 mod ticks;
 
 use serde_json::Value;
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::LazyLock;
 use tokio::sync::watch;
 
 use crate::rpc::Conn;
 use crate::session::Shared;
 use crate::wire::{self, CallParams, ToolDecl};
 
-type BoxFut<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+/// 登録するTool一覧。`toolPath` と `kind` のみを持ち、
+/// handlerの選択は `dispatch` のmatchで行う（片方だけ更新しないこと）。
+const TOOLS: &[(&str, &str)] = &[
+    ("echo", "sync"),
+    ("fs/read", "sync"),
+    ("fs/write", "sync"),
+    ("exec", "async"),
+    ("ticks", "async"),
+];
 
-pub enum Handler {
-    /// 終端がresponseに乗る。実行中の途中出力はCall::outputで流してよい。
-    Sync(fn(&mut Call) -> BoxFut<Result<Value, String>>),
-    /// 受理({accepted:true})を返してから実処理。Output/ResultはCall経由。
-    Async(fn(Call) -> BoxFut<()>),
+/// tools.set で宣言するTool一覧。
+pub fn decls() -> Vec<ToolDecl> {
+    TOOLS.iter()
+        .map(|&(path, kind)| ToolDecl {
+            tool_path: path.to_string(),
+            kind: kind.to_string(),
+            description: None,
+            tags: None,
+        })
+        .collect()
 }
 
 /// 1つの着信呼出。ToolPath・Inputのほか、async側では
@@ -72,53 +86,14 @@ impl Call {
     }
 }
 
-pub(crate) struct ToolDef {
-    decl: ToolDecl,
-    handler: Handler,
-}
-
-fn tools() -> &'static HashMap<String, ToolDef> {
-    static TOOLS: LazyLock<HashMap<String, ToolDef>> = LazyLock::new(|| {
-        let mut m = HashMap::new();
-        for t in [
-            echo::def(),
-            fs::read_def(),
-            fs::write_def(),
-            exec::def(),
-            ticks::def(),
-        ] {
-            m.insert(t.decl.tool_path.clone(), t);
-        }
-        m
-    });
-    &TOOLS
-}
-
-/// tools.set で宣言するTool一覧。
-pub fn decls() -> Vec<ToolDecl> {
-    tools().values().map(|t| t.decl.clone()).collect()
-}
-
-/// 着信 tools.call を捌く。kindに応じて受理・終端を分ける。
+/// 着信 tools.call を捌く。callIdでclose配送できるよう登録し、
+/// kindに応じて受理・終端を分ける。
 pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
-    let path = params.tool_path;
-    let Some(tool) = tools().get(&path) else {
-        conn.respond(
-            req_id,
-            Err(wire::RpcError {
-                code: -32601,
-                message: format!("unknown toolPath: {path}"),
-                data: None,
-            }),
-        );
-        return;
-    };
-
     let (close_tx, close_rx) = watch::channel(false);
     let call = Call {
         conn: conn.clone(),
         id: req_id.clone(),
-        tool_path: path.clone(),
+        tool_path: params.tool_path.clone(),
         input: params.input,
         close_rx,
     };
@@ -128,16 +103,19 @@ pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
         .calls
         .insert(req_id.to_string(), close_tx);
 
-    match &tool.handler {
-        Handler::Sync(f) => {
+    match params.tool_path.as_str() {
+        // sync: handlerの戻り値が呼出のresponseになる。
+        "echo" | "fs/read" | "fs/write" => {
             let id_key = req_id.to_string();
             tokio::spawn(async move {
                 let mut call = call;
-                let res = f(&mut call).await;
-                let conn = call.conn.clone();
-                let id = call.id.clone();
-                conn.respond(
-                    id,
+                let res = match call.tool_path.as_str() {
+                    "echo" => echo::handle(&mut call).await,
+                    "fs/read" => fs::read(&mut call).await,
+                    _ => fs::write(&mut call).await,
+                };
+                call.conn.respond(
+                    call.id.clone(),
                     res.map_err(|message| wire::RpcError {
                         code: -32000,
                         message,
@@ -147,34 +125,27 @@ pub fn dispatch(shared: Shared, conn: Conn, req_id: Value, params: CallParams) {
                 shared.lock().unwrap().calls.remove(&id_key);
             });
         }
-        Handler::Async(f) => {
-            // 受理を返してから実処理（contracts/00003）。
+
+        // async: 受理({accepted:true})を返してから実処理。
+        "exec" | "ticks" => {
             conn.respond(req_id.clone(), Ok(serde_json::json!({"accepted": true})));
             let id_key = req_id.to_string();
             tokio::spawn(async move {
-                f(call).await;
+                match call.tool_path.as_str() {
+                    "exec" => exec::handle(call).await,
+                    _ => ticks::handle(call).await,
+                }
                 shared.lock().unwrap().calls.remove(&id_key);
             });
         }
-    }
-}
 
-// 各toolの定義ヘルパー。
-pub(crate) fn mkdef(path: &str, kind: &str, handler: Handler) -> ToolDef {
-    ToolDef {
-        decl: ToolDecl {
-            tool_path: path.to_string(),
-            kind: kind.to_string(),
-            description: None,
-            tags: None,
-        },
-        handler,
+        _ => conn.respond(
+            req_id,
+            Err(wire::RpcError {
+                code: -32601,
+                message: format!("unknown toolPath: {}", params.tool_path),
+                data: None,
+            }),
+        ),
     }
-}
-
-pub(crate) fn boxed<F, T>(f: F) -> BoxFut<T>
-where
-    F: Future<Output = T> + Send + 'static,
-{
-    Box::pin(f)
 }
