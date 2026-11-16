@@ -13,14 +13,14 @@ export interface PluginInfo {
   name?: string;
 }
 
-export interface ToolDecl {
+export interface ToolDeclaration {
   toolPath: string;
   kind: "sync" | "async";
   description?: string;
   tags?: string[];
 }
 
-export interface ListedTool extends ToolDecl {
+export interface ListedTool extends ToolDeclaration {
   linkId: string;
 }
 

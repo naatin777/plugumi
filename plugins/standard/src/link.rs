@@ -143,7 +143,7 @@ async fn start_link(shared: Shared, link: SharedLink) {
     };
 
     // tools.setは短く再試行する。直列失敗でもLinkを無toolにしない。
-    let tools = tools::decls();
+    let tools = tools::declarations();
     for attempt in 1..=5 {
         if !link_alive(&shared, &link_id) {
             return;

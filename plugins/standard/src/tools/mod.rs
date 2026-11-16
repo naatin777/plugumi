@@ -17,7 +17,7 @@ use tokio::sync::watch;
 
 use crate::link::SharedLink;
 use crate::rpc::Conn;
-use crate::wire::{self, CallParams, ToolDecl};
+use crate::wire::{self, CallParams, ToolDeclaration};
 
 /// 登録するTool一覧。`toolPath` と `kind` のみを持ち、
 /// handlerの選択は `dispatch` のmatchで行う（片方だけ更新しないこと）。
@@ -30,10 +30,10 @@ const TOOLS: &[(&str, &str)] = &[
 ];
 
 /// tools.set で宣言するTool一覧。
-pub fn decls() -> Vec<ToolDecl> {
+pub fn declarations() -> Vec<ToolDeclaration> {
     TOOLS
         .iter()
-        .map(|&(path, kind)| ToolDecl {
+        .map(|&(path, kind)| ToolDeclaration {
             tool_path: path.to_string(),
             kind: kind.to_string(),
             description: None,

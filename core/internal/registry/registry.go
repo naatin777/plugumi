@@ -25,7 +25,7 @@ type Link struct {
 	mu        sync.RWMutex
 	plugin    wire.PluginInfo
 	transport *rpc.Conn // Plugin→Coreのtransport（接続されるまではnil）
-	tools     []wire.ToolDecl
+	tools     []wire.ToolDeclaration
 	lastPing  time.Time
 }
 
@@ -56,13 +56,13 @@ func (l *Link) SetTransport(c *rpc.Conn) {
 }
 
 // Tools は現行のTool宣言一覧（tools.setのたびに丸ごと差し替わる）。
-func (l *Link) Tools() []wire.ToolDecl {
+func (l *Link) Tools() []wire.ToolDeclaration {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.tools
 }
 
-func (l *Link) SetTools(tools []wire.ToolDecl) {
+func (l *Link) SetTools(tools []wire.ToolDeclaration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.tools = tools
@@ -131,7 +131,7 @@ func (r *Registry) FindEndpoint(endpoint string) (*Link, bool) {
 }
 
 // SetTools は tools.set を反映する（アトミック置換）。toolPath重複は409相当。
-func (r *Registry) SetTools(linkID string, tools []wire.ToolDecl) error {
+func (r *Registry) SetTools(linkID string, tools []wire.ToolDeclaration) error {
 	r.mu.RLock()
 	l, ok := r.links[linkID]
 	r.mu.RUnlock()
@@ -177,7 +177,7 @@ func (r *Registry) AllTools() []wire.ListedTool {
 	var out []wire.ListedTool
 	for _, l := range r.links {
 		for _, t := range l.Tools() {
-			out = append(out, wire.ListedTool{LinkID: l.ID, ToolDecl: t})
+			out = append(out, wire.ListedTool{LinkID: l.ID, ToolDeclaration: t})
 		}
 	}
 	return out

@@ -26,7 +26,7 @@ type PluginInfo struct {
 	Name    string `json:"name,omitempty"`
 }
 
-type ToolDecl struct {
+type ToolDeclaration struct {
 	ToolPath     string          `json:"toolPath"`
 	Kind         string          `json:"kind"` // "sync" | "async"（省略時 sync）
 	Description  string          `json:"description,omitempty"`
@@ -36,8 +36,8 @@ type ToolDecl struct {
 }
 
 type ToolsSetRequest struct {
-	LinkID string     `json:"linkId"`
-	Tools  []ToolDecl `json:"tools"`
+	LinkID string            `json:"linkId"`
+	Tools  []ToolDeclaration `json:"tools"`
 }
 
 type PingRequest struct {
@@ -50,7 +50,7 @@ type ToolsListRequest struct {
 
 type ListedTool struct {
 	LinkID string `json:"linkId"`
-	ToolDecl
+	ToolDeclaration
 }
 
 type ToolsListResponse struct {

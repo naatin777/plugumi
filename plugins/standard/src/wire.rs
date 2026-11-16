@@ -35,7 +35,7 @@ pub struct PluginInfo {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolDecl {
+pub struct ToolDeclaration {
     pub tool_path: String,
     pub kind: String, // "sync" | "async"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -48,7 +48,7 @@ pub struct ToolDecl {
 #[serde(rename_all = "camelCase")]
 pub struct ToolsSetRequest {
     pub link_id: String,
-    pub tools: Vec<ToolDecl>,
+    pub tools: Vec<ToolDeclaration>,
 }
 
 #[derive(Debug, Serialize)]

@@ -2,22 +2,22 @@
 // MVPは agent/echo のみ（自己呼び出しの疎通確認用）。
 
 import type { Conn } from "./rpc.js";
-import type { CallParams, RpcError, ToolDecl } from "./wire.js";
+import type { CallParams, RpcError, ToolDeclaration } from "./wire.js";
 
 type SyncHandler = (input: unknown) => unknown | Promise<unknown>;
 
-const tools = new Map<string, { decl: ToolDecl; handler: SyncHandler }>([
+const tools = new Map<string, { declaration: ToolDeclaration; handler: SyncHandler }>([
   [
     "agent/echo",
     {
-      decl: { toolPath: "agent/echo", kind: "sync" },
+      declaration: { toolPath: "agent/echo", kind: "sync" },
       handler: (input) => ({ echo: input, from: "agent" }),
     },
   ],
 ]);
 
-export function toolDecls(): ToolDecl[] {
-  return [...tools.values()].map((t) => t.decl);
+export function toolDecls(): ToolDeclaration[] {
+  return [...tools.values()].map((t) => t.declaration);
 }
 
 // 着信 tools.call を捌く（同期返却のみ。async toolを足すときはCall機構を作る）。
