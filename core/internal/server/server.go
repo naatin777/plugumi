@@ -1,4 +1,4 @@
-// Package server は管理REST API（UI Host・人間向け）と、
+// Package server は管理REST API（Host・人間向け）と、
 // transport上のPlugin→Coreメッセージの振り分けを担う。
 // RESTはOpenAPI (huma) で定義する。PluginはこのAPIを使わない
 // （docs/contracts/00001・00002、decisions/00010）。

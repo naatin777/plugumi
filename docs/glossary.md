@@ -14,13 +14,19 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 機能を提供する任意言語のプロセス（`plugins/`）。Plugumi専用でも既存アプリの拡張としても作れる。
 
-### UI Host
+### Host
 
-Panel等のUIを表示する任意コンポーネント（Web/Electron等）。表示専用で実行寿命を持たない。
+UIの実行・配信環境（Web/Electron等）。Coreと接続し、環境固有の機能を担う。
+表示専用で実行寿命を持たない。PluginもHostになり得る（PluginsはHostになります）。
+
+### UI
+
+Panel・Embed・Indicator等を表示するための共通インターフェース（仕様）。
+実行環境ではなく、実行・配信はHostの責務。
 
 ### Panel
 
-UI Host上に表示されるPlugin提供のUI面。Panel↔Plugin間の通信はPluginの自由で、Plugumiの契約対象外。
+Host上に表示されるPlugin提供のUI面。Panel↔Plugin間の通信はPluginの自由で、Plugumiの契約対象外。
 
 ## 接続・実行モデル
 

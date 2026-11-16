@@ -1,6 +1,6 @@
 ---
 type: architecture
-title: システム全体構成（Core / Plugin / Node / UI Host）
+title: システム全体構成（Core / Plugin / Node / Host）
 description: Plugumiの構成要素・責務・接続関係。旧実装から引き継ぐ設計思想と、新たに決める部分を分けて記述する。
 status: draft
 ---
@@ -14,15 +14,17 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 | Component | 責務 | 担わないこと |
 |---|---|---|
 | Core（Go） | Plugin登録・LinkとNode対応の管理、Tool仲介・ルーティング・実行時権限検証 | AI・Plugin業務ロジック、Tool候補の自動選択、UI描画 |
-| Plugin | Tool・Panel等の機能提供。Plugumi専用でも既存アプリの拡張としても実装できる | Coreへの言語・フロントエンド依存 |
+| Plugin | Tool・独自UI（Panel等）の機能提供。Plugumi専用でも既存アプリの拡張としても実装できる。Hostにもなり得る | Coreへの言語・フロントエンド依存 |
 | Node | Pluginの実行場所。ローカルホスト・リモートPC・Docker等を含む | 単一マシンへの限定 |
-| UI Host（Web / Electron） | Panel表示・ユーザー操作面 | 実行の寿命。任意コンポーネント |
+| Host（Web / Electron、またはPlugin） | UIの実行・配信環境。Coreとの接続・環境固有の機能 | 実行の寿命。任意コンポーネント |
+| UI | Panel・Embed・Indicator等を表示する共通インターフェース（仕様） | 実行環境ではない（実行・配信はHost） |
 
 ## 設計思想（旧実装から引き継ぐ不変条件）
 
 - **CoreはAI非依存の汎用プラットフォーム**。AI Agent・Filesystem・Browser等はすべてPluginとして実装する（旧 `REQ-CORE-001` / ADR-0001 と同じ思想）
 - **Plugin間の直接通信は禁止**。Tool呼び出しは `Plugin A → Core → Plugin B` の仲介経路のみ
-- **UI Hostは表示専用**。Hostの起動・終了・切断はCore・Plugin・Tool実行の寿命に影響しない
+- **Hostは表示専用**。Hostの起動・終了・切断はCore・Plugin・Tool実行の寿命に影響しない
+- **PluginもHostになり得る**。Hostは専用プロセスの名前ではなく、UIを実行・配信する役割
 - **NodeはPluginが宣言する「実行環境」の共有識別**であり、Coreはその意味を解釈しない（ローカル・Docker sandbox・リモートホスト等）
 - **同一Pluginは複数登録できる**（複数Node・同一Node上）。例外として `standard` PluginはNodeごと最大1登録（旧実装の既存仕様・再検証対象）
 
@@ -55,7 +57,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 ## ランタイム・デプロイモデル
 
 - CoreはCLI/TUIで単体管理可能。独立したManagerは必須にしない（`docs/decisions/00003`）
-- UI Host無しでもCore+Pluginは動作する
+- Host無しでもCore+Pluginは動作する
 - 静的ファイル: WebはGoサーバーから配信、Electronはアプリ同梱
 
 ## 旧実装からの継承・非継承
@@ -79,5 +81,5 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 - Node宣言の実装形態（旧実装はPluginが接続上で動的登録・実行時メモリのみ）
 - 複数Core接続時のPlugin状態の分離・共有範囲（旧ADR-0025は「妨げない」以上の保証をしていない）
 - Plugin UIの隔離方式（Light DOM・iframe等。旧実装も方針が複数回変わっており未確定）
-- Workspace共有Stateの所有権（Core・UI Host間の配分は未確定）
+- Workspace共有Stateの所有権（Core・Host間の配分は未確定）
 - Agent固有の意味論（`after_current` 等のQueue timing）はPlugin側の責務。Coreに持ち込まない境界の確認（`docs/decisions/00002` と整合）

@@ -129,7 +129,7 @@ transport上の各operationの詳細なparams・responseは `docs/contracts/0000
 
 ## Core管理REST API（Plugin向けではない）
 
-UI Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
+Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
 
 | operation | 用途 |
 |---|---|

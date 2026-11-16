@@ -25,7 +25,7 @@ relations:
 2. **接続はCoreが開始する**。Coreは設定済みのPlugin Endpoint（`ws(s)://<host>:<port>`）へ `GET /v1/transport` でWS接続を開く。PluginからCoreへの新規接続は一切存在しない
 3. **PluginはCoreのURL・Domainを知らない**。`core_url` は廃止する。Link確立に必要なのは `linkId` と `core.id`（不透明な識別子。宛先としては使えない）だけ
 4. **全operationが同じWS上を流れる**: `link.hello`・`tools.set`・`link.ping`・`tools.catalog`・`tools.call`・`plugins.*`。切断時の再接続はCoreが担当する
-5. **REST + OpenAPIはCoreの管理・UI向けAPIとして残る**（UI Host・人間用）。PluginはRESTを使わない
+5. **REST + OpenAPIはCoreの管理・UI向けAPIとして残る**（Host・人間用）。PluginはRESTを使わない
 6. **リモート接続を正式な前提にする**。CoreとPluginは別マシンにあり得、`wss://` 経由を想定する。TLS・認証・権限管理は明示的な別設計事項（未解決）とする
 
 ## 代替案

@@ -49,4 +49,4 @@ Coreの最初の実装を可能にするため、`docs/contracts/00001`・`docs/
 - link-scoped IDにより、Core再起動・Plugin再接続後に旧 linkId を指す保存済み参照は全て無効になる。呼び出し側は毎回Discovery→選択を行う運用が前提になる
 - 外部起動のみのため、「Core起動だけで環境が揃う」体験は将来のspawn機構に依存する
 - Core→Plugin方向では、Coreが起動時刻より後に立ち上がったPluginへも再試行で接続する必要がある
-- 標準出力のため、管理面のProtocol表出は後続のTUI/UI Host実装まで存在しない
+- 標準出力のため、管理面のProtocol表出は後続のTUI/Host実装まで存在しない
