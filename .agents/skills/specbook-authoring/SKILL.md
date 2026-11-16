@@ -9,7 +9,7 @@ description: docs/goals, requirements, architecture, designs, decisions, contrac
 
 ## 最初に: artifact type を決める
 
-ユーザーのタスクに該当する reference を参照する。関連する type の reference と [conventions](references/conventions.md) だけを読み、ドキュメント間 relation を作る場合に限り追加の type を読む。
+ユーザーのタスクに該当する reference を参照する。関連する type の reference と [conventions](references/conventions.md) を読む。**日本語の執筆・校正・レビューを行うときは必ず [日本語の執筆・レビュー規約](references/japanese-writing.md) も読む。** ドキュメント間 relation を作る場合に限り追加の type を読む。
 
 | Type | ディレクトリ | 答える問い | Reference |
 |---|---|---|---|
@@ -24,18 +24,38 @@ description: docs/goals, requirements, architecture, designs, decisions, contrac
 
 `docs/designs/`（複数形・artifact type）と旧来の `docs/design/` ディレクトリを混同しない。現行のdecisionディレクトリとして旧 `docs/adr/` を作らない。
 
+## 設計調査時の原則（情報の優先順位）
+
+設計の判断材料は次の優先順位で扱う:
+
+1. 現在の会話で明示的に決めたこと
+2. 本リポジトリの採用済み（accepted）文書
+3. 本リポジトリのdraftと未解決事項
+4. 旧リポジトリ（旧Plugumi/modstrata）のADR・設計文書・PR — **判断理由の調査に限る**
+5. さらに古い会話・構想
+
+- 新リポジトリの文書を最初に確認し、`draft` と `accepted` を区別する
+- 旧ADRの `accepted` を新Plugumiの採用状態として扱わない。旧資料は「なぜそう決めたか」を調べるためのものであり、仕様の正本ではない
+- 仕様が決まっていない領域を、過去の案で勝手に穴埋めしない。複数の判断がある論点は日付と置き換え関係を確認する
+- 会話での新しい方針と本リポジトリのdraftが異なる場合、どちらかを自動的に確定せず差分としてユーザーに提示する
+- 会話や新文書で変更した方針を、旧ADRを理由に巻き戻さない
+- 文章の書き直しと新しい設計判断を混同しない
+
 ## ワークフロー
 
 1. **コンテキストを確立する。** まずリポジトリと既存 `docs/` ファイルを調べる。accepted の requirement/decision と draft・deprecated を区別する。旧Plugumiリポジトリ・過去のPoC・過去の議論は検討の入力であり、今回の作り直しの拘束力ある仕様ではない。
 2. **type と scope を選ぶ。** 関心事ごとに1つの主artifactを選ぶ。小さく独立にレビューできる requirement・design を好むが、ドキュメント数を増やすためだけに分割しない。
-3. **書く前に関係を探す。** 対象IDと現在の正本を検索する。designは既存のrequirementをaddressしなければならず、verificationは既存の対象をverifyしなければならない。必要な前提が無ければ先に作る。relation IDを捏造しない。
-4. **ファイル名を割り当てる。** 対象typeフォルダの `NNNNN-*.md` を走査し、そのフォルダ内で一意な次の5桁ID（max + 1）を選び、安定した kebab-case の slug を使う。IDはYAMLではなくファイル名から導かれる。整理のためだけに旧IDを振り直さない。
-5. **作成・更新する。** `templates/<type>.md` から始めてプレースホルダを置き換える。意味のある節だけを残す。`type`・`title`・`description`・`status` とそのtypeに必要な relation を埋める。明示的な合意がない限り `draft` を使う。第二の正本を作らず、既存artifactを編集する。
-6. **手動レビューする。** ファイル名・フォルダ・typeの一致、ID・対象type・循環、必須フィールド、references・`sources`、意味の正確さ、関連ドキュメントの更新要否を確認する。[conventions](references/conventions.md) 参照。
-7. **変更を報告する。** 作成・変更したパス、影響する relation、未解決の疑問、実行しなかったチェックを列挙する。Specbook Pluginで検証していないのに検証済みと主張しない。
+3. **書く前に関係を探す。** 対象IDと現在の正本を検索する。designは既存のrequirementへのrelationを持たなければならず、verificationは既存の検証対象へのrelationを持たなければならない。必要な前提が無ければ先に作る。relation IDを捏造しない。
+4. **書く前に方針を確認する。** 新しい設計判断・製品方針・曖昧な解釈を含む場合は、決定事項を列挙してユーザーに確認してから書く。質問回数に制限はない — 推測で方向を決めず、確認なく内容を増やさない。
+5. **ファイル名を割り当てる。** 対象typeフォルダの `NNNNN-*.md` を走査し、そのフォルダ内で一意な次の5桁ID（max + 1）を選び、安定した kebab-case の slug を使う。IDはYAMLではなくファイル名から導かれる。整理のためだけに旧IDを振り直さない。
+6. **作成・更新する。** `templates/<type>.md` から始めてプレースホルダを置き換える。意味のある節だけを残す。`type`・`title`・`description`・`status` とそのtypeに必要な relation を埋める。明示的な合意がない限り `draft` を使う。第二の正本を作らず、既存artifactを編集する。日本語は[執筆・レビュー規約](references/japanese-writing.md)に従い、主語・責務・前提を明らかにし、抽象語の多用を避ける。
+7. **手動レビューする。** ファイル名・フォルダ・typeの一致、ID・対象type・循環、必須フィールド、references・`sources`、意味の正確さ、関連ドキュメントの更新要否を確認する。[conventions](references/conventions.md) 参照。日本語の読みやすさを確認した後、**意味・条件・規範語・未決定事項が変わっていないか**再確認する。
+8. **変更を報告する。** 作成・変更したパス、影響する relation、未解決の疑問、実行しなかったチェックを列挙する。Specbook Pluginで検証していないのに検証済みと主張しない。
 
 ## やってはいけないこと
 
+- ユーザーに確認せず、設計判断・製品方針・open questionの結論を自分で決めて書かない
+- 確認のための質問を省かない（質問回数に制限はない）
 - 旧ドキュメント・旧API契約・旧パッケージ境界を自動的に移植しない
 - 未承認のproposalやdeprecated artifactを現行契約として扱わない
 - 実装状況・計測値・承認・ソースファイル・relation ID・検証結果を捏造しない

@@ -1,6 +1,6 @@
 # Design — 1つの具体的な解法
 
-**置き場所:** `docs/designs/`。**Type:** `design`。**必須relation:** `addresses` は**少なくとも1つの既存 Requirement** を指さなければならない。
+**置き場所:** `docs/designs/`。**Type:** `design`。**必須relation:** `relations.requirement` は**少なくとも1つの既存 Requirement** を指さなければならない。
 
 システムが1つ以上のrequirementをどう満たすかを記述する。DesignはArchitectureより狭く、状態機械・アルゴリズム・並行性・障害時の振る舞い・責務を規定できる。歴史的な決定ログにしない。
 
@@ -17,7 +17,7 @@ frontmatter relation の例:
 
 ```yaml
 relations:
-  addresses:
+  requirement:
     - '00002'
 ```
 
