@@ -31,6 +31,7 @@ type Conn struct {
 	writeMu sync.Mutex
 	counter atomic.Int64
 	pending map[string]chan *wire.Incoming
+	notifQ  chan *wire.Incoming
 
 	OnRequest func(*wire.Incoming) (json.RawMessage, *wire.Error)
 	OnNotif   func(*wire.Incoming)
@@ -39,12 +40,33 @@ type Conn struct {
 }
 
 func NewConn(c *websocket.Conn, idPrefix string) *Conn {
-	return &Conn{
+	conn := &Conn{
 		ID:       fmt.Sprintf("conn-%d", connCounter.Add(1)),
 		IDPrefix: idPrefix,
 		c:        c,
 		pending:  map[string]chan *wire.Incoming{},
+		notifQ:   make(chan *wire.Incoming, 256),
 		done:     make(chan struct{}),
+	}
+	// notificationは単一goroutineでFIFO配送する。messageごとにgoroutineを
+	// 起こすと、output→resultが逆転し、result処理でrouteが消えたあとの
+	// 遅れてきたoutputが取りこぼされる（contracts/00002「到着順保証」）。
+	go conn.dispatchNotifs()
+	return conn
+}
+
+// dispatchNotifs はnotifQを受信順に捌く。conn終了で抜ける（残キューは破棄。
+// Link自体が消えるため配送済みかの区別は不要）。
+func (c *Conn) dispatchNotifs() {
+	for {
+		select {
+		case <-c.done:
+			return
+		case message := <-c.notifQ:
+			if c.OnNotif != nil {
+				c.OnNotif(message)
+			}
+		}
 	}
 }
 
@@ -69,9 +91,9 @@ func (c *Conn) Run(ctx context.Context) error {
 		case message.IsRequest():
 			go c.handleRequest(&message)
 		case message.IsNotif():
-			if c.OnNotif != nil {
-				go c.OnNotif(&message)
-			}
+			// キューが満杯ならReadが止まり背圧として働く
+			// （dropしない。messageを無言で捨てると出力の欠損になる）。
+			c.notifQ <- &message
 		case message.IsResponse():
 			key := string(message.ID)
 			c.writeMu.Lock()
