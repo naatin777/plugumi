@@ -9,7 +9,7 @@ description: docs/goals, requirements, architecture, designs, decisions, contrac
 
 ## 最初に: artifact type を決める
 
-ユーザーのタスクに該当する reference を参照する。関連する type の reference と [conventions](references/conventions.md) だけを読み、ドキュメント間 relation を作る場合に限り追加の type を読む。
+ユーザーのタスクに該当する reference を参照する。関連する type の reference と [conventions](references/conventions.md) を読む。**日本語の執筆・校正・レビューを行うときは必ず [日本語の執筆・レビュー規約](references/japanese-writing.md) も読む。** ドキュメント間 relation を作る場合に限り追加の type を読む。
 
 | Type | ディレクトリ | 答える問い | Reference |
 |---|---|---|---|
@@ -48,8 +48,8 @@ description: docs/goals, requirements, architecture, designs, decisions, contrac
 3. **書く前に関係を探す。** 対象IDと現在の正本を検索する。designは既存のrequirementへのrelationを持たなければならず、verificationは既存の検証対象へのrelationを持たなければならない。必要な前提が無ければ先に作る。relation IDを捏造しない。
 4. **書く前に方針を確認する。** 新しい設計判断・製品方針・曖昧な解釈を含む場合は、決定事項を列挙してユーザーに確認してから書く。質問回数に制限はない — 推測で方向を決めず、確認なく内容を増やさない。
 5. **ファイル名を割り当てる。** 対象typeフォルダの `NNNNN-*.md` を走査し、そのフォルダ内で一意な次の5桁ID（max + 1）を選び、安定した kebab-case の slug を使う。IDはYAMLではなくファイル名から導かれる。整理のためだけに旧IDを振り直さない。
-6. **作成・更新する。** `templates/<type>.md` から始めてプレースホルダを置き換える。意味のある節だけを残す。`type`・`title`・`description`・`status` とそのtypeに必要な relation を埋める。明示的な合意がない限り `draft` を使う。第二の正本を作らず、既存artifactを編集する。
-7. **手動レビューする。** ファイル名・フォルダ・typeの一致、ID・対象type・循環、必須フィールド、references・`sources`、意味の正確さ、関連ドキュメントの更新要否を確認する。[conventions](references/conventions.md) 参照。
+6. **作成・更新する。** `templates/<type>.md` から始めてプレースホルダを置き換える。意味のある節だけを残す。`type`・`title`・`description`・`status` とそのtypeに必要な relation を埋める。明示的な合意がない限り `draft` を使う。第二の正本を作らず、既存artifactを編集する。日本語は[執筆・レビュー規約](references/japanese-writing.md)に従い、主語・責務・前提を明らかにし、抽象語の多用を避ける。
+7. **手動レビューする。** ファイル名・フォルダ・typeの一致、ID・対象type・循環、必須フィールド、references・`sources`、意味の正確さ、関連ドキュメントの更新要否を確認する。[conventions](references/conventions.md) 参照。日本語の読みやすさを確認した後、**意味・条件・規範語・未決定事項が変わっていないか**再確認する。
 8. **変更を報告する。** 作成・変更したパス、影響する relation、未解決の疑問、実行しなかったチェックを列挙する。Specbook Pluginで検証していないのに検証済みと主張しない。
 
 ## やってはいけないこと
