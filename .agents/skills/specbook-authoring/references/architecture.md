@@ -13,7 +13,7 @@
 - **重要なフロー:** メッセージとセキュリティ境界。簡単な図が望ましい。
 - **前提・未解決の問い:** 特に作り直しに関係する未知数。
 
-該当するRequirementへの `addresses` を宣言してよいが、Designと違って旧Specbook schemaでは必須ではない。`perspective` はArchitectureとDesignにのみ許可される。scopeごとに1つの正本Architectureを保ち、関連するsub-architectureは複製せずリンクする。
+該当するRequirementへ `relations.requirement` でリンクしてよいが、Designと違って必須ではない。`perspective` はArchitectureとDesignにのみ許可される。scopeごとに1つの正本Architectureを保ち、関連するsub-architectureは複製せずリンクする。
 
 ## レビュー
 

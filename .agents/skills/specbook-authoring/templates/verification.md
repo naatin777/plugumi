@@ -4,7 +4,7 @@ title: capabilityまたはcontractを検証する
 description: 既存artifactへのチェックと期待結果を定義する。
 status: draft
 relations:
-  verifies:
+  requirement:
     - '<対象artifact-id-必須>'
 ---
 

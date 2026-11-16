@@ -28,7 +28,7 @@ description: docs/goals, requirements, architecture, designs, decisions, contrac
 
 1. **コンテキストを確立する。** まずリポジトリと既存 `docs/` ファイルを調べる。accepted の requirement/decision と draft・deprecated を区別する。旧Plugumiリポジトリ・過去のPoC・過去の議論は検討の入力であり、今回の作り直しの拘束力ある仕様ではない。
 2. **type と scope を選ぶ。** 関心事ごとに1つの主artifactを選ぶ。小さく独立にレビューできる requirement・design を好むが、ドキュメント数を増やすためだけに分割しない。
-3. **書く前に関係を探す。** 対象IDと現在の正本を検索する。designは既存のrequirementをaddressしなければならず、verificationは既存の対象をverifyしなければならない。必要な前提が無ければ先に作る。relation IDを捏造しない。
+3. **書く前に関係を探す。** 対象IDと現在の正本を検索する。designは既存のrequirementへのrelationを持たなければならず、verificationは既存の検証対象へのrelationを持たなければならない。必要な前提が無ければ先に作る。relation IDを捏造しない。
 4. **書く前に方針を確認する。** 新しい設計判断・製品方針・曖昧な解釈を含む場合は、決定事項を列挙してユーザーに確認してから書く。質問回数に制限はない — 推測で方向を決めず、確認なく内容を増やさない。
 5. **ファイル名を割り当てる。** 対象typeフォルダの `NNNNN-*.md` を走査し、そのフォルダ内で一意な次の5桁ID（max + 1）を選び、安定した kebab-case の slug を使う。IDはYAMLではなくファイル名から導かれる。整理のためだけに旧IDを振り直さない。
 6. **作成・更新する。** `templates/<type>.md` から始めてプレースホルダを置き換える。意味のある節だけを残す。`type`・`title`・`description`・`status` とそのtypeに必要な relation を埋める。明示的な合意がない限り `draft` を使う。第二の正本を作らず、既存artifactを編集する。

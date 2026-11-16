@@ -12,7 +12,7 @@
 - **制約・非目標:** 信頼性・可搬性・信頼境界、あるいは意図的に除外する振る舞い。
 - **未解決の問い:** 未解決の方針やトレードオフ。
 
-`contributes_to: ['00001']` で requirement を Goal へリンクできる（旧Specbook形式では任意）。`depends_on` は前提requirementに、`parent` は実際の同type階層に使い、`contributes_to` の代用にしない。
+`relations.goal: ['00001']` で requirement を Goal へリンクできる（任意）。前提requirementや同type階層は `relations.requirement` で指し、関係の意味は本文で記述する。
 
 ## レビュー
 

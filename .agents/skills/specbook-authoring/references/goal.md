@@ -12,7 +12,7 @@
 - **制約・非目標:** 意図的に追わないもの。
 - **未解決の問い:** 確定したこととして提示しない不確実さ。
 
-requirement から Goal へのリンクには `requirement.relations.contributes_to` を使う。Goal は生成された子一覧を保持しない。任意の `parent` で下位Goalを上位Goalへリンクできる。
+requirement から Goal へのリンクは `requirement.relations.goal` キーで行う。Goal は生成された子一覧を保持しない。下位Goalは `relations.goal` キーで上位Goalを指し、本文で親子関係である旨を明記する。
 
 ## レビュー
 

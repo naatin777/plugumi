@@ -1,6 +1,6 @@
 # Verification — 証拠と合否の計画
 
-**置き場所:** `docs/verification/`。**Type:** `verification`。**必須relation:** `verifies` は**少なくとも1つの既存 Requirement・Design・Architecture・Contract** を含まなければならない。
+**置き場所:** `docs/verification/`。**Type:** `verification`。**必須relation:** `relations` に `requirement`・`design`・`architecture`・`contract` のいずれかのキーで**少なくとも1つの既存artifact**を指さなければならない。
 
 Verification artifactは、不変条件・requirement・architecture・protocolが満たされているかをどう判定するかを規定する。実際の結果を記録してもよいが、計画と結果は区別しなければならない。
 
@@ -16,7 +16,7 @@ relation の例:
 
 ```yaml
 relations:
-  verifies:
+  requirement:
     - '00002'
 ```
 

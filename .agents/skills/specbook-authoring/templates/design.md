@@ -4,7 +4,7 @@ title: 機能を設計する
 description: 参照するrequirementを満たす機構を記述する。
 status: draft
 relations:
-  addresses:
+  requirement:
     - '<requirement-id-必須>'
 ---
 
