@@ -23,7 +23,7 @@ Core と Plugin の双方が実装する通信境界。Core↔Plugin通信は **
 ## Endpoint
 
 - **Pluginは `ws://<host>:<port>`（リモートなら `wss://`）のWS server**として待受し、Coreからのupgrade `GET /v1/transport` を受け付ける。PluginのHTTP面はこのupgrade受付のみで、REST operationは持たない
-- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI向けAPI**（後述）。PluginがこのURLを知ることはない
+- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host向けAPI**（後述）。PluginがこのURLを知ることはない
 - CoreとPluginは別マシンにあり得る。到達性は利用者がネットワーク構成で確保する（`docs/decisions/00010`）
 - TLS・認証は未解決の別設計事項。MVPはloopback・認証トークン無し
 
@@ -129,14 +129,14 @@ transport上の各operationの詳細なparams・responseは `docs/contracts/0000
 
 ## Core管理REST API（Plugin向けではない）
 
-Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
+UI Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
 
 | operation | 用途 |
 |---|---|
 | `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "ws://…"}`。受理のみで接続は非同期） |
 | `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId・pluginId付き） |
-| `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI向け確認用） |
-| `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧UI |
+| `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI Host向け確認用） |
+| `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧画面 |
 
 - 管理RESTのエラー応答は上表のHTTPエラー形に従う
 - 認証なしのため待受はloopback必須（MVPの安全性前提）

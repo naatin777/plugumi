@@ -25,7 +25,7 @@ relations:
 
 1. **宣言**: Pluginが `tools.set` でTool一覧をアトミックに宣言する（`docs/contracts/00001`、MVP仕様として定義済み）。Node宣言は後続contract
 2. **Discovery**: 呼び出し元Pluginが検索し、結果は `linkId + toolPath` を基本とする。Node等の追加情報は必要に応じて別APIから取得する（method形・tag/schemaのマッチング条件は後続contract。schema適合も対象に入れる方針）
-3. **選択**: 呼び出し元Pluginが候補をフィルタリングし、Default管理・選択UI・単発/複数判断を行う。Coreは候補を選ばない
+3. **選択**: 呼び出し元Pluginが候補をフィルタリングし、Default管理・選択View・単発/複数判断を行う。Coreは候補を選ばない
 4. **Tool Call**: `linkId + toolPath` を指定して呼び出す。Coreが対応Linkへルーティングする（wireは `docs/contracts/00003`）
 5. **途中出力**: callId相関のnotificationとして中継する（`docs/contracts/00003`）。payload形状は後続contract
 

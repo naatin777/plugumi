@@ -19,7 +19,7 @@ relations:
 - CoreはToolの登録・検索・呼び出しの転送・実行時の権限検証を担う MUST
 - Coreは候補を勝手に選択してはならない MUST NOT
 - Tool呼び出しは `linkId + toolPath` による厳格指定でなければならない MUST
-- 呼び出し元Pluginは、候補のフィルタリング・Default管理・選択UI・単発/複数実行の判断を自前で行う MUST
+- 呼び出し元Pluginは、候補のフィルタリング・Default管理・選択View・単発/複数実行の判断を自前で行う MUST
 - Discoveryは Tag + Input Schema + Output Schema で検索できなければならない MUST
 - Discovery結果は基本的に `linkId + toolPath` のみとする SHOULD（Node等の追加情報は必要時に別APIから取得）
 

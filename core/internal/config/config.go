@@ -13,7 +13,7 @@ import (
 // Coreは起動設定でPlugin Endpoint一覧を持ち、各Endpointへ接続を試みる。
 type Config struct {
 	Core struct {
-		// Core管理REST APIの待受URL（Plugin向けではなく人間・UI向け）。
+		// Core管理REST APIの待受URL（Plugin向けではなく人間・UI Host向け）。
 		URL string `json:"url"`
 		// Listen はURLから導出した待受アドレス（host:port）。
 		// Loadが設定する派生値で、configファイルには書かない。

@@ -12,7 +12,7 @@ relations:
 
 ## 対象と範囲
 
-`docs/contracts/00001`（接続・Link）・`00002`（transport・メッセージ）・`00003`（Tool呼び出し）のMVP適合範囲。認証・Node・UI Protocol・Shared Context・リモートTLSは対象外。
+`docs/contracts/00001`（接続・Link）・`00002`（transport・メッセージ）・`00003`（Tool呼び出し）のMVP適合範囲。認証・Node・Plugin Views Protocol・Shared Context・リモートTLSは対象外。
 
 ## 前提条件と環境
 

@@ -40,7 +40,7 @@ cd core
 }
 ```
 
-- `core.url`: Coreの管理REST APIの待受URL（Plugin向けではなく人間・UI向け）。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
+- `core.url`: Coreの管理REST APIの待受URL（Plugin向けではなく人間・UI Host向け）。**loopback必須**（`0.0.0.0`・`:7700`等は起動エラー。MVPは認証なしのため外部公開を防ぐ）
 - `plugins[]`: 静的なPlugin Endpoint一覧（`ws://` または `wss://` URL）。空でも起動できる
 
 ### Coreが提供する操作（管理REST・Plugin向けではない）
@@ -49,9 +49,9 @@ cd core
 |---|---|
 | `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（Link確立は非同期） |
 | `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId/pluginId付き） |
-| `POST /v1/tools/list` | 登録中の全Tool（人間・UI向け確認用） |
+| `POST /v1/tools/list` | 登録中の全Tool（人間・UI Host向け確認用） |
 | `GET /openapi.json` | OpenAPI 3.1 spec（`/openapi.yaml`も） |
-| `GET /docs` | API仕様の閲覧UI（Stoplight Elements） |
+| `GET /docs` | API仕様の閲覧画面（Stoplight Elements） |
 
 ### 動作モデル
 

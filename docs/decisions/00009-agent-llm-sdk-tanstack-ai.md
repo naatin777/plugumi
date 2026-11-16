@@ -41,7 +41,7 @@ Plugumiには大量のToolが登録される可能性がある。TanStack AIに�
 
 ### ② Structured OutputとTool Callingの併用
 
-Toolを実行した後に、Schemaに従った構造化結果を返せる。これは以前から検討していたJSONベースのUI出力などにも利用できる。
+Toolを実行した後に、Schemaに従った構造化結果を返せる。これは以前から検討していたPlugin ViewへのJSON出力などにも利用できる。
 
 ### ③ ChatGPTサブスクとの接続
 

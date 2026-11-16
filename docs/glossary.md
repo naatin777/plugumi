@@ -14,19 +14,19 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 機能を提供する任意言語のプロセス（`plugins/`）。Plugumi専用でも既存アプリの拡張としても作れる。
 
-### Host
+### UI Host
 
-UIの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
+Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
 Pluginとして実装される（Web/Electron等もPlugin）。表示専用で実行寿命を持たない。
 
-### UI
+### Plugin Views
 
 Panel・Embed・Indicator等を表示するための共通インターフェース（仕様）。
-実行環境ではなく、実行・配信はHostの責務。
+実行環境ではなく、実行・配信はUI Hostの責務。
 
 ### Panel
 
-Host上に表示されるPlugin提供のUI面。Panel↔Plugin間の通信はPluginの自由で、Plugumiの契約対象外。
+UI Host上に表示されるPlugin提供のView。Panel↔Plugin間の通信はPluginの自由で、Plugumiの契約対象外。
 
 ## 接続・実行モデル
 
@@ -100,5 +100,5 @@ frontmatterの `relations` キーで表す外向きリンク。キーは参照�
 
 ## 方針メモ
 
-- 人間とAIが同じJSONやUIを理解する必要はない。「共通の意味を持つ操作・情報へ、それぞれに適した方法でアクセスできる」が本質（`docs/goals/00001`）
+- 人間とAIが同じJSONや表示を理解する必要はない。「共通の意味を持つ操作・情報へ、それぞれに適した方法でアクセスできる」が本質（`docs/goals/00001`）
 - 「自分で作れる」はGoalではなく信頼の境界の根拠（`docs/decisions/00001`）

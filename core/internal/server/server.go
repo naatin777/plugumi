@@ -1,4 +1,4 @@
-// Package server は管理REST API（Host・人間向け）と、
+// Package server は管理REST API（UI Host・人間向け）と、
 // transport上のPlugin→Coreメッセージの振り分けを担う。
 // RESTはOpenAPI (huma) で定義する。PluginはこのAPIを使わない
 // （docs/contracts/00001・00002、decisions/00010）。
@@ -86,7 +86,7 @@ func (s *Server) Handler() http.Handler {
 		OperationID: "tools-list",
 		Method:      http.MethodPost,
 		Path:        "/v1/tools/list",
-		Summary:     "登録中の全Toolを返す（管理・UI向け）",
+		Summary:     "登録中の全Toolを返す（管理・UI Host向け）",
 	}, s.toolsList)
 	huma.Register(api, huma.Operation{
 		OperationID: "plugins-add",
