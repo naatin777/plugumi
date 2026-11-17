@@ -7,7 +7,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
+	"github.com/naatin777/plugumi/core/internal/config"
 	"github.com/naatin777/plugumi/core/internal/connector"
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/router"
@@ -182,10 +182,9 @@ func (s *Server) pluginsAdd(_ context.Context, input *PluginsAddInput) (*Plugins
 }
 
 func validateEndpoint(endpoint string) error {
-	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-		return errors.New("endpoint must be an http(s):// URL")
-	}
-	return nil
+	// config.Loadと同じ規則（path・query・fragmentを持たない
+	// http(s)://<host>:<port>。docs/contracts/00001）。
+	return config.ValidateEndpoint(endpoint)
 }
 
 type PluginsListOutput struct {

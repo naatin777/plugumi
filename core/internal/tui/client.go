@@ -199,8 +199,11 @@ func (c *Client) NewCallTicket(ctx context.Context) (*CallTicket, error) {
 func CallIDString(ticket *CallTicket) string { return string(ticket.ID) }
 
 // Call はticketのidでtools.callを送り、responseまで待つ。
-// asyncの場合はacceptedが返った時点で戻り、output/resultはEvents()経由。
-func (c *Client) Call(ctx context.Context, ticket *CallTicket, linkID, toolPath string, input json.RawMessage) (CallOutcome, json.RawMessage, *wire.Error, error) {
+// async受理ならacceptedが返った時点で戻り、output/resultはEvents()経由。
+// kindは宣言ラベル（contract 00003）。宣言がsyncのtoolが{accepted:true}を
+// resultとして返しても終端として扱う — shapeだけで判定すると
+// 終端済みのcallをasync受理と誤認して通知待ちになる。
+func (c *Client) Call(ctx context.Context, ticket *CallTicket, linkID, toolPath string, input json.RawMessage, kind string) (CallOutcome, json.RawMessage, *wire.Error, error) {
 	params := wire.CallParams{
 		Target: wire.CallTarget{LinkID: linkID, ToolPath: toolPath},
 		Input:  input,
@@ -212,12 +215,14 @@ func (c *Client) Call(ctx context.Context, ticket *CallTicket, linkID, toolPath 
 	if res.Error != nil {
 		return CallFailed, nil, res.Error, nil
 	}
-	var accepted struct {
-		Accepted bool `json:"accepted"`
-	}
-	_ = json.Unmarshal(res.Result, &accepted)
-	if accepted.Accepted {
-		return CallAsync, res.Result, nil, nil
+	if kind == "async" {
+		var accepted struct {
+			Accepted bool `json:"accepted"`
+		}
+		_ = json.Unmarshal(res.Result, &accepted)
+		if accepted.Accepted {
+			return CallAsync, res.Result, nil, nil
+		}
 	}
 	return CallSyncDone, res.Result, nil, nil
 }

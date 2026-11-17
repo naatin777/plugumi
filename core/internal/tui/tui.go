@@ -185,11 +185,11 @@ func ticketCmd(client *Client, generation int) tea.Cmd {
 	}
 }
 
-func callCmd(client *Client, ticket *CallTicket, linkID, toolPath string, input json.RawMessage) tea.Cmd {
+func callCmd(client *Client, ticket *CallTicket, linkID, toolPath string, input json.RawMessage, kind string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 130*time.Second)
 		defer cancel()
-		outcome, result, rpcErr, err := client.Call(ctx, ticket, linkID, toolPath, input)
+		outcome, result, rpcErr, err := client.Call(ctx, ticket, linkID, toolPath, input, kind)
 		return callDoneMsg{
 			callID: CallIDString(ticket), outcome: outcome,
 			result: result, rpcErr: rpcErr, err: err,
@@ -276,7 +276,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.callID = CallIDString(msg.ticket)
 		m.callState = callActive
 		return m, callCmd(m.client, msg.ticket,
-			m.pendingTarget.LinkID, m.pendingTarget.ToolPath, m.pendingInput)
+			m.pendingTarget.LinkID, m.pendingTarget.ToolPath, m.pendingInput, m.callTool.Kind)
 
 	case callDoneMsg:
 		// 前のcallの遅れ応答を新しいcallへ混ぜない

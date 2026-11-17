@@ -157,7 +157,10 @@ export function servePlugin(listen: string): void {
   // 知っているversion以外の/vN/はprotocol_mismatchで拒否する。
   app.notFound((c) => {
     const version = c.req.path.split("/")[1] ?? "";
-    if (version.startsWith("v") && version !== "v1") {
+    // /vN/（Nは数字）だけがversion付きpath。/vX/等は未知pathで404
+    // （contracts/00001）。
+    const isVersionPath = /^v\d+$/.test(version);
+    if (isVersionPath && version !== "v1") {
       return apiError(c, 426, "protocol_mismatch", "unsupported protocol version");
     }
     return apiError(c, 404, "unknown_endpoint", "unknown endpoint");

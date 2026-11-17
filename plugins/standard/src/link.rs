@@ -72,10 +72,14 @@ pub async fn serve(listen: &str) -> Result<(), String> {
 // 知っているversion以外の/vN/はprotocol_mismatchで拒否する。
 async fn unsupported_version(req: Request) -> (StatusCode, Json<Value>) {
     let path = req.uri().path();
-    let is_other_version = path
-        .split('/')
-        .nth(1)
-        .is_some_and(|seg| seg.starts_with('v') && seg != "v1");
+    // /vN/（Nは数字）だけがversion付きpath。/vX/のような数字でない
+    // prefixは未知path扱いで404（contracts/00001）。
+    let is_other_version = path.split('/').nth(1).is_some_and(|seg| {
+        seg != "v1"
+            && seg.starts_with('v')
+            && seg.len() > 1
+            && seg[1..].chars().all(|c| c.is_ascii_digit())
+    });
     if is_other_version {
         api_error(
             StatusCode::UPGRADE_REQUIRED,
