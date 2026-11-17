@@ -119,8 +119,8 @@ transport上は `tools.call` 系のみ。登録・検査系はPlugin REST（`doc
 | サポート外の `/vN/` へのupgrade | `426 protocol_mismatch`（upgrade前HTTP） |
 | 未知pathへのupgrade | `404 unknown_endpoint`（upgrade前HTTP） |
 | 未知・失効済み `linkId` へのupgrade | `404 unknown_link`（upgrade前HTTP） |
-| upgrade後のメッセージ形違反 | JSON-RPC error（`-32700` parse error等） |
-| 未知のmethod | JSON-RPC error `-32601` |
+| upgrade後にJSONとしてparseできない、またはrequest/response/notificationのいずれにも分類できないmessage | 無応答で破棄してよい（`-32700`/`-32600` を返す実装も許容。MVP実装は破棄する） |
+| 未知のmethodを持つrequest | JSON-RPC error `-32601` |
 
 ## セキュリティと適合性
 

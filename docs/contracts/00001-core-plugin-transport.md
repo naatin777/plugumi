@@ -73,6 +73,7 @@ PluginのHTTP serverが受け付けるoperation。全てCore→Plugin方向。
 
 - Pluginが提供するTool宣言を返す。CoreはLink確立後にpullする
 - `kind` は `sync | async`（省略時 `sync`）。宣言の構造は `docs/contracts/00003`
+- `toolPath` はPluginの宣言内で一意であること（重複宣言は契約違反。Core側の解決順は未定義）
 
 ### `POST /v1/tools/catalog`
 
@@ -134,9 +135,9 @@ Link・linkId・Transport 等の定義は `docs/glossary.md` を正本とする�
 
 Coreは起動設定（`plugumi.json` の `plugins[]`）でPlugin Endpoint一覧を持ち、各Endpointへの接続を試みる。実行中に `POST /v1/plugins`（管理REST）で追加登録もできる。
 
-- 接続不能なEndpointへの接続は再試行を続ける（間隔は実装詳細・推奨値は後述）
+- Endpointへの接続確立（hello〜tools pull〜transport upgradeの全段階）に失敗した場合は再試行を続ける（間隔は実装詳細・推奨値は後述）。HTTPエラー応答も同じく再試行対象
 - 動的登録はランタイムのみ有効で、再起動で消える
-- Endpointの形式は `http://<host>:<port>` または `https://<host>:<port>`（pathは持たない）
+- Endpointの形式は `http://<host>:<port>` または `https://<host>:<port>`（path・query・fragmentは持たない。`plugumi.json` と `POST /v1/plugins` の両方で検査する）
 
 ## Linkのライフサイクル
 
@@ -181,17 +182,20 @@ sequenceDiagram
 
 UI Host・人間・TUIが使う管理面。PluginはこのAPIを使わない・知らない。`GET /v1/call` だけはRESTではなくWS upgradeで、caller channelとして後述する。
 
-| operation | 用途 |
-|---|---|
-| `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "http://…"}`。受理のみで接続は非同期） |
-| `POST /v1/plugins/remove` | Plugin Endpointの登録解除（Link失効・再試行loop停止。未登録endpointは404 `unknown_endpoint`） |
-| `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId・pluginId付き） |
-| `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI Host向け確認用） |
-| `GET /v1/call` | caller向けTool呼び出しchannelのWS upgrade（後述） |
-| `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧画面 |
+| operation | request | response |
+|---|---|---|
+| `POST /v1/plugins` | `{"endpoint": "http://…"}` | `{"endpoint": "…"}`。受理のみで接続は非同期 |
+| `POST /v1/plugins/remove` | `{"endpoint": "http://…"}` | `{"endpoint": "…"}`。Link失効・再試行loop停止は非同期。未登録endpointは404 `unknown_endpoint` |
+| `POST /v1/plugins/list` | `{}` | `{"plugins": [{"endpoint","linkId"?,"pluginId"?}]}`。Link未確立の再試行中は `linkId`/`pluginId` を省略 |
+| `POST /v1/tools/list` | `{}` | `{"tools": […]}`。各要素は `linkId` + Tool宣言（`toolPath`/`kind`/`description`?/`tags`?/`inputSchema`?/`outputSchema`?） |
+| `GET /v1/call` | — | caller向けTool呼び出しchannelのWS upgrade（後述） |
+| `GET /openapi.json`・`GET /docs` | — | OpenAPI 3.1と閲覧画面 |
 
 - 管理RESTのエラー応答は上表のHTTPエラー形に従う
+- huma等のframeworkが返すHTTP層エラー（`405 Method Not Allowed`・`415 Unsupported Media Type` 等、domain errorでないもの）は `code` にHTTP status textを使う。上表はdomain errorの一覧
+- humaが生成する応答bodyには `"$schema"` フィールドが付き得る（OpenAPI成果物。受け手は未知フィールドとして無視してよい）
 - 認証なしのため待受はloopback必須（MVPの安全性前提）
+- `/v1/call` はWS upgradeのためhuma（OpenAPI）には登録せずmux直結で実装する。**`GET /openapi.json` のspecには含まれない**ので、caller channelを使う実装は本contractを直接参照すること
 
 ### caller channel（`GET /v1/call`）
 
@@ -200,6 +204,7 @@ Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼
 - upgrade成功後は `docs/contracts/00003` の **caller側** をそのまま喋る: `tools.call` request（`{target:{linkId,toolPath},input}`）を送り、responseと `tools.call.output`/`tools.call.result` notificationを受け取り、`tools.call.close` notificationを送れる
 - このWS上を流れるのも `tools.call` 系のみ（Plugin transportと同じ制約）
 - callerが送れるrequestは `tools.call` のみ。他methodはJSON-RPC `-32601`
+- callerはLinkを持たないため `POST /v1/tools/catalog` のpush対象外。一覧が要るcallerは管理REST `POST /v1/tools/list` で取得する
 
 ## IDの形式
 
@@ -218,9 +223,13 @@ Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼
 | 定数 | 推奨値 | 関係ルール |
 |---|---|---|
 | ping間隔 | 30秒 | 失効期限を下回ること |
+| ping応答timeout | 5秒 | — |
 | 失効期限 | 90秒 | ping間隔の概ね3倍（数回分の取りこぼしを許す） |
+| 失効判定tick | 15秒 | 失効期限以下でよい |
 | 接続再試行間隔 | 3秒 | — |
 | hello応答timeout | 5秒 | — |
+| `GET /v1/tools` 応答timeout | 5秒 | — |
+| `POST /v1/tools/catalog` 送信timeout | 10秒 | — |
 | tools.call転送timeout | 120秒 | — |
 
 ## セキュリティと適合性
@@ -235,7 +244,7 @@ Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼
 独立実装が本contractに適合するには、次を満たす。
 
 - Core側実装は Plugin Endpointへの `POST /v1/link/hello` ・ `GET /v1/tools` ・ `POST /v1/tools/catalog` ・ `POST /v1/link/ping` ・ `GET /v1/transport` upgrade・linkId払出・失効判定・endpoint登録の全operationを提供すること
-- Plugin側実装は上表のREST operation全てと `/v1/transport` のupgrade受付を行えること。CoreのURL・Domainを保持しないこと
+- Plugin側実装は上表のREST operation全てと `/v1/transport` のupgrade受付を行えること。CoreのURL・Domainを保持しないこと。`toolPath` の一意性を宣言で守ること
 - エラー応答は上記のコード・HTTPステータスと一致すること
 - `linkId`・`callId`の形式は実装側の自由ではなく上表に従うこと（`link-`prefix・UUIDv4）
 

@@ -118,6 +118,8 @@ async toolは受理を `{ accepted: true }` のresultで返す。**受理のresp
 
 受理自体がエラー（toolPath未知・実行拒否等）の場合は通常のerror responseを返し、routeはここで終わる。
 
+responseの解釈は宣言 `kind` に従う。`kind: "sync"` のtoolがresultとして `{ accepted: true }` を返してもそれは単なる結果値であり終端である — callerがshapeだけでasync受理と誤認すると、終端済みcallを通知待ちと取り違える。逆に `kind: "async"` で `{ accepted: true }` を伴わないresultが返った場合は契約違反であり、callerは防御的に終端として扱ってよい。
+
 ### `tools.call.output` notification（対象 → 呼び出し元、中継）
 
 途中出力。0〜N回届く。
@@ -161,6 +163,7 @@ async呼び出しの終端。resultまたはerrorの一方を持つ。
 - Coreはcaller側callIdをforward idに書き換えて対象へ届ける
 - 対象はcallを停止し、`tools.call.result` で終端を返してよい（result/errorの内容はtool自由）
 - すでに終端済み・未知のcallIdへのcloseは無視してよい
+- 方向を間違えたnotification（caller側からの `tools.call.output`/`tools.call.result`、対象側からの `tools.call.close`）はCoreが中継・配送しない。1つのconnがcaller兼targetを兼ねる場合でも、roleごとのid空間で区別する
 
 ## 呼び出しの流れ
 
@@ -201,6 +204,7 @@ stateDiagram-v2
 - `tools.call.close` notification `{ callId }`（呼び出し元 → 対象）— 開いているcallを呼び出し元側から閉じる
 - Link失効で、そのLinkに紐付く全call・全購読は消える
 - **呼び出し元conn切断**: Coreは対象へ `tools.call.close` を転送する。転送しないと購読・長時間callが対象側で実行され続ける（実装上の要求）
+- **forward失敗**（転送timeout・transport切断等でrequest自体が届かない/応答が無い）: Coreはrouteを畳み、実行中かもしれない対象側callへ `tools.call.close` を送ってから `-32000 forward failed` を呼び出し元へ返す
 - **対象conn切断**: Coreは呼び出し元へ `tools.call.result` のerror終端を返す（`code: -32000`）
 
 ## 途中出力とQueue

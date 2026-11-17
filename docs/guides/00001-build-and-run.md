@@ -69,9 +69,9 @@ cd core
 | `esc` | call画面: 実行中ならclose送信→再度で戻る / 編集中は戻る |
 | `a` | Plugin Endpoint追加 |
 | `d` | Plugin Endpoint削除（2回押しで確定） |
-| `l` | coreログ画面 |
+| `l` | coreログ画面（`esc`/`q`でdashboardへ戻る。tail表示のみ・1行64KB超は表示されない） |
 | `r` | 一覧の手動更新（2秒ごとの自動更新もあり） |
-| `q` / `ctrl+c` | 終了 |
+| `q` / `ctrl+c` | 終了（dashboardで。ログ画面の`q`は戻るだけ） |
 
 caller channel（`GET /v1/call`）はcontracts/00003のcaller側プロトコルをそのまま喋るWS。TUI以外のcaller（スクリプト・将来のUI Host）も同じ経路を使える。
 
