@@ -1,6 +1,6 @@
-// Package server は管理REST API（UI Host・人間向け）と、
-// transport上のPlugin→Coreメッセージの振り分けを担う。
-// RESTはOpenAPI (huma) で定義する。PluginはこのAPIを使わない
+// Package server は管理API（UI Host・人間・TUI向け）と、
+// call channel上のtools.call系メッセージの振り分けを担う。
+// 管理面のRESTはOpenAPI (huma) で定義する。PluginはこのAPIを使わない
 // （docs/contracts/00001・00002、decisions/00010）。
 package server
 
@@ -76,8 +76,8 @@ func New(ctx context.Context, registry *registry.Registry, router *router.Router
 	// transport上のcall系メッセージをここで捌く。
 	// Plugin transport connとcaller channel connの両方に同じ振り分けを使う
 	// （Route.Callerはconn抽象で、Link所属を要求しない）。
-	connector.OnRequest = s.onTransportRequest
-	connector.OnNotif = s.onTransportNotif
+	connector.OnRequest = s.onCallRequest
+	connector.OnNotif = s.onCallNotif
 	connector.OnResponded = s.router.NotifyResponded
 	connector.OnCatalogChanged = connector.BroadcastCatalog
 	return s
@@ -116,7 +116,7 @@ func (s *Server) Handler() http.Handler {
 
 	// caller channel: Pluginでない呼び出し元（TUI・UI Host・スクリプト）が
 	// tools.call系だけを流すWS。Linkには紐付かず、connの寿命=接続の寿命。
-	mux.HandleFunc("/v1/call", s.handleCall)
+	mux.HandleFunc("/v1/call", s.handleCallerChannel)
 
 	// 未知のoperationも契約のエラー形で返す（contracts/00001）。
 	// ServeMuxはパターン競合で最長一致するため、"/" は未知pathだけに届く。
@@ -236,7 +236,7 @@ func (s *Server) registeredPlugins() []wire.RegisteredPlugin {
 // handleCall はcaller向けWS upgradeを受け付ける。callerはLinkを持たず、
 // tools.call request・tools.call.close notificationを送り、responseと
 // output/result notificationを受け取る（contracts/00003のcaller側）。
-func (s *Server) handleCall(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleCallerChannel(w http.ResponseWriter, r *http.Request) {
 	if !isWebSocketUpgrade(r) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_params", "websocket upgrade required")
 		return
@@ -250,10 +250,10 @@ func (s *Server) handleCall(w http.ResponseWriter, r *http.Request) {
 	}
 	conn := rpc.NewConn(raw, "caller-")
 	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
-		return s.onTransportRequest(conn, message)
+		return s.onCallRequest(conn, message)
 	}
 	conn.OnNotif = func(message *wire.Incoming) {
-		s.onTransportNotif(conn, message)
+		s.onCallNotif(conn, message)
 	}
 	conn.OnResponded = func(id json.RawMessage) {
 		s.router.NotifyResponded(conn, id)
@@ -289,15 +289,18 @@ func writeAPIError(w http.ResponseWriter, status int, code, message string) {
 		"code": code, "message": message}})
 }
 
-// ---- transport上のcall系メッセージ（tools.call系のみ） ----
+// ---- call channel上のcall系メッセージ（tools.call系のみ） ----
+// Plugin transport connとcaller channel connの両方から届く。
+// caller channelのconnはLinkに紐付かない（glossaryのTransportではない）
+// ため、ここではconn抽象として扱う。
 
-func (s *Server) onTransportRequest(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
+func (s *Server) onCallRequest(conn *rpc.Conn, message *wire.Incoming) (json.RawMessage, *wire.Error) {
 	if message.Method == wire.MethodCall {
 		return s.router.HandleCall(conn, message)
 	}
 	return nil, &wire.Error{Code: -32601, Message: "method not found"}
 }
 
-func (s *Server) onTransportNotif(conn *rpc.Conn, message *wire.Incoming) {
+func (s *Server) onCallNotif(conn *rpc.Conn, message *wire.Incoming) {
 	s.router.DispatchNotif(conn, message)
 }

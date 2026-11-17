@@ -49,7 +49,8 @@ Link {
 ## インターフェース
 
 - `POST /v1/link/hello` `GET /v1/tools` `POST /v1/link/ping` `POST /v1/tools/catalog` `GET /v1/transport`（`docs/contracts/00001`）のCore側処理として実装する
-- 標準出力でregistryの一覧を表示する（MVPの可視化）
+- 標準出力または管理TUI（`plugumi tui`）でregistryの一覧を表示する（MVPの可視化）
+- caller channel（`GET /v1/call`）のconnはLinkではないため本registryの対象外（`docs/decisions/00011`）
 
 ## 未解決の問い
 

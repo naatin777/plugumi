@@ -10,7 +10,7 @@ relations:
 
 ## 対応するrequirement
 
-`docs/requirements/00002`: 選択を呼び出し元Pluginの責務としつつ、Coreが厳格なルーティングと権限検証を担うための識別・検索・転送モデル。
+`docs/requirements/00002`: 選択を呼び出し元の責務としつつ、Coreが厳格なルーティングと権限検証を担うための識別・検索・転送モデル。呼び出し元はPluginとは限らず、非Plugin callerはcaller channel経由で同じcaller側プロトコルを喋る（`docs/decisions/00011`）。
 
 ## モデルと不変条件
 
@@ -23,9 +23,9 @@ relations:
 
 ## 振る舞い
 
-1. **宣言**: Pluginが `tools.set` でTool一覧をアトミックに宣言する（`docs/contracts/00001`、MVP仕様として定義済み）。Node宣言は後続contract
-2. **Discovery**: 呼び出し元Pluginが検索し、結果は `linkId + toolPath` を基本とする。Node等の追加情報は必要に応じて別APIから取得する（method形・tag/schemaのマッチング条件は後続contract。schema適合も対象に入れる方針）
-3. **選択**: 呼び出し元Pluginが候補をフィルタリングし、Default管理・選択View・単発/複数判断を行う。Coreは候補を選ばない
+1. **宣言**: Pluginが `GET /v1/tools` でTool一覧をpullされる形で宣言する（`docs/contracts/00001`。Link確立時にCoreが取得）。Node宣言は後続contract
+2. **Discovery**: 呼び出し元が検索し、結果は `linkId + toolPath` を基本とする。Node等の追加情報は必要に応じて別APIから取得する（method形・tag/schemaのマッチング条件は後続contract。schema適合も対象に入れる方針）。Plugin callerは `tools.catalog` のpush受信、非Plugin callerはCore管理REST `POST /v1/tools/list` で一覧を得る
+3. **選択**: 呼び出し元が候補をフィルタリングし、Default管理・選択View・単発/複数判断を行う。Coreは候補を選ばない
 4. **Tool Call**: `linkId + toolPath` を指定して呼び出す。Coreが対応Linkへルーティングする（wireは `docs/contracts/00003`）
 5. **途中出力**: callId相関のnotificationとして中継する（`docs/contracts/00003`）。payload形状は後続contract
 
@@ -33,8 +33,8 @@ relations:
 
 ## インターフェース
 
-- 接続・Link・Tool宣言は `docs/contracts/00001`・`00002`（WebSocket + JSON-RPC 2.0 に統一。Pluginは受動で、Coreが接続を開始する）
-- Tool Call・途中出力・購読・closeは `docs/contracts/00003`
+- 接続・Link・Tool宣言は `docs/contracts/00001`・`00002`（共通規格はCore→Plugin REST、Tool呼び出しのみWS + JSON-RPC 2.0。`docs/decisions/00010`。Pluginは受動で、Coreが接続を開始する）
+- 呼び出しは `docs/contracts/00003`。caller側の接続経路はPlugin callerなら自身のtransport、非Plugin callerならcaller channel `GET /v1/call`（`docs/decisions/00011`）
 - Discovery・Node宣言のmethod形は後続contractで定義する
 
 ## 未解決の問い

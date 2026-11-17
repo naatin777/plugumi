@@ -43,6 +43,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 ## 依存・信頼境界
 
 - Core ↔ Plugin: 共通規格（登録・検査系）はCore→PluginのREST、Tool呼び出しの流路のみWS + JSON-RPC 2.0（`docs/contracts/00001` `00002`、`docs/decisions/00010`）。接続は **Core → Plugin** で、Pluginは待受と応答だけを行い、CoreのURL・Domainを知らない
+- Core ↔ caller（Pluginでない呼び出し元: TUI・UI Host・スクリプト）: caller channel `GET /v1/call` 上で `docs/contracts/00003` のcaller側プロトコルを喋る。Linkには紐付かず、connの寿命=接続の寿命（`docs/decisions/00011`）
 
 ## Link / Transport / Node の関係
 

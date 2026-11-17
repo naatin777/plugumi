@@ -6,6 +6,8 @@ status: draft
 relations:
   contract:
     - '00002'
+  decision:
+    - '00011'
   design:
     - '00001'
   requirement:
@@ -52,7 +54,7 @@ requestの `id` は **接続ごと・送信方向ごとの空間**で一意な�
 
 ```mermaid
 sequenceDiagram
-    participant Caller as 呼び出し元Plugin
+    participant Caller as 呼び出し元
     participant Core
     participant Target as 対象Plugin
 
@@ -223,7 +225,7 @@ stateDiagram-v2
 ## 適合ルール
 
 - 対象Plugin実装は `tools.call` の `{ toolPath, input }` paramsを受け、sync toolはresponseで終端を、async toolは受理response→output→result notificationを返せること
-- 呼び出し元Plugin実装は `tools.call` の `{ target, input }` paramsを送り、notification相関・close送信を行えること
+- 呼び出し元実装（Plugin・非Plugin callerとも）は `tools.call` の `{ target, input }` paramsを送り、notification相関・close送信を行えること
 - Core実装は宛先解決・forward id発行・callId書き換え・route管理・切断時のclose/error伝播を行うこと
 
 ## 未定と未解決の問い

@@ -10,6 +10,7 @@ relations:
     - '00005'
   decision:
     - '00010'
+    - '00011'
 ---
 
 ## 当事者と範囲
@@ -23,7 +24,7 @@ Core と Plugin の双方が実装する通信境界。**共通規格（登録�
 ## Endpoint
 
 - **Pluginは `http://<host>:<port>`（リモートなら `https://`）のHTTP server**として待受し、下表のREST operationとWS upgradeを受け付ける
-- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host向けAPI**（後述）。PluginがこのURLを知ることはない
+- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host・TUI向けAPI**（後述）。PluginがこのURLを知ることはない
 - CoreとPluginは別マシンにあり得る。到達性は利用者がネットワーク構成で確保する（`docs/decisions/00010`）
 - TLS・認証は未解決の別設計事項。MVPはloopback・認証トークン無し
 
@@ -176,9 +177,9 @@ sequenceDiagram
 5. Coreは `POST /v1/link/ping` の定期送信で半開きを検出する。最終成功から失効期限を超えたLinkを削除する
 6. **transport切断 = Link失効**。Tool宣言・紐付くcallはすべて消える（link-scoped）。再接続はhelloからやり直し、新 `linkId` が払い出される
 
-## Core管理REST API（Plugin向けではない）
+## Core管理API（Plugin向けではない）
 
-UI Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
+UI Host・人間・TUIが使う管理面。PluginはこのAPIを使わない・知らない。`GET /v1/call` だけはRESTではなくWS upgradeで、caller channelとして後述する。
 
 | operation | 用途 |
 |---|---|
@@ -206,7 +207,7 @@ Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼
 |---|---|---|---|
 | `linkId` | `link-<UUIDv4>` | Core | Core内で一意。再利用しない |
 | `core.id` | 不透明な文字列 | Core | Core再起動・複数Core間で実質一意（推奨: 生成して永続化） |
-| `callId` | 発行側の任意文字列（推奨 `plugin-N`/`core-N`） | 各conn送信側 | conn・送信方向ごと |
+| `callId` | 発行側の任意文字列（推奨 `plugin-N`/`core-N`/`caller-N`/`tui-N` 等、接続役割が分かるprefix） | 各conn送信側 | conn・送信方向ごと |
 
 `core.id` は宛先ではなく識別用の不透明な値。Pluginはこれを使って「同じCoreからの再hello」を検出するが、そこからCoreへ接続する手段は持たない。
 

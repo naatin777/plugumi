@@ -30,7 +30,7 @@ Coreの最初の実装を可能にするため、`docs/contracts/00001`・`docs/
 6. **1つのPluginに複数のCoreが接続してよい**。Plugin側はLinkごとに独立して扱う
 7. **Coreから到達できないPluginは利用対象外**。リモート環境の到達性（NAT越え等）は利用者がネットワーク構成で確保する
 8. **linkId はLink毎に払い出し**。永続化しない。切断で失効し再接続で新IDになる
-9. **MVPの可視化は標準出力**。接続中のPlugin・Tool一覧をログに出す。TUI統合は後続
+9. **MVPの可視化は標準出力**。接続中のPlugin・Tool一覧をログに出す。~~TUI統合は後続~~（`docs/decisions/00011` でcaller channelと共に実装済み。`plugumi tui`）
 10. **リポジトリ構成は `core/` と `plugins/` に分割**
 
 ## 代替案
@@ -49,4 +49,4 @@ Coreの最初の実装を可能にするため、`docs/contracts/00001`・`docs/
 - link-scoped IDにより、Core再起動・Plugin再接続後に旧 linkId を指す保存済み参照は全て無効になる。呼び出し側は毎回Discovery→選択を行う運用が前提になる
 - 外部起動のみのため、「Core起動だけで環境が揃う」体験は将来のspawn機構に依存する
 - Core→Plugin方向では、Coreが起動時刻より後に立ち上がったPluginへも再試行で接続する必要がある
-- 標準出力のため、管理面のProtocol表出は後続のTUI/Host実装まで存在しない
+- ~~標準出力のため、管理面のProtocol表出は後続のTUI/Host実装まで存在しない~~（`docs/decisions/00011` でcaller channel `GET /v1/call` として実現済み）

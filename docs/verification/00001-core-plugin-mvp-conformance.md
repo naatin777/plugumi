@@ -66,6 +66,8 @@ relations:
 | L4-4 | 動的登録 `POST /v1/plugins` | 受理→非同期で接続→Link確立 |
 | L4-5 | 異常: `POST /v1/plugins` 既知endpoint | `409 duplicate_endpoint` |
 | L4-6 | 異常: `POST /v1/plugins` 非http(s) URL endpoint | `400 invalid_endpoint` |
+| L4-7 | `POST /v1/plugins/remove` 登録済みendpoint | Link失効・`POST /v1/tools/list`から消滅・再登録で復帰 |
+| L4-8 | 異常: `POST /v1/plugins/remove` 未登録endpoint | `404 unknown_endpoint` |
 
 ### L5. セキュリティ境界
 
@@ -73,6 +75,18 @@ relations:
 |---|---|---|
 | L5-1 | Core管理REST待受が非loopback | Core起動エラー（認証なしMVPのためloopback必須） |
 | L5-2 | Pluginプロセスの外向き接続 | PluginはCoreのURL・Domainを保持せず、外向き接続を開始しない |
+
+### L6. caller channel（`GET /v1/call`）
+
+PluginでないcallerがToolを呼ぶ経路。`docs/decisions/00011`・`docs/contracts/00001`「caller channel」・`docs/contracts/00003` caller側の適合を確認する。
+
+| # | 操作 | 期待 |
+|---|---|---|
+| L6-1 | `GET /v1/call` へWS upgradeしsync toolをcall | responseにresultが直接返る（L2-1と同じcaller側意味論） |
+| L6-2 | 同上でasync toolをcall | `{accepted:true}` → output通知 → result通知の順で届く |
+| L6-3 | call中にcaller WSを切断 | target側のcallも停止する（`tools.call.close`転送。L2-4と同じ意味論） |
+| L6-4 | callerが `tools.call` 以外のrequestを送る | JSON-RPC `-32601` |
+| L6-5 | caller channelのconnがLink・registryに現れない | `POST /v1/plugins/list`・`tools/list` にcaller由来のentryが出ない |
 
 ## 結果と証拠
 
@@ -104,10 +118,17 @@ relations:
 | L4-4 | PASS | `POST /v1/plugins` `{"endpoint":"http://…"}` で受理→Link確立 |
 | L4-5 | PASS | 既知endpoint再登録 → `409 duplicate_endpoint` |
 | L4-6 | PASS | `{"endpoint":"ws://…"}` → `400 invalid_endpoint` |
+| L4-7 | PASS | `plugins/remove` でLink失効・tools一覧0件・plugins一覧空、再登録でtools 5件に復帰（`feat/core-tui`） |
+| L4-8 | PASS | 未登録endpoint → `unknown_endpoint` |
 | L5-1 | PASS | `core.url` の非loopbackはconfig.Loadが起動エラー |
 | L5-2 | PASS | Plugin実装に外向きHTTP/WS clientなし（待受と応答のみ。構造的確認） |
+| L6-1 | PASS | `/v1/call` でsync `echo` → responseにresult返却（`feat/core-tui`、ctx紐付け変更後も再確認） |
+| L6-2 | PASS | `/v1/call` でasync `exec`/`ticks` → `{accepted:true}`→output→resultの順序（`feat/core-tui`） |
+| L6-3 | 未実施 | caller切断→close転送はL2-4と同一のrouter.DropConn経路。caller channelでの明示的切断は未検証 |
+| L6-4 | PASS | `/v1/call` で `plugins.list` request → `-32601 method not found` |
+| L6-5 | PASS | caller接続中も `plugins/list`・`tools/list` にcaller由来entryなし（callerはLinkを持たない構造） |
 
-未実施は L3-2・L4-3 の2件。いずれも契約違反の懸念ではなく時間・環境を要するシナリオ。
+未実施は L3-2・L4-3・L6-3 の3件。いずれも契約違反の懸念ではなく時間・環境・追加検証を要するシナリオ。
 
 ## 制限
 

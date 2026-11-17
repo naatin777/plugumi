@@ -25,19 +25,19 @@ func runTUI(configPath string) error {
 	logBuf := tui.NewLogBuffer(500)
 	log.SetOutput(logBuf)
 
-	var rt *runtime
+	var core *coreRuntime
 	if coreIsRunning(settings.Core.URL) {
 		log.Printf("[tui] attached to running core at %s", settings.Core.URL)
 	} else {
-		rt, err = newRuntime(configPath)
+		core, err = newRuntime(configPath)
 		if err != nil {
 			return err
 		}
-		if err := rt.start(configPath); err != nil {
-			rt.shutdown()
+		if err := core.start(configPath); err != nil {
+			core.shutdown()
 			return err
 		}
-		defer rt.shutdown()
+		defer core.shutdown()
 	}
 
 	client, err := tui.NewClient(settings.Core.URL)

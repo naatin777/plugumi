@@ -56,7 +56,7 @@ func main() {
 }
 
 // runtime はserveとtuiで共有するcoreの配線一式。
-type runtime struct {
+type coreRuntime struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	settings        *config.Config
@@ -66,7 +66,7 @@ type runtime struct {
 	srv             *http.Server
 }
 
-func newRuntime(configPath string) (*runtime, error) {
+func newRuntime(configPath string) (*coreRuntime, error) {
 	settings, err := config.Load(configPath)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func newRuntime(configPath string) (*runtime, error) {
 		// Link失効でもcatalogが変わる（そのLinkのToolが消えるため）。
 		pluginConnector.BroadcastCatalog()
 	}
-	return &runtime{
+	return &coreRuntime{
 		ctx: ctx, cancel: cancel, settings: settings,
 		links: links, callRouter: callRouter, pluginConnector: pluginConnector,
 		srv: &http.Server{
@@ -102,7 +102,7 @@ func newRuntime(configPath string) (*runtime, error) {
 
 // start はHTTP listenとPlugin Endpointへの接続loopを開始する。
 // listen失敗は同期的に返す（tuiがbind失敗のまま起動しないように）。
-func (r *runtime) start(configPath string) error {
+func (r *coreRuntime) start(configPath string) error {
 	for _, plugin := range r.settings.Plugins {
 		r.pluginConnector.Watch(plugin.Endpoint)
 	}
@@ -122,7 +122,7 @@ func (r *runtime) start(configPath string) error {
 }
 
 // shutdown はHTTP serverと全接続loopを止める。
-func (r *runtime) shutdown() {
+func (r *coreRuntime) shutdown() {
 	r.cancel()
 	if r.srv != nil {
 		_ = r.srv.Close()
@@ -130,12 +130,12 @@ func (r *runtime) shutdown() {
 }
 
 func runServe(configPath string) error {
-	rt, err := newRuntime(configPath)
+	core, err := newRuntime(configPath)
 	if err != nil {
 		return err
 	}
-	defer rt.shutdown()
-	if err := rt.start(configPath); err != nil {
+	defer core.shutdown()
+	if err := core.start(configPath); err != nil {
 		return err
 	}
 	// SIGINT/SIGTERMまでブロック。gracefulにconnector loopとLinkを畳む。

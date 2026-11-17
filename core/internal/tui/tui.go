@@ -70,17 +70,17 @@ type Model struct {
 	confirmRemoveEndpoint string
 
 	// call screen
-	callTool      *wire.ListedTool
-	callTicket    *CallTicket
-	callID        string
-	callSeq       int // requestCallごとに+1。古いticketMsgを弾く世代番号
-	callState     callState
-	closeSent     bool
-	callLines     []string
-	pendingTarget wire.CallTarget
-	pendingInput  json.RawMessage
-	input         textarea.Model
-	out           viewport.Model
+	callTool       *wire.ListedTool
+	callTicket     *CallTicket
+	callID         string
+	callGeneration int // requestCallごとに+1。古いticketMsgを弾く世代番号
+	callState      callState
+	closeSent      bool
+	callLines      []string
+	pendingTarget  wire.CallTarget
+	pendingInput   json.RawMessage
+	input          textarea.Model
+	callOutput     viewport.Model
 
 	// add plugin screen
 	addInput textinput.Model
@@ -105,14 +105,14 @@ func New(client *Client, coreURL string, logBuf *LogBuffer) *Model {
 	addInput.CharLimit = 256
 
 	m := &Model{
-		client:   client,
-		coreURL:  coreURL,
-		input:    input,
-		addInput: addInput,
-		out:      viewport.New(10, 3),
-		logs:     logBuf.Drain(),
-		logCh:    make(chan string, 256),
-		events:   client.Events(),
+		client:     client,
+		coreURL:    coreURL,
+		input:      input,
+		addInput:   addInput,
+		callOutput: viewport.New(10, 3),
+		logs:       logBuf.Drain(),
+		logCh:      make(chan string, 256),
+		events:     client.Events(),
 	}
 	logBuf.SetSink(m.logCh)
 	return m
@@ -136,9 +136,9 @@ type dashboardMsg struct {
 }
 
 type ticketMsg struct {
-	ticket *CallTicket
-	seq    int
-	err    error
+	ticket     *CallTicket
+	generation int
+	err        error
 }
 
 type callDoneMsg struct {
@@ -179,12 +179,12 @@ func firstErr(errs ...error) error {
 	return nil
 }
 
-func ticketCmd(client *Client, seq int) tea.Cmd {
+func ticketCmd(client *Client, generation int) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		ticket, err := client.NewCallTicket(ctx)
-		return ticketMsg{ticket: ticket, seq: seq, err: err}
+		return ticketMsg{ticket: ticket, generation: generation, err: err}
 	}
 }
 
@@ -274,7 +274,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ticketMsg:
 		// 世代が古い・画面を離脱済み・close済みならcall自体を送らない。
 		// 送ってしまうと画面外で購読callが走り続ける。
-		if msg.seq != m.callSeq || m.screen != screenCall || m.closeSent {
+		if msg.generation != m.callGeneration || m.screen != screenCall || m.closeSent {
 			return m, nil
 		}
 		if msg.err != nil {
@@ -386,10 +386,10 @@ func (m *Model) updateCallKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch msg.String() {
 	case "pgup":
-		m.out.HalfPageUp()
+		m.callOutput.HalfPageUp()
 		return m, nil
 	case "pgdown":
-		m.out.HalfPageDown()
+		m.callOutput.HalfPageDown()
 		return m, nil
 	case "esc":
 		if m.callState == callActive && !m.closeSent {
@@ -519,10 +519,10 @@ func (m *Model) requestCall() (tea.Model, tea.Cmd) {
 		m.pendingInput = json.RawMessage(raw)
 	}
 	m.input.Blur()
-	m.callSeq++
+	m.callGeneration++
 	m.callState = callActive // ticket待ち。callIDはticketMsgで確定
 	m.appendCallLine("→ calling " + m.callTool.ToolPath)
-	return m, ticketCmd(m.client, m.callSeq)
+	return m, ticketCmd(m.client, m.callGeneration)
 }
 
 func (m *Model) onCallDone(msg callDoneMsg) {
@@ -588,11 +588,11 @@ func (m *Model) appendCallLine(line string) {
 }
 
 func (m *Model) refreshViewport() {
-	if m.out.Width == 0 {
+	if m.callOutput.Width == 0 {
 		return
 	}
-	m.out.SetContent(strings.Join(m.callLines, "\n"))
-	m.out.GotoBottom()
+	m.callOutput.SetContent(strings.Join(m.callLines, "\n"))
+	m.callOutput.GotoBottom()
 }
 
 // ---- resize / layout ----
@@ -604,8 +604,8 @@ func (m *Model) resize() {
 	m.input.SetWidth(max(20, m.width-4))
 	m.addInput.Width = max(20, m.width-4)
 	if m.screen == screenCall {
-		m.out.Width = max(10, m.width-4)
-		m.out.Height = max(3, m.height-10)
+		m.callOutput.Width = max(10, m.width-4)
+		m.callOutput.Height = max(3, m.height-10)
 		m.input.SetHeight(5)
 		m.refreshViewport()
 	}
@@ -728,7 +728,7 @@ func (m *Model) viewCall() string {
 		parts = append(parts, styleDim.Render("input JSON (empty = no input) · ctrl+s send · esc back"))
 		parts = append(parts, m.input.View())
 	}
-	parts = append(parts, m.out.View())
+	parts = append(parts, m.callOutput.View())
 	stateLabel := map[callState]string{
 		callInput:    "editing",
 		callActive:   "running",

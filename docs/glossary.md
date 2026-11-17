@@ -42,6 +42,10 @@ Core発行の一意ID。同一Plugin実装の複数接続（複数Core・複数E
 
 Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。CoreがPluginへ接続を開始し、`tools.call` 系（呼び出し・途中出力・終端・中断）だけがこの1本を流れる。登録・検査系はPlugin RESTで行う。transportの寿命とLinkの寿命は一致する。
 
+### caller channel
+
+Coreがcaller（Tool呼び出し元）向けに開くWebSocket接続（`GET /v1/call`、`docs/contracts/00001`）。Linkには紐付かず、connの寿命=接続の寿命。Pluginでないcaller（TUI・UI Host・スクリプト）は自身のtransportを持たないため、このchannel上で `docs/contracts/00003` のcaller側プロトコルをそのまま喋る。Transportとは別物。
+
 ### Node
 
 Pluginが宣言する「実行環境」の共有識別（ローカル・Docker・リモートPC等）。Coreは意味を解釈しない。
@@ -66,7 +70,7 @@ Tag・Schema等でTool候補を検索する仕組み。結果は `linkId + toolP
 
 ### Tool Call（invoke）
 
-Toolの実行呼び出し。呼び出し元（Plugin）→ Core → 対象Plugin と仲介される。wireは `sync`/`async` の2形態（`docs/contracts/00003`）。
+Toolの実行呼び出し。呼び出し元 → Core → 対象Plugin と仲介される。呼び出し元はPluginとは限らず、非Plugin callerはcaller channel経由で同じcaller側プロトコルを喋る。wireは `sync`/`async` の2形態（`docs/contracts/00003`）。
 
 ### callId
 
