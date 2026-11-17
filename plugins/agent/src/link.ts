@@ -96,7 +96,12 @@ export function servePlugin(listen: string): void {
     } catch {
       return apiError(c, 400, "invalid_params", "invalid params");
     }
-    if (!links.has(req?.linkId)) {
+    // 必須field欠落はinvalid_params、未知linkIdはunknown_link
+    // （contracts/00001のエラー表。Rust版はserde必須fieldで同じ区別をする）。
+    if (typeof req?.linkId !== "string" || req.linkId === "") {
+      return apiError(c, 400, "invalid_params", "invalid params");
+    }
+    if (!links.has(req.linkId)) {
       return apiError(c, 404, "unknown_link", "no such linkId");
     }
     return c.json({});
@@ -113,11 +118,14 @@ export function servePlugin(listen: string): void {
     } catch {
       return apiError(c, 400, "invalid_params", "invalid params");
     }
-    const link = links.get(req?.linkId);
+    if (typeof req?.linkId !== "string" || req.linkId === "" || !Array.isArray(req.tools)) {
+      return apiError(c, 400, "invalid_params", "invalid params");
+    }
+    const link = links.get(req.linkId);
     if (!link) {
       return apiError(c, 404, "unknown_link", "no such linkId");
     }
-    link.catalog = req.tools ?? [];
+    link.catalog = req.tools;
     return c.json({});
   });
 
@@ -127,6 +135,11 @@ export function servePlugin(listen: string): void {
     "/v1/transport",
     async (c, next) => {
       const linkId = c.req.query("linkId") ?? "";
+      // query欠落はinvalid_params、未知linkIdはunknown_link
+      // （Rust版のtransport_upgradeと同じ区別）。
+      if (linkId === "") {
+        return apiError(c, 400, "invalid_params", "linkId required");
+      }
       if (!links.has(linkId)) {
         return apiError(c, 404, "unknown_link", "no such linkId");
       }

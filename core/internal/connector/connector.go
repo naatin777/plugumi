@@ -245,16 +245,30 @@ func (c *Connector) connect(endpoint string) error {
 	}
 	seen := map[string]struct{}{}
 	for _, tool := range toolsResult.Tools {
+		// 宣言の検証はここで行う。空toolPathは「""で呼べるtool」を、
+		// enum外のkindはsync/async以外の解釈不能な宣言を生むため、
+		// どちらもLink確立自体を失敗させる（contracts/00001）。
+		if tool.ToolPath == "" {
+			return fail(fmt.Errorf("tools: empty toolPath"))
+		}
 		if _, dup := seen[tool.ToolPath]; dup {
 			return fail(fmt.Errorf("tools: duplicate toolPath %q", tool.ToolPath))
 		}
 		seen[tool.ToolPath] = struct{}{}
+		if tool.Kind != "" && tool.Kind != "sync" && tool.Kind != "async" {
+			return fail(fmt.Errorf("tools: invalid kind %q for toolPath %q", tool.Kind, tool.ToolPath))
+		}
 	}
 	link.SetTools(toolsResult.Tools)
 
 	// tools.call用のtransportだけWS。schemeはendpointのhttp→ws対応で導く。
 	wsURL := "ws" + strings.TrimPrefix(endpoint, "http") + "/v1/transport?linkId=" + link.ID
-	raw, _, err := websocket.Dial(c.ctx, wsURL, nil)
+	// handshakeが返らないpluginでconnectが無期限に張り付かないよう
+	// timeoutを設ける（hello/toolsと同じ5秒。c.ctxはプロセス寿命なので
+	// そのままではUnwatchでも中断できない）。
+	dialCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+	raw, _, err := websocket.Dial(dialCtx, wsURL, nil)
+	cancel()
 	if err != nil {
 		return fail(err)
 	}

@@ -91,15 +91,32 @@ export class Conn {
   }
 
   private async handleRequest(message: Incoming): Promise<void> {
-    if (!this.onRequest) {
-      this.respond(message.id, { error: { code: -32601, message: "method not found" } });
-      return;
-    }
-    const response = await this.onRequest(message);
-    this.respond(message.id, response);
+	try {
+		const response = this.onRequest
+			? await this.onRequest(message)
+			: { error: { code: -32601, message: "method not found" } };
+		this.respond(message.id, response);
+	} catch (error) {
+		// onRequestのrejectをそのままにするとunhandled rejectionになり、
+		// Nodeの既定ではprocessごと落ちる。requestには必ず応答を返す
+		// （contracts/00002。Coreは応答なしを120s timeoutまで待つ）。
+		try {
+			this.respond(message.id, {
+				error: { code: -32603, message: String(error) },
+			});
+		} catch {
+			// socketが既に死んでいる場合。onClose側の後始末に任せる。
+		}
+	}
   }
 
   private send(value: object): void {
-    this.socket.send(JSON.stringify(value));
+	try {
+		this.socket.send(JSON.stringify(value));
+	} catch {
+		// 切断済みsocketへのsend失敗はonCloseのpending rejectで
+		// 回収されるため、ここでは握り潰す（send失敗で呼び出し側の
+		// promiseをrejectさせるとrequest()のpendingが残る）。
+	}
   }
 }

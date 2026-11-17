@@ -64,14 +64,23 @@ async function call(args: string[]): Promise<void> {
     return;
   }
   const input = rest.length > 0 ? JSON.parse(rest.join(" ")) : undefined;
-  const response = await conn.request(METHOD_CALL, {
-    target: { linkId, toolPath },
-    input,
-  });
+  // Coreのforward timeoutは120s。応答が来ないcallでREPLが
+  // 永久に詰まらないよう、それを上回るtimeoutを設ける。
+  const response = await Promise.race([
+    conn.request(METHOD_CALL, {
+      target: { linkId, toolPath },
+      input,
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("call timed out")), 130_000),
+    ),
+  ]);
   // async受理後もnotificationはcallId相関で届き続ける（link.tsで表示）。
   // responseのJSON-RPC idがこの呼び出しのcallId（closeはこれを指定する）。
+  // idは文字列なのでquoteせずそのまま出す — JSON.stringifyすると
+  // `"plugin-3"`のように引用符付きで表示され、closeへ貼ると一致しない。
   console.log(
-    `[res callId=${JSON.stringify(response.id)}] ${JSON.stringify(response.result ?? response.error)}`,
+    `[res callId=${String(response.id)}] ${JSON.stringify(response.result ?? response.error)}`,
   );
 }
 

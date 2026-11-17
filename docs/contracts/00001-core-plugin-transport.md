@@ -73,7 +73,7 @@ PluginのHTTP serverが受け付けるoperation。全てCore→Plugin方向。
 
 - Pluginが提供するTool宣言を返す。CoreはLink確立後にpullする
 - `kind` は `sync | async`（省略時 `sync`）。宣言の構造は `docs/contracts/00003`
-- `toolPath` はPluginの宣言内で一意であること（重複宣言は契約違反。Core側の解決順は未定義）
+- `toolPath` はPluginの宣言内で一意な空でない文字列、`kind` は `sync | async`（省略時 `sync`）であること。これらを満たさない宣言（空・重複・enum外のkind）は契約違反であり、CoreはLink確立を拒否する（接続試行は失敗として再試行される）
 
 ### `POST /v1/tools/catalog`
 

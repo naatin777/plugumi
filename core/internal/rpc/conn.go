@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/coder/websocket"
 
@@ -40,7 +41,8 @@ type Conn struct {
 	// 組むためのhook（docs/contracts/00003）。
 	OnResponded func(id json.RawMessage)
 
-	done chan struct{}
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func NewConn(c *websocket.Conn, idPrefix string) *Conn {
@@ -81,7 +83,7 @@ func (c *Conn) NextID() json.RawMessage {
 
 // Run は受信ループ。ctx終了または切断までブロックする。
 func (c *Conn) Run(ctx context.Context) error {
-	defer close(c.done)
+	defer c.closeOnce.Do(func() { close(c.done) })
 	for {
 		_, data, err := c.c.Read(ctx)
 		if err != nil {
@@ -183,8 +185,23 @@ func (c *Conn) write(value any) error {
 	}
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
-	return c.c.Write(context.Background(), websocket.MessageText, data)
+	// 相手が読みを止めるとWriteは無期限にブロックし、writeMuを握ったまま
+	// connがゾンビ化する。上限を設け、失敗時はconnごと畳んで
+	// 呼び出し側（DropConn等）にrouteを清算させる。
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := c.c.Write(ctx, websocket.MessageText, data); err != nil {
+		c.Close()
+		return err
+	}
+	return nil
 }
 
-func (c *Conn) Close()                { _ = c.c.Close(websocket.StatusNormalClosure, "bye") }
+// Close はWSを閉じ、doneも閉じる。Run未開始のconn（connect途中の
+// 中断等）でもdispatchNotifs等のgoroutineが残らないようにするため、
+// doneのcloseはこちらでも行う（Run側とはcloseOnceで排他）。
+func (c *Conn) Close() {
+	c.closeOnce.Do(func() { close(c.done) })
+	_ = c.c.Close(websocket.StatusNormalClosure, "bye")
+}
 func (c *Conn) Done() <-chan struct{} { return c.done }

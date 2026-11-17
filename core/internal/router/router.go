@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/naatin777/plugumi/core/internal/registry"
@@ -39,10 +40,19 @@ type Route struct {
 	// dropped はroute撤収で閉じる。ready待機中のnotification配送を抜けさせる。
 	dropped  chan struct{}
 	dropOnce sync.Once
-	// final は「responseで終わるcall」（sync完了・受理失敗・転送失敗）。
-	// trueならOnResponded時に撤収マーカーをnotifQへ注入する。
-	final bool
+	// state はforward応答後のcall状態。DropConnが「callerへ終端の
+	// result通知を送るべきか」を判定するのに使う。HandleCall側の
+	// 書き込みとDropConn側の読み取りは別goroutineなのでatomicで持つ
+	// （2つのboolに分けるとtorn readで中途半端な組合せを読み得る）。
+	state atomic.Int32
 }
+
+// routeState はforward応答の結果を表す。
+const (
+	routePending int32 = iota // forward応答待ち（request error経路が終端を担う）
+	routeLive                 // async受理済み。終端notification待ち
+	routeFinal                // responseで終わるcall（sync完了・受理失敗）
+)
 
 func New(registry *registry.Registry) *Router {
 	return &Router{registry: registry, routes: map[string]*Route{}, byCaller: map[string]*Route{}}
@@ -113,7 +123,11 @@ func (r *Router) HandleCall(caller *rpc.Conn, message *wire.Incoming) (json.RawM
 	// NotifyRespondedがtombstoneを注入してdispatcher側で行う
 	// （先行notificationを全部届けてからrouteを消すため）。
 	// async受理後はrouteを残してnotification中継を継続する。
-	route.final = kind != "async" || res.Error != nil
+	if res.Error != nil || kind != "async" {
+		route.state.Store(routeFinal)
+	} else {
+		route.state.Store(routeLive)
+	}
 	return res.Result, res.Error
 }
 
@@ -129,7 +143,7 @@ func (r *Router) NotifyResponded(c *rpc.Conn, id json.RawMessage) {
 		return
 	}
 	route.readyOnce.Do(func() { close(route.ready) })
-	if route.final {
+	if route.state.Load() == routeFinal {
 		route.Target.InjectSequenced(&wire.Incoming{
 			JSONRPC: "2.0",
 			Method:  methodRouteDone,
@@ -283,7 +297,11 @@ func (r *Router) DropConn(c *rpc.Conn) {
 	}
 
 	for _, route := range dropped {
-		if route.Target == c && route.Caller != c {
+		// 終端通知を送るのは「async受理済みで終端未到達」のrouteだけ。
+		// forward応答待ち（pending）ならHandleCallのerror経路が
+		// -32000 responseを返し、final（response済み）ならcallerは
+		// 既に終端を受け取っている — どちらも通知すると二重終端になる。
+		if route.Target == c && route.Caller != c && route.state.Load() == routeLive {
 			_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
 				CallID: route.CallerID,
 				Error:  &wire.Error{Code: -32000, Message: "target transport closed"},

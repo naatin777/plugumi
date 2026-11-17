@@ -139,13 +139,18 @@ pub fn dispatch(link: SharedLink, conn: Conn, req_id: Value, params: CallParams)
             });
         }
 
-        _ => conn.respond(
-            req_id,
-            Err(wire::RpcError {
-                code: -32601,
-                message: format!("unknown toolPath: {}", params.tool_path),
-                data: None,
-            }),
-        ),
+        // 未知toolPathではcalls登録を残さない（close配送対象がないのに
+        // mapへ残るとリークする）。
+        _ => {
+            link.lock().unwrap().calls.remove(&req_id.to_string());
+            conn.respond(
+                req_id,
+                Err(wire::RpcError {
+                    code: -32601,
+                    message: format!("unknown toolPath: {}", params.tool_path),
+                    data: None,
+                }),
+            )
+        }
     }
 }
