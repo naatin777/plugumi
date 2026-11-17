@@ -85,16 +85,17 @@ type Model struct {
 	// add plugin screen
 	addInput textinput.Model
 
-	// logs
-	logs  []string
-	logCh chan string
+	// logs（LogBufferをポーリングして写す。channel配信だと
+	// 満杯drop・配信隙間でログが欠落するため）
+	logBuf *LogBuffer
+	logs   []string
 
 	statusMsg string
 	events    <-chan Event
 }
 
-// New はTUIのModelを組み立てる。logBufの溜まった行を初期ログに取り込み、
-// 以後の行はlogCh経由で画面に流す。
+// New はTUIのModelを組み立てる。coreのログはlogBufをポーリングして
+// ログ画面へ反映する（tickと画面遷移時にsyncLogs）。
 func New(client *Client, coreURL string, logBuf *LogBuffer) *Model {
 	input := textarea.New()
 	input.SetHeight(5)
@@ -110,11 +111,10 @@ func New(client *Client, coreURL string, logBuf *LogBuffer) *Model {
 		input:      input,
 		addInput:   addInput,
 		callOutput: viewport.New(10, 3),
-		logs:       logBuf.Drain(),
-		logCh:      make(chan string, 256),
 		events:     client.Events(),
+		logBuf:     logBuf,
 	}
-	logBuf.SetSink(m.logCh)
+	m.syncLogs()
 	return m
 }
 
@@ -122,7 +122,6 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		refreshCmd(m.client),
 		waitEventCmd(m.events),
-		waitLogCmd(m.logCh),
 		tickCmd(),
 	)
 }
@@ -150,8 +149,6 @@ type callDoneMsg struct {
 }
 
 type eventMsg struct{ event Event }
-
-type logLineMsg struct{ line string }
 
 type setStatusMsg struct{ text string }
 
@@ -229,17 +226,6 @@ func waitEventCmd(ch <-chan Event) tea.Cmd {
 	}
 }
 
-func waitLogCmd(ch <-chan string) tea.Cmd {
-	return func() tea.Msg {
-		select {
-		case line := <-ch:
-			return logLineMsg{line: line}
-		case <-time.After(24 * time.Hour):
-			return nil
-		}
-	}
-}
-
 func tickCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(time.Time) tea.Msg { return tickMsg{} })
 }
@@ -256,6 +242,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
 			m.closeActiveCall()
+			// ticket待ち中の終了でも、遅れて届くticketMsgが
+			// callを起動しないようcloseSentを立てておく
+			m.closeSent = true
 			return m, tea.Quit
 		}
 		return m.updateKey(msg)
@@ -302,18 +291,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// events channelを読み続けるために再度待つ
 		return m, waitEventCmd(m.events)
 
-	case logLineMsg:
-		m.logs = append(m.logs, msg.line)
-		if len(m.logs) > 500 {
-			m.logs = m.logs[len(m.logs)-500:]
-		}
-		return m, waitLogCmd(m.logCh)
-
 	case setStatusMsg:
 		m.statusMsg = msg.text
 		return m, nil
 
 	case tickMsg:
+		m.syncLogs()
 		return m, tea.Batch(refreshCmd(m.client), tickCmd())
 	}
 	return m, nil
@@ -361,6 +344,7 @@ func (m *Model) updateDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		return m.requestRemovePlugin()
 	case "l":
+		m.syncLogs()
 		m.screen = screenLogs
 	case "r":
 		return m, refreshCmd(m.client)
@@ -534,7 +518,12 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 		m.appendCallLine(styleError.Render(fmt.Sprintf("error %d: %s", msg.rpcErr.Code, msg.rpcErr.Message)))
 		m.callState = callFinished
 	case msg.outcome == CallAsync:
-		m.appendCallLine(styleOK.Render("accepted — waiting for output/result"))
+		// response経路とnotification経路は独立なので、result通知が
+		// callDoneMsgより先に処理されることがある。その場合は
+		// 終端が既に表示済みなのでaccepted行は出さない。
+		if m.callState == callActive {
+			m.appendCallLine(styleOK.Render("accepted — waiting for output/result"))
+		}
 	case msg.outcome == CallSyncDone:
 		m.appendCallLine("result:")
 		m.appendCallLine(indentJSON(msg.result))
@@ -638,6 +627,7 @@ func (m *Model) viewDashboard() string {
 	// border上下2行 + タイトル行1行を引いた、項目に使える行数
 	innerH := panelH - 3
 
+	// plugin行はendpoint+状態の2行構成なので、表示行数は半分に抑える
 	pluginsView := m.renderPluginList(panelW-4, innerH/2, "Plugins")
 	toolsView := m.renderToolList(panelW-4, innerH, "Tools")
 
@@ -747,6 +737,10 @@ func (m *Model) viewAddPlugin() string {
 		m.addInput.View(),
 		styleDim.Render("enter submit · esc back"),
 	)
+}
+
+func (m *Model) syncLogs() {
+	m.logs = m.logBuf.Tail(500)
 }
 
 func (m *Model) viewLogs() string {

@@ -8,14 +8,14 @@ import (
 )
 
 // LogBuffer はcoreのlog出力をTUI内に取り込むio.Writer。
-// plugumi startではTUIが端末を占有するため、標準エラーへ直接書くと
-// 表示が壊れる。ここで行単位に溜め、TUIのログ画面へ流す。
+// plugumi tuiではTUIが端末を占有するため、標準エラーへ直接書くと
+// 表示が壊れる。ここで行単位に溜め、TUIがポーリングで画面へ反映する。
+// channel配信にしないのは、満杯時のdropや配信隙間でログが
+// 永久欠落するのを避けるため（coreのログ出力をブロックしてもいけない）。
 type LogBuffer struct {
-	mu     sync.Mutex
-	lines  []string
-	limit  int
-	sink   chan<- string
-	closed bool
+	mu    sync.Mutex
+	lines []string
+	limit int
 }
 
 func NewLogBuffer(limit int) *LogBuffer {
@@ -37,34 +37,22 @@ func (l *LogBuffer) append(line string) {
 		return
 	}
 	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.lines = append(l.lines, line)
 	if len(l.lines) > l.limit {
 		l.lines = l.lines[len(l.lines)-l.limit:]
 	}
-	sink := l.sink
-	l.mu.Unlock()
-	if sink != nil {
-		select {
-		case sink <- line:
-		default: // TUIが詰まっていてもlog出力をブロックしない
-		}
+}
+
+// Tail は末尾n行を返す（TUIのログ画面がポーリングで読む）。
+// 内部sliceをそのまま返すと呼び出し側の変更でbufferが壊れるためコピーする。
+func (l *LogBuffer) Tail(n int) []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.lines) > n {
+		return append([]string(nil), l.lines[len(l.lines)-n:]...)
 	}
-}
-
-// SetSink は以後の行をchannelへも流す。TUI起動時に呼ぶ。
-func (l *LogBuffer) SetSink(sink chan<- string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.sink = sink
-}
-
-// Drain は溜まった行を全て取り出して空にする（TUI初期表示用）。
-func (l *LogBuffer) Drain() []string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	out := l.lines
-	l.lines = nil
-	return out
+	return append([]string(nil), l.lines...)
 }
 
 var _ io.Writer = (*LogBuffer)(nil)

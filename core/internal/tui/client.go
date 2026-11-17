@@ -1,4 +1,4 @@
-// Package tui は plugumi start のTUI。Core管理RESTとcaller channel
+// Package tui は plugumi tui のTUI。Core管理RESTとcaller channel
 // （GET /v1/call、contracts/00003のcaller側）を使い、Plugin・Toolの
 // 一覧表示とTool呼び出しを行う。
 package tui
