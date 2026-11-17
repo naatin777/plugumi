@@ -73,6 +73,7 @@ type Model struct {
 	callTool      *wire.ListedTool
 	callTicket    *CallTicket
 	callID        string
+	callSeq       int // requestCallごとに+1。古いticketMsgを弾く世代番号
 	callState     callState
 	closeSent     bool
 	callLines     []string
@@ -136,6 +137,7 @@ type dashboardMsg struct {
 
 type ticketMsg struct {
 	ticket *CallTicket
+	seq    int
 	err    error
 }
 
@@ -177,12 +179,12 @@ func firstErr(errs ...error) error {
 	return nil
 }
 
-func ticketCmd(client *Client) tea.Cmd {
+func ticketCmd(client *Client, seq int) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		ticket, err := client.NewCallTicket(ctx)
-		return ticketMsg{ticket: ticket, err: err}
+		return ticketMsg{ticket: ticket, seq: seq, err: err}
 	}
 }
 
@@ -270,6 +272,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ticketMsg:
+		// 世代が古い・画面を離脱済み・close済みならcall自体を送らない。
+		// 送ってしまうと画面外で購読callが走り続ける。
+		if msg.seq != m.callSeq || m.screen != screenCall || m.closeSent {
+			return m, nil
+		}
 		if msg.err != nil {
 			m.appendCallLine(styleError.Render("connect failed: " + msg.err.Error()))
 			m.callState = callFinished
@@ -512,9 +519,10 @@ func (m *Model) requestCall() (tea.Model, tea.Cmd) {
 		m.pendingInput = json.RawMessage(raw)
 	}
 	m.input.Blur()
+	m.callSeq++
 	m.callState = callActive // ticket待ち。callIDはticketMsgで確定
 	m.appendCallLine("→ calling " + m.callTool.ToolPath)
-	return m, ticketCmd(m.client)
+	return m, ticketCmd(m.client, m.callSeq)
 }
 
 func (m *Model) onCallDone(msg callDoneMsg) {

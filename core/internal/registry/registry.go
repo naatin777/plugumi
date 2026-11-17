@@ -5,7 +5,6 @@ package registry
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -55,7 +54,7 @@ func (l *Link) SetTransport(c *rpc.Conn) {
 	l.transport = c
 }
 
-// Tools は現行のTool宣言一覧（tools.setのたびに丸ごと差し替わる）。
+// Tools は現行のTool宣言一覧（connect時のGET /v1/tools pullで丸ごと差し替わる）。
 func (l *Link) Tools() []wire.ToolDeclaration {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -65,6 +64,13 @@ func (l *Link) Tools() []wire.ToolDeclaration {
 func (l *Link) SetTools(tools []wire.ToolDeclaration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	// kind省略時はsync（contracts/00001 GET /v1/tools）。
+	// Tool宣言の入口はここだけなので、正規化もここで行う。
+	for i := range tools {
+		if tools[i].Kind == "" {
+			tools[i].Kind = "sync"
+		}
+	}
 	l.tools = tools
 }
 
@@ -79,8 +85,6 @@ func (l *Link) LastPingAt() time.Time {
 	defer l.mu.RUnlock()
 	return l.lastPing
 }
-
-var ErrNoLink = errors.New("unknown link")
 
 type Registry struct {
 	mu         sync.RWMutex
@@ -128,37 +132,6 @@ func (r *Registry) FindEndpoint(endpoint string) (*Link, bool) {
 	defer r.mu.RUnlock()
 	l, ok := r.byEndpoint[endpoint]
 	return l, ok
-}
-
-// SetTools は tools.set を反映する（アトミック置換）。toolPath重複は409相当。
-func (r *Registry) SetTools(linkID string, tools []wire.ToolDeclaration) error {
-	r.mu.RLock()
-	l, ok := r.links[linkID]
-	r.mu.RUnlock()
-	if !ok {
-		return ErrNoLink
-	}
-	seen := map[string]bool{}
-	for i := range tools {
-		if seen[tools[i].ToolPath] {
-			return errors.New("duplicate toolPath: " + tools[i].ToolPath)
-		}
-		seen[tools[i].ToolPath] = true
-		if tools[i].Kind == "" {
-			tools[i].Kind = "sync"
-		}
-	}
-	l.SetTools(tools)
-	return nil
-}
-
-func (r *Registry) Touch(linkID string) error {
-	l, ok := r.Find(linkID)
-	if !ok {
-		return ErrNoLink
-	}
-	l.Touch()
-	return nil
 }
 
 // SetTransport はLink生成時にtransportを結び付ける（Add前に呼ぶ）。

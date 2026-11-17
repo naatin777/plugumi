@@ -65,13 +65,14 @@ func init() {
 }
 
 type Server struct {
+	ctx       context.Context
 	registry  *registry.Registry
 	router    *router.Router
 	connector *connector.Connector
 }
 
-func New(registry *registry.Registry, router *router.Router, connector *connector.Connector) *Server {
-	s := &Server{registry: registry, router: router, connector: connector}
+func New(ctx context.Context, registry *registry.Registry, router *router.Router, connector *connector.Connector) *Server {
+	s := &Server{ctx: ctx, registry: registry, router: router, connector: connector}
 	// transport上のcall系メッセージをここで捌く。
 	// Plugin transport connとcaller channel connの両方に同じ振り分けを使う
 	// （Route.Callerはconn抽象で、Link所属を要求しない）。
@@ -147,9 +148,7 @@ func (s *Server) Handler() http.Handler {
 
 type ToolsListInput struct{}
 type ToolsListOutput struct {
-	Body struct {
-		Tools []wire.ListedTool `json:"tools"`
-	}
+	Body wire.ToolsListResult
 }
 
 func (s *Server) toolsList(_ context.Context, _ *ToolsListInput) (*ToolsListOutput, error) {
@@ -260,7 +259,9 @@ func (s *Server) handleCall(w http.ResponseWriter, r *http.Request) {
 		s.router.NotifyResponded(conn, id)
 	}
 	go func() {
-		_ = conn.Run(context.Background())
+		// ctxはcoreプロセスの寿命。hijackしたconnはsrv.Closeの管理外なので、
+		// shutdown時はこのctx cancelで畳む（plugin transportと同じ扱い）。
+		_ = conn.Run(s.ctx)
 		// caller切断時、実行中callへはtarget側へcloseが転送される
 		// （router.DropConn。購読・長時間callを残さないため）。
 		s.router.DropConn(conn)

@@ -96,7 +96,7 @@ transport上は `tools.call` 系のみ。登録・検査系はPlugin REST（`doc
 | method | 方向 | 種別 | params→result |
 |---|---|---|---|
 | `tools.call` | Core→Plugin（targetへforward） | request | `{ toolPath, input? }` → result または `{ accepted: true }` |
-| `tools.call` | Plugin→Core（callerが発射） | request | `{ target: { linkId, toolPath }, input? }` → 中継後のresult |
+| `tools.call` | caller→Core（callerが発射） | request | `{ target: { linkId, toolPath }, input? }` → 中継後のresult |
 | `tools.call.output` | target側→caller側 | notification | `{ callId, payload? }` |
 | `tools.call.result` | target側→caller側 | notification | `{ callId, result? \| error? }` |
 | `tools.call.close` | caller側→target側 | notification | `{ callId }` |

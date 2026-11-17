@@ -95,7 +95,7 @@ func newRuntime(configPath string) (*runtime, error) {
 		links: links, callRouter: callRouter, pluginConnector: pluginConnector,
 		srv: &http.Server{
 			Addr:    settings.Core.Listen,
-			Handler: server.New(links, callRouter, pluginConnector).Handler(),
+			Handler: server.New(ctx, links, callRouter, pluginConnector).Handler(),
 		},
 	}, nil
 }

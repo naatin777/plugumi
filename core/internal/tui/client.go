@@ -114,9 +114,7 @@ func (c *Client) ListPlugins() ([]wire.RegisteredPlugin, error) {
 }
 
 func (c *Client) ListTools() ([]wire.ListedTool, error) {
-	var result struct {
-		Tools []wire.ListedTool `json:"tools"`
-	}
+	var result wire.ToolsListResult
 	if err := c.post("/v1/tools/list", struct{}{}, &result); err != nil {
 		return nil, err
 	}
@@ -160,7 +158,10 @@ func (c *Client) ensureConn(ctx context.Context) (*rpc.Conn, error) {
 	c.conn = conn
 	go func() {
 		_ = conn.Run(context.Background())
-		c.events <- Event{Kind: "conn-closed"}
+		select {
+		case c.events <- Event{Kind: "conn-closed"}:
+		case <-time.After(2 * time.Second): // 満杯でもgoroutineを残さない
+		}
 	}()
 	return conn, nil
 }

@@ -86,6 +86,11 @@ type PluginsRemoveResult struct {
 	Endpoint string `json:"endpoint"`
 }
 
+// ToolsListResult は管理REST POST /v1/tools/list の応答。
+type ToolsListResult struct {
+	Tools []ListedTool `json:"tools"`
+}
+
 // RegisteredPlugin は登録済みEndpoint1行分。Link未確立なら
 // linkId/pluginIdは空（接続再試行中）。
 type RegisteredPlugin struct {
