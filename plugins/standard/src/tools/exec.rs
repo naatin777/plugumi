@@ -1,12 +1,12 @@
 //! exec: コマンドを実行し、stdout/stderrを途中出力として流すasync tool。
 //! closeされたら子プロセスをkillする。
 
-use super::Call;
+use super::ToolCall;
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-pub async fn handle(mut call: Call) {
+pub async fn handle(mut call: ToolCall) {
     let Some(command) = call.input["command"].as_str() else {
         call.result_error("input.command is required");
         return;

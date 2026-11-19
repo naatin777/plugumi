@@ -22,20 +22,6 @@ pub struct HelloCore {
     pub version: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct HelloResponse {
-    pub plugin: PluginInfo,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginInfo {
-    pub id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolDeclaration {
@@ -58,9 +44,8 @@ pub struct PingRequest {
 /// （複数CoreからのLinkを区別するため）。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CatalogRequest {
+pub struct ToolsCatalogRequest {
     pub link_id: String,
-    #[serde(default)]
     pub tools: Vec<ListedTool>,
 }
 
@@ -126,7 +111,6 @@ impl Incoming {
     pub fn is_notification(&self) -> bool {
         self.method.is_some() && self.id.is_none()
     }
-    #[allow(dead_code)]
     pub fn is_response(&self) -> bool {
         self.method.is_none()
     }
@@ -138,11 +122,13 @@ pub const METHOD_CALL_OUTPUT: &str = "tools.call.output";
 pub const METHOD_CALL_RESULT: &str = "tools.call.result";
 pub const METHOD_CALL_CLOSE: &str = "tools.call.close";
 
-/// target側へ届く呼び出しparams（docs/contracts/00003:
-/// 中継時はtargetへtoolPathのみ伝える）。
+/// Pluginがtransport上で受け取るtools.callのparams。
+/// caller→Core間では {target, input} 形だが、Coreが中継する際に
+/// toolPathへ正規化される（docs/contracts/00003）。
+/// Go側の wire.ForwardCallParams と同じ形。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CallParams {
+pub struct ForwardCallParams {
     pub tool_path: String,
     #[serde(default)]
     pub input: Value,

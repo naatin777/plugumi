@@ -1,6 +1,6 @@
 //! JSON-RPC 2.0 over WebSocket の接続層。
 //! request/response のid相関と、相手からのrequest・notificationの配送を担う。
-//! 同一conn上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
+//! 同一connection上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
 //! （docs/contracts/00003「idの一意性」）。
 //!
 //! Pluginは接続を開始しない。CoreがupgradeしたWSをattachして使う。
@@ -11,51 +11,69 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
 
 use crate::wire::{Incoming, Notification, Response, RpcError};
 
 type PendingMap = Arc<Mutex<HashMap<String, oneshot::Sender<Incoming>>>>;
 
 #[derive(Clone)]
-pub struct Conn {
+pub struct Connection {
     tx: mpsc::UnboundedSender<String>,
     pending: PendingMap,
     seq: Arc<AtomicU64>,
-    prefix: String,
+    shutdown: watch::Sender<()>,
 }
 
-impl Conn {
+impl Connection {
     /// CoreがupgradeしたWSに取り付け、受信pumpを開始する。
     /// `handler` はrequest/notificationを受け取る（responseは内部で相関処理）。
     /// 返り値のJoinHandleはtransport切断で終了する。
     pub fn attach<F>(ws: WebSocket, handler: F) -> (Self, tokio::task::JoinHandle<()>)
     where
-        F: Fn(Incoming, Conn) + Send + Sync + 'static,
+        F: Fn(Incoming, Connection) + Send + Sync + 'static,
     {
         let (mut sink, mut stream) = ws.split();
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (shutdown, mut stop_reader) = watch::channel(());
+        let mut stop_writer = shutdown.subscribe();
         let pending: PendingMap = Arc::new(Mutex::new(HashMap::new()));
-        let conn = Conn {
+        let connection = Connection {
             tx,
             pending: pending.clone(),
             seq: Arc::new(AtomicU64::new(0)),
-            prefix: "plugin-".into(),
+            shutdown,
         };
 
         // writer task
+        let writer_shutdown = connection.shutdown.clone();
         tokio::spawn(async move {
-            while let Some(data) = rx.recv().await {
+            loop {
+                // biasedでshutdownを優先確認する。送信中の1フレームは
+                // 最後まで送ってから次の周回で止まる（割り込みはしない）。
+                let data = tokio::select! {
+                    biased;
+                    _ = stop_writer.changed() => break,
+                    data = rx.recv() => data,
+                };
+                let Some(data) = data else { break };
                 if sink.send(Message::Text(data.into())).await.is_err() {
-                    return;
+                    break;
                 }
             }
+            let _ = writer_shutdown.send(());
         });
 
         // reader pump
-        let read_conn = conn.clone();
+        let read_connection = connection.clone();
         let handle = tokio::spawn(async move {
-            while let Some(frame) = stream.next().await {
+            loop {
+                let frame = tokio::select! {
+                    biased;
+                    _ = stop_reader.changed() => break,
+                    frame = stream.next() => frame,
+                };
+                let Some(frame) = frame else { break };
                 let Ok(Message::Text(data)) = frame else {
                     continue;
                 };
@@ -64,23 +82,30 @@ impl Conn {
                 };
                 if message.is_response() {
                     if let Some(id) = &message.id {
-                        let ch = pending.lock().unwrap().remove(&id.to_string());
-                        if let Some(ch) = ch {
-                            let _ = ch.send(message);
+                        let sender = pending.lock().unwrap().remove(&id.to_string());
+                        if let Some(sender) = sender {
+                            let _ = sender.send(message);
                         }
                     }
                 } else {
-                    handler(message, read_conn.clone());
+                    handler(message, read_connection.clone());
                 }
             }
+            pending.lock().unwrap().clear();
+            read_connection.close();
         });
-        (conn, handle)
+        (connection, handle)
     }
 
+    pub fn close(&self) {
+        let _ = self.shutdown.send(());
+    }
+
+    // 送るidにはplugin- prefixを付けて受信idと区別する
+    // （docs/contracts/00003「idの一意性」）。
     fn next_id(&self) -> Value {
         json!(format!(
-            "{}{}",
-            self.prefix,
+            "plugin-{}",
             self.seq.fetch_add(1, Ordering::SeqCst) + 1
         ))
     }
@@ -94,41 +119,39 @@ impl Conn {
             .unwrap()
             .insert(id.to_string(), response_tx);
         self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))?;
-        response_rx.await.map_err(|_| "conn closed".to_string())
+        response_rx
+            .await
+            .map_err(|_| "connection closed".to_string())
     }
 
     /// 受け取ったrequestへのresponseを送る。
     pub fn respond(&self, id: Value, result: Result<Value, RpcError>) {
-        let res = match result {
-            Ok(v) => Response {
-                jsonrpc: "2.0",
-                id,
-                result: Some(v),
-                error: None,
-            },
-            Err(e) => Response {
-                jsonrpc: "2.0",
-                id,
-                result: None,
-                error: Some(e),
-            },
+        let (result, error) = match result {
+            Ok(value) => (Some(value), None),
+            Err(e) => (None, Some(e)),
         };
-        let _ = self.tx.send(serde_json::to_string(&res).unwrap());
+        let response = Response {
+            jsonrpc: "2.0",
+            id,
+            result,
+            error,
+        };
+        let _ = self.tx.send(serde_json::to_string(&response).unwrap());
     }
 
     /// notification を送る。
     pub fn notify(&self, method: &str, params: Value) {
-        let n = Notification {
+        let notification = Notification {
             jsonrpc: "2.0",
             method: method.to_string(),
             params: Some(params),
         };
-        let _ = self.tx.send(serde_json::to_string(&n).unwrap());
+        let _ = self.tx.send(serde_json::to_string(&notification).unwrap());
     }
 
-    fn send(&self, v: &Value) -> Result<(), String> {
+    fn send(&self, value: &Value) -> Result<(), String> {
         self.tx
-            .send(v.to_string())
-            .map_err(|_| "conn closed".to_string())
+            .send(value.to_string())
+            .map_err(|_| "connection closed".to_string())
     }
 }

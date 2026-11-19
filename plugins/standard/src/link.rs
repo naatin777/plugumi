@@ -18,30 +18,32 @@ use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 
-use crate::rpc::Conn;
+use crate::rpc::Connection;
 use crate::tools;
-use crate::wire::{self, CallParams, CatalogRequest, HelloRequest, Incoming, PingRequest};
+use crate::wire::{
+    self, ForwardCallParams, HelloRequest, Incoming, PingRequest, ToolsCatalogRequest,
+};
 
 /// 1つのLinkの状態。Coreが増えてもlinkIdごとに分かれる。
-pub struct LinkInner {
+pub struct LinkState {
     /// 再helloの差替え判定に使う不透明な識別子（宛先ではない）。
     core_id: String,
-    conn: Option<Conn>,
-    /// 実行中callのcloseシグナル（callId → close_tx）。
+    transport: Option<Connection>,
+    /// 実行中callのcloseシグナル（callId → close sender）。
     pub(crate) calls: HashMap<String, watch::Sender<bool>>,
     /// Coreがpushしてきた全Tool一覧（standardは使わないが受け取る）。
     #[allow(dead_code)]
     catalog: Vec<wire::ListedTool>,
 }
 
-pub type SharedLink = Arc<Mutex<LinkInner>>;
+pub type SharedLink = Arc<Mutex<LinkState>>;
 
 /// Plugin全体の状態。Core別のLinkを束ねる。
 pub struct PluginState {
     links: HashMap<String, SharedLink>, // linkId →
 }
 
-pub type Shared = Arc<Mutex<PluginState>>;
+pub type SharedPlugin = Arc<Mutex<PluginState>>;
 
 fn api_error(status: StatusCode, code: &str, message: &str) -> (StatusCode, Json<Value>) {
     (
@@ -52,7 +54,7 @@ fn api_error(status: StatusCode, code: &str, message: &str) -> (StatusCode, Json
 
 /// Plugin HTTP serverを立てる（共通規格REST + transport upgrade受付）。
 pub async fn serve(listen: &str) -> Result<(), String> {
-    let shared: Shared = Arc::new(Mutex::new(PluginState {
+    let shared: SharedPlugin = Arc::new(Mutex::new(PluginState {
         links: HashMap::new(),
     }));
     let app = Router::new()
@@ -64,7 +66,8 @@ pub async fn serve(listen: &str) -> Result<(), String> {
         .fallback(unsupported_version)
         .with_state(shared);
     let listener = TcpListener::bind(listen).await.map_err(|e| e.to_string())?;
-    eprintln!("[standard] listening on {listen}");
+    let address = listener.local_addr().map_err(|e| e.to_string())?;
+    eprintln!("[standard] listening on http://{address}");
     axum::serve(listener, app).await.map_err(|e| e.to_string())
 }
 
@@ -87,14 +90,18 @@ async fn unsupported_version(req: Request) -> (StatusCode, Json<Value>) {
             "unsupported protocol version",
         )
     } else {
-        api_error(StatusCode::NOT_FOUND, "unknown_endpoint", "unknown endpoint")
+        api_error(
+            StatusCode::NOT_FOUND,
+            "unknown_endpoint",
+            "unknown endpoint",
+        )
     }
 }
 
 /// POST /v1/link/hello: 同じcore.idの旧Linkを差し替え、Linkを登録して
 /// plugin情報を返す。transportは別途 `GET /v1/transport` で結ばれる。
 async fn link_hello(
-    State(shared): State<Shared>,
+    State(shared): State<SharedPlugin>,
     body: Result<Json<HelloRequest>, axum::extract::rejection::JsonRejection>,
 ) -> (StatusCode, Json<Value>) {
     let Ok(Json(req)) = body else {
@@ -103,32 +110,23 @@ async fn link_hello(
 
     // 同じCoreからの再helloは、そのCoreの旧Linkを破棄してから受け入れる
     // （別CoreのLinkは生かす。複数Core接続を許すため）。
-    let stale_ids: Vec<String> = {
-        let state = shared.lock().unwrap();
-        state
-            .links
-            .iter()
-            .filter(|(_, l)| l.lock().unwrap().core_id == req.core.id)
-            .map(|(id, _)| id.clone())
-            .collect()
-    };
-    for stale_id in stale_ids {
-        if let Some(stale) = shared.lock().unwrap().links.remove(&stale_id) {
-            teardown_link(&stale);
-        }
-    }
-
-    let link: SharedLink = Arc::new(Mutex::new(LinkInner {
+    let link: SharedLink = Arc::new(Mutex::new(LinkState {
         core_id: req.core.id.clone(),
-        conn: None,
+        transport: None,
         calls: HashMap::new(),
         catalog: Vec::new(),
     }));
-    shared
-        .lock()
-        .unwrap()
-        .links
-        .insert(req.link_id.clone(), link);
+    {
+        let mut state = shared.lock().unwrap();
+        state.links.retain(|id, existing| {
+            if *id == req.link_id || existing.lock().unwrap().core_id == req.core.id {
+                teardown_link(existing);
+                return false;
+            }
+            true
+        });
+        state.links.insert(req.link_id.clone(), link);
+    }
 
     eprintln!(
         "[standard] link established: {} (core {})",
@@ -136,21 +134,18 @@ async fn link_hello(
     );
     (
         StatusCode::OK,
-        Json(serde_json::to_value(wire::HelloResponse {
-            plugin: wire::PluginInfo {
-                id: "standard".into(),
-                version: Some("0.1.0".into()),
-                name: Some("Plugumi Standard Plugin".into()),
-            },
-        })
-        .unwrap()),
+        Json(json!({"plugin": {
+            "id": "standard",
+            "version": "0.1.0",
+            "name": "Plugumi Standard Plugin",
+        }})),
     )
 }
 
 /// POST /v1/link/ping: Core→Pluginの生存確認probe。
 /// 現存するlinkIdなら200、失効済み・不明なら404 unknown_link。
 async fn link_ping(
-    State(shared): State<Shared>,
+    State(shared): State<SharedPlugin>,
     body: Result<Json<PingRequest>, axum::extract::rejection::JsonRejection>,
 ) -> (StatusCode, Json<Value>) {
     let Ok(Json(req)) = body else {
@@ -174,8 +169,8 @@ async fn list_tools() -> (StatusCode, Json<Value>) {
 /// POST /v1/tools/catalog: Coreからの全Tool一覧pushを受け取る。
 /// 宛先Linkが不明なら404 unknown_link。
 async fn tools_catalog(
-    State(shared): State<Shared>,
-    body: Result<Json<CatalogRequest>, axum::extract::rejection::JsonRejection>,
+    State(shared): State<SharedPlugin>,
+    body: Result<Json<ToolsCatalogRequest>, axum::extract::rejection::JsonRejection>,
 ) -> (StatusCode, Json<Value>) {
     let Ok(Json(req)) = body else {
         return api_error(StatusCode::BAD_REQUEST, "invalid_params", "invalid params");
@@ -192,14 +187,11 @@ async fn tools_catalog(
 /// 現存するLinkにだけtransportを結ぶ。
 async fn transport_upgrade(
     ws: WebSocketUpgrade,
-    State(shared): State<Shared>,
+    State(shared): State<SharedPlugin>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response {
     let Some(link_id) = query.get("linkId") else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error": {"code": "invalid_params", "message": "linkId required"}})),
-        )
+        return api_error(StatusCode::BAD_REQUEST, "invalid_params", "linkId required")
             .into_response();
     };
     let link = {
@@ -207,50 +199,74 @@ async fn transport_upgrade(
         state.links.get(link_id).cloned()
     };
     let Some(link) = link else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(json!({"error": {"code": "unknown_link", "message": "no such linkId"}})),
-        )
-            .into_response();
+        return api_error(StatusCode::NOT_FOUND, "unknown_link", "no such linkId").into_response();
     };
-    ws.on_upgrade(move |socket| handle_conn(socket, shared, link))
+    let link_id = link_id.clone();
+    ws.on_upgrade(move |socket| handle_transport(socket, shared, link_id, link))
 }
 
 /// 1本のtransport（WS）のライフサイクル。upgrade→tools.call配送→切断でLink失効。
-async fn handle_conn(socket: axum::extract::ws::WebSocket, shared: Shared, link: SharedLink) {
-    let conn_link = link.clone();
-    let (conn, pump) = Conn::attach(socket, move |message, conn| {
-        on_message(conn_link.clone(), message, conn)
-    });
-    link.lock().unwrap().conn = Some(conn);
+async fn handle_transport(
+    socket: axum::extract::ws::WebSocket,
+    shared: SharedPlugin,
+    link_id: String,
+    link: SharedLink,
+) {
+    let pump = {
+        let state = shared.lock().unwrap();
+        if !state
+            .links
+            .get(&link_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &link))
+        {
+            return;
+        }
+        let mut inner = link.lock().unwrap();
+        if inner.transport.is_some() {
+            return;
+        }
+        let handler_link = link.clone();
+        let (connection, pump) = Connection::attach(socket, move |message, connection| {
+            on_message(handler_link.clone(), message, connection)
+        });
+        inner.transport = Some(connection);
+        pump
+    };
 
     let _ = pump.await;
 
     // transport切断 = Link失効（contracts/00002）。
     // 差し替え済みのLinkを消さないよう、同じlinkのときだけmapから外す。
+    {
+        let mut state = shared.lock().unwrap();
+        if state
+            .links
+            .get(&link_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &link))
+        {
+            state.links.remove(&link_id);
+        }
+    }
     teardown_link(&link);
-    let mut state = shared.lock().unwrap();
-    state.links.retain(|_, current| !Arc::ptr_eq(current, &link));
     eprintln!("[standard] transport closed");
 }
 
 /// transport上のrequest/notification配送。共通規格はRESTで行うため、
 /// ここに届くのはtools.call系のみ。
-fn on_message(link: SharedLink, message: Incoming, conn: Conn) {
+fn on_message(link: SharedLink, message: Incoming, connection: Connection) {
     let Some(method) = message.method.as_deref() else {
         return;
     };
     match method {
         wire::METHOD_CALL => {
             let Some(id) = message.id.clone() else { return };
-            let params: CallParams = match message
+            let params: ForwardCallParams = match message
                 .params
-                .clone()
-                .and_then(|p| serde_json::from_value(p).ok())
+                .and_then(|params| serde_json::from_value(params).ok())
             {
-                Some(p) => p,
+                Some(params) => params,
                 None => {
-                    conn.respond(
+                    connection.respond(
                         id,
                         Err(wire::RpcError {
                             code: -32602,
@@ -261,7 +277,7 @@ fn on_message(link: SharedLink, message: Incoming, conn: Conn) {
                     return;
                 }
             };
-            tools::dispatch(link, conn, id, params);
+            tools::dispatch(link, connection, id, params);
         }
         wire::METHOD_CALL_CLOSE => {
             let call_id = message
@@ -277,7 +293,7 @@ fn on_message(link: SharedLink, message: Incoming, conn: Conn) {
         }
         _ => {
             if message.is_request() {
-                conn.respond(
+                connection.respond(
                     message.id.unwrap(),
                     Err(wire::RpcError {
                         code: -32601,
@@ -290,9 +306,12 @@ fn on_message(link: SharedLink, message: Incoming, conn: Conn) {
     }
 }
 
-/// Linkを破棄する: 実行中callにcloseを送る。
+/// Linkを破棄し、transportと実行中callを閉じる（contracts/00001・00002）。
 fn teardown_link(link: &SharedLink) {
     let mut inner = link.lock().unwrap();
+    if let Some(connection) = inner.transport.take() {
+        connection.close();
+    }
     for (_, close_tx) in inner.calls.drain() {
         let _ = close_tx.send(true);
     }
