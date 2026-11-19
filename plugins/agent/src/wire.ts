@@ -2,18 +2,18 @@
 // 共通規格はCore→Plugin REST、tools.call系のみtransport（WS + JSON-RPC 2.0）。
 // PluginはCoreのURLを知らない。
 
+import { z } from "zod";
+
 // ---- Link確立（Core→Plugin REST。contracts/00001） ----
 
 // POST /v1/link/hello のbody。
-export interface HelloRequest {
-  linkId: string;
-  core: { id: string; version?: string };
-}
+export const helloRequestSchema = z.object({
+  linkId: z.string().min(1),
+  core: z.object({ id: z.string().min(1), version: z.string().optional() }),
+});
 
 // POST /v1/link/ping のbody（Core→Pluginの生存確認probe）。
-export interface PingRequest {
-  linkId: string;
-}
+export const pingRequestSchema = z.object({ linkId: z.string().min(1) });
 
 export interface PluginInfo {
   id: string;
@@ -21,25 +21,25 @@ export interface PluginInfo {
   name?: string;
 }
 
-export interface ToolDeclaration {
-  toolPath: string;
-  kind: "sync" | "async";
-  description?: string;
-  tags?: string[];
-}
+const toolDeclarationSchema = z.object({
+  toolPath: z.string().min(1),
+  kind: z.enum(["sync", "async"]).default("sync"),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  inputSchema: z.unknown().optional(),
+  outputSchema: z.unknown().optional(),
+});
+export type ToolDeclaration = z.infer<typeof toolDeclarationSchema>;
+
+// catalogの各ToolのlinkIdは呼び出し先を示す。
+const listedToolSchema = toolDeclarationSchema.extend({ linkId: z.string().min(1) });
+export type ListedTool = z.infer<typeof listedToolSchema>;
 
 // POST /v1/tools/catalog のbody。linkIdは宛先Linkの識別
 // （複数CoreからのLinkを区別するため）。
-export interface CatalogRequest {
-  linkId: string;
-  tools: ListedTool[];
-}
-
-// tools.catalog・GET /v1/tools の各要素。
-// linkId がTool呼び出しの宛先になる。
-export interface ListedTool extends ToolDeclaration {
-  linkId: string;
-}
+export const toolsCatalogRequestSchema = pingRequestSchema.extend({
+  tools: z.array(listedToolSchema),
+});
 
 // ---- JSON-RPC 2.0 ----
 
@@ -60,7 +60,7 @@ export interface Incoming {
 }
 
 export const isRequest = (m: Incoming) => m.method !== undefined && m.id !== undefined;
-export const isNotif = (m: Incoming) => m.method !== undefined && m.id === undefined;
+export const isNotification = (m: Incoming) => m.method !== undefined && m.id === undefined;
 export const isResponse = (m: Incoming) => m.method === undefined;
 
 // transport（WS）上のmethodはtools.call系のみ。
@@ -70,9 +70,11 @@ export const METHOD_CALL_OUTPUT = "tools.call.output";
 export const METHOD_CALL_RESULT = "tools.call.result";
 export const METHOD_CALL_CLOSE = "tools.call.close";
 
-// target側へ届く呼び出しparams（docs/contracts/00003:
-// 中継時はtargetへtoolPathのみ伝える）。
-export interface CallParams {
+// Pluginがtransport上で受け取るtools.callのparams。
+// caller→Core間では {target, input} 形だが、Coreが中継する際に
+// toolPathへ正規化される（docs/contracts/00003）。
+// Go側の wire.ForwardCallParams と同じ形。
+export interface ForwardCallParams {
   toolPath: string;
   input?: unknown;
 }

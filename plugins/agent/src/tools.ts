@@ -1,8 +1,8 @@
 // agent pluginが提供するTool群。
 // MVPは agent/echo のみ（自己呼び出しの疎通確認用）。
 
-import type { Conn } from "./rpc.js";
-import type { CallParams, RpcError, ToolDeclaration } from "./wire.js";
+import type { Connection } from "./rpc.js";
+import type { ForwardCallParams, RpcError, ToolDeclaration } from "./wire.js";
 
 type SyncHandler = (input: unknown) => unknown | Promise<unknown>;
 
@@ -16,15 +16,15 @@ const tools = new Map<string, { declaration: ToolDeclaration; handler: SyncHandl
   ],
 ]);
 
-export function toolDecls(): ToolDeclaration[] {
+export function toolDeclarations(): ToolDeclaration[] {
   return [...tools.values()].map((t) => t.declaration);
 }
 
 // 着信 tools.call を捌く（同期返却のみ。async toolを足すときはCall機構を作る）。
 export async function dispatchCall(
-  _conn: Conn,
+  _connection: Connection,
   reqId: unknown,
-  params: CallParams,
+  params: ForwardCallParams,
 ): Promise<{ result?: unknown; error?: RpcError }> {
   const tool = tools.get(params.toolPath);
   if (!tool) {

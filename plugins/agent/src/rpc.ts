@@ -1,11 +1,11 @@
 // JSON-RPC 2.0 over WebSocket の接続層。
 // request/response のid相関と、相手からのrequest・notificationの配送を担う。
-// 同一conn上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
+// 同一connection上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
 // （docs/contracts/00003「idの一意性」）。
 //
 // Pluginは接続を開始しない。CoreがupgradeしたWSをattachして使う。
 
-import { isNotif, isRequest, isResponse } from "./wire.js";
+import { isNotification, isRequest, isResponse } from "./wire.js";
 import type { Incoming, RpcError } from "./wire.js";
 
 // WebSocket実装差を吸収する最小IF。Core側がupgradeした
@@ -22,26 +22,31 @@ type Pending = {
   reject: (error: Error) => void;
 };
 
-export class Conn {
+export class Connection {
   private seq = 0;
   private pending = new Map<string, Pending>();
+  private closed = false;
 
   onRequest?: (message: Incoming) => Promise<{ result?: unknown; error?: RpcError }>;
-  onNotif?: (message: Incoming) => void;
+  onNotification?: (message: Incoming) => void;
   onClose?: () => void;
 
   private constructor(private socket: Socket) {
     socket.onMessage((data) => {
-      let message: Incoming;
+      if (this.closed) return;
+      let parsed: unknown;
       try {
-        message = JSON.parse(data);
+        parsed = JSON.parse(data);
       } catch {
         return;
       }
+      // 契約で分類できないメッセージは破棄できる（contracts/00002）。
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return;
+      const message = parsed as Incoming;
       if (isRequest(message)) {
         void this.handleRequest(message);
-      } else if (isNotif(message)) {
-        this.onNotif?.(message);
+      } else if (isNotification(message)) {
+        this.onNotification?.(message);
       } else if (isResponse(message)) {
         const key = JSON.stringify(message.id);
         const entry = this.pending.get(key);
@@ -52,18 +57,20 @@ export class Conn {
       }
     });
     socket.onClose(() => {
+      this.closed = true;
       for (const entry of this.pending.values())
-        entry.reject(new Error("conn closed"));
+        entry.reject(new Error("connection closed"));
       this.pending.clear();
       this.onClose?.();
     });
   }
 
-  static attach(socket: Socket): Conn {
-    return new Conn(socket);
+  static attach(socket: Socket): Connection {
+    return new Connection(socket);
   }
 
   close(): void {
+    this.closed = true;
     this.socket.close();
   }
 
@@ -72,17 +79,26 @@ export class Conn {
   }
 
   /** request を送り、responseを待つ。 */
-  request(method: string, params?: unknown): Promise<Incoming> {
+  request(method: string, params?: unknown, timeoutMs?: number): Promise<Incoming> {
+    if (this.closed) return Promise.reject(new Error("connection closed"));
     const id = this.nextId();
     return new Promise((resolve, reject) => {
-      this.pending.set(JSON.stringify(id), { resolve, reject });
+      const key = JSON.stringify(id);
+      const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
+        this.pending.delete(key);
+        reject(new Error("request timed out"));
+      }, timeoutMs);
+      this.pending.set(key, {
+        resolve: (message) => { clearTimeout(timer); resolve(message); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
+      });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
   }
 
   /** 受け取ったrequestへのresponseを送る。 */
-  respond(id: unknown, result: { result?: unknown; error?: RpcError }): void {
-    this.send({ jsonrpc: "2.0", id, result: result.result, error: result.error });
+  respond(id: unknown, response: { result?: unknown; error?: RpcError }): void {
+    this.send({ jsonrpc: "2.0", id, result: response.result, error: response.error });
   }
 
   /** notification を送る。 */
@@ -111,6 +127,7 @@ export class Conn {
   }
 
   private send(value: object): void {
+	if (this.closed) return;
 	try {
 		this.socket.send(JSON.stringify(value));
 	} catch {

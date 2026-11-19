@@ -7,11 +7,11 @@ import { currentLink } from "./link.js";
 import { METHOD_CALL, METHOD_CALL_CLOSE } from "./wire.js";
 
 export function startCommandLoop(): void {
-  const rl = readline.createInterface({ input: process.stdin });
-  rl.setPrompt("agent> ");
-  rl.prompt();
-  rl.on("line", (line) => {
-    void handle(line.trim()).finally(() => rl.prompt());
+  const readlineInterface = readline.createInterface({ input: process.stdin });
+  readlineInterface.setPrompt("agent> ");
+  readlineInterface.prompt();
+  readlineInterface.on("line", (line) => {
+    void handle(line.trim()).finally(() => readlineInterface.prompt());
   });
 }
 
@@ -25,7 +25,7 @@ async function handle(line: string): Promise<void> {
         list();
         return;
       case "call":
-        await call(args);
+        await call(line);
         return;
       case "close":
         close(args);
@@ -52,29 +52,25 @@ function list(): void {
   for (const tool of tools) console.log(JSON.stringify(tool));
 }
 
-async function call(args: string[]): Promise<void> {
-  const [linkId, toolPath, ...rest] = args;
-  if (!linkId || !toolPath) {
+async function call(line: string): Promise<void> {
+  const parts = /^call\s+(\S+)\s+(\S+)(?:\s+(.+))?$/.exec(line);
+  if (!parts) {
     console.log("usage: call <linkId> <toolPath> [json]");
     return;
   }
-  const conn = currentLink()?.conn;
-  if (!conn) {
+  const transport = currentLink()?.transport;
+  if (!transport) {
     console.log("no transport yet");
     return;
   }
-  const input = rest.length > 0 ? JSON.parse(rest.join(" ")) : undefined;
+  const [, linkId, toolPath, rawInput] = parts;
+  const input = rawInput === undefined ? undefined : JSON.parse(rawInput);
   // Coreのforward timeoutは120s。応答が来ないcallでREPLが
   // 永久に詰まらないよう、それを上回るtimeoutを設ける。
-  const response = await Promise.race([
-    conn.request(METHOD_CALL, {
-      target: { linkId, toolPath },
-      input,
-    }),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("call timed out")), 130_000),
-    ),
-  ]);
+  const response = await transport.request(METHOD_CALL, {
+    target: { linkId, toolPath },
+    input,
+  }, 130_000);
   // async受理後もnotificationはcallId相関で届き続ける（link.tsで表示）。
   // responseのJSON-RPC idがこの呼び出しのcallId（closeはこれを指定する）。
   // idは文字列なのでquoteせずそのまま出す — JSON.stringifyすると
@@ -86,11 +82,11 @@ async function call(args: string[]): Promise<void> {
 
 function close(args: string[]): void {
   const [callId] = args;
-  const conn = currentLink()?.conn;
-  if (!callId || !conn) {
+  const transport = currentLink()?.transport;
+  if (!callId || !transport) {
     console.log("usage: close <callId>");
     return;
   }
-  conn.notify(METHOD_CALL_CLOSE, { callId });
+  transport.notify(METHOD_CALL_CLOSE, { callId });
   console.log(`[close] sent for ${callId}`);
 }
