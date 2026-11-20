@@ -2,7 +2,7 @@
 type: design
 title: Link Registry の設計（MVP）
 description: Coreが保持するLink状態の構造・寿命・失効処理。
-status: draft
+status: deprecated
 relations:
   requirement:
     - '00002'
@@ -11,6 +11,8 @@ relations:
   decision:
     - '00004'
 ---
+
+> 旧v1のLink Registry設計。新方式の登録寿命は未決定。[v2草案](../contracts/00004-plugin-client-protocol.md)で候補を示す。
 
 ## 対応するrequirement
 

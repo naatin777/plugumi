@@ -2,11 +2,13 @@
 type: design
 title: Tool登録・Discovery・呼び出しルーティング
 description: linkId と toolPath によるTool識別、Node対応、Discoveryから厳格呼び出しまでの設計。呼び出し系は後続contractで具体化する。
-status: draft
+status: deprecated
 relations:
   requirement:
     - '00002'
 ---
+
+> 旧v1のTool登録・配送設計。Toolの選択を呼び出し元に残す要件は維持する。新方式の通信は[v2草案](../contracts/00004-plugin-client-protocol.md)を参照する。
 
 ## 対応するrequirement
 

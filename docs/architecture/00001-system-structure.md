@@ -2,8 +2,10 @@
 type: architecture
 title: システム全体構成（Core / Plugin / Node / UI Host）
 description: Plugumiの構成要素・責務・接続関係。旧実装から引き継ぐ設計思想と、新たに決める部分を分けて記述する。
-status: draft
+status: deprecated
 ---
+
+> 旧Core起点の構成。新しい設計には[システム構成 00002](00002-plugin-client-system.md)を参照する。
 
 ## 対象範囲
 

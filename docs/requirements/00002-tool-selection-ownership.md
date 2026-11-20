@@ -14,23 +14,23 @@ relations:
 
 この境界は旧実装からの継続でもある: CoreはAI非依存であり、Toolのフィルタリングは呼び出し元の責務とされてきた。
 
-呼び出し元はPluginとは限らない。Pluginでないcaller（TUI・UI Host・スクリプト）はcaller channel経由で同じcaller側プロトコルを喋る（`docs/decisions/00011`、`docs/contracts/00003`）。本requirementの「呼び出し元」はその両方を含む。
+呼び出し元にはPluginと、TUI・UI Host・スクリプトなどの非Pluginクライアントを含む。接続や識別子のwire表現はプロトコル版の契約で定義する。
 
 ## 要求事項
 
 - CoreはToolの登録・検索・呼び出しの転送・実行時の権限検証を担う MUST
 - Coreは候補を勝手に選択してはならない MUST NOT
-- Tool呼び出しは `linkId + toolPath` による厳格指定でなければならない MUST
+- Tool呼び出しは、対象Core内のPlugin登録と `toolPath` の両方を厳格に指定しなければならない MUST
 - 呼び出し元は、候補のフィルタリング・Default管理・選択View・単発/複数実行の判断を自前で行う MUST
 - Discoveryは Tag + Input Schema + Output Schema で検索できなければならない MUST
-- Discovery結果は基本的に `linkId + toolPath` のみとする SHOULD（Node等の追加情報は必要時に別APIから取得）
+- Discovery結果の宛先参照は基本的にPlugin登録と `toolPath` の組とする SHOULD（Node等の追加情報は必要時に別APIから取得）
 
 ## 受入基準
 
 ```text
 Tool Discovery（Tag + Input/Output Schema）
     ↓
-候補一覧（linkId + toolPath）
+候補一覧（Plugin登録と toolPath）
     ↓
 呼び出し元がフィルタリング・選択
     ↓

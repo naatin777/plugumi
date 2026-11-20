@@ -2,7 +2,7 @@
 type: decision
 title: MVPにおける接続・登録・管理面の境界
 description: 実装可能な最小Coreに向けた決定。接続方向・起動形態・linkId寿命・管理面・リポジトリ構成。
-status: draft
+status: deprecated
 relations:
   architecture:
     - '00001'
@@ -11,6 +11,8 @@ relations:
   design:
     - '00001'
 ---
+
+> [Decision 00012](00012-plugin-initiated-connections.md)が置き換えた旧方式の決定。以下は履歴として残す。
 
 ## コンテキスト
 

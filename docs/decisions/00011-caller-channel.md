@@ -2,7 +2,7 @@
 type: decision
 title: "caller channel: Coreがcaller向けWS endpointを持ち、非Plugin callerは同じcaller側プロトコルを喋る"
 description: TUI・UI Host・スクリプト等のPluginでない呼び出し元がToolを呼ぶため、Coreが GET /v1/call のWS endpointを持つ。callerはLinkを持たず、connの寿命=接続の寿命。
-status: draft
+status: deprecated
 relations:
   contract:
     - '00001'
@@ -13,6 +13,8 @@ relations:
     - '00001'
 ---
 
+> [Decision 00012](00012-plugin-initiated-connections.md)が置き換えた旧方式の決定。以下は履歴として残す。
+
 ## コンテキスト
 
 `docs/contracts/00003` は呼び出し元→Core→対象Pluginのcaller側プロトコルを規定済みで、routerの `Route.Caller` はconn抽象でありPlugin transportに限定されない。しかしcaller側の**接続経路**が未定義で、Pluginでないcaller（人間向けTUI・将来のUI Host・スクリプト）がToolを呼ぶ術がなかった。
@@ -21,7 +23,7 @@ TUIをPluginとして実装する案もあったが、TUIはPluginではない�
 
 ## 決定
 
-1. **Coreがcaller向けWS endpoint `GET /v1/call` を持つ**。upgrade成功後は `docs/contracts/00003` のcaller側をそのまま喋る（`tools.call` request・response・`tools.call.output`/`result`受信・`tools.call.close`送信）
+1. **Coreがcaller向けWS endpoint `GET /v1/call` を持つ**。upgrade成功後は `docs/contracts/00003` のcaller側をそのまま喋る（`tools.call` request・response・`tools.call.chunk`/`result`受信・`tools.call.close`送信）
 2. **caller connはLinkに紐付かない**。Link・linkId・catalog・pingの対象外で、connの寿命=接続の寿命。router上では `Route.Caller` がconn抽象なのでPlugin callerと同じroute modelに乗る
 3. **caller channel上を流れるのも `tools.call` 系のみ**（Plugin transportと同じ制約）。`tools.call`以外のrequestはJSON-RPC `-32601`
 4. **caller切断時はrouterがrouteを掃除し、進行中callへ `tools.call.close` をtargetへ転送する**（Plugin caller切断と同じ扱い）

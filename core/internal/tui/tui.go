@@ -1,3 +1,5 @@
+// Model本体。画面遷移ではなく3ペイン（panes.go）＋detailModeの
+// 中身差し替えで状態を表す。call画面もdetailペイン内モード。
 package tui
 
 import (
@@ -8,131 +10,111 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 
+	"github.com/naatin777/plugumi/core/internal/coreinstances"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-// screen はTUIの表示面。dashboardが一覧、callがTool呼び出し、
-// addPluginがEndpoint登録、logsがcoreログ閲覧。
-type screen int
-
-const (
-	screenDashboard screen = iota
-	screenCall
-	screenAddPlugin
-	screenLogs
-)
-
-// callState はcall画面のフェーズ。
-// input=JSON入力中、active=call実行中（受理〜終端待ち）、
-// finished=終端（結果・エラー）まで到達。
+// callState は入力、接続準備、呼び出し、取消後の結果待ちを区別する。
 type callState int
 
 const (
 	callInput callState = iota
+	callPreparing
 	callActive
+	callClosing
 	callFinished
-)
-
-var (
-	styleHeader   = lipgloss.NewStyle().Bold(true)
-	styleDim      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	styleError    = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
-	styleOK       = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	styleWarn     = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-	stylePanel    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
-	styleSelected = lipgloss.NewStyle().Reverse(true)
 )
 
 // Model はplugumi tuiのTUI状態。
 type Model struct {
-	client  *Client
-	coreURL string
-	screen  screen
-	width   int
-	height  int
+	width      int
+	height     int
+	focus      pane
+	detailMode detailMode
 
-	// dashboard
-	plugins    []wire.RegisteredPlugin
-	pluginSel  int
-	tools      []wire.ListedTool
-	toolSel    int
-	panel      int               // 0=plugins, 1=tools
-	pluginByID map[string]string // linkId → pluginId（tools行の表示用）
+	// cores pane
+	actions           Actions
+	cores             []coreinstances.Instance
+	coreSelection     int
+	coresLoading      bool
+	coresError        error
+	coreActionPending bool
+	confirmCore       coreinstances.Instance
+	confirmVerb       string // "Stop" | "Restart"
 
-	// plugins panelでd押下後の確認待ち。endpointを保持し、
-	// 確認までに一覧がrefreshされても対象がずれないようにする
-	confirmRemoveEndpoint string
+	// plugins pane（catalog ∪ 実行中registry。Coreとは独立のライフサイクル）
+	pluginRows           []pluginRow
+	pluginSelection      int
+	localPluginsLoading  bool
+	localPluginsError    error
+	addingLaunchCommand  bool
+	addInput             textinput.Model
+	pendingPluginRefresh bool
+	// `l`で開いたlogの全面表示。Core・Pluginどちらのlogでも入る。
+	logView *logView
 
-	// call screen
-	callTool       *wire.ListedTool
+	// detail pane（選択したCoreの登録・Tool・ログ）
+	coreView
+
+	// callモード
+	callTool       *wire.ToolDeclaration
 	callTicket     *CallTicket
 	callID         string
 	callGeneration int // requestCallごとに+1。古いticketMsgを弾く世代番号
 	callState      callState
-	closeSent      bool
 	callLines      []string
 	pendingTarget  wire.CallTarget
 	pendingInput   json.RawMessage
-	input          textarea.Model
-	callOutput     viewport.Model
+	inputArea      textarea.Model
+	callChunks     viewport.Model
 
-	// add plugin screen
-	addInput textinput.Model
-
-	// logs（LogBufferをポーリングして写す。channel配信だと
-	// 満杯drop・配信隙間でログが欠落するため）
-	logBuf *LogBuffer
-	logs   []string
+	// mouseヒットテスト。View()が構築し、次のMouseMsgが参照する。
+	hits        map[pane]paneHits
+	lastClick   locatedTarget
+	lastClickAt time.Time
 
 	statusMsg string
-	events    <-chan Event
 }
 
-// New はTUIのModelを組み立てる。coreのログはlogBufをポーリングして
-// ログ画面へ反映する（tickと画面遷移時にsyncLogs）。
-func New(client *Client, coreURL string, logBuf *LogBuffer) *Model {
-	input := textarea.New()
-	input.SetHeight(5)
-	input.Prompt = ""
+func New(actions Actions) *Model {
+	inputArea := textarea.New()
+	inputArea.SetHeight(5)
+	inputArea.Prompt = ""
+	// detailペインは狭いので行番号gutterを切る
+	inputArea.ShowLineNumbers = false
 
 	addInput := textinput.New()
-	addInput.Placeholder = "http://127.0.0.1:9001"
+	addInput.Placeholder = "name <command>"
 	addInput.CharLimit = 256
 
-	m := &Model{
-		client:     client,
-		coreURL:    coreURL,
-		input:      input,
-		addInput:   addInput,
-		callOutput: viewport.New(10, 3),
-		events:     client.Events(),
-		logBuf:     logBuf,
+	return &Model{
+		focus:           paneCores,
+		inputArea:       inputArea,
+		addInput:        addInput,
+		callChunks:      viewport.New(viewport.WithWidth(10), viewport.WithHeight(3)),
+		actions:         actions,
+		coreSelection:   -1,
+		pluginSelection: -1,
+		hits:            map[pane]paneHits{},
 	}
-	m.syncLogs()
-	return m
+}
+
+func (m *Model) Disconnect() {
+	if m.client != nil {
+		m.client.disconnect()
+	}
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(
-		refreshCmd(m.client),
-		waitEventCmd(m.events),
-		tickCmd(),
-	)
+	return tea.Batch(m.refreshCores(), m.refreshPlugins(), tickCmd())
 }
 
 // ---- msgs ----
-
-type dashboardMsg struct {
-	plugins []wire.RegisteredPlugin
-	tools   []wire.ListedTool
-	err     error
-}
 
 type ticketMsg struct {
 	ticket     *CallTicket
@@ -141,40 +123,35 @@ type ticketMsg struct {
 }
 
 type callDoneMsg struct {
+	client  *Client
 	callID  string
 	outcome CallOutcome
 	result  json.RawMessage
-	rpcErr  *wire.Error
+	rpcErr  *wire.RpcError
 	err     error
 }
 
-type eventMsg struct{ event Event }
+type callCloseSentMsg struct {
+	ticket *CallTicket
+	err    error
+}
 
-type setStatusMsg struct{ text string }
+type eventMsg struct {
+	client *Client
+	event  Event
+}
+
+type registryChangeMsg struct{ client *Client }
+
+type setStatusMsg struct {
+	client  *Client
+	text    string
+	refresh bool
+}
 
 type tickMsg struct{}
 
 // ---- cmds ----
-
-func refreshCmd(client *Client) tea.Cmd {
-	return func() tea.Msg {
-		plugins, perr := client.ListPlugins()
-		tools, terr := client.ListTools()
-		if perr != nil || terr != nil {
-			return dashboardMsg{err: firstErr(perr, terr)}
-		}
-		return dashboardMsg{plugins: plugins, tools: tools}
-	}
-}
-
-func firstErr(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func ticketCmd(client *Client, generation int) tea.Cmd {
 	return func() tea.Msg {
@@ -185,42 +162,50 @@ func ticketCmd(client *Client, generation int) tea.Cmd {
 	}
 }
 
-func callCmd(client *Client, ticket *CallTicket, linkID, toolPath string, input json.RawMessage, kind string) tea.Cmd {
+func callCmd(client *Client, ticket *CallTicket, params wire.CallParams, kind string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 130*time.Second)
 		defer cancel()
-		outcome, result, rpcErr, err := client.Call(ctx, ticket, linkID, toolPath, input, kind)
+		outcome, result, rpcErr, err := client.Call(ctx, ticket, params, kind)
 		return callDoneMsg{
-			callID: CallIDString(ticket), outcome: outcome,
+			client: client, callID: ticket.CallID(), outcome: outcome,
 			result: result, rpcErr: rpcErr, err: err,
 		}
 	}
 }
 
-func addPluginCmd(client *Client, endpoint string) tea.Cmd {
+func closeCallCmd(client *Client, ticket *CallTicket) tea.Cmd {
 	return func() tea.Msg {
-		if err := client.AddPlugin(endpoint); err != nil {
-			return setStatusMsg{text: styleError.Render("add failed: " + err.Error())}
-		}
-		return setStatusMsg{text: styleOK.Render("endpoint registered: " + endpoint)}
+		return callCloseSentMsg{ticket: ticket, err: client.Close(ticket)}
 	}
 }
 
-func removePluginCmd(client *Client, endpoint string) tea.Cmd {
+func removePluginCmd(client *Client, registrationID string) tea.Cmd {
 	return func() tea.Msg {
-		if err := client.RemovePlugin(endpoint); err != nil {
-			return setStatusMsg{text: styleError.Render("remove failed: " + err.Error())}
+		if err := client.RemovePlugin(registrationID); err != nil {
+			return setStatusMsg{client: client, text: styleError.Render("registration removal failed: " + err.Error())}
 		}
-		return setStatusMsg{text: styleOK.Render("endpoint removed: " + endpoint)}
+		return setStatusMsg{client: client, text: styleOK.Render("Removed " + registrationID), refresh: true}
 	}
 }
 
-func waitEventCmd(ch <-chan Event) tea.Cmd {
+func waitEventCmd(client *Client) tea.Cmd {
 	return func() tea.Msg {
 		select {
-		case event := <-ch:
-			return eventMsg{event: event}
-		case <-time.After(24 * time.Hour):
+		case event := <-client.events:
+			return eventMsg{client: client, event: event}
+		case <-client.ctx.Done():
+			return nil
+		}
+	}
+}
+
+func waitRegistryChangeCmd(client *Client) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case <-client.registryChanges:
+			return registryChangeMsg{client: client}
+		case <-client.ctx.Done():
 			return nil
 		}
 	}
@@ -239,31 +224,51 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize()
 		return m, nil
 
-	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC {
-			m.closeActiveCall()
-			// ticket待ち中の終了でも、遅れて届くticketMsgが
-			// callを起動しないようcloseSentを立てておく
-			m.closeSent = true
+	case tea.KeyPressMsg:
+		if msg.String() == "ctrl+c" {
+			// 終了時は切断に任せる。Coreが実行中の呼び出しにcloseを転送する。
 			return m, tea.Quit
 		}
 		return m.updateKey(msg)
 
-	case dashboardMsg:
-		if msg.err != nil {
-			m.statusMsg = styleError.Render("refresh failed: " + msg.err.Error())
+	case tea.MouseClickMsg:
+		return m, m.onMouseClick(msg)
+
+	case tea.MouseWheelMsg:
+		return m, m.onMouseWheel(msg)
+
+	case tea.MouseMotionMsg:
+		return m, m.onMouseMotion(msg)
+
+	case coreViewMsg:
+		if msg.client != m.client {
 			return m, nil
 		}
-		m.plugins = msg.plugins
-		m.tools = msg.tools
-		m.rebuildPluginIndex()
-		m.clampSelections()
+		m.registryRefreshPending = false
+		m.updateCoreView(msg)
+		if m.registryRefreshAgain {
+			m.registryRefreshAgain = false
+			return m, m.refreshCoreView()
+		}
+		return m, nil
+
+	case registryChangeMsg:
+		if msg.client == m.client {
+			return m, tea.Batch(m.refreshCoreView(), waitRegistryChangeCmd(msg.client))
+		}
+		return m, nil
+
+	case pluginListMsg:
+		m.updatePluginList(msg)
+		return m, nil
+
+	case logTailMsg:
+		m.updateLogTail(msg)
 		return m, nil
 
 	case ticketMsg:
-		// 世代が古い・画面を離脱済み・close済みならcall自体を送らない。
-		// 送ってしまうと画面外で購読callが走り続ける。
-		if msg.generation != m.callGeneration || m.screen != screenCall || m.closeSent {
+		// 準備を離れた後に、遅れて届いた結果で呼び出しを始めない。
+		if msg.generation != m.callGeneration || m.detailMode != detailCall || m.callState != callPreparing {
 			return m, nil
 		}
 		if msg.err != nil {
@@ -271,88 +276,174 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.callState = callFinished
 			return m, nil
 		}
-		// id確定済みなので、以後のoutput/result通知をcallIDで照合できる。
+		// id確定済みなので、以後のchunk/result通知をcallIDで照合できる。
 		m.callTicket = msg.ticket
-		m.callID = CallIDString(msg.ticket)
+		m.callID = msg.ticket.CallID()
 		m.callState = callActive
-		return m, callCmd(m.client, msg.ticket,
-			m.pendingTarget.LinkID, m.pendingTarget.ToolPath, m.pendingInput, m.callTool.Kind)
+		m.appendCallLine("→ calling " + m.callTool.ToolPath)
+		return m, callCmd(m.client, msg.ticket, wire.CallParams{
+			Target: m.pendingTarget,
+			Input:  m.pendingInput,
+		}, m.callTool.Kind)
 
 	case callDoneMsg:
 		// 前のcallの遅れ応答を新しいcallへ混ぜない
-		if msg.callID != m.callID {
+		if msg.client != m.client || msg.callID != m.callID {
 			return m, nil
 		}
 		m.onCallDone(msg)
 		return m, nil
 
-	case eventMsg:
-		m.onEvent(msg.event)
-		// events channelを読み続けるために再度待つ
-		return m, waitEventCmd(m.events)
-
-	case setStatusMsg:
-		m.statusMsg = msg.text
+	case callCloseSentMsg:
+		if m.detailMode != detailCall || m.callState != callClosing || msg.ticket != m.callTicket {
+			return m, nil
+		}
+		if msg.err != nil {
+			m.callState = callActive
+			m.statusMsg = styleError.Render("close failed: " + msg.err.Error())
+		} else {
+			m.statusMsg = "close sent — waiting for result; esc again to leave"
+		}
 		return m, nil
 
-	case tickMsg:
-		m.syncLogs()
-		return m, tea.Batch(refreshCmd(m.client), tickCmd())
-	}
-	return m, nil
-}
-
-func (m *Model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.screen {
-	case screenDashboard:
-		return m.updateDashboardKey(msg)
-	case screenCall:
-		return m.updateCallKey(msg)
-	case screenAddPlugin:
-		return m.updateAddKey(msg)
-	case screenLogs:
-		if msg.String() == "esc" || msg.String() == "q" {
-			m.screen = screenDashboard
+	case eventMsg:
+		if msg.client != m.client {
+			return m, nil
 		}
+		m.onEvent(msg.event)
+		// events channelを読み続けるために再度待つ
+		return m, waitEventCmd(m.client)
+
+	case setStatusMsg:
+		if msg.client == m.client {
+			m.statusMsg = msg.text
+			if msg.refresh {
+				return m, m.refreshCoreView()
+			}
+		}
+		return m, nil
+
+	case coreListMsg:
+		m.updateCoreList(msg)
+		return m, nil
+
+	case coreActionMsg:
+		return m, m.updateCoreAction(msg)
+
+	case pluginActionMsg:
+		if msg.err != nil {
+			m.statusMsg = styleError.Render(msg.err.Error())
+		} else {
+			m.statusMsg = ""
+		}
+		return m, m.refreshPlugins()
+
+	case tickMsg:
+		var refresh tea.Cmd
+		if m.loadError != nil {
+			refresh = m.refreshCoreView()
+		}
+		return m, tea.Batch(refresh, m.refreshCores(), m.refreshPlugins(), m.readCoreLog(), tickCmd())
 	}
 	return m, nil
 }
 
-func (m *Model) updateDashboardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// モーダル系はグローバルキーより先に食わせる
+	if m.confirmCore.ID != "" {
+		return m, m.confirmCoreKey(msg)
+	}
+	if m.confirmRemoveRegistrationID != "" {
+		return m, m.confirmRemoveRegistrationKey(msg)
+	}
+	if m.addingLaunchCommand {
+		return m.updateAddLaunchCommandKey(msg)
+	}
+	if m.detailMode == detailCall {
+		return m.updateCallKey(msg)
+	}
+
 	switch msg.String() {
+	case "tab":
+		m.cycleFocus(1)
+		return m, nil
+	case "shift+tab":
+		m.cycleFocus(-1)
+		return m, nil
+	case "1":
+		m.focusPane(paneCores)
+		return m, nil
+	case "2":
+		m.focusPane(panePlugins)
+		return m, nil
+	case "3":
+		m.focusPane(paneDetail)
+		return m, nil
+	case "esc":
+		if m.logView != nil {
+			m.logView = nil
+			return m, nil
+		}
+		if m.detailMode == detailHelp {
+			m.detailMode = detailBrowse
+			return m, nil
+		}
+		if m.focus != paneCores {
+			m.focusPane(paneCores)
+			return m, nil
+		}
+	case "?":
+		if m.detailMode == detailHelp {
+			m.detailMode = detailBrowse
+		} else {
+			m.detailMode = detailHelp
+		}
+		return m, nil
+	case "r":
+		return m, tea.Batch(m.refreshCores(), m.refreshPlugins(), m.refreshCoreView(), m.readCoreLog())
 	case "q":
 		return m, tea.Quit
-	case "tab", "right", "left":
-		m.panel = 1 - m.panel
-	case "up", "k":
-		m.moveSel(-1)
-	case "down", "j":
-		m.moveSel(1)
-	case "pgup":
-		m.moveSel(-10)
-	case "pgdown":
-		m.moveSel(10)
-	case "enter", "c":
-		if m.panel == 1 && m.toolSel >= 0 && m.toolSel < len(m.tools) {
-			return m.openCallScreen(&m.tools[m.toolSel])
-		}
-	case "a":
-		m.screen = screenAddPlugin
-		m.addInput.SetValue("")
-		m.addInput.Focus()
-		return m, textinput.Blink
-	case "d":
-		return m.requestRemovePlugin()
-	case "l":
-		m.syncLogs()
-		m.screen = screenLogs
-	case "r":
-		return m, refreshCmd(m.client)
 	}
+
+	var cmd tea.Cmd
+	switch m.focus {
+	case paneCores:
+		_, cmd = m.updateCoresPaneKey(msg)
+	case panePlugins:
+		_, cmd = m.updatePluginsPaneKey(msg)
+	case paneDetail:
+		_, cmd = m.updateDetailKey(msg)
+	}
+	// catalog登録・解除後は一覧を取り直す。ペイン側のhandlerから
+	// cmdを返せない経路（追加入力のenterなど）用にフラグで受ける。
+	if m.pendingPluginRefresh {
+		m.pendingPluginRefresh = false
+		return m, tea.Batch(cmd, m.refreshPlugins())
+	}
+	return m, cmd
+}
+
+// ---- callモード ----
+
+func (m *Model) openCall(row detailRow) (tea.Model, tea.Cmd) {
+	// Snapshotの更新後も、呼び出しは選択時点の宛先を使う。
+	toolCopy := *row.tool
+	m.callTool = &toolCopy
+	m.pendingTarget = row.identity()
+	m.callState = callInput
+	m.callID = ""
+	m.callTicket = nil
+	m.callLines = nil
+	m.statusMsg = ""
+	m.inputArea.SetValue("")
+	m.inputArea.Focus()
+	m.detailMode = detailCall
+	m.focus = paneDetail
+	m.resize()
 	return m, nil
 }
 
-func (m *Model) updateCallKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) updateCallKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.callState == callInput {
 		// esc・ctrl+sはtextareaへ渡す前に処理する
 		// （textareaのキーバインドと二重解釈しないため）。
@@ -360,128 +451,34 @@ func (m *Model) updateCallKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+s":
 			return m.requestCall()
 		case "esc":
-			m.screen = screenDashboard
-			m.input.Blur()
+			m.detailMode = detailBrowse
+			m.inputArea.Blur()
 			return m, nil
 		}
 		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
+		m.inputArea, cmd = m.inputArea.Update(msg)
 		return m, cmd
 	}
 	switch msg.String() {
 	case "pgup":
-		m.callOutput.HalfPageUp()
+		m.callChunks.HalfPageUp()
 		return m, nil
 	case "pgdown":
-		m.callOutput.HalfPageDown()
+		m.callChunks.HalfPageDown()
 		return m, nil
 	case "esc":
-		if m.callState == callActive && !m.closeSent {
-			// まずcloseを送り、結果が来るか再度escするまで待つ
-			m.closeActiveCall()
-			m.closeSent = true
-			m.statusMsg = "close sent — esc again to leave"
-		} else {
-			m.closeActiveCall()
-			m.screen = screenDashboard
-			m.input.Blur()
+		if m.callState == callActive {
+			m.callState = callClosing
+			m.statusMsg = "sending close — esc again to leave"
+			return m, closeCallCmd(m.client, m.callTicket)
 		}
+		m.callID = ""
+		m.callTicket = nil
+		m.callState = callFinished
+		m.statusMsg = ""
+		m.detailMode = detailBrowse
+		m.inputArea.Blur()
 	}
-	return m, nil
-}
-
-func (m *Model) updateAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		m.screen = screenDashboard
-		m.addInput.Blur()
-		return m, nil
-	case "enter":
-		endpoint := strings.TrimSpace(m.addInput.Value())
-		m.addInput.Blur()
-		m.screen = screenDashboard
-		if endpoint == "" {
-			return m, nil
-		}
-		return m, tea.Batch(addPluginCmd(m.client, endpoint), refreshCmd(m.client))
-	}
-	var cmd tea.Cmd
-	m.addInput, cmd = m.addInput.Update(msg)
-	return m, cmd
-}
-
-// ---- dashboard helpers ----
-
-func (m *Model) moveSel(delta int) {
-	n := len(m.tools)
-	sel := &m.toolSel
-	if m.panel == 0 {
-		n = len(m.plugins)
-		sel = &m.pluginSel
-	}
-	if n == 0 {
-		return
-	}
-	*sel += delta
-	if *sel < 0 {
-		*sel = 0
-	}
-	if *sel >= n {
-		*sel = n - 1
-	}
-}
-
-func (m *Model) clampSelections() {
-	if m.pluginSel >= len(m.plugins) {
-		m.pluginSel = max(0, len(m.plugins)-1)
-	}
-	if m.toolSel >= len(m.tools) {
-		m.toolSel = max(0, len(m.tools)-1)
-	}
-}
-
-func (m *Model) rebuildPluginIndex() {
-	m.pluginByID = map[string]string{}
-	for _, p := range m.plugins {
-		if p.LinkID != "" {
-			m.pluginByID[p.LinkID] = p.PluginID
-		}
-	}
-}
-
-func (m *Model) requestRemovePlugin() (tea.Model, tea.Cmd) {
-	// panelを行き来しても誤爆しないよう、両分岐でplugins panelを要求する
-	if m.panel != 0 || len(m.plugins) == 0 {
-		m.confirmRemoveEndpoint = ""
-		return m, nil
-	}
-	if m.confirmRemoveEndpoint != "" {
-		endpoint := m.confirmRemoveEndpoint
-		m.confirmRemoveEndpoint = ""
-		return m, tea.Batch(removePluginCmd(m.client, endpoint), refreshCmd(m.client))
-	}
-	if m.pluginSel >= 0 && m.pluginSel < len(m.plugins) {
-		m.confirmRemoveEndpoint = m.plugins[m.pluginSel].Endpoint
-		m.statusMsg = "d again to confirm remove " + m.confirmRemoveEndpoint
-	}
-	return m, nil
-}
-
-// ---- call screen ----
-
-func (m *Model) openCallScreen(tool *wire.ListedTool) (tea.Model, tea.Cmd) {
-	// tools一覧はrefreshで差し替わるため、選択時点の値をコピーして保持する
-	toolCopy := *tool
-	m.callTool = &toolCopy
-	m.callState = callInput
-	m.callID = ""
-	m.callTicket = nil
-	m.closeSent = false
-	m.callLines = nil
-	m.input.SetValue("")
-	m.input.Focus()
-	m.screen = screenCall
-	m.resize()
 	return m, nil
 }
 
@@ -491,25 +488,30 @@ func (m *Model) requestCall() (tea.Model, tea.Cmd) {
 	if m.callTool == nil {
 		return m, nil
 	}
-	raw := strings.TrimSpace(m.input.Value())
+	raw := strings.TrimSpace(m.inputArea.Value())
 	if raw != "" && !json.Valid([]byte(raw)) {
 		m.statusMsg = styleError.Render("invalid JSON input")
 		return m, nil
 	}
-	m.pendingTarget = wire.CallTarget{LinkID: m.callTool.LinkID, ToolPath: m.callTool.ToolPath}
 	if raw == "" {
 		m.pendingInput = nil
 	} else {
 		m.pendingInput = json.RawMessage(raw)
 	}
-	m.input.Blur()
+	m.inputArea.Blur()
+	m.statusMsg = ""
 	m.callGeneration++
-	m.callState = callActive // ticket待ち。callIDはticketMsgで確定
-	m.appendCallLine("→ calling " + m.callTool.ToolPath)
+	m.callState = callPreparing
 	return m, ticketCmd(m.client, m.callGeneration)
 }
 
 func (m *Model) onCallDone(msg callDoneMsg) {
+	if m.callState == callFinished {
+		return
+	}
+	if m.callState == callClosing && msg.outcome != CallAsyncAccepted {
+		m.statusMsg = ""
+	}
 	switch {
 	case msg.err != nil:
 		m.appendCallLine(styleError.Render("call failed: " + msg.err.Error()))
@@ -517,11 +519,11 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 	case msg.rpcErr != nil:
 		m.appendCallLine(styleError.Render(fmt.Sprintf("error %d: %s", msg.rpcErr.Code, msg.rpcErr.Message)))
 		m.callState = callFinished
-	case msg.outcome == CallAsync:
+	case msg.outcome == CallAsyncAccepted:
 		// response経路とnotification経路は独立なので、result通知が
 		// callDoneMsgより先に処理されることがある。その場合は
 		// 終端が既に表示済みなのでaccepted行は出さない。
-		if m.callState == callActive {
+		if m.callState == callActive || m.callState == callClosing {
 			m.appendCallLine(styleOK.Render("accepted — waiting for output/result"))
 		}
 	case msg.outcome == CallSyncDone:
@@ -532,22 +534,25 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 }
 
 func (m *Model) onEvent(event Event) {
-	if event.Kind == "conn-closed" {
+	if event.Kind == EventConnClosed {
 		m.statusMsg = styleWarn.Render("call channel disconnected — will reconnect on next call")
-		if m.screen == screenCall && m.callState == callActive {
+		if m.detailMode == detailCall && (m.callState == callActive || m.callState == callClosing) {
 			m.appendCallLine(styleError.Render("connection lost"))
 			m.callState = callFinished
 		}
 		return
 	}
-	if m.screen != screenCall || event.CallID != m.callID || m.callID == "" {
+	if m.detailMode != detailCall || event.CallID != m.callID || m.callID == "" {
 		return
 	}
 	switch event.Kind {
-	case "output":
+	case EventOutput:
 		// 途中出力は高頻度なので1行compactで流す
 		m.appendCallLine("out " + compactJSON(event.Payload))
-	case "result":
+	case EventResult:
+		if m.callState == callClosing {
+			m.statusMsg = ""
+		}
 		if event.Err != nil {
 			m.appendCallLine(styleError.Render(fmt.Sprintf("error %d: %s", event.Err.Code, event.Err.Message)))
 		} else {
@@ -556,16 +561,6 @@ func (m *Model) onEvent(event Event) {
 		}
 		m.callState = callFinished
 	}
-}
-
-func (m *Model) closeActiveCall() {
-	if m.callState == callActive {
-		m.client.Close(m.callTicket)
-	}
-	m.callID = ""
-	m.callTicket = nil
-	m.callState = callFinished
-	m.closeSent = false
 }
 
 func (m *Model) appendCallLine(line string) {
@@ -577,206 +572,30 @@ func (m *Model) appendCallLine(line string) {
 }
 
 func (m *Model) refreshViewport() {
-	if m.callOutput.Width == 0 {
+	if m.callChunks.Width() == 0 {
 		return
 	}
-	m.callOutput.SetContent(strings.Join(m.callLines, "\n"))
-	m.callOutput.GotoBottom()
+	m.callChunks.SetContent(strings.Join(m.callLines, "\n"))
+	m.callChunks.GotoBottom()
 }
 
 // ---- resize / layout ----
 
 func (m *Model) resize() {
-	if m.width == 0 {
+	if !m.hasWorkspace() {
 		return
 	}
-	m.input.SetWidth(max(20, m.width-4))
-	m.addInput.Width = max(20, m.width-4)
-	if m.screen == screenCall {
-		m.callOutput.Width = max(10, m.width-4)
-		m.callOutput.Height = max(3, m.height-10)
-		m.input.SetHeight(5)
+	width := m.paneWidth(paneDetail)
+	m.addInput.SetWidth(m.paneWidth(panePlugins) - 3)
+	if m.detailMode == detailCall {
+		height := m.bodyHeight() - 1 // paneヘッダ行を引く
+		inputRows := callInputRows(height)
+		m.inputArea.SetWidth(width)
+		m.inputArea.SetHeight(inputRows)
+		m.callChunks.SetWidth(width)
+		m.callChunks.SetHeight(height - inputRows - 3)
 		m.refreshViewport()
 	}
-}
-
-// ---- View ----
-
-func (m *Model) View() string {
-	if m.width == 0 {
-		return ""
-	}
-	var body string
-	switch m.screen {
-	case screenCall:
-		body = m.viewCall()
-	case screenAddPlugin:
-		body = m.viewAddPlugin()
-	case screenLogs:
-		body = m.viewLogs()
-	default:
-		body = m.viewDashboard()
-	}
-	return body
-}
-
-func (m *Model) viewDashboard() string {
-	panelW := max(20, (m.width-3)/2)
-	// header 1行 + footer 最大2行 + 余白1行を引いた高さ
-	panelH := max(4, m.height-4)
-	// border上下2行 + タイトル行1行を引いた、項目に使える行数
-	innerH := panelH - 3
-
-	// plugin行はendpoint+状態の2行構成なので、表示行数は半分に抑える
-	pluginsView := m.renderPluginList(panelW-4, innerH/2, "Plugins")
-	toolsView := m.renderToolList(panelW-4, innerH, "Tools")
-
-	left := stylePanel.Width(panelW).Height(panelH).Render(pluginsView)
-	right := stylePanel.Width(panelW).Height(panelH).Render(toolsView)
-
-	footer := m.footer("tab switch · enter call · a add · d remove · l logs · r refresh · q quit")
-	return lipgloss.JoinVertical(lipgloss.Left,
-		styleHeader.Render("plugumi — "+m.coreURL),
-		lipgloss.JoinHorizontal(lipgloss.Top, left, right),
-		footer,
-	)
-}
-
-func (m *Model) renderPluginList(w, maxEntries int, title string) string {
-	var b strings.Builder
-	b.WriteString(styleHeader.Render(title))
-	b.WriteString("\n")
-	if len(m.plugins) == 0 {
-		b.WriteString(styleDim.Render("(no plugins)"))
-		return b.String()
-	}
-	for i, p := range m.plugins {
-		if i >= maxEntries {
-			break
-		}
-		status := styleWarn.Render("waiting")
-		if p.LinkID != "" {
-			status = styleOK.Render("connected")
-		}
-		pluginID := p.PluginID
-		if pluginID == "" {
-			pluginID = "-"
-		}
-		line := fmt.Sprintf("%s\n%s %s", p.Endpoint, pluginID, status)
-		line = lipgloss.NewStyle().Width(w).Render(line)
-		if m.panel == 0 && i == m.pluginSel {
-			line = styleSelected.Render(line)
-		}
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-	if m.confirmRemoveEndpoint != "" && m.panel == 0 {
-		b.WriteString(styleError.Render("remove? d=yes"))
-	}
-	return b.String()
-}
-
-func (m *Model) renderToolList(w, maxEntries int, title string) string {
-	var b strings.Builder
-	b.WriteString(styleHeader.Render(title))
-	b.WriteString("\n")
-	if len(m.tools) == 0 {
-		b.WriteString(styleDim.Render("(no tools)"))
-		return b.String()
-	}
-	for i, t := range m.tools {
-		if i >= maxEntries {
-			break
-		}
-		pluginID := m.pluginByID[t.LinkID]
-		kind := t.Kind
-		if kind == "" {
-			kind = "sync"
-		}
-		line := fmt.Sprintf("%s [%s] %s", t.ToolPath, kind, pluginID)
-		line = lipgloss.NewStyle().Width(w).Render(line)
-		if m.panel == 1 && i == m.toolSel {
-			line = styleSelected.Render(line)
-		}
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-	return b.String()
-}
-
-func (m *Model) viewCall() string {
-	tool := m.callTool
-	if tool == nil {
-		return ""
-	}
-	pluginID := m.pluginByID[tool.LinkID]
-	header := fmt.Sprintf("call %s [%s] @ %s", tool.ToolPath, tool.Kind, pluginID)
-
-	var parts []string
-	parts = append(parts, styleHeader.Render(header))
-	if m.callState == callInput {
-		parts = append(parts, styleDim.Render("input JSON (empty = no input) · ctrl+s send · esc back"))
-		parts = append(parts, m.input.View())
-	}
-	parts = append(parts, m.callOutput.View())
-	stateLabel := map[callState]string{
-		callInput:    "editing",
-		callActive:   "running",
-		callFinished: "done",
-	}[m.callState]
-	if m.closeSent {
-		stateLabel += " (close sent)"
-	}
-	parts = append(parts, m.footer(fmt.Sprintf("%s · pgup/dn scroll · esc close/back · ctrl+c quit", stateLabel)))
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
-}
-
-func (m *Model) viewAddPlugin() string {
-	return lipgloss.JoinVertical(lipgloss.Left,
-		styleHeader.Render("add plugin endpoint"),
-		m.addInput.View(),
-		styleDim.Render("enter submit · esc back"),
-	)
-}
-
-func (m *Model) syncLogs() {
-	m.logs = m.logBuf.Tail(500)
-}
-
-func (m *Model) viewLogs() string {
-	h := max(3, m.height-4)
-	start := 0
-	if len(m.logs) > h {
-		start = len(m.logs) - h
-	}
-	lines := make([]string, 0, len(m.logs)-start)
-	for _, line := range m.logs[start:] {
-		lines = append(lines, truncateRunes(line, m.width))
-	}
-	body := strings.Join(lines, "\n")
-	return lipgloss.JoinVertical(lipgloss.Left,
-		styleHeader.Render("core log"),
-		lipgloss.NewStyle().Width(m.width).Height(h).Render(body),
-		styleDim.Render("esc back"),
-	)
-}
-
-func (m *Model) footer(hints string) string {
-	line := styleDim.Render(hints)
-	if m.statusMsg != "" {
-		return lipgloss.JoinVertical(lipgloss.Left, line, m.statusMsg)
-	}
-	return line
-}
-
-// ---- 表示ヘルパー ----
-
-func truncateRunes(s string, width int) string {
-	runes := []rune(s)
-	if len(runes) <= width {
-		return s
-	}
-	return string(runes[:max(0, width-1)]) + "…"
 }
 
 func compactJSON(raw json.RawMessage) string {
@@ -794,20 +613,11 @@ func displayJSON(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return "(empty)"
 	}
-	var v any
-	if err := json.Unmarshal(raw, &v); err != nil {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, raw, "", "  "); err != nil {
 		return string(raw)
 	}
-	switch v.(type) {
-	case map[string]any, []any:
-		var buf strings.Builder
-		enc := json.NewEncoder(&buf)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(v)
-		return strings.TrimRight(buf.String(), "\n")
-	default:
-		return string(raw)
-	}
+	return buf.String()
 }
 
 func indentJSON(raw json.RawMessage) string {

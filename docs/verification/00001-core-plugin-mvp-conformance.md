@@ -2,13 +2,15 @@
 type: verification
 title: Core↔Plugin MVP 適合シナリオ
 description: contracts/00001-00003に適合することを確認するシナリオ群。実装の適合判定はこのシナリオが全て動くことで行う。
-status: draft
+status: deprecated
 relations:
   contract:
     - '00001'
     - '00002'
     - '00003'
 ---
+
+> 置き換え前のCore起点の `/v1` に対する履歴。現行 `/v1` の検証は[Verification 00002](00002-plugin-client-conformance.md)を参照。
 
 ## 対象と範囲
 
@@ -28,7 +30,7 @@ relations:
 | # | 操作 | 期待 |
 |---|---|---|
 | L1-1 | Core起動（plugins[]に未到達endpoint） | 接続の再試行が走る（3秒程度間隔） |
-| L1-2 | Plugin起動 | `POST /v1/link/hello`→`GET /v1/tools`→`GET /v1/transport`→`POST /v1/tools/catalog` が順に成功。Coreログに `link:` `tools:` が出る |
+| L1-2 | Plugin起動 | `POST /v1/link/hello` が200、`GET /v1/tools` が200、`GET /v1/transport` が101、`POST /v1/tools/catalog` が200を順に返す |
 | L1-3 | `POST /v1/plugins/list`（管理REST） | endpoint・`linkId`・`pluginId` が返る |
 | L1-4 | 異常: サポート外version（`/v2/…`）へのrequest | `426 protocol_mismatch`、Link未成立 |
 | L1-5 | 異常: 未知pathへのrequest | `404 unknown_endpoint`、Link未成立 |
@@ -47,6 +49,8 @@ relations:
 | L2-7 | 異常: 未知`toolPath`へcall | `-32601 no such toolPath` |
 | L2-8 | 自己呼び出し（`call <自分のlinkId> <tool>`） | 同一conn上でcaller/target両役が動く |
 | L2-9 | `tools.catalog` の受信 | caller Pluginがcatalog（REST POST）を受け、push内容で `linkId`+`toolPath` を得てcallできる |
+| L2-10 | 同期Toolが途中出力を送る。対象は呼び出し元で途中出力を観測してから最終応答を返す | 呼び出し元は元のcallIdで途中出力を受け取り、その後に最終応答を受け取る |
+| L2-11 | Coreが非同期受理を処理してから、呼び出し元に受理応答を送る前に対象のtransportが切断する | 呼び出し元には `{ "accepted": true }` の応答、続いて元のcallIdを持つ `tools.call.result` の `-32000` が届く |
 
 ### L3. transport = Linkの寿命
 
@@ -68,6 +72,7 @@ relations:
 | L4-6 | 異常: `POST /v1/plugins` 非http(s) URL endpoint | `400 invalid_endpoint` |
 | L4-7 | `POST /v1/plugins/remove` 登録済みendpoint | Link失効・`POST /v1/tools/list`から消滅・再登録で復帰 |
 | L4-8 | 異常: `POST /v1/plugins/remove` 未登録endpoint | `404 unknown_endpoint` |
+| L4-9 | 同じ `core.id` と新しい `linkId` でPluginへ再helloする | 旧transportが切断する。旧 `linkId` へのpingは `404 unknown_link` になり、新 `linkId` で接続できる |
 
 ### L5. セキュリティ境界
 
@@ -129,6 +134,14 @@ PluginでないcallerがToolを呼ぶ経路。`docs/decisions/00011`・`docs/con
 | L6-5 | PASS | caller接続中も `plugins/list`・`tools/list` にcaller由来entryなし（callerはLinkを持たない構造） |
 
 未実施は L3-2・L4-3・L6-3 の3件。いずれも契約違反の懸念ではなく時間・環境・追加検証を要するシナリオ。
+
+追加したシナリオは2026-11-18にmacOS arm64上で確認した。
+
+| # | 結果 | 証拠 |
+|---|---|---|
+| L2-10 | PASS | Coreの `go test -race ./internal/router`。模擬Pluginが最終応答を保留しても、呼び出し元で途中出力を受信できた |
+| L2-11 | PASS | 同テストで受理応答の書き込み直前に対象の切断処理を挟み、呼び出し元のWebSocketで受理応答、`-32000` の終端通知を順に受信した |
+| L4-9 | PASS | StandardとAgentを実プロセスで起動した。同一 `core.id` で再helloすると、旧WebSocketが切断し、旧Linkへのpingは `404 unknown_link`、新Linkのupgradeは成功した |
 
 ## 制限
 

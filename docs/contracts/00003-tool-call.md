@@ -2,7 +2,7 @@
 type: contract
 title: Tool呼び出し（transport + JSON-RPC 2.0）
 description: 呼び出し元 → Core → 対象Plugin のTool呼び出し契約。呼び出し元はPluginとは限らず、非Plugin callerはCoreのcaller channel経由で同じcaller側プロトコルを喋る。sync/asyncの2形態、callId相関、終端・close・購読の扱いを規定する。
-status: draft
+status: deprecated
 relations:
   contract:
     - '00002'
@@ -14,6 +14,8 @@ relations:
     - '00002'
     - '00005'
 ---
+
+> 現行試作が使う旧v1のTool呼び出し契約。新規設計には[v2草案](00004-plugin-client-protocol.md)を参照する。
 
 ## 当事者と範囲
 
@@ -61,8 +63,8 @@ sequenceDiagram
     Caller->>Core: tools.call (id: plugin-1)<br/>{ target: { linkId, toolPath }, input }
     Note over Core: 新しいforward id (core-1)を発行
     Core->>Target: tools.call (id: core-1)<br/>{ toolPath, input }
-    Target-->>Core: tools.call.output notification<br/>{ callId: "core-1", payload }
-    Core-->>Caller: tools.call.output notification<br/>{ callId: "plugin-1", payload }
+    Target-->>Core: tools.call.chunk notification<br/>{ callId: "core-1", payload }
+    Core-->>Caller: tools.call.chunk notification<br/>{ callId: "plugin-1", payload }
     Target-->>Core: tools.call response (id: core-1)
     Core-->>Caller: tools.call response (id: plugin-1)
 ```
@@ -120,13 +122,13 @@ async toolは受理を `{ accepted: true }` のresultで返す。**受理のresp
 
 responseの解釈は宣言 `kind` に従う。`kind: "sync"` のtoolがresultとして `{ accepted: true }` を返してもそれは単なる結果値であり終端である — callerがshapeだけでasync受理と誤認すると、終端済みcallを通知待ちと取り違える。逆に `kind: "async"` で `{ accepted: true }` を伴わないresultが返った場合は契約違反であり、callerは防御的に終端として扱ってよい。
 
-### `tools.call.output` notification（対象 → 呼び出し元、中継）
+### `tools.call.chunk` notification（対象 → 呼び出し元、中継）
 
 途中出力。0〜N回届く。
 
 ```jsonc
 { "jsonrpc": "2.0",
-  "method": "tools.call.output",
+  "method": "tools.call.chunk",
   "params": { "callId": "plugin-2", "payload": { "seq": 3, "line": "…" } } }
 ```
 
@@ -163,7 +165,7 @@ async呼び出しの終端。resultまたはerrorの一方を持つ。
 - Coreはcaller側callIdをforward idに書き換えて対象へ届ける
 - 対象はcallを停止し、`tools.call.result` で終端を返してよい（result/errorの内容はtool自由）
 - すでに終端済み・未知のcallIdへのcloseは無視してよい
-- 方向を間違えたnotification（caller側からの `tools.call.output`/`tools.call.result`、対象側からの `tools.call.close`）はCoreが中継・配送しない。1つのconnがcaller兼targetを兼ねる場合でも、roleごとのid空間で区別する
+- 方向を間違えたnotification（caller側からの `tools.call.chunk`/`tools.call.result`、対象側からの `tools.call.close`）はCoreが中継・配送しない。1つのconnがcaller兼targetを兼ねる場合でも、roleごとのid空間で区別する
 
 ## 呼び出しの流れ
 
@@ -171,7 +173,7 @@ async呼び出しの終端。resultまたはerrorの一方を持つ。
 
 ```
 caller → Core → target:  tools.call request { target: { linkId, toolPath }, input }
-target → Core → caller:  tools.call.output  notification { callId, payload }*   // 途中出力（あってもよい）
+target → Core → caller:  tools.call.chunk  notification { callId, payload }*   // 途中出力（あってもよい）
 target → Core → caller:  tools.call response                                   // 最終resultまたはerror
 ```
 
@@ -182,10 +184,10 @@ target → Core → caller:  tools.call response                                
 ```mermaid
 stateDiagram-v2
     [*] --> accepted: tools.call受理 {accepted:true}
-    accepted --> streaming: tools.call.output* (0〜N回)
-    streaming --> streaming: output継続
+    accepted --> streaming: tools.call.chunk* (0〜N回)
+    streaming --> streaming: chunk継続
     streaming --> completed: tools.call.result (終端)
-    accepted --> completed: outputを挟まず終端も可
+    accepted --> completed: chunkを挟まず終端も可
     accepted --> closed: tools.call.close (呼び出し元が閉じる)
     streaming --> closed: tools.call.close
     closed --> [*]
@@ -243,6 +245,6 @@ stateDiagram-v2
 
 - `tools.call.status` のような呼び出し状態のpull問合せを別methodとして持つか（通知だけで足りるか）
 - `close` と `cancel`（実行中断要求）を区別するか。現契約では `close` 一本
-- 途中出力payloadの形（`tools.call.output` の中身・型分類）
-- 購読callの途中出力の型・命名（`tools.call.output` との共用か専用化か）
+- 途中出力payloadの形（`tools.call.chunk` の中身・型分類）
+- 購読callの途中出力の型・命名（`tools.call.chunk` との共用か専用化か）
 - timeout・実行時間上限をCoreが持つか（MVPは転送timeout 120秒のみ）

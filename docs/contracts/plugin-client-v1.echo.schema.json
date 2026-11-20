@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Echo RPC type-generation fixture",
+  "description": "Use #/$defs/EchoInput and #/$defs/EchoOutput as the method schemas. This file is not an RPC method registry.",
+  "$defs": {
+    "EchoInput": {
+      "title": "EchoInput",
+      "type": "object",
+      "properties": { "text": { "type": "string" } },
+      "required": ["text"]
+    },
+    "EchoOutput": {
+      "title": "EchoOutput",
+      "type": "object",
+      "properties": { "echo": { "type": "string" } },
+      "required": ["echo"]
+    }
+  }
+}

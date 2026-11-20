@@ -2,7 +2,7 @@
 type: contract
 title: Core↔Plugin 接続契約
 description: CoreがPluginへHTTP経由で接続し、Linkを確立してTool宣言を受け取るまでの契約。接続手順・Linkの状態遷移・ID・時間定数を規定する。
-status: draft
+status: deprecated
 relations:
   architecture:
     - '00001'
@@ -12,6 +12,8 @@ relations:
     - '00010'
     - '00011'
 ---
+
+> 現行試作が使う旧v1の接続契約。新規設計には[v2草案](00004-plugin-client-protocol.md)を参照する。
 
 ## 当事者と範囲
 
@@ -27,6 +29,37 @@ Core と Plugin の双方が実装する通信境界。**共通規格（登録�
 - **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host・TUI向けAPI**（後述）。PluginがこのURLを知ることはない
 - CoreとPluginは別マシンにあり得る。到達性は利用者がネットワーク構成で確保する（`docs/decisions/00010`）
 - TLS・認証は未解決の別設計事項。MVPはloopback・認証トークン無し
+
+### ローカルPluginの待ち受け
+
+- ローカルで起動するMVPのPluginは、待ち受けを指定しなければ `http://127.0.0.1:0` を使う。ポート `0` はOSによる空きポートの割り当てを意味する
+- `--port <port>` で `127.0.0.1` の待受ポートを指定できる。ホストも指定する場合は、代わりに `--listen <url>` を使う
+- 指定したポートで待ち受けられなければ起動に失敗し、別のポートには切り替えない
+- Pluginは待ち受け開始後に、実際のポートを含むURLを表示する。Coreに登録するEndpointには、`0` ではなく実際のポートを指定する
+
+### ローカルPluginの自己登録
+
+ローカルで起動するPluginは、待ち受け開始後に自分をローカルregistryへ登録する。CoreやTUIはこの記録とstatus endpointで、起動中のPluginを発見する。登録はCore↔Plugin契約ではなくOSユーザー単位の管理機構で、特定のCoreとは無関係。Pluginの起動・停止がCoreに従属しない方針は変わらない。
+
+- 記録は `<ユーザーのキャッシュディレクトリ>/plugumi/plugins/` に書く（`os.UserCacheDir()` と同じ場所）
+- ファイル名はEndpoint URLの英数以外を `-` に置き換えて `.json` を付ける。同じURLは同じファイル名になり、再起動で上書きされる
+- 読みかけの不完全ファイルを見せないよう、別名で書いてからrenameする
+- 記録の形: `{ "name": "standard", "url": "http://127.0.0.1:50309", "id": "plugin-…", "version": "0.1.0", "pid": 12345, "log": "<path>" }`
+  - `id` はプロセスごとの不透明な識別子（Coreのinstance id相当）
+  - `log` はPlugin自身のログファイルのパス（省略可）。1プロセスが複数Coreに繋がり得るため、ログはCoreではなくPluginの記録に持つ。パスはPluginが自分で決めて `<キャッシュディレクトリ>/plugumi/logs/` に書く
+- status endpoint: `GET /_plugumi/plugin`（HEADも応答する）が `204` と `Plugumi-Plugin-Instance` ヘッダ（=`id`）を返す。Linkを作らずに生存と同一性だけを返す
+- 一覧に出すのは、記録がありstatus endpointが同じ `id` で応答するものだけ。異常終了で残った記録はprobeで除外される
+- 正常終了では自分の記録を消す
+
+### Plugin catalog（ユーザー登録の定義）
+
+実行中registryとは別に、ユーザーが登録した定義の一覧を `<ユーザーのconfigディレクトリ>/plugumi/plugins.json` に持つ（`os.UserConfigDir()`。ユーザー入力なのでcacheには置かない）。
+
+- 定義の形: `{ "name": "standard", "endpoint": "http://…", "command": "…" }`。`endpoint`と`command`の少なくとも一方が必須
+  - `command` は `plugumi plugins start <name>` やTUIからplugumiがdetached起動するシェルコマンド
+  - `endpoint` は外部起動済みPluginへの接続先
+- catalogは「まだ起動していなくても存在を知っているPlugin」の一覧。実行中かどうかはregistry側のprobeで判断し、名前で突き合わせる
+- 操作: `plugumi plugins`（catalog∪実行中の一覧）、`plugumi plugins add|rm|start <name>`
 
 ## Plugin REST operations
 
@@ -79,12 +112,22 @@ PluginのHTTP serverが受け付けるoperation。全てCore→Plugin方向。
 
 ```jsonc
 // request
-{ "tools": [ { "linkId": "link-…", "toolPath": "echo", "kind": "sync" }, … ] }
+{
+  "linkId": "link-<受信側PluginのUUIDv4>",
+  "tools": [ { "linkId": "link-<Tool提供側PluginのUUIDv4>", "toolPath": "echo", "kind": "sync" } ]
+}
 // response 200
 { }
 ```
 
-- Coreが「現在登録中の全Tool」を全置換でpushする。Tool呼び出しの宛先 `linkId` が各要素に付く
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `linkId` | string | はい | catalogを受け取るPluginのLink。Pluginは複数のCoreから受け取ったcatalogをこのIDで区別する |
+| `tools` | array | はい | Coreに現在登録されている全Tool。0件の場合は `[]`。Pluginは指定されたLinkのcatalogを全置換する |
+| `tools[].linkId` | string | はい | 各Toolを提供するPluginのLink。呼び出し時の `target.linkId` として使う |
+
+- `tools` の各要素には `linkId` に加えてTool宣言のフィールドを含める
+- 必須フィールドの欠落・型の不一致は `400 invalid_params`、受信側に存在しないトップレベルの `linkId` は `404 unknown_link` とする
 - 送信契機: Link確立・Link失効・Tool宣言の変化（`GET /v1/tools` の結果が変わったとき）
 
 ### `GET /v1/transport?linkId=`
@@ -164,7 +207,7 @@ sequenceDiagram
     Core->>Plugin: GET /v1/tools
     Plugin-->>Core: { tools: […] }
     Core->>Plugin: GET /v1/transport?linkId= (WS upgrade)
-    Core->>Plugin: POST /v1/tools/catalog { tools } (登録済み全Tool)
+    Core->>Plugin: POST /v1/tools/catalog { linkId, tools } (登録済み全Tool)
     Note over Core,Plugin: Link established
     loop 維持
         Core->>Plugin: POST /v1/link/ping
@@ -201,7 +244,7 @@ UI Host・人間・TUIが使う管理面。PluginはこのAPIを使わない・�
 
 Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼ぶためのWS接続。Linkには紐付かず、connの寿命=接続の寿命。
 
-- upgrade成功後は `docs/contracts/00003` の **caller側** をそのまま喋る: `tools.call` request（`{target:{linkId,toolPath},input}`）を送り、responseと `tools.call.output`/`tools.call.result` notificationを受け取り、`tools.call.close` notificationを送れる
+- upgrade成功後は `docs/contracts/00003` の **caller側** をそのまま喋る: `tools.call` request（`{target:{linkId,toolPath},input}`）を送り、responseと `tools.call.chunk`/`tools.call.result` notificationを受け取り、`tools.call.close` notificationを送れる
 - このWS上を流れるのも `tools.call` 系のみ（Plugin transportと同じ制約）
 - callerが送れるrequestは `tools.call` のみ。他methodはJSON-RPC `-32601`
 - callerはLinkを持たないため `POST /v1/tools/catalog` のpush対象外。一覧が要るcallerは管理REST `POST /v1/tools/list` で取得する

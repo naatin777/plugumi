@@ -5,8 +5,10 @@ description: 実行時隔離を持たず、インストールしたPluginを信�
 status: draft
 relations:
   architecture:
-    - '00001'
+    - '00002'
 ---
+
+> この草案の対象は利用者が実行するPluginコードの採用判断。Coreへの接続許可や、ブラウザ内でPanelコードが持つ権限は、実行コードへの信頼と別に設計する。[Decision 00012](00012-plugin-initiated-connections.md)を参照。
 
 ## コンテキスト
 

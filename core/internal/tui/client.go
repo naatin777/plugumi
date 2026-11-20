@@ -1,16 +1,16 @@
-// Package tui は plugumi tui のTUI。Core管理RESTとcaller channel
-// （GET /v1/call、contracts/00003のcaller側）を使い、Plugin・Toolの
+// Package tui は plugumi tui のTUI。CoreのRegistryと呼び出し専用RPC接続
+// （contracts/00004）を使い、Plugin・Toolの
 // 一覧表示とTool呼び出しを行う。
 package tui
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,26 +21,39 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-// Event はcaller channel経由で届く非同期イベント。TUIのUpdateが
+// EventKind は呼び出し側のWS接続経由で届く非同期イベントの種別。
+type EventKind string
+
+const (
+	EventOutput     EventKind = "output"
+	EventResult     EventKind = "result"
+	EventConnClosed EventKind = "connection-closed"
+)
+
+// Event は呼び出し側のWS接続経由で届く非同期イベント。TUIのUpdateが
 // events channelから拾って画面に反映する。
 type Event struct {
-	Kind    string // "output" | "result" | "conn-closed"
-	CallID  string // json.RawMessageの文字列表現（"\"tui-1\""等）
+	Kind    EventKind // EventOutput | EventResult | EventConnClosed
+	CallID  string    // json.RawMessageの文字列表現（"\"tui-1\""等）
 	Payload json.RawMessage
 	Result  json.RawMessage
-	Err     *wire.Error
+	Err     *wire.RpcError
 }
 
-// Client はCoreの管理RESTとcaller channelへの薄いクライアント。
+// Client はCoreの管理RESTと呼び出し側のWSへの薄いクライアント。
 // WS接続は最初のcall時にlazyに張り、以後使い回す。
 type Client struct {
 	baseURL string
 	wsURL   string
 	http    *http.Client
+	token   string
+	ctx     context.Context
+	cancel  context.CancelFunc
 
-	mu     sync.Mutex
-	conn   *rpc.Conn
-	events chan Event
+	mu              sync.Mutex
+	connection      *rpc.Connection
+	events          chan Event
+	registryChanges chan struct{}
 }
 
 func NewClient(coreURL string) (*Client, error) {
@@ -52,50 +65,49 @@ func NewClient(coreURL string) (*Client, error) {
 	if parsed.Scheme == "https" {
 		wsScheme = "wss"
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Client{
-		baseURL: strings.TrimRight(coreURL, "/"),
-		wsURL:   fmt.Sprintf("%s://%s/v1/call", wsScheme, parsed.Host),
-		http:    &http.Client{Timeout: 10 * time.Second},
-		events:  make(chan Event, 256),
+		baseURL:         strings.TrimRight(coreURL, "/"),
+		wsURL:           fmt.Sprintf("%s://%s/v1/rpc", wsScheme, parsed.Host),
+		http:            &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		token:           os.Getenv("PLUGUMI_TOKEN"),
+		ctx:             ctx,
+		cancel:          cancel,
+		events:          make(chan Event, 256),
+		registryChanges: make(chan struct{}, 1),
 	}, nil
 }
 
-// Events はcaller channelの非同期イベントを返す。
-func (c *Client) Events() <-chan Event { return c.events }
+func (c *Client) disconnect() {
+	c.cancel()
+	c.http.CloseIdleConnections()
+}
 
-// ---- 管理REST ----
+// ---- Registry REST ----
 
-func (c *Client) post(path string, req, res any) error {
-	var body io.Reader
-	if req != nil {
-		payload, err := json.Marshal(req)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(payload)
-	}
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+path, body)
+func (c *Client) request(method, path string, res any) error {
+	httpReq, err := http.NewRequestWithContext(c.ctx, method, c.baseURL+path, nil)
 	if err != nil {
 		return err
 	}
-	if req != nil {
-		httpReq.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.token)
 	}
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		var apiErr struct {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiError struct {
 			Error struct {
 				Code    string `json:"code"`
 				Message string `json:"message"`
 			} `json:"error"`
 		}
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-		if apiErr.Error.Message != "" {
-			return fmt.Errorf("%s", apiErr.Error.Message)
+		_ = json.NewDecoder(resp.Body).Decode(&apiError)
+		if apiError.Error.Message != "" {
+			return fmt.Errorf("%s", apiError.Error.Message)
 		}
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
@@ -105,65 +117,123 @@ func (c *Client) post(path string, req, res any) error {
 	return nil
 }
 
-func (c *Client) ListPlugins() ([]wire.RegisteredPlugin, error) {
-	var result wire.PluginsListResult
-	if err := c.post("/v1/plugins/list", struct{}{}, &result); err != nil {
-		return nil, err
-	}
-	return result.Plugins, nil
+func (c *Client) Registry() (wire.RegistrySnapshot, error) {
+	var result wire.RegistrySnapshot
+	err := c.request(http.MethodGet, "/v1/registry", &result)
+	return result, err
 }
 
-func (c *Client) ListTools() ([]wire.ListedTool, error) {
-	var result wire.ToolsListResult
-	if err := c.post("/v1/tools/list", struct{}{}, &result); err != nil {
-		return nil, err
-	}
-	return result.Tools, nil
+func (c *Client) RemovePlugin(registrationID string) error {
+	return c.request(http.MethodDelete, "/v1/registrations/"+url.PathEscape(registrationID), nil)
 }
 
-func (c *Client) AddPlugin(endpoint string) error {
-	return c.post("/v1/plugins", wire.PluginsAddRequest{Endpoint: endpoint}, nil)
-}
-
-func (c *Client) RemovePlugin(endpoint string) error {
-	return c.post("/v1/plugins/remove", wire.PluginsRemoveRequest{Endpoint: endpoint}, nil)
-}
-
-// ---- caller channel（GET /v1/call） ----
-
-// ensureConn はcaller channelのWS接続を確立する。切断済みなら張り直す。
-func (c *Client) ensureConn(ctx context.Context) (*rpc.Conn, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.conn != nil {
+func (c *Client) watchRegistry() {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 10 * time.Second
+	client := &http.Client{Transport: transport, CheckRedirect: c.http.CheckRedirect}
+	defer client.CloseIdleConnections()
+	for c.ctx.Err() == nil {
+		c.readRegistryEvents(client)
 		select {
-		case <-c.conn.Done():
-			c.conn = nil
-		default:
-			return c.conn, nil
+		case <-c.ctx.Done():
+			return
+		case <-time.After(time.Second):
 		}
 	}
-	raw, _, err := websocket.Dial(ctx, c.wsURL, nil)
+}
+
+func (c *Client) readRegistryEvents(client *http.Client) {
+	request, err := http.NewRequestWithContext(c.ctx, http.MethodGet, c.baseURL+"/v1/events", nil)
+	if err != nil {
+		return
+	}
+	if c.token != "" {
+		request.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "text/event-stream" {
+		return
+	}
+	scanner := bufio.NewScanner(response.Body)
+	var changed bool
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "event:") {
+			changed = true
+		} else if line == "" && changed {
+			changed = false
+			c.signalRegistryChange()
+		}
+	}
+	if err := scanner.Err(); err != nil && c.ctx.Err() == nil {
+		// 読み取りに失敗したら、SSEの再接続を待たずにSnapshotで状態を確認する。
+		c.signalRegistryChange()
+	}
+}
+
+func (c *Client) signalRegistryChange() {
+	// 通知は差分ではないため、未処理の通知はまとめてよい。
+	select {
+	case c.registryChanges <- struct{}{}:
+	default:
+	}
+}
+
+// ---- 呼び出し専用のWS（GET /v1/rpc） ----
+
+// ensureConnection は呼び出し側のWS接続を確立する。切断済みなら張り直す。
+func (c *Client) ensureConnection(ctx context.Context) (*rpc.Connection, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.ctx.Err(); err != nil {
+		return nil, err
+	}
+	if c.connection != nil {
+		select {
+		case <-c.connection.Done():
+			c.connection = nil
+		default:
+			return c.connection, nil
+		}
+	}
+	dialContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(c.ctx, cancel)
+	defer stop()
+	headers := make(http.Header)
+	if c.token != "" {
+		headers.Set("Authorization", "Bearer "+c.token)
+	}
+	raw, _, err := websocket.Dial(dialContext, c.wsURL, &websocket.DialOptions{
+		HTTPClient: c.http,
+		HTTPHeader: headers,
+	})
 	if err != nil {
 		return nil, err
 	}
-	conn := rpc.NewConn(raw, "tui-")
-	conn.OnNotif = func(message *wire.Incoming) {
-		c.dispatchNotif(message)
+	connection := rpc.NewConnection(raw, "tui-")
+	connection.OnNotification = func(message *wire.Incoming) {
+		c.dispatchNotification(message)
 	}
 	// caller側にrequestが来ることはない（Core→callerはnotificationのみ）。
-	conn.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.Error) {
-		return nil, &wire.Error{Code: -32601, Message: "method not found"}
+	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
+		return nil, &wire.RpcError{Code: -32601, Message: "method not found"}
 	}
-	c.conn = conn
+	c.connection = connection
 	go func() {
-		_ = conn.Run(context.Background())
+		defer raw.CloseNow()
+		_ = connection.Run(c.ctx)
 		select {
-		case c.events <- Event{Kind: "conn-closed"}:
+		case c.events <- Event{Kind: EventConnClosed}:
+		case <-c.ctx.Done():
 		case <-time.After(2 * time.Second): // 満杯でもgoroutineを残さない
 		}
 	}()
-	return conn, nil
+	return connection, nil
 }
 
 // CallOutcome はtools.call requestのresponseを分類したもの。
@@ -171,44 +241,40 @@ func (c *Client) ensureConn(ctx context.Context) (*rpc.Conn, error) {
 type CallOutcome int
 
 const (
-	CallSyncDone CallOutcome = iota // responseが終端（sync結果 or 受理失敗error）
-	CallAsync                       // {accepted:true}。以後output/result通知が届く
-	CallFailed                      // request自体の失敗（JSON-RPC error response）
+	CallSyncDone      CallOutcome = iota // responseが終端（sync結果 or 受理失敗error）
+	CallAsyncAccepted                    // {accepted:true}。以後output/result通知が届く
+	CallFailed                           // request自体の失敗（JSON-RPC error response）
 )
 
-// CallTicket は1回のcallに必要なidとconnの組。
+// CallTicket は1回のcallに必要なidとconnectionの組。
 // idをcall送信「前」に確定させるのは、responseより先に届くoutput通知を
 // callIDで照合できるようにするため（client側の処理順は保証されない）。
-// connを保持するのは、切断→再接続でconnが差し替わってもidの発行元と
+// connectionを保持するのは、切断→再接続でconnectionが差し替わってもidの発行元と
 // 送信先がずれないようにするため。
 type CallTicket struct {
-	conn *rpc.Conn
-	ID   json.RawMessage
+	connection *rpc.Connection
+	ID         json.RawMessage
 }
 
-// NewCallTicket はcaller channelの接続を確保し、次のcallに使うticketを発行する。
+// NewCallTicket は呼び出し側のWS接続を確保し、次のcallに使うticketを発行する。
 func (c *Client) NewCallTicket(ctx context.Context) (*CallTicket, error) {
-	conn, err := c.ensureConn(ctx)
+	connection, err := c.ensureConnection(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
-	return &CallTicket{conn: conn, ID: conn.NextID()}, nil
+	return &CallTicket{connection: connection, ID: connection.NextID()}, nil
 }
 
-// CallIDString はticketのidをnotification相関・表示用の文字列で返す。
-func CallIDString(ticket *CallTicket) string { return string(ticket.ID) }
+// CallID はticketのidをnotification相関・表示用の文字列で返す。
+func (t *CallTicket) CallID() string { return string(t.ID) }
 
 // Call はticketのidでtools.callを送り、responseまで待つ。
-// async受理ならacceptedが返った時点で戻り、output/resultはEvents()経由。
+// async受理ならacceptedが返った時点で戻り、output/resultはevents経由。
 // kindは宣言ラベル（contract 00003）。宣言がsyncのtoolが{accepted:true}を
 // resultとして返しても終端として扱う — shapeだけで判定すると
 // 終端済みのcallをasync受理と誤認して通知待ちになる。
-func (c *Client) Call(ctx context.Context, ticket *CallTicket, linkID, toolPath string, input json.RawMessage, kind string) (CallOutcome, json.RawMessage, *wire.Error, error) {
-	params := wire.CallParams{
-		Target: wire.CallTarget{LinkID: linkID, ToolPath: toolPath},
-		Input:  input,
-	}
-	res, err := ticket.conn.RequestWithID(ctx, ticket.ID, wire.MethodCall, params)
+func (c *Client) Call(ctx context.Context, ticket *CallTicket, params wire.CallParams, kind string) (CallOutcome, json.RawMessage, *wire.RpcError, error) {
+	res, err := ticket.connection.RequestWithID(ctx, ticket.ID, wire.MethodCall, params)
 	if err != nil {
 		return CallFailed, nil, nil, err
 	}
@@ -221,25 +287,25 @@ func (c *Client) Call(ctx context.Context, ticket *CallTicket, linkID, toolPath 
 		}
 		_ = json.Unmarshal(res.Result, &accepted)
 		if accepted.Accepted {
-			return CallAsync, res.Result, nil, nil
+			return CallAsyncAccepted, res.Result, nil, nil
 		}
 	}
 	return CallSyncDone, res.Result, nil, nil
 }
 
 // Close は実行中callへtools.call.closeを送る。
-func (c *Client) Close(ticket *CallTicket) {
-	if ticket == nil || ticket.conn == nil {
-		return
+func (c *Client) Close(ticket *CallTicket) error {
+	if ticket == nil || ticket.connection == nil {
+		return fmt.Errorf("no connection for this call")
 	}
-	_ = ticket.conn.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: ticket.ID})
+	return ticket.connection.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: ticket.ID})
 }
 
-func (c *Client) dispatchNotif(message *wire.Incoming) {
-	event := Event{Kind: "output"}
+func (c *Client) dispatchNotification(message *wire.Incoming) {
+	event := Event{Kind: EventOutput}
 	switch message.Method {
-	case wire.MethodCallOutput:
-		var params wire.CallOutputParams
+	case wire.MethodCallChunk:
+		var params wire.CallChunkParams
 		if err := wire.Unmarshal(message.Params, &params); err != nil {
 			return
 		}
@@ -250,7 +316,7 @@ func (c *Client) dispatchNotif(message *wire.Incoming) {
 		if err := wire.Unmarshal(message.Params, &params); err != nil {
 			return
 		}
-		event.Kind = "result"
+		event.Kind = EventResult
 		event.CallID = string(params.CallID)
 		event.Result = params.Result
 		event.Err = params.Error
@@ -259,6 +325,7 @@ func (c *Client) dispatchNotif(message *wire.Incoming) {
 	}
 	select {
 	case c.events <- event:
-	case <-time.After(2 * time.Second): // UIが詰まってもconnを詰まらせない
+	case <-c.ctx.Done():
+	case <-time.After(2 * time.Second): // UIが詰まってもconnectionを詰まらせない
 	}
 }
