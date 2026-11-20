@@ -1,25 +1,13 @@
-// Core↔Plugin契約のwire型（docs/contracts/00001-00003）。
-// 共通規格はCore→Plugin REST、tools.call系のみtransport（WS + JSON-RPC 2.0）。
-// PluginはCoreのURLを知らない。
+// Plugin起点のRESTとWS RPCのwire型（docs/contracts/00004）。
 
 import { z } from "zod";
 
-// ---- Link確立（Core→Plugin REST。contracts/00001） ----
-
-// POST /v1/link/hello のbody。
-export const helloRequestSchema = z.object({
-  linkId: z.string().min(1),
-  core: z.object({ id: z.string().min(1), version: z.string().optional() }),
+export const registrationLeaseSchema = z.object({
+  coreId: z.string().min(1),
+  registrationId: z.string().min(1),
+  leaseSeconds: z.number().int().positive(),
+  expiresAt: z.string(),
 });
-
-// POST /v1/link/ping のbody（Core→Pluginの生存確認probe）。
-export const pingRequestSchema = z.object({ linkId: z.string().min(1) });
-
-export interface PluginInfo {
-  id: string;
-  version?: string;
-  name?: string;
-}
 
 const toolDeclarationSchema = z.object({
   toolPath: z.string().min(1),
@@ -31,14 +19,15 @@ const toolDeclarationSchema = z.object({
 });
 export type ToolDeclaration = z.infer<typeof toolDeclarationSchema>;
 
-// catalogの各ToolのlinkIdは呼び出し先を示す。
-const listedToolSchema = toolDeclarationSchema.extend({ linkId: z.string().min(1) });
-export type ListedTool = z.infer<typeof listedToolSchema>;
-
-// POST /v1/tools/catalog のbody。linkIdは宛先Linkの識別
-// （複数CoreからのLinkを区別するため）。
-export const toolsCatalogRequestSchema = pingRequestSchema.extend({
-  tools: z.array(listedToolSchema),
+export type ListedTool = ToolDeclaration & { registrationId: string };
+export const registrySnapshotSchema = z.object({
+  coreId: z.string().min(1),
+  revision: z.string().min(1),
+  registrations: z.array(z.object({
+    registrationId: z.string().min(1),
+    rpcAvailable: z.boolean(),
+    tools: z.array(toolDeclarationSchema),
+  })),
 });
 
 // ---- JSON-RPC 2.0 ----
@@ -66,7 +55,7 @@ export const isResponse = (m: Incoming) => m.method === undefined;
 // transport（WS）上のmethodはtools.call系のみ。
 // 登録・検査系はRESTで流れ、ここには現れない。
 export const METHOD_CALL = "tools.call";
-export const METHOD_CALL_OUTPUT = "tools.call.output";
+export const METHOD_CALL_CHUNK = "tools.call.chunk";
 export const METHOD_CALL_RESULT = "tools.call.result";
 export const METHOD_CALL_CLOSE = "tools.call.close";
 

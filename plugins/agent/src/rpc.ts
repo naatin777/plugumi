@@ -1,15 +1,11 @@
 // JSON-RPC 2.0 over WebSocket の接続層。
 // request/response のid相関と、相手からのrequest・notificationの配送を担う。
-// 同一connection上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
-// （docs/contracts/00003「idの一意性」）。
-//
-// Pluginは接続を開始しない。CoreがupgradeしたWSをattachして使う。
+// Coreへ接続したWSをattachして使う（contracts/00004）。
 
 import { isNotification, isRequest, isResponse } from "./wire.js";
 import type { Incoming, RpcError } from "./wire.js";
 
-// WebSocket実装差を吸収する最小IF。Core側がupgradeした
-// socket（wsパッケージのWebSocket等）をlink.tsがこの形に包んで渡す。
+// WebSocketクライアントをRPC接続に取り付けるための最小IF。
 export interface Socket {
   send(data: string): void;
   close(): void;
@@ -22,7 +18,11 @@ type Pending = {
   reject: (error: Error) => void;
 };
 
+let connectionSequence = 0;
+
 export class Connection {
+  // CLIがCoreを切り替えたり再接続したりしても、取消を元のWSに限る。
+  private readonly requestIdPrefix = `plugin-${++connectionSequence}-`;
   private seq = 0;
   private pending = new Map<string, Pending>();
   private closed = false;
@@ -74,14 +74,14 @@ export class Connection {
     this.socket.close();
   }
 
-  private nextId(): string {
-    return `plugin-${++this.seq}`;
+  ownsRequestId(id: string): boolean {
+    return !this.closed && id.startsWith(this.requestIdPrefix);
   }
 
   /** request を送り、responseを待つ。 */
   request(method: string, params?: unknown, timeoutMs?: number): Promise<Incoming> {
     if (this.closed) return Promise.reject(new Error("connection closed"));
-    const id = this.nextId();
+    const id = `${this.requestIdPrefix}${++this.seq}`;
     return new Promise((resolve, reject) => {
       const key = JSON.stringify(id);
       const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
@@ -102,38 +102,32 @@ export class Connection {
   }
 
   /** notification を送る。 */
-  notify(method: string, params?: unknown): void {
-    this.send({ jsonrpc: "2.0", method, params });
+  notify(method: string, params?: unknown): boolean {
+    return this.send({ jsonrpc: "2.0", method, params });
   }
 
   private async handleRequest(message: Incoming): Promise<void> {
-	try {
-		const response = this.onRequest
-			? await this.onRequest(message)
-			: { error: { code: -32601, message: "method not found" } };
-		this.respond(message.id, response);
-	} catch (error) {
-		// onRequestのrejectをそのままにするとunhandled rejectionになり、
-		// Nodeの既定ではprocessごと落ちる。requestには必ず応答を返す
-		// （contracts/00002。Coreは応答なしを120s timeoutまで待つ）。
-		try {
-			this.respond(message.id, {
-				error: { code: -32603, message: String(error) },
-			});
-		} catch {
-			// socketが既に死んでいる場合。onClose側の後始末に任せる。
-		}
-	}
+    try {
+      const response = this.onRequest
+        ? await this.onRequest(message)
+        : { error: { code: -32601, message: "method not found" } };
+      this.respond(message.id, response);
+    } catch (error) {
+      // 例外を応答に変換し、Coreがタイムアウトまで待つのを防ぐ。
+      this.respond(message.id, {
+        error: { code: -32603, message: String(error) },
+      });
+    }
   }
 
-  private send(value: object): void {
-	if (this.closed) return;
-	try {
-		this.socket.send(JSON.stringify(value));
-	} catch {
-		// 切断済みsocketへのsend失敗はonCloseのpending rejectで
-		// 回収されるため、ここでは握り潰す（send失敗で呼び出し側の
-		// promiseをrejectさせるとrequest()のpendingが残る）。
-	}
+  private send(value: object): boolean {
+    if (this.closed) return false;
+    try {
+      this.socket.send(JSON.stringify(value));
+      return true;
+    } catch {
+      // 保留中のrequestはonCloseでまとめて失敗させる。
+      return false;
+    }
   }
 }
