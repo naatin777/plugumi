@@ -1,26 +1,7 @@
-//! Core↔Plugin契約のwire型（docs/contracts/00001-00003）。
-//! 共通規格はCore→Plugin REST、tools.call系のみtransport（WS + JSON-RPC 2.0）。
-//! PluginはCoreのURLを知らない。
+//! Plugin起点のTool宣言とWS RPCのwire型（docs/contracts/00004）。
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-// ---- Link確立（Core→Plugin REST。contracts/00001） ----
-
-/// POST /v1/link/hello のbody。
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HelloRequest {
-    pub link_id: String,
-    pub core: HelloCore,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct HelloCore {
-    pub id: String,
-    #[allow(dead_code)]
-    pub version: Option<String>,
-}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,37 +11,6 @@ pub struct ToolDeclaration {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tags: Option<Vec<String>>,
-}
-
-/// POST /v1/link/ping のbody（Core→Pluginの生存確認probe）。
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PingRequest {
-    pub link_id: String,
-}
-
-/// POST /v1/tools/catalog のbody。linkIdは宛先Linkの識別
-/// （複数CoreからのLinkを区別するため）。
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ToolsCatalogRequest {
-    pub link_id: String,
-    pub tools: Vec<ListedTool>,
-}
-
-/// tools.catalog・GET /v1/tools の各要素。
-/// linkId がTool呼び出しの宛先になる。
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListedTool {
-    pub link_id: String,
-    pub tool_path: String,
-    #[allow(dead_code)]
-    pub kind: Option<String>,
-    #[allow(dead_code)]
-    pub description: Option<String>,
-    #[allow(dead_code)]
     pub tags: Option<Vec<String>>,
 }
 
@@ -118,7 +68,7 @@ impl Incoming {
 
 // transport（WS）上のmethodはtools.call系のみ。
 pub const METHOD_CALL: &str = "tools.call";
-pub const METHOD_CALL_OUTPUT: &str = "tools.call.output";
+pub const METHOD_CALL_CHUNK: &str = "tools.call.chunk";
 pub const METHOD_CALL_RESULT: &str = "tools.call.result";
 pub const METHOD_CALL_CLOSE: &str = "tools.call.close";
 

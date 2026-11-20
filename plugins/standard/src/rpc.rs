@@ -3,15 +3,15 @@
 //! 同一connection上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
 //! （docs/contracts/00003「idの一意性」）。
 //!
-//! Pluginは接続を開始しない。CoreがupgradeしたWSをattachして使う。
+//! Coreへ接続したWSをattachして使う。
 
-use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot, watch};
+use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::wire::{Incoming, Notification, Response, RpcError};
 
@@ -26,11 +26,12 @@ pub struct Connection {
 }
 
 impl Connection {
-    /// CoreがupgradeしたWSに取り付け、受信pumpを開始する。
+    /// Coreへ接続したWSに取り付け、受信pumpを開始する。
     /// `handler` はrequest/notificationを受け取る（responseは内部で相関処理）。
     /// 返り値のJoinHandleはtransport切断で終了する。
-    pub fn attach<F>(ws: WebSocket, handler: F) -> (Self, tokio::task::JoinHandle<()>)
+    pub fn attach<S, F>(ws: WebSocketStream<S>, handler: F) -> (Self, tokio::task::JoinHandle<()>)
     where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
         F: Fn(Incoming, Connection) + Send + Sync + 'static,
     {
         let (mut sink, mut stream) = ws.split();
@@ -74,8 +75,10 @@ impl Connection {
                     frame = stream.next() => frame,
                 };
                 let Some(frame) = frame else { break };
-                let Ok(Message::Text(data)) = frame else {
-                    continue;
+                let data = match frame {
+                    Ok(Message::Text(data)) => data,
+                    Ok(Message::Close(_)) | Err(_) => break,
+                    _ => continue,
                 };
                 let Ok(message) = serde_json::from_str::<Incoming>(&data) else {
                     continue;

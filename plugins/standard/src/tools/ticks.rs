@@ -19,7 +19,7 @@ pub async fn handle(mut call: ToolCall) {
         tokio::select! {
             _ = ticker.tick() => {
                 seq += 1;
-                call.output(json!({"seq": seq}));
+                call.chunk(json!({"seq": seq}));
                 if let Some(c) = count {
                     if seq >= c {
                         call.result(json!({"ticks": seq}));
@@ -27,7 +27,10 @@ pub async fn handle(mut call: ToolCall) {
                     }
                 }
             }
-            _ = call.closed() => return, // 購読終了
+            _ = call.closed() => {
+                call.result(json!({"ticks": seq, "cancelled": true}));
+                return;
+            }
         }
     }
 }
