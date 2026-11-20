@@ -9,7 +9,7 @@ function fakeCore(port) {
   const sent = [];
   let receive;
   let disconnected;
-  const transport = Connection.attach({
+  const connection = Connection.attach({
     onMessage(listener) { receive = listener; },
     onClose(listener) { disconnected = listener; },
     close() { disconnected(); },
@@ -21,7 +21,7 @@ function fakeCore(port) {
       }
     },
   });
-  return { url: new URL(`http://127.0.0.1:${port}`), transport, sent };
+  return { url: new URL(`http://127.0.0.1:${port}`), connection, sent };
 }
 
 test("close uses the call's original connection, not the selected Core or a replacement connection", async (t) => {
@@ -41,9 +41,9 @@ test("close uses the call's original connection, not the selected Core or a repl
   assert.deepEqual(first.sent[1].params, { callId: firstId });
   assert.equal(second.sent.length, 1, "the selected Core must not receive another Core's cancellation");
 
-  second.transport.close();
+  second.connection.close();
   const replacement = fakeCore(7701);
-  second.transport = replacement.transport;
+  second.connection = replacement.connection;
   input.write("call replacement ticks\n");
   await setImmediate();
   input.write(`close ${secondId}\n`);

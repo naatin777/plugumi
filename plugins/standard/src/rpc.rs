@@ -1,7 +1,7 @@
 //! JSON-RPC 2.0 over WebSocket の接続層。
 //! request/response のid相関と、相手からのrequest・notificationの配送を担う。
 //! 同一connection上で両方向にrequestを飛ばすので、送るidにはprefixを付ける
-//! （docs/contracts/00003「idの一意性」）。
+//! （contracts/00004「id / callId」）。
 //!
 //! Coreへ接続したWSをattachして使う。
 
@@ -28,7 +28,7 @@ pub struct Connection {
 impl Connection {
     /// Coreへ接続したWSに取り付け、受信pumpを開始する。
     /// `handler` はrequest/notificationを受け取る（responseは内部で相関処理）。
-    /// 返り値のJoinHandleはtransport切断で終了する。
+    /// 返り値のJoinHandleはWS接続の切断で終了する。
     pub fn attach<S, F>(ws: WebSocketStream<S>, handler: F) -> (Self, tokio::task::JoinHandle<()>)
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
@@ -105,7 +105,7 @@ impl Connection {
     }
 
     // 送るidにはplugin- prefixを付けて受信idと区別する
-    // （docs/contracts/00003「idの一意性」）。
+    // （contracts/00004「id / callId」）。
     fn next_id(&self) -> Value {
         json!(format!(
             "plugin-{}",

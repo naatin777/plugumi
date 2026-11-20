@@ -1,5 +1,5 @@
 // 最小の呼び出し元コマンドループ。LLMなし・Queueなし。stdinから指示を受けて
-// tools.call / tools.call.close をtransport上で送り、応答と届くnotificationを
+// tools.call / tools.call.close をWS接続上で送り、応答と届くnotificationを
 // stdoutに表示する。Coreを選び、SSEとSnapshotで同期したTool一覧を見る。
 
 import * as readline from "node:readline";
@@ -66,16 +66,16 @@ async function call(client: CoreClient, line: string): Promise<void> {
     console.log("usage: call <registrationId> <toolPath> [json]");
     return;
   }
-  const transport = client.transport;
-  if (!transport) {
-    console.log("no transport yet");
+  const connection = client.connection;
+  if (!connection) {
+    console.log("not connected yet");
     return;
   }
   const [, registrationId, toolPath, rawInput] = parts;
   const input = rawInput === undefined ? undefined : JSON.parse(rawInput);
   // Coreのforward timeoutは120s。応答が来ないcallでREPLが
   // 永久に詰まらないよう、それを上回るtimeoutを設ける。
-  const response = await transport.request(METHOD_CALL, {
+  const response = await connection.request(METHOD_CALL, {
     target: { registrationId, toolPath },
     input,
   }, 130_000);
@@ -91,8 +91,8 @@ function close(clients: CoreClient[], args: string[]): void {
     console.log("usage: close <callId>");
     return;
   }
-  const transport = clients.find((client) => client.transport?.ownsRequestId(callId))?.transport;
-  if (!transport?.notify(METHOD_CALL_CLOSE, { callId })) {
+  const connection = clients.find((client) => client.connection?.ownsRequestId(callId))?.connection;
+  if (!connection?.notify(METHOD_CALL_CLOSE, { callId })) {
     console.log(`[close] no open connection for ${callId}`);
     return;
   }

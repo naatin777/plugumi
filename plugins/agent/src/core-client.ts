@@ -32,7 +32,7 @@ export function coreURL(value: string): URL {
 }
 
 export class CoreClient {
-  transport?: Connection;
+  connection?: Connection;
   catalog: ListedTool[] = [];
   private registrationId?: string;
   private readonly headers: Record<string, string>;
@@ -93,7 +93,7 @@ export class CoreClient {
     await this.request("PUT", `${path}/tools`, requestSignal(), { tools: toolDeclarations() });
 
     const { connection, closed } = await this.connect(lease.registrationId, signal);
-    this.transport = connection;
+    this.connection = connection;
     logDiagnostic(`[agent] connected to ${this.url.origin} (${lease.registrationId})`);
     const subscription = this.watchRegistry(signal);
     const renew = (async () => {
@@ -106,7 +106,7 @@ export class CoreClient {
       await Promise.race([closed, renew]);
     } finally {
       session.abort();
-      this.transport = undefined;
+      this.connection = undefined;
       this.catalog = [];
       await Promise.allSettled([closed, renew, subscription]);
     }

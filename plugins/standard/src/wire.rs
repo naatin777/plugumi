@@ -66,15 +66,15 @@ impl Incoming {
     }
 }
 
-// transport（WS）上のmethodはtools.call系のみ。
+// WS接続上のmethodはtools.call系のみ。
 pub const METHOD_CALL: &str = "tools.call";
 pub const METHOD_CALL_CHUNK: &str = "tools.call.chunk";
 pub const METHOD_CALL_RESULT: &str = "tools.call.result";
 pub const METHOD_CALL_CLOSE: &str = "tools.call.close";
 
-/// Pluginがtransport上で受け取るtools.callのparams。
+/// PluginがWS接続上で受け取るtools.callのparams。
 /// caller→Core間では {target, input} 形だが、Coreが中継する際に
-/// toolPathへ正規化される（docs/contracts/00003）。
+/// toolPathへ正規化される（docs/contracts/00004）。
 /// Go側の wire.ForwardCallParams と同じ形。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

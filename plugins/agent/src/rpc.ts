@@ -40,7 +40,7 @@ export class Connection {
       } catch {
         return;
       }
-      // 契約で分類できないメッセージは破棄できる（contracts/00002）。
+      // 契約で分類できないメッセージは破棄できる（contracts/00004）。
       if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return;
       const message = parsed as Incoming;
       if (isRequest(message)) {

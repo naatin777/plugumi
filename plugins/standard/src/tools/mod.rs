@@ -1,7 +1,7 @@
 //! Tool群の宣言と呼び出し配送。
 //!
 //! 各toolは対応するmoduleの `async fn` として実装する。
-//! `kind`（sync/async）で受理・終端の流れが分かれる（docs/contracts/00003）:
+//! `kind`（sync/async）で受理・終端の流れが分かれる（docs/contracts/00004）:
 //!
 //! - sync: handlerの戻り値が呼び出しのresponseになる
 //! - async: 受理 `{accepted:true}` を返してから実処理し、
@@ -87,7 +87,7 @@ impl ToolCall {
 /// 着信 tools.call を捌く。callIdでclose配送できるよう登録し、
 /// kindに応じて受理・終端を分ける。
 pub fn dispatch(
-    link: SharedCalls,
+    calls: SharedCalls,
     connection: Connection,
     req_id: Value,
     params: ForwardCallParams,
@@ -100,7 +100,8 @@ pub fn dispatch(
         input: params.input,
         close_rx,
     };
-    link.lock()
+    calls
+        .lock()
         .unwrap()
         .call_close_senders
         .insert(req_id.to_string(), close_tx);
@@ -124,7 +125,7 @@ pub fn dispatch(
                         data: None,
                     }),
                 );
-                link.lock().unwrap().call_close_senders.remove(&call_key);
+                calls.lock().unwrap().call_close_senders.remove(&call_key);
             });
         }
 
@@ -137,14 +138,15 @@ pub fn dispatch(
                     "exec" => exec::handle(call).await,
                     _ => ticks::handle(call).await,
                 }
-                link.lock().unwrap().call_close_senders.remove(&call_key);
+                calls.lock().unwrap().call_close_senders.remove(&call_key);
             });
         }
 
         // 未知toolPathではclose sender登録を残さない（close配送対象がないのに
         // mapへ残るとリークする）。
         _ => {
-            link.lock()
+            calls
+                .lock()
                 .unwrap()
                 .call_close_senders
                 .remove(&req_id.to_string());
