@@ -47,6 +47,8 @@ PlugumiではAIがコードを書くことも多いので、AIが生成しやす
 ### 命名
 
 - ドメイン語の切り詰め・略称を名前に使わない。`reg`→`registration`、`rt`→`router`、`sess`→`session`、`fwd`→`forward`、`ep`→`endpoint`、`REPL`→`command loop` のように、読み手が展開を推測せずに済む形にする
-- プロトコル自体の名称（HTTP・WebSocket・JSON-RPC）と、その言語の慣用的な短い変数名（Goの`ctx`・`err`・レシーバ、Rustの`res`、catchの`error`等）は対象外
+- プロトコル自体の名称（HTTP・WebSocket・JSON-RPC）と、その言語の慣用的な短い変数名（Goの`ctx`・`err`・レシーバ、Rustの`res`・channel端の`_rx`/`_tx`、catchの`error`等）は対象外
+- wireフィールド名はJSON契約と一致させ、内部名もwire名に揃える。層をまたいで別名を作らない
+- 3実装（Go core・standard・agent）で確定済みの用語対応は [references/vocabulary.md](references/vocabulary.md) を参照。改名する場合は契約書と全実装を同時に更新する
 
 プロトコル由来の値・形にはコメントで出典を添える（例: `{accepted:true}` は contracts/00003 の受理response）。ファイル冒頭にそのファイルがプロトコルのどの部分を担うか一言添える。

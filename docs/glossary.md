@@ -8,27 +8,51 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ### Core
 
-中央の仲介プロセス（`core/`、Go実装）。Plugin登録・Tool呼び出しのルーティング・Link管理を担い、機能ロジックは持たない。
+中央の仲介プロセス（`core/`、Go実装）。新方式ではHTTPの接続先となり、Plugin登録・通知・RPC配送を担う。個々のアプリケーションの機能ロジックは持たない。
 
 ### Plugin
 
-機能を提供する任意言語のプロセス（`plugins/`）。Plugumi専用でも既存アプリの拡張としても作れる。
+機能を提供する任意言語のソフトウェア。Plugumi専用プロセスでも、既存CLI・アプリの拡張としても作れる。新方式では利用者が指定したCoreへ自ら接続する。
 
 ### UI Host
 
 Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
-Pluginが提供する（web・electron等のPluginがUI Hostを提供する）。表示専用で実行寿命を持たない。
+Web PluginやElectron Pluginが提供する。Tool実行やPluginプロセス自体の寿命を管理しない。
 
 ### Plugin Views
 
 Panel・Embed・Indicator等を表示するための共通インターフェース（仕様）。
-実行環境ではなく、実行・配信はUI Hostの責務。
+実行環境ではなく、実行はUI Hostが担う。アセットの配信主体は構成によって異なる。
 
 ### Panel
 
-UI Host上に表示されるPlugin提供のView。Panel↔Plugin間の通信はPluginの自由で、Plugumiの契約対象外。
+UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはToolと分ける。
+
+### UI Bundle
+
+Panel等を表示するためのビルド成果物。entrypointのほか、JS・CSS・画像・フォント・分割chunkなどの相対パス付きアセットを含む。パッケージ形式は未決定。
 
 ## 接続・実行モデル
+
+### Registration
+
+特定のCoreにおけるPluginインスタンスの論理的な登録。登録の識別子は `registrationId`。物理接続から独立した寿命を持つ（[接続契約](contracts/00004-plugin-client-protocol.md)）。
+
+### Lease
+
+期限内の更新を条件にRegistrationを維持する仕組み。永続登録や通信路そのものとは異なる。
+
+### Revision
+
+Registryの観測時点を表す版。SSE通知とSnapshotの照合に使う。クライアントが連番やCore間での比較を仮定しない。
+
+### Node
+
+Pluginが宣言する「実行環境」の共有識別（ローカル・Docker・リモートPC等）。Coreは意味を解釈しない。
+
+## 旧v1の接続用語
+
+以下のLink、transport、caller channelは、[置き換え前のv1契約](contracts/00001-core-plugin-transport.md)を指す場合の定義。
 
 ### Link
 
@@ -42,15 +66,15 @@ Core発行の一意ID。同一Plugin実装の複数接続（複数Core・複数E
 
 Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。CoreがPluginへ接続を開始し、`tools.call` 系（呼び出し・途中出力・終端・中断）だけがこの1本を流れる。登録・検査系はPlugin RESTで行う。transportの寿命とLinkの寿命は一致する。
 
-### Node
+### caller channel
 
-Pluginが宣言する「実行環境」の共有識別（ローカル・Docker・リモートPC等）。Coreは意味を解釈しない。
+Coreがcaller（Tool呼び出し元）向けに開くWebSocket接続（`GET /v1/call`、`docs/contracts/00001`）。Linkには紐付かず、connの寿命=接続の寿命。Pluginでないcaller（TUI・UI Host・スクリプト）は自身のtransportを持たないため、このchannel上で `docs/contracts/00003` のcaller側プロトコルをそのまま喋る。Transportとは別物。
 
 ## Tool・作業
 
 ### Tool
 
-Pluginが提供する呼び出し可能な機能単位。`linkId + toolPath` で厳格に指定する。
+Pluginが呼び出し元へ公開する機能単位。対象Core内のPlugin登録と `toolPath` で厳格に指定する。Panel専用操作はToolとは別に扱う。
 
 ### toolPath
 
@@ -62,19 +86,19 @@ Toolに設定する検索用ラベル。
 
 ### Discovery
 
-Tag・Schema等でTool候補を検索する仕組み。結果は `linkId + toolPath` が基本。
+Tag・Schema等でTool候補を検索する仕組み。結果は対象Core内のPlugin登録と `toolPath` の組を基本とする。
 
 ### Tool Call（invoke）
 
-Toolの実行呼び出し。呼び出し元（Plugin）→ Core → 対象Plugin と仲介される。wireは `sync`/`async` の2形態（`docs/contracts/00003`）。
+Toolの実行呼び出し。呼び出し元はPluginに限らず、Coreが指定された対象Pluginへ仲介する。wireの形態はプロトコル版の契約で定義する。
 
 ### callId
 
-Tool呼び出しに紐付く全メッセージの相関キー。呼び出しrequestのJSON-RPC idをそのまま使う。追跡が要るときだけ保持するhandle。
+呼び出しに紐付くメッセージの相関キー。識別子の有効範囲はプロトコル版の契約で定義する。永続的な実行IDを意味しない。
 
 ### kind
 
-Tool宣言に付ける形態ラベル（`sync` / `async`）。呼び出し元への期待として宣言側が指定し、wire機構は共通。
+旧v1のTool宣言に付ける形態ラベル（`sync` / `async`）。
 
 ### Queue
 
@@ -82,7 +106,7 @@ Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内
 
 ### Subscribe（購読）
 
-「監視して随時知らせる」使い方。`kind: async` で終端を持たないcallとして表す。閉じるのは呼び出し元のcloseかLink失効。
+変更を継続的に受け取ること。旧v1では長時間の `kind: async` callを指す場合がある。現行契約のRegistry購読はSSEで行う。
 
 ## Specbook・文書
 

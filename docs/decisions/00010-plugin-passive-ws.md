@@ -2,13 +2,15 @@
 type: decision
 title: "Plugin通信: 共通規格はCore→Plugin REST、Tool実行はWS"
 description: PluginはCoreを知らず接続も開始しない。登録・検査系はCore→PluginのREST、Tool呼び出しの流路だけをWS+JSON-RPC 2.0とする決定。
-status: draft
+status: deprecated
 relations:
   contract:
     - '00001'
     - '00002'
     - '00003'
 ---
+
+> [Decision 00012](00012-plugin-initiated-connections.md)が置き換えた旧方式の決定。以下は履歴として残す。
 
 ## コンテキスト
 
@@ -26,7 +28,7 @@ relations:
    - `GET /v1/tools`（PluginのTool宣言のpull）
    - `POST /v1/tools/catalog`（全Tool一覧のpush）
    - `GET /v1/transport?linkId=`（WS upgrade受付）
-3. **WSはTool呼び出しの流路だけ**。`tools.call` と `tools.call.output`/`result`/`close` のみが流れる
+3. **WSはTool呼び出しの流路だけ**。`tools.call` と `tools.call.chunk`/`result`/`close` のみが流れる
 4. **REST + OpenAPIはPlugin側・Core管理面の両方の正本**（Plugin側はcodegen目標、Core側はUI Host・人間用）
 5. **リモート接続を正式な前提にする**。CoreとPluginは別マシンにあり得、Core→Pluginの到達性を確保すればよい。TLS・認証・権限管理は別設計事項（未解決）
 

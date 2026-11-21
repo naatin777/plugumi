@@ -2,7 +2,7 @@
 type: design
 title: Link Registry の設計（MVP）
 description: Coreが保持するLink状態の構造・寿命・失効処理。
-status: draft
+status: deprecated
 relations:
   requirement:
     - '00002'
@@ -11,6 +11,8 @@ relations:
   decision:
     - '00004'
 ---
+
+> 旧v1のLink Registry設計。新方式の登録寿命は[現行契約](../contracts/00004-plugin-client-protocol.md)を参照。
 
 ## 対応するrequirement
 
@@ -49,7 +51,8 @@ Link {
 ## インターフェース
 
 - `POST /v1/link/hello` `GET /v1/tools` `POST /v1/link/ping` `POST /v1/tools/catalog` `GET /v1/transport`（`docs/contracts/00001`）のCore側処理として実装する
-- 標準出力でregistryの一覧を表示する（MVPの可視化）
+- 標準出力または管理TUI（`plugumi tui`）でregistryの一覧を表示する（MVPの可視化）
+- caller channel（`GET /v1/call`）のconnはLinkではないため本registryの対象外（`docs/decisions/00011`）
 
 ## 未解決の問い
 

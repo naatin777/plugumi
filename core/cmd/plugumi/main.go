@@ -1,63 +1,328 @@
-// plugumi core daemon。MVPは serve のみ（フォアグラウンド常駐）。
+// plugumi core。serveは前面起動、startはバックグラウンド起動、tuiはCore管理。
 package main
 
 import (
 	"context"
-	"flag"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/naatin777/plugumi/core/internal/config"
-	"github.com/naatin777/plugumi/core/internal/connector"
-	"github.com/naatin777/plugumi/core/internal/registry"
-	"github.com/naatin777/plugumi/core/internal/router"
+	"github.com/naatin777/plugumi/core/internal/coreinstances"
 	"github.com/naatin777/plugumi/core/internal/server"
 )
 
 func main() {
-	if len(os.Args) < 2 || os.Args[1] != "serve" {
-		log.Fatalf("usage: plugumi serve [-config plugumi.json]")
+	root := &cobra.Command{
+		Use:     "plugumi",
+		Short:   "Plugumi core",
+		Version: "0.1.0",
 	}
-	serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
-	configPath := serveFlags.String("config", "plugumi.json", "config file path")
-	_ = serveFlags.Parse(os.Args[2:])
 
-	settings, err := config.Load(*configPath)
+	var serveConfigPath, startConfigPath, tuiConfigPath string
+	var servePort, startPort string
+	var reportStartup bool
+
+	serveCmd := &cobra.Command{
+		Use:          "serve",
+		Short:        "Run the core daemon in the foreground",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServe(serveConfigPath, servePort, reportStartup)
+		},
+	}
+	serveCmd.Flags().StringVar(&serveConfigPath, "config", "", "config file path (uses plugumi.json if present)")
+	serveCmd.Flags().StringVar(&servePort, "port", "", "override the Core port (0 lets the OS choose)")
+	serveCmd.Flags().BoolVar(&reportStartup, "report-startup", false, "report startup to the parent process")
+	serveCmd.Flags().Lookup("report-startup").Hidden = true
+
+	startCmd := &cobra.Command{
+		Use:          "start",
+		Short:        "Start a Core server in the background",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStart(cmd.OutOrStdout(), startConfigPath, startPort)
+		},
+	}
+	startCmd.Flags().StringVar(&startConfigPath, "config", "", "config file path (uses plugumi.json if present)")
+	startCmd.Flags().StringVar(&startPort, "port", "", "override the Core port (0 lets the OS choose)")
+
+	stopCmd := &cobra.Command{
+		Use:          "stop [core-url]",
+		Short:        "Stop a running local Core server",
+		Args:         cobra.MaximumNArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStop(cmd.Context(), cmd.OutOrStdout(), args)
+		},
+	}
+
+	tuiCmd := &cobra.Command{
+		Use:          "tui",
+		Short:        "List and manage local Core servers",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTUI(tuiConfigPath)
+		},
+	}
+	tuiCmd.Flags().StringVar(&tuiConfigPath, "config", "", "config file for new Core servers (uses plugumi.json if present)")
+
+	psCmd := &cobra.Command{
+		Use:          "ps",
+		Aliases:      []string{"ls", "list"},
+		Short:        "List running local Core servers",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPS(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+
+	var logsFollow bool
+	var logsLines int
+	logsCmd := &cobra.Command{
+		Use:          "logs [core-url]",
+		Short:        "Show the log of a running local Core server",
+		Args:         cobra.MaximumNArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLogs(cmd.Context(), cmd.OutOrStdout(), args, logsFollow, logsLines)
+		},
+	}
+	logsCmd.Flags().BoolVarP(&logsFollow, "follow", "f", false, "keep printing appended log lines")
+	logsCmd.Flags().IntVarP(&logsLines, "lines", "n", 50, "print the last N lines before following")
+
+	restartCmd := &cobra.Command{
+		Use:          "restart [core-url]",
+		Short:        "Restart a running local Core server",
+		Args:         cobra.MaximumNArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRestart(cmd.Context(), cmd.OutOrStdout(), args)
+		},
+	}
+
+	pluginsCmd := &cobra.Command{
+		Use:          "plugins",
+		Short:        "List registered and running local Plugins",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPlugins(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+
+	var pluginAddCommand string
+	pluginAddCmd := &cobra.Command{
+		Use:          "add <name>",
+		Short:        "Register a local Plugin startup command",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPluginAdd(cmd.OutOrStdout(), args[0], pluginAddCommand)
+		},
+	}
+	pluginAddCmd.Flags().StringVar(&pluginAddCommand, "command", "", "shell command plugumi runs to start the Plugin")
+	_ = pluginAddCmd.MarkFlagRequired("command")
+
+	pluginRemoveCmd := &cobra.Command{
+		Use:          "remove <name>",
+		Short:        "Remove a local Plugin startup command (does not stop the process)",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPluginRemove(cmd.OutOrStdout(), args[0])
+		},
+	}
+
+	pluginStartCmd := &cobra.Command{
+		Use:          "start <name>",
+		Short:        "Start a registered Plugin in the background",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPluginStart(cmd.OutOrStdout(), args[0])
+		},
+	}
+	pluginsCmd.AddCommand(pluginAddCmd, pluginRemoveCmd, pluginStartCmd)
+
+	root.AddCommand(serveCmd, startCmd, stopCmd, restartCmd, psCmd, logsCmd, pluginsCmd, tuiCmd)
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// coreRuntime はserveで動くCoreのHTTPサーバーと停止処理を管理する。
+type coreRuntime struct {
+	ctx          context.Context
+	cancel       context.CancelFunc
+	settings     *config.Config
+	httpServer   *http.Server
+	instanceID   string
+	stopToken    string
+	unregister   func() error
+	shutdownOnce sync.Once
+}
+
+func newRuntime(settings *config.Config) *coreRuntime {
+	ctx, cancel := context.WithCancel(context.Background())
+	instanceID := "core-" + rand.Text()
+	stopToken := rand.Text()
+	mux := http.NewServeMux()
+	mux.HandleFunc("HEAD "+coreinstances.StatusPath, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(coreinstances.IDHeader, instanceID)
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST "+coreinstances.StopPath, func(w http.ResponseWriter, request *http.Request) {
+		token := request.Header.Get(coreinstances.StopHeader)
+		if subtle.ConstantTimeCompare([]byte(token), []byte(stopToken)) != 1 {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		cancel()
+	})
+	mux.Handle("/", server.New(ctx, instanceID, os.Getenv("PLUGUMI_TOKEN")).Handler())
+	return &coreRuntime{
+		ctx: ctx, cancel: cancel, settings: settings,
+		instanceID: instanceID, stopToken: stopToken,
+		httpServer: &http.Server{
+			Handler: mux,
+			// ヘッダだけ送って止まる接続でハンドラを占有させない
+			// （loopback限定だが、止まったupgrade予約の回収を早める）。
+			ReadHeaderTimeout: 10 * time.Second,
+		},
+	}
+}
+
+// start はPluginと管理クライアントを受け付けるHTTPサーバーを開始する。
+// configPathとportOverrideはinstance記録に残し、restartが同じ条件で起動できるようにする。
+// listen失敗は同期的に返す（tuiがbind失敗のまま起動しないように）。
+func (r *coreRuntime) start(configPath, portOverride string) error {
+	listener, err := net.Listen("tcp", r.settings.Core.Listen)
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		return err
 	}
-
-	ctx := context.Background()
-	links := registry.New()
-	callRouter := router.New(links)
-	// core.idはプロセスごとの識別子。永続化は未解決
-	// （contracts/00001。再起動では旧Linkが失効期限で消える）。
-	pluginConnector := connector.New(ctx, links, connector.NewID("core-"))
-	links.OnExpired = func(link *registry.Link) {
-		// hello未完了で落ちたLink（plugin未到達のretry毎）はログを出さない。
-		if plugin := link.Plugin(); plugin.ID != "" {
-			log.Printf("[core] link expired: %s (%s)", plugin.ID, link.ID)
+	r.settings.SetCorePort(uint16(listener.Addr().(*net.TCPAddr).Port))
+	instances, err := coreinstances.Local()
+	if err == nil {
+		instance := coreinstances.Instance{
+			URL: r.settings.Core.URL, ID: r.instanceID,
+			PID: os.Getpid(), LogPath: os.Getenv(coreLogFileEnv),
+			ConfigPath: configPath, Port: portOverride,
 		}
-		// Link失効でそのconnに紐付く経路を閉じる。閉じないと呼び出し中の
-		// 相手側（caller/target）に終端もcloseも届かない。
-		if conn := link.Transport(); conn != nil {
-			callRouter.DropConn(conn)
+		r.unregister, err = instances.Register(instance, r.stopToken)
+	}
+	if err != nil {
+		log.Printf("[core] could not publish Core to local TUI: %v", err)
+	}
+	log.Printf("[core] listening on %s", r.settings.Core.URL)
+	go func() {
+		if err := r.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("serve: %v", err)
 		}
-		// Link失効でもcatalogが変わる（そのLinkのToolが消えるため）。
-		pluginConnector.BroadcastCatalog()
-	}
-	go links.ExpireLoop(ctx, 90*time.Second, 15*time.Second)
+	}()
+	go func() {
+		<-r.ctx.Done()
+		r.shutdown()
+	}()
+	return nil
+}
 
-	// 設定された各Plugin Endpointへ接続を試みる（動的登録はPOST /v1/plugins）。
-	for _, plugin := range settings.Plugins {
-		pluginConnector.Watch(plugin.Endpoint)
-	}
+// shutdown はHTTPサーバーとCoreが受け付けた接続を止める。
+func (r *coreRuntime) shutdown() {
+	r.shutdownOnce.Do(func() {
+		if r.unregister != nil {
+			if err := r.unregister(); err != nil && !os.IsNotExist(err) {
+				log.Printf("[core] could not remove local Core registration: %v", err)
+			}
+		}
+		r.cancel()
+		// 停止リクエストへの応答を返してからHTTP接続を閉じる。
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := r.httpServer.Shutdown(ctx); err != nil {
+			_ = r.httpServer.Close()
+		}
+	})
+}
 
-	srv := &http.Server{Addr: settings.Core.Listen, Handler: server.New(links, callRouter, pluginConnector).Handler()}
-	log.Printf("[core] listening on %s (config %s)", settings.Core.Listen, *configPath)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("serve: %v", err)
+type startupResult struct {
+	URL   string `json:"url"`
+	Error string `json:"error"`
+}
+
+func runServe(configPath, portOverride string, reportStartup bool) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var result startupResult
+	// restartが別ディレクトリからでも同じ設定を使えるよう絶対パスにする。
+	if configPath != "" {
+		if absolutePath, absErr := filepath.Abs(configPath); absErr == nil {
+			configPath = absolutePath
+		}
 	}
+	settings, err := config.Load(configPath)
+	if err == nil && portOverride != "" {
+		port, parseErr := strconv.ParseUint(portOverride, 10, 16)
+		if parseErr != nil {
+			err = fmt.Errorf("--port must be an integer from 0 to 65535, got %q", portOverride)
+		} else {
+			settings.SetCorePort(uint16(port))
+		}
+	}
+	var core *coreRuntime
+	if err == nil {
+		core = newRuntime(settings)
+		defer core.shutdown()
+		err = core.start(configPath, portOverride)
+		result.URL = settings.Core.URL
+	}
+	if reportStartup {
+		if err != nil {
+			result.Error = err.Error()
+		}
+		reportErr := writeStartupReport(result)
+		if reportErr != nil && err == nil {
+			return fmt.Errorf("report Core startup: %w", reportErr)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+	case <-core.ctx.Done():
+	}
+	return nil
+}
+
+// 通知先: PLUGUMI_STARTUP_REPORT_FILE があればそのファイル、
+// なければstartがExtraFilesの先頭に渡した通知用パイプ（fd 3）。
+func writeStartupReport(result startupResult) error {
+	if path := os.Getenv(startupReportFileEnv); path != "" {
+		data, err := json.Marshal(result)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(path, append(data, '\n'), 0o600)
+	}
+	report := os.NewFile(3, "startup report")
+	defer report.Close()
+	return json.NewEncoder(report).Encode(result)
 }

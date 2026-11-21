@@ -1,9 +1,9 @@
 //! fs/read・fs/write: ファイル読み書きのsync tool。
 
-use super::Call;
+use super::ToolCall;
 use serde_json::{json, Value};
 
-pub async fn read(call: &mut Call) -> Result<Value, String> {
+pub async fn read(call: &mut ToolCall) -> Result<Value, String> {
     let path = call.input["path"].as_str().unwrap_or("");
     if path.is_empty() {
         return Err("input.path is required".into());
@@ -14,12 +14,14 @@ pub async fn read(call: &mut Call) -> Result<Value, String> {
         .map_err(|e| e.to_string())
 }
 
-pub async fn write(call: &mut Call) -> Result<Value, String> {
+pub async fn write(call: &mut ToolCall) -> Result<Value, String> {
     let path = call.input["path"].as_str().unwrap_or("");
-    let content = call.input["content"].as_str().unwrap_or("").to_string();
     if path.is_empty() {
         return Err("input.path is required".into());
     }
+    let Some(content) = call.input["content"].as_str() else {
+        return Err("input.content must be a string".into());
+    };
     let bytes = content.len();
     tokio::fs::write(path, content)
         .await

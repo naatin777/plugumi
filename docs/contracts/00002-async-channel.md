@@ -2,7 +2,7 @@
 type: contract
 title: transport・メッセージ契約（WS + JSON-RPC 2.0）
 description: Linkに結ばれた1本のWebSocket上を流れるtools.call系メッセージの契約。transport確立・JSON-RPC形・配送意味論を規定する。
-status: draft
+status: deprecated
 relations:
   contract:
     - '00001'
@@ -12,6 +12,8 @@ relations:
   decision:
     - '00010'
 ---
+
+> 現行試作が使う旧v1のチャネル契約。新規設計には[現行契約](00004-plugin-client-protocol.md)を参照する。
 
 ## 当事者と範囲
 
@@ -77,7 +79,7 @@ stateDiagram-v2
 { "jsonrpc": "2.0", "id": "core-1",
   "error": { "code": -32602, "message": "invalid params" } }
 // notification（応答なし）
-{ "jsonrpc": "2.0", "method": "tools.call.output", "params": { "callId": "…", "payload": {…} } }
+{ "jsonrpc": "2.0", "method": "tools.call.chunk", "params": { "callId": "…", "payload": {…} } }
 ```
 
 | code | 意味 |
@@ -96,8 +98,8 @@ transport上は `tools.call` 系のみ。登録・検査系はPlugin REST（`doc
 | method | 方向 | 種別 | params→result |
 |---|---|---|---|
 | `tools.call` | Core→Plugin（targetへforward） | request | `{ toolPath, input? }` → result または `{ accepted: true }` |
-| `tools.call` | Plugin→Core（callerが発射） | request | `{ target: { linkId, toolPath }, input? }` → 中継後のresult |
-| `tools.call.output` | target側→caller側 | notification | `{ callId, payload? }` |
+| `tools.call` | caller→Core（callerが発射） | request | `{ target: { linkId, toolPath }, input? }` → 中継後のresult |
+| `tools.call.chunk` | target側→caller側 | notification | `{ callId, payload? }` |
 | `tools.call.result` | target側→caller側 | notification | `{ callId, result? \| error? }` |
 | `tools.call.close` | caller側→target側 | notification | `{ callId }` |
 
@@ -119,8 +121,8 @@ transport上は `tools.call` 系のみ。登録・検査系はPlugin REST（`doc
 | サポート外の `/vN/` へのupgrade | `426 protocol_mismatch`（upgrade前HTTP） |
 | 未知pathへのupgrade | `404 unknown_endpoint`（upgrade前HTTP） |
 | 未知・失効済み `linkId` へのupgrade | `404 unknown_link`（upgrade前HTTP） |
-| upgrade後のメッセージ形違反 | JSON-RPC error（`-32700` parse error等） |
-| 未知のmethod | JSON-RPC error `-32601` |
+| upgrade後にJSONとしてparseできない、またはrequest/response/notificationのいずれにも分類できないmessage | 無応答で破棄してよい（`-32700`/`-32600` を返す実装も許容。MVP実装は破棄する） |
+| 未知のmethodを持つrequest | JSON-RPC error `-32601` |
 
 ## セキュリティと適合性
 

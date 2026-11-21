@@ -2,12 +2,14 @@
 type: decision
 title: "通信transport: REST基本 + WStransport"
 description: Core↔Plugin通信をHTTP/1.1+JSON RESTとWebSocket+JSON-RPC 2.0の2層で構成する理由。gRPC・Connect等の不採用理由を含む。
-status: draft
+status: deprecated
 relations:
   contract:
     - '00001'
     - '00002'
 ---
+
+> [Decision 00012](00012-plugin-initiated-connections.md)が置き換えた旧方式の決定。以下は履歴として残す。
 
 ## コンテキスト
 

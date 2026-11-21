@@ -1,91 +1,44 @@
-// Package wire はCore↔Plugin契約（docs/contracts/00001-00003）のGoバインディング。
-// 共通規格（hello・ping・tools取得・catalog）はCore→Plugin REST、
-// tools.call系だけがtransport（WS + JSON-RPC 2.0）を流れる。
+// Package wire はPlugin起点のRESTとJSON-RPCのGoバインディング（contracts/00004）。
 package wire
 
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
-// ---- Link確立（Core→Plugin REST。docs/contracts/00001） ----
-
-// HelloRequest は POST /v1/link/hello のbody。
-// PluginはCoreのURLを知らないため、渡すのは識別子のみ。
-type HelloRequest struct {
-	LinkID string `json:"linkId"`
-	Core   struct {
-		ID      string `json:"id"`
-		Version string `json:"version,omitempty"`
-	} `json:"core"`
+type PluginIdentity struct {
+	PluginID         string `json:"pluginId" minLength:"1"`
+	PluginInstanceID string `json:"pluginInstanceId" minLength:"1"`
 }
 
-type HelloResponse struct {
-	Plugin PluginInfo `json:"plugin"`
+type RegistrationLease struct {
+	CoreID         string    `json:"coreId"`
+	RegistrationID string    `json:"registrationId"`
+	LeaseSeconds   int       `json:"leaseSeconds"`
+	ExpiresAt      time.Time `json:"expiresAt"`
 }
 
-type PluginInfo struct {
-	ID      string `json:"id"`
-	Version string `json:"version,omitempty"`
-	Name    string `json:"name,omitempty"`
+type RegistrySnapshot struct {
+	CoreID        string                 `json:"coreId"`
+	Revision      string                 `json:"revision"`
+	Registrations []RegistryRegistration `json:"registrations"`
+}
+
+type RegistryRegistration struct {
+	RegistrationID string            `json:"registrationId"`
+	PluginID       string            `json:"pluginId"`
+	RPCAvailable   bool              `json:"rpcAvailable"`
+	Tools          []ToolDeclaration `json:"tools"`
 }
 
 type ToolDeclaration struct {
-	ToolPath     string          `json:"toolPath"`
-	Kind         string          `json:"kind"` // "sync" | "async"（省略時 sync）
+	ToolPath     string          `json:"toolPath" minLength:"1"`
+	Kind         string          `json:"kind,omitempty" enum:"sync,async" default:"sync"`
 	Description  string          `json:"description,omitempty"`
 	Tags         []string        `json:"tags,omitempty"`
 	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
 	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
-}
-
-// LinkPingParams は POST /v1/link/ping のbody（生存確認probe）。
-// 方向はCore→Pluginで、応答成功がそのLinkの生存証拠になる。
-type LinkPingParams struct {
-	LinkID string `json:"linkId"`
-}
-
-// ToolsGetResponse は GET /v1/tools の応答。
-// CoreはLink確立後にPluginのTool宣言をpullする。
-type ToolsGetResponse struct {
-	Tools []ToolDeclaration `json:"tools"`
-}
-
-// ListedTool は tools.catalog・管理REST tools.list の1要素。
-// linkId がTool呼び出しの宛先になる。
-type ListedTool struct {
-	LinkID string `json:"linkId"`
-	ToolDeclaration
-}
-
-// ToolsCatalogParams は POST /v1/tools/catalog のbody。
-// 登録中の全Toolを全置換でpushする。linkId は宛先Linkの識別
-// （1つのPluginが複数CoreからLinkを持ち得るため判別に使う）。
-type ToolsCatalogParams struct {
-	LinkID string       `json:"linkId"`
-	Tools  []ListedTool `json:"tools"`
-}
-
-// PluginsAddRequest は管理REST POST /v1/plugins のbody。
-// 登録は受理のみ。Linkの確立は非同期（connectorが再試行する）。
-type PluginsAddRequest struct {
-	Endpoint string `json:"endpoint"`
-}
-
-type PluginsAddResult struct {
-	Endpoint string `json:"endpoint"`
-}
-
-// RegisteredPlugin は登録済みEndpoint1行分。Link未確立なら
-// linkId/pluginIdは空（接続再試行中）。
-type RegisteredPlugin struct {
-	Endpoint string `json:"endpoint"`
-	LinkID   string `json:"linkId,omitempty"`
-	PluginID string `json:"pluginId,omitempty"`
-}
-
-type PluginsListResult struct {
-	Plugins []RegisteredPlugin `json:"plugins"`
 }
 
 // ---- JSON-RPC 2.0 ----
@@ -107,10 +60,11 @@ type Response struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
 	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *Error          `json:"error,omitempty"`
+	Error   *RpcError       `json:"error,omitempty"`
 }
 
-type Error struct {
+// RpcError はJSON-RPC 2.0のerror object。
+type RpcError struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data,omitempty"`
@@ -123,12 +77,12 @@ type Incoming struct {
 	Method  string          `json:"method,omitempty"`
 	Params  json.RawMessage `json:"params,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *Error          `json:"error,omitempty"`
+	Error   *RpcError       `json:"error,omitempty"`
 }
 
-func (in *Incoming) IsRequest() bool  { return in.Method != "" && len(in.ID) > 0 }
-func (in *Incoming) IsNotif() bool    { return in.Method != "" && len(in.ID) == 0 }
-func (in *Incoming) IsResponse() bool { return in.Method == "" }
+func (in *Incoming) IsRequest() bool      { return in.Method != "" && len(in.ID) > 0 }
+func (in *Incoming) IsNotification() bool { return in.Method != "" && len(in.ID) == 0 }
+func (in *Incoming) IsResponse() bool     { return in.Method == "" }
 
 func Marshal(v any) json.RawMessage {
 	b, err := json.Marshal(v)
@@ -145,18 +99,17 @@ func Unmarshal(raw json.RawMessage, v any) error {
 	return json.Unmarshal(raw, v)
 }
 
-// transport（WS）上のmethodはtools.call系のみ。
-// 登録・検査系はPlugin REST（contracts/00001）で流れ、ここには現れない。
+// Tool呼び出しのメソッド（contracts/00004のローカル実装範囲）。
 const (
 	MethodCall       = "tools.call"
-	MethodCallOutput = "tools.call.output"
+	MethodCallChunk  = "tools.call.chunk"
 	MethodCallResult = "tools.call.result"
 	MethodCallClose  = "tools.call.close"
 )
 
 type CallTarget struct {
-	LinkID   string `json:"linkId"`
-	ToolPath string `json:"toolPath"`
+	RegistrationID string `json:"registrationId"`
+	ToolPath       string `json:"toolPath"`
 }
 
 type CallParams struct {
@@ -165,13 +118,13 @@ type CallParams struct {
 }
 
 // ForwardCallParams は中継時にtargetへ渡すparams。
-// docs/contracts/00003: targetへはtoolPathのみ伝える。
+// contracts/00004: targetへはtoolPathのみ伝える。
 type ForwardCallParams struct {
 	ToolPath string          `json:"toolPath"`
 	Input    json.RawMessage `json:"input,omitempty"`
 }
 
-type CallOutputParams struct {
+type CallChunkParams struct {
 	CallID  json.RawMessage `json:"callId"`
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
@@ -179,7 +132,7 @@ type CallOutputParams struct {
 type CallResultParams struct {
 	CallID json.RawMessage `json:"callId"`
 	Result json.RawMessage `json:"result,omitempty"`
-	Error  *Error          `json:"error,omitempty"`
+	Error  *RpcError       `json:"error,omitempty"`
 }
 
 type CallCloseParams struct {

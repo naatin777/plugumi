@@ -2,7 +2,7 @@
 type: contract
 title: Core↔Plugin 接続契約
 description: CoreがPluginへHTTP経由で接続し、Linkを確立してTool宣言を受け取るまでの契約。接続手順・Linkの状態遷移・ID・時間定数を規定する。
-status: draft
+status: deprecated
 relations:
   architecture:
     - '00001'
@@ -10,7 +10,10 @@ relations:
     - '00005'
   decision:
     - '00010'
+    - '00011'
 ---
+
+> 現行試作が使う旧v1の接続契約。新規設計には[現行契約](00004-plugin-client-protocol.md)を参照する。
 
 ## 当事者と範囲
 
@@ -23,9 +26,40 @@ Core と Plugin の双方が実装する通信境界。**共通規格（登録�
 ## Endpoint
 
 - **Pluginは `http://<host>:<port>`（リモートなら `https://`）のHTTP server**として待受し、下表のREST operationとWS upgradeを受け付ける
-- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host向けAPI**（後述）。PluginがこのURLを知ることはない
+- **Coreは `http://<host>:<port>` のREST server**として待受するが、これはPlugin向けではなく**管理・UI Host・TUI向けAPI**（後述）。PluginがこのURLを知ることはない
 - CoreとPluginは別マシンにあり得る。到達性は利用者がネットワーク構成で確保する（`docs/decisions/00010`）
 - TLS・認証は未解決の別設計事項。MVPはloopback・認証トークン無し
+
+### ローカルPluginの待ち受け
+
+- ローカルで起動するMVPのPluginは、待ち受けを指定しなければ `http://127.0.0.1:0` を使う。ポート `0` はOSによる空きポートの割り当てを意味する
+- `--port <port>` で `127.0.0.1` の待受ポートを指定できる。ホストも指定する場合は、代わりに `--listen <url>` を使う
+- 指定したポートで待ち受けられなければ起動に失敗し、別のポートには切り替えない
+- Pluginは待ち受け開始後に、実際のポートを含むURLを表示する。Coreに登録するEndpointには、`0` ではなく実際のポートを指定する
+
+### ローカルPluginの自己登録
+
+ローカルで起動するPluginは、待ち受け開始後に自分をローカルregistryへ登録する。CoreやTUIはこの記録とstatus endpointで、起動中のPluginを発見する。登録はCore↔Plugin契約ではなくOSユーザー単位の管理機構で、特定のCoreとは無関係。Pluginの起動・停止がCoreに従属しない方針は変わらない。
+
+- 記録は `<ユーザーのキャッシュディレクトリ>/plugumi/plugins/` に書く（`os.UserCacheDir()` と同じ場所）
+- ファイル名はEndpoint URLの英数以外を `-` に置き換えて `.json` を付ける。同じURLは同じファイル名になり、再起動で上書きされる
+- 読みかけの不完全ファイルを見せないよう、別名で書いてからrenameする
+- 記録の形: `{ "name": "standard", "url": "http://127.0.0.1:50309", "id": "plugin-…", "version": "0.1.0", "pid": 12345, "log": "<path>" }`
+  - `id` はプロセスごとの不透明な識別子（Coreのinstance id相当）
+  - `log` はPlugin自身のログファイルのパス（省略可）。1プロセスが複数Coreに繋がり得るため、ログはCoreではなくPluginの記録に持つ。パスはPluginが自分で決めて `<キャッシュディレクトリ>/plugumi/logs/` に書く
+- status endpoint: `GET /_plugumi/plugin`（HEADも応答する）が `204` と `Plugumi-Plugin-Instance` ヘッダ（=`id`）を返す。Linkを作らずに生存と同一性だけを返す
+- 一覧に出すのは、記録がありstatus endpointが同じ `id` で応答するものだけ。異常終了で残った記録はprobeで除外される
+- 正常終了では自分の記録を消す
+
+### Plugin catalog（ユーザー登録の定義）
+
+実行中registryとは別に、ユーザーが登録した定義の一覧を `<ユーザーのconfigディレクトリ>/plugumi/plugins.json` に持つ（`os.UserConfigDir()`。ユーザー入力なのでcacheには置かない）。
+
+- 定義の形: `{ "name": "standard", "endpoint": "http://…", "command": "…" }`。`endpoint`と`command`の少なくとも一方が必須
+  - `command` は `plugumi plugins start <name>` やTUIからplugumiがdetached起動するシェルコマンド
+  - `endpoint` は外部起動済みPluginへの接続先
+- catalogは「まだ起動していなくても存在を知っているPlugin」の一覧。実行中かどうかはregistry側のprobeで判断し、名前で突き合わせる
+- 操作: `plugumi plugins`（catalog∪実行中の一覧）、`plugumi plugins add|rm|start <name>`
 
 ## Plugin REST operations
 
@@ -72,17 +106,28 @@ PluginのHTTP serverが受け付けるoperation。全てCore→Plugin方向。
 
 - Pluginが提供するTool宣言を返す。CoreはLink確立後にpullする
 - `kind` は `sync | async`（省略時 `sync`）。宣言の構造は `docs/contracts/00003`
+- `toolPath` はPluginの宣言内で一意な空でない文字列、`kind` は `sync | async`（省略時 `sync`）であること。これらを満たさない宣言（空・重複・enum外のkind）は契約違反であり、CoreはLink確立を拒否する（接続試行は失敗として再試行される）
 
 ### `POST /v1/tools/catalog`
 
 ```jsonc
 // request
-{ "tools": [ { "linkId": "link-…", "toolPath": "echo", "kind": "sync" }, … ] }
+{
+  "linkId": "link-<受信側PluginのUUIDv4>",
+  "tools": [ { "linkId": "link-<Tool提供側PluginのUUIDv4>", "toolPath": "echo", "kind": "sync" } ]
+}
 // response 200
 { }
 ```
 
-- Coreが「現在登録中の全Tool」を全置換でpushする。Tool呼び出しの宛先 `linkId` が各要素に付く
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `linkId` | string | はい | catalogを受け取るPluginのLink。Pluginは複数のCoreから受け取ったcatalogをこのIDで区別する |
+| `tools` | array | はい | Coreに現在登録されている全Tool。0件の場合は `[]`。Pluginは指定されたLinkのcatalogを全置換する |
+| `tools[].linkId` | string | はい | 各Toolを提供するPluginのLink。呼び出し時の `target.linkId` として使う |
+
+- `tools` の各要素には `linkId` に加えてTool宣言のフィールドを含める
+- 必須フィールドの欠落・型の不一致は `400 invalid_params`、受信側に存在しないトップレベルの `linkId` は `404 unknown_link` とする
 - 送信契機: Link確立・Link失効・Tool宣言の変化（`GET /v1/tools` の結果が変わったとき）
 
 ### `GET /v1/transport?linkId=`
@@ -115,7 +160,7 @@ HTTP段階では、次の形のbodyで返す。
 |---|---|---|
 | 400 | `invalid_params` | 必須フィールドの欠落・型の不一致 |
 | 400 | `invalid_endpoint` | `POST /v1/plugins` のendpointがhttp(s) URLでない |
-| 404 | `unknown_endpoint` | 存在しないoperation・path |
+| 404 | `unknown_endpoint` | 存在しないoperation・path、または未登録endpointへの `POST /v1/plugins/remove` |
 | 404 | `unknown_link` | `linkId` が現存しない（transport upgrade・ping等） |
 | 409 | `duplicate_endpoint` | `POST /v1/plugins` で既知のendpointを再登録 |
 | 426 | `protocol_mismatch` | サポート外の `/vN/` prefix へのリクエスト |
@@ -133,9 +178,9 @@ Link・linkId・Transport 等の定義は `docs/glossary.md` を正本とする�
 
 Coreは起動設定（`plugumi.json` の `plugins[]`）でPlugin Endpoint一覧を持ち、各Endpointへの接続を試みる。実行中に `POST /v1/plugins`（管理REST）で追加登録もできる。
 
-- 接続不能なEndpointへの接続は再試行を続ける（間隔は実装詳細・推奨値は後述）
+- Endpointへの接続確立（hello〜tools pull〜transport upgradeの全段階）に失敗した場合は再試行を続ける（間隔は実装詳細・推奨値は後述）。HTTPエラー応答も同じく再試行対象
 - 動的登録はランタイムのみ有効で、再起動で消える
-- Endpointの形式は `http://<host>:<port>` または `https://<host>:<port>`（pathは持たない）
+- Endpointの形式は `http://<host>:<port>` または `https://<host>:<port>`（path・query・fragmentは持たない。`plugumi.json` と `POST /v1/plugins` の両方で検査する）
 
 ## Linkのライフサイクル
 
@@ -162,7 +207,7 @@ sequenceDiagram
     Core->>Plugin: GET /v1/tools
     Plugin-->>Core: { tools: […] }
     Core->>Plugin: GET /v1/transport?linkId= (WS upgrade)
-    Core->>Plugin: POST /v1/tools/catalog { tools } (登録済み全Tool)
+    Core->>Plugin: POST /v1/tools/catalog { linkId, tools } (登録済み全Tool)
     Note over Core,Plugin: Link established
     loop 維持
         Core->>Plugin: POST /v1/link/ping
@@ -176,19 +221,33 @@ sequenceDiagram
 5. Coreは `POST /v1/link/ping` の定期送信で半開きを検出する。最終成功から失効期限を超えたLinkを削除する
 6. **transport切断 = Link失効**。Tool宣言・紐付くcallはすべて消える（link-scoped）。再接続はhelloからやり直し、新 `linkId` が払い出される
 
-## Core管理REST API（Plugin向けではない）
+## Core管理API（Plugin向けではない）
 
-UI Host・人間が使う管理面。PluginはこのAPIを使わない・知らない。
+UI Host・人間・TUIが使う管理面。PluginはこのAPIを使わない・知らない。`GET /v1/call` だけはRESTではなくWS upgradeで、caller channelとして後述する。
 
-| operation | 用途 |
-|---|---|
-| `POST /v1/plugins` | Plugin Endpointの動的登録（`{"endpoint": "http://…"}`。受理のみで接続は非同期） |
-| `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId・pluginId付き） |
-| `POST /v1/tools/list` | 登録中の全Tool一覧（人間・UI Host向け確認用） |
-| `GET /openapi.json`・`GET /docs` | OpenAPI 3.1と閲覧画面 |
+| operation | request | response |
+|---|---|---|
+| `POST /v1/plugins` | `{"endpoint": "http://…"}` | `{"endpoint": "…"}`。受理のみで接続は非同期 |
+| `POST /v1/plugins/remove` | `{"endpoint": "http://…"}` | `{"endpoint": "…"}`。Link失効・再試行loop停止は非同期。未登録endpointは404 `unknown_endpoint` |
+| `POST /v1/plugins/list` | `{}` | `{"plugins": [{"endpoint","linkId"?,"pluginId"?}]}`。Link未確立の再試行中は `linkId`/`pluginId` を省略 |
+| `POST /v1/tools/list` | `{}` | `{"tools": […]}`。各要素は `linkId` + Tool宣言（`toolPath`/`kind`/`description`?/`tags`?/`inputSchema`?/`outputSchema`?） |
+| `GET /v1/call` | — | caller向けTool呼び出しchannelのWS upgrade（後述） |
+| `GET /openapi.json`・`GET /docs` | — | OpenAPI 3.1と閲覧画面 |
 
 - 管理RESTのエラー応答は上表のHTTPエラー形に従う
+- huma等のframeworkが返すHTTP層エラー（`405 Method Not Allowed`・`415 Unsupported Media Type` 等、domain errorでないもの）は `code` にHTTP status textを使う。上表はdomain errorの一覧
+- humaが生成する応答bodyには `"$schema"` フィールドが付き得る（OpenAPI成果物。受け手は未知フィールドとして無視してよい）
 - 認証なしのため待受はloopback必須（MVPの安全性前提）
+- `/v1/call` はWS upgradeのためhuma（OpenAPI）には登録せずmux直結で実装する。**`GET /openapi.json` のspecには含まれない**ので、caller channelを使う実装は本contractを直接参照すること
+
+### caller channel（`GET /v1/call`）
+
+Pluginでない呼び出し元（TUI・UI Host・スクリプト）がToolを呼ぶためのWS接続。Linkには紐付かず、connの寿命=接続の寿命。
+
+- upgrade成功後は `docs/contracts/00003` の **caller側** をそのまま喋る: `tools.call` request（`{target:{linkId,toolPath},input}`）を送り、responseと `tools.call.chunk`/`tools.call.result` notificationを受け取り、`tools.call.close` notificationを送れる
+- このWS上を流れるのも `tools.call` 系のみ（Plugin transportと同じ制約）
+- callerが送れるrequestは `tools.call` のみ。他methodはJSON-RPC `-32601`
+- callerはLinkを持たないため `POST /v1/tools/catalog` のpush対象外。一覧が要るcallerは管理REST `POST /v1/tools/list` で取得する
 
 ## IDの形式
 
@@ -196,7 +255,7 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 |---|---|---|---|
 | `linkId` | `link-<UUIDv4>` | Core | Core内で一意。再利用しない |
 | `core.id` | 不透明な文字列 | Core | Core再起動・複数Core間で実質一意（推奨: 生成して永続化） |
-| `callId` | 発行側の任意文字列（推奨 `plugin-N`/`core-N`） | 各conn送信側 | conn・送信方向ごと |
+| `callId` | 発行側の任意文字列（推奨 `plugin-N`/`core-N`/`caller-N`/`tui-N` 等、接続役割が分かるprefix） | 各conn送信側 | conn・送信方向ごと |
 
 `core.id` は宛先ではなく識別用の不透明な値。Pluginはこれを使って「同じCoreからの再hello」を検出するが、そこからCoreへ接続する手段は持たない。
 
@@ -207,9 +266,13 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 | 定数 | 推奨値 | 関係ルール |
 |---|---|---|
 | ping間隔 | 30秒 | 失効期限を下回ること |
+| ping応答timeout | 5秒 | — |
 | 失効期限 | 90秒 | ping間隔の概ね3倍（数回分の取りこぼしを許す） |
+| 失効判定tick | 15秒 | 失効期限以下でよい |
 | 接続再試行間隔 | 3秒 | — |
 | hello応答timeout | 5秒 | — |
+| `GET /v1/tools` 応答timeout | 5秒 | — |
+| `POST /v1/tools/catalog` 送信timeout | 10秒 | — |
 | tools.call転送timeout | 120秒 | — |
 
 ## セキュリティと適合性
@@ -224,7 +287,7 @@ UI Host・人間が使う管理面。PluginはこのAPIを使わない・知ら�
 独立実装が本contractに適合するには、次を満たす。
 
 - Core側実装は Plugin Endpointへの `POST /v1/link/hello` ・ `GET /v1/tools` ・ `POST /v1/tools/catalog` ・ `POST /v1/link/ping` ・ `GET /v1/transport` upgrade・linkId払出・失効判定・endpoint登録の全operationを提供すること
-- Plugin側実装は上表のREST operation全てと `/v1/transport` のupgrade受付を行えること。CoreのURL・Domainを保持しないこと
+- Plugin側実装は上表のREST operation全てと `/v1/transport` のupgrade受付を行えること。CoreのURL・Domainを保持しないこと。`toolPath` の一意性を宣言で守ること
 - エラー応答は上記のコード・HTTPステータスと一致すること
 - `linkId`・`callId`の形式は実装側の自由ではなく上表に従うこと（`link-`prefix・UUIDv4）
 
