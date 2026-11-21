@@ -2,7 +2,7 @@
 type: architecture
 title: PluginからCoreへ接続するシステム構成
 description: Coreの接続・配送境界と、Web・Electron、UI Bundle、メディア、外部到達性の候補を示す。
-status: draft
+status: accepted
 relations:
   architecture:
     - '00001'

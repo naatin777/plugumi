@@ -49,7 +49,7 @@ Pluginの接続先はPlugin側で指定する。Coreの `plugumi.json` に `plug
 
 ## RESTクライアントの型生成
 
-HumaがCoreの実装からRESTのOpenAPIを生成する。既に入手した OpenAPI Generator CLI のJARを使う例。トークンを設定したCoreでは、OpenAPIの取得にも `Authorization: Bearer ...` を付ける。
+HumaがCoreの実装からRESTのOpenAPIを生成する。APIリファレンスは `http://127.0.0.1:<port>/docs` で閲覧できる。`/docs` と `/openapi.json`・`/openapi.yaml` はトークンを設定したCoreでも認証なしで取得できる。既に入手した OpenAPI Generator CLI のJARを使う例。
 
 ```sh
 curl -fsS http://127.0.0.1:7700/openapi.json -o openapi.json
