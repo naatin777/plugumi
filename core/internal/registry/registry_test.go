@@ -105,6 +105,33 @@ func TestRepeatRegistrationRefreshesLeaseWithoutChangingTheRegistry(t *testing.T
 	}
 }
 
+// upgrade中に止まった予約はreservationTTLを過ぎると回収され、
+// 再登録でLeaseが延び続けても再接続が永久に失敗しない。
+func TestStaleReservationIsReclaimed(t *testing.T) {
+	registry := New("test-core")
+	now := time.Now()
+	registry.now = func() time.Time { return now }
+	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	stale, err := registry.ReserveConnection(lease.RegistrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.ReserveConnection(lease.RegistrationID); err != ErrConnectionInUse {
+		t.Fatalf("in-flight reservation should conflict: %v", err)
+	}
+	now = now.Add(reservationTTL)
+	fresh, err := registry.ReserveConnection(lease.RegistrationID)
+	if err != nil {
+		t.Fatalf("stale reservation was not reclaimed: %v", err)
+	}
+	if stale.Complete(&rpc.Connection{}) {
+		t.Fatal("reclaimed reservation still completed")
+	}
+	if !fresh.Complete(&rpc.Connection{}) {
+		t.Fatal("new reservation did not complete")
+	}
+}
+
 func TestConnectionReservationDoesNotSurviveDeletion(t *testing.T) {
 	registry := New("test-core")
 	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})

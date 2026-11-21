@@ -139,7 +139,7 @@ func (m *Model) footer() (hints, status string) {
 	case paneCores:
 		contextHints = keys("a", "Start", "d", "Stop", "R", "Restart", "l", "Log", "Enter", "Detail")
 	case panePlugins:
-		contextHints = keys("Enter", "Start", "a", "Register", "d", "Unreg", "l", "Log")
+		contextHints = keys("Enter", "Start", "a", "Register", "d", "Remove", "l", "Log")
 	case paneDetail:
 		contextHints = keys("Enter", "Open/Call", "d", "Remove", "←", "To registration")
 	}

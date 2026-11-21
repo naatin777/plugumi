@@ -26,6 +26,7 @@ type Connection struct {
 	IDPrefix   string
 	ws         *websocket.Conn
 	writeMu    sync.Mutex
+	pendingMu  sync.Mutex
 	counter    atomic.Int64
 	pending    map[string]chan *wire.Incoming
 	notifQueue chan notificationWork
@@ -114,10 +115,10 @@ func (c *Connection) Run(ctx context.Context) error {
 			}
 		case message.IsResponse():
 			key := string(message.ID)
-			c.writeMu.Lock()
+			c.pendingMu.Lock()
 			ch, ok := c.pending[key]
 			delete(c.pending, key)
-			c.writeMu.Unlock()
+			c.pendingMu.Unlock()
 			if ok {
 				ch <- &message
 			}
@@ -159,29 +160,34 @@ func (c *Connection) WaitNotifications(ctx context.Context) error {
 }
 
 func (c *Connection) Request(ctx context.Context, method string, params any) (*wire.Incoming, error) {
-	return c.RequestWithID(ctx, c.NextID(), method, params)
+	return c.RequestWithID(ctx, c.NextID(), method, params, nil)
 }
 
 // RequestWithID はidを指定してrequestを送る。中継でforward idを自空間から発行する用途。
-func (c *Connection) RequestWithID(ctx context.Context, id json.RawMessage, method string, params any) (*wire.Incoming, error) {
+// onWritten はrequestの書き込みが完了した直後に1度だけ呼ばれる。
+// call→closeの順序を同一接続上で保つために後続送信をここへ繋ぐ。
+func (c *Connection) RequestWithID(ctx context.Context, id json.RawMessage, method string, params any, onWritten func()) (*wire.Incoming, error) {
 	var rawParams json.RawMessage
 	if params != nil {
 		rawParams = wire.Marshal(params)
 	}
 	ch := make(chan *wire.Incoming, 1)
 	key := string(id)
-	c.writeMu.Lock()
+	c.pendingMu.Lock()
 	c.pending[key] = ch
-	c.writeMu.Unlock()
+	c.pendingMu.Unlock()
 	// 正常応答・timeout・切断のどの経路でもpendingを残さない。
 	defer func() {
-		c.writeMu.Lock()
+		c.pendingMu.Lock()
 		delete(c.pending, key)
-		c.writeMu.Unlock()
+		c.pendingMu.Unlock()
 	}()
 
 	if err := c.write(wire.Request{JSONRPC: "2.0", ID: id, Method: method, Params: rawParams}); err != nil {
 		return nil, err
+	}
+	if onWritten != nil {
+		onWritten()
 	}
 	select {
 	case res := <-ch:

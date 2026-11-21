@@ -19,6 +19,11 @@ import (
 
 const leaseDuration = 60 * time.Second
 
+// 予約はupgrade完了までの一時的な占有。upgradeが止まったままの予約を
+// 回収しないと、その登録は再接続できず、再登録でLeaseが延び続けて
+// 永久に409が返り続ける。
+const reservationTTL = 15 * time.Second
+
 var (
 	ErrUnknownRegistration   = errors.New("unknown registration")
 	ErrRegistrationConflict  = errors.New("instance already registered with another pluginId")
@@ -164,20 +169,26 @@ func (r *Registry) ResolveTool(target wire.CallTarget) (*rpc.Connection, string,
 type ConnectionReservation struct {
 	registry       *Registry
 	registrationID string
+	reservedAt     time.Time
 }
 
 // ReserveConnection はHTTP upgradeの間だけ接続枠を押さえる。ネットワークI/Oはロックの外で行う。
+// 前の予約がreservationTTLを超えて完了していなければ、止まったupgradeとみなして回収する。
 func (r *Registry) ReserveConnection(registrationID string) (*ConnectionReservation, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	record := r.liveLocked(registrationID, r.now())
+	now := r.now()
+	record := r.liveLocked(registrationID, now)
 	if record == nil {
 		return nil, ErrUnknownRegistration
 	}
-	if record.connection != nil || record.reservation != nil {
+	if record.connection != nil {
 		return nil, ErrConnectionInUse
 	}
-	reservation := &ConnectionReservation{registry: r, registrationID: registrationID}
+	if record.reservation != nil && now.Sub(record.reservation.reservedAt) < reservationTTL {
+		return nil, ErrConnectionInUse
+	}
+	reservation := &ConnectionReservation{registry: r, registrationID: registrationID, reservedAt: now}
 	record.reservation = reservation
 	return reservation, nil
 }

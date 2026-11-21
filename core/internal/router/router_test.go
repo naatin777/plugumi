@@ -53,7 +53,7 @@ func TestCloseForwardsTerminalResult(t *testing.T) {
 	caller, callerPeer := testConn(t)
 	target, targetPeer := testConn(t)
 	router := New(nil)
-	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", accepted: true, ready: make(chan struct{}), dropped: make(chan struct{})}
+	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", accepted: true, requestWritten: true, ready: make(chan struct{}), dropped: make(chan struct{})}
 	close(route.ready)
 	router.routes[routeKey(target, route.TargetID)] = route
 	router.byCaller[routeKey(caller, route.CallerID)] = route
@@ -72,6 +72,51 @@ func TestCloseForwardsTerminalResult(t *testing.T) {
 	}
 	if len(router.routes) != 0 || len(router.byCaller) != 0 {
 		t.Fatal("terminal result did not remove route")
+	}
+}
+
+// call のrequest書き込み前に届いたcloseは、callの後に送られなければならない。
+// 先に届くとtargetは未知callIdのcloseを捨て、callが取消なしで実行される。
+func TestCloseBeforeForwardWriteWaitsForCallWrite(t *testing.T) {
+	caller, _ := testConn(t)
+	target, targetPeer := testConn(t)
+	callRouter := New(nil)
+	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", ready: make(chan struct{}), dropped: make(chan struct{})}
+	callRouter.routes[routeKey(target, route.TargetID)] = route
+	callRouter.byCaller[routeKey(caller, route.CallerID)] = route
+	// coder/websocket は読み取り失敗後に再読み取りできないため、
+	// 受信は別goroutineで受け続ける。
+	received := make(chan wire.Incoming, 4)
+	go func() {
+		for {
+			_, data, err := targetPeer.Read(context.Background())
+			if err != nil {
+				return
+			}
+			var message wire.Incoming
+			if json.Unmarshal(data, &message) == nil {
+				received <- message
+			}
+		}
+	}()
+
+	callRouter.HandleCallerNotification(caller, &wire.Incoming{Params: wire.Marshal(wire.CallCloseParams{CallID: route.CallerID})})
+	// まだcloseは送られない。書き込み前に転送されるとcallより先に届く。
+	select {
+	case early := <-received:
+		t.Fatalf("close was forwarded before the call request was written: %+v", early)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	callRouter.markRequestSent(route)
+	select {
+	case forwarded := <-received:
+		var closeParams wire.CallCloseParams
+		if err := wire.Unmarshal(forwarded.Params, &closeParams); err != nil || forwarded.Method != wire.MethodCallClose || string(closeParams.CallID) != string(route.TargetID) {
+			t.Fatalf("deferred close was not forwarded after the call write: %+v", forwarded)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("deferred close was not forwarded after the call write")
 	}
 }
 

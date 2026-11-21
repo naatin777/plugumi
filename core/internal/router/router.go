@@ -7,6 +7,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -40,7 +41,10 @@ type Route struct {
 	accepted        bool       // 非同期callが受理されたか。r.muで保護する。
 	delivery        sync.Mutex // 対象切断の終端と、配送中の通知を直列化する。
 	cancelRequested bool
-	cancelTimer     *time.Timer // cancelRequestedとともにr.muで保護する。
+	// requestWritten はcallのrequestをtargetへ書き終えたか。
+	// 先着したcloseはこれが立つまで送らない（接続上の順序を保つため）。
+	requestWritten bool
+	cancelTimer    *time.Timer // cancelRequestedとともにr.muで保護する。
 }
 
 func New(registry *registry.Registry) *Router {
@@ -109,12 +113,16 @@ func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (jso
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	res, err := target.RequestWithID(ctx, forwardID, wire.MethodCall,
-		wire.ForwardCallParams{ToolPath: params.Target.ToolPath, Input: params.Input})
+		wire.ForwardCallParams{ToolPath: params.Target.ToolPath, Input: params.Input},
+		func() { r.markRequestSent(route) })
 	if err != nil {
 		r.removeRoute(route)
 		// target側で実行中のcallがあれば止める。timeout/送信失敗で
 		// こちらが諦めても、相手側の購読・長時間callは実行され続けるため。
 		_ = target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: forwardID})
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, &wire.RpcError{Code: -32003, Message: "forward deadline exceeded"}
+		}
 		return nil, &wire.RpcError{Code: -32000, Message: "forward failed: " + err.Error()}
 	}
 
@@ -241,9 +249,25 @@ func (r *Router) HandleCallerNotification(c *rpc.Connection, message *wire.Incom
 	if route.accepted {
 		r.startCancelTimerLocked(route)
 	}
+	written := route.requestWritten
 	r.mu.Unlock()
 	// 同期呼び出しと受理前の呼び出しには既存のrequest期限がある。
-	_ = route.Target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: route.TargetID})
+	// callの書き込み前なら、markRequestSentがcallに続けてcloseを送る。
+	if written {
+		_ = route.Target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: route.TargetID})
+	}
+}
+
+// markRequestSent はforward requestの書き込み完了フック。
+// callの送信前に届いていたcloseがあれば、callに続けて送る。
+func (r *Router) markRequestSent(route *Route) {
+	r.mu.Lock()
+	route.requestWritten = true
+	sendClose := route.cancelRequested
+	r.mu.Unlock()
+	if sendClose {
+		_ = route.Target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: route.TargetID})
+	}
 }
 
 func (r *Router) startCancelTimerLocked(route *Route) {

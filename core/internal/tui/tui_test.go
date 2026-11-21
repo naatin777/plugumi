@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/naatin777/plugumi/core/internal/coreinstances"
+	"github.com/naatin777/plugumi/core/internal/rpc"
 	"github.com/naatin777/plugumi/core/internal/server"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
@@ -92,6 +93,22 @@ func TestCloseKeepsCallUntilResult(t *testing.T) {
 	model.Update(callCloseSentMsg{ticket: ticket})
 	if model.callState != callFinished || model.statusMsg != "" || !strings.Contains(strings.Join(model.callLines, " "), "closed") {
 		t.Fatal("terminal result was not displayed")
+	}
+}
+
+// 接続の張り直しで同じcallIdが回ってきても、旧接続からの遅延通知を
+// 新しいcallの結果として表示しない。
+func TestEventFromPreviousConnectionIsIgnored(t *testing.T) {
+	previous, current := &rpc.Connection{}, &rpc.Connection{}
+	ticket := &CallTicket{connection: current, ID: wire.Marshal("call-1")}
+	model := &Model{coreView: coreView{client: &Client{}}, detailMode: detailCall, callState: callActive, callTicket: ticket, callID: ticket.CallID()}
+	model.onEvent(Event{Kind: EventResult, conn: previous, CallID: ticket.CallID(), Result: json.RawMessage(`"stale"`)})
+	if model.callState != callActive || len(model.callLines) != 0 {
+		t.Fatal("a stale connection's result changed the active call")
+	}
+	model.onEvent(Event{Kind: EventResult, conn: current, CallID: ticket.CallID(), Result: json.RawMessage(`"fresh"`)})
+	if model.callState != callFinished || !strings.Contains(strings.Join(model.callLines, " "), "fresh") {
+		t.Fatal("the current connection's result was not displayed")
 	}
 }
 

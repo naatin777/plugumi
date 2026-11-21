@@ -187,7 +187,7 @@ export class CoreClient {
           const registry = registrySnapshotSchema.parse(await snapshot.json());
           signal.throwIfAborted();
           this.catalog = registry.registrations.filter((entry) => entry.rpcAvailable).flatMap((entry) =>
-            entry.tools.map((tool) => ({ ...tool, registrationId: entry.registrationId })));
+            entry.tools.map((tool) => ({ ...tool, registrationId: entry.registrationId, pluginId: entry.pluginId })));
         }
       } catch (error) {
         if (!signal.aborted) subscription.abort(error);

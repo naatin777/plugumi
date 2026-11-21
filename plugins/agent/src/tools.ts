@@ -26,6 +26,9 @@ export async function dispatchCall(
   reqId: unknown,
   params: ForwardCallParams,
 ): Promise<{ result?: unknown; error?: RpcError }> {
+  if (params === null || typeof params !== "object" || typeof params.toolPath !== "string" || params.toolPath === "") {
+    return { error: { code: -32602, message: "invalid params" } };
+  }
   const tool = tools.get(params.toolPath);
   if (!tool) {
     return {

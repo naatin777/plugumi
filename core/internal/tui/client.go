@@ -33,8 +33,11 @@ const (
 // Event は呼び出し側のWS接続経由で届く非同期イベント。TUIのUpdateが
 // events channelから拾って画面に反映する。
 type Event struct {
-	Kind    EventKind // EventOutput | EventResult | EventConnClosed
-	CallID  string    // json.RawMessageの文字列表現（"\"tui-1\""等）
+	Kind EventKind // EventOutput | EventResult | EventConnClosed
+	// conn は届いた接続。idは接続ごとにtui-1から振り直すので、
+	// 切断→再接続で同じidが回ってきても旧接続の遅延通知と混ざらないよう照合に使う。
+	conn    *rpc.Connection
+	CallID  string // json.RawMessageの文字列表現（"\"tui-1\""等）
 	Payload json.RawMessage
 	Result  json.RawMessage
 	Err     *wire.RpcError
@@ -217,7 +220,7 @@ func (c *Client) ensureConnection(ctx context.Context) (*rpc.Connection, error) 
 	}
 	connection := rpc.NewConnection(raw, "tui-")
 	connection.OnNotification = func(message *wire.Incoming) {
-		c.dispatchNotification(message)
+		c.dispatchNotification(connection, message)
 	}
 	// caller側にrequestが来ることはない（Core→callerはnotificationのみ）。
 	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
@@ -270,11 +273,11 @@ func (t *CallTicket) CallID() string { return string(t.ID) }
 
 // Call はticketのidでtools.callを送り、responseまで待つ。
 // async受理ならacceptedが返った時点で戻り、output/resultはevents経由。
-// kindは宣言ラベル（contract 00003）。宣言がsyncのtoolが{accepted:true}を
+// kindは宣言ラベル（contracts/00004）。宣言がsyncのtoolが{accepted:true}を
 // resultとして返しても終端として扱う — shapeだけで判定すると
 // 終端済みのcallをasync受理と誤認して通知待ちになる。
 func (c *Client) Call(ctx context.Context, ticket *CallTicket, params wire.CallParams, kind string) (CallOutcome, json.RawMessage, *wire.RpcError, error) {
-	res, err := ticket.connection.RequestWithID(ctx, ticket.ID, wire.MethodCall, params)
+	res, err := ticket.connection.RequestWithID(ctx, ticket.ID, wire.MethodCall, params, nil)
 	if err != nil {
 		return CallFailed, nil, nil, err
 	}
@@ -301,8 +304,8 @@ func (c *Client) Close(ticket *CallTicket) error {
 	return ticket.connection.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: ticket.ID})
 }
 
-func (c *Client) dispatchNotification(message *wire.Incoming) {
-	event := Event{Kind: EventOutput}
+func (c *Client) dispatchNotification(connection *rpc.Connection, message *wire.Incoming) {
+	event := Event{Kind: EventOutput, conn: connection}
 	switch message.Method {
 	case wire.MethodCallChunk:
 		var params wire.CallChunkParams

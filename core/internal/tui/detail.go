@@ -314,7 +314,7 @@ var helpRows = []string{
 	"PLUGINS (catalog + running)",
 	"  Enter   run the registered startup command",
 	"  a   register: name command",
-	"  d   remove the registration   l   plugin log",
+	"  d   remove the catalog entry    l   plugin log",
 	"",
 	"DETAIL (Registry)",
 	"  Enter on registration   move to its first Tool",

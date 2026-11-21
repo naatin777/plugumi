@@ -126,9 +126,15 @@ impl CoreClient {
             } else {
                 backoff = 250;
             }
+            // 複数Pluginが同じタイミングで切れたとき再接続が重ならないよう、
+            // 契約どおりバックオフにジッターを足す（contracts/00004）。
+            let jitter = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.subsec_millis() as u64 % (backoff / 4 + 1))
+                .unwrap_or(0);
             tokio::select! {
                 _ = stop.wait_for(|stopped| *stopped) => break,
-                _ = sleep(Duration::from_millis(backoff)) => {}
+                _ = sleep(Duration::from_millis(backoff + jitter)) => {}
             }
             backoff = (backoff * 2).min(5000);
         }

@@ -542,7 +542,8 @@ func (m *Model) onEvent(event Event) {
 		}
 		return
 	}
-	if m.detailMode != detailCall || event.CallID != m.callID || m.callID == "" {
+	if m.detailMode != detailCall || event.CallID != m.callID || m.callID == "" ||
+		m.callTicket == nil || event.conn != m.callTicket.connection {
 		return
 	}
 	switch event.Kind {

@@ -202,6 +202,9 @@ func newRuntime(settings *config.Config) *coreRuntime {
 		instanceID: instanceID, stopToken: stopToken,
 		httpServer: &http.Server{
 			Handler: mux,
+			// ヘッダだけ送って止まる接続でハンドラを占有させない
+			// （loopback限定だが、止まったupgrade予約の回収を早める）。
+			ReadHeaderTimeout: 10 * time.Second,
 		},
 	}
 }

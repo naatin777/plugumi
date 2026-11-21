@@ -46,7 +46,7 @@ test("Agent registers, reconnects without a listener, and refreshes its Core cat
         registryRequests++;
         const body = JSON.stringify({
           coreId: "core-test", revision: "revision-test",
-          registrations: [{ registrationId: "other", rpcAvailable: true, tools: [{ toolPath: announcedTool }] }],
+          registrations: [{ registrationId: "other", pluginId: "other-plugin", rpcAvailable: true, tools: [{ toolPath: announcedTool }] }],
         });
         if (registryRequests === 2 || registryRequests === 4) delayedSnapshot = () => response.end(body);
         else response.end(body);

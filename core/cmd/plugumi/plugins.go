@@ -69,6 +69,12 @@ func runPlugins(ctx context.Context, output io.Writer) error {
 		_, err := fmt.Fprintln(output, "(no registered or running Plugins)")
 		return err
 	}
+	// catalogが読めなくても実行中の一覧は出すが、登録定義が欠けていることは伝える。
+	if catalogErr != nil {
+		if _, err := fmt.Fprintf(output, "(plugin catalog unreadable: %v)\n", catalogErr); err != nil {
+			return err
+		}
+	}
 
 	writer := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	if _, err := fmt.Fprintln(writer, "NAME\tSTATE\tINSTANCE\tVERSION\tSOURCE"); err != nil {
