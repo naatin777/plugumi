@@ -60,7 +60,6 @@ type leaseResponse struct {
 func (s *Server) registerREST(mux *http.ServeMux) {
 	config := huma.DefaultConfig("Plugumi Core", "1.0.0")
 	config.CreateHooks = nil
-	config.DocsPath = ""
 	config.Servers = []*huma.Server{{URL: "/"}}
 	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"coreBearer": {Type: "http", Scheme: "bearer", Description: "Required when the local Core sets PLUGUMI_TOKEN."},
@@ -70,21 +69,33 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 	registrationsPath := prefix + "/registrations"
 	huma.Register(api, huma.Operation{
 		OperationID: "createRegistration", Method: http.MethodPost, Path: registrationsPath,
-		DefaultStatus: http.StatusCreated,
+		Summary: "Pluginを登録する", DefaultStatus: http.StatusCreated,
 	}, s.createRegistration)
 	responses := api.OpenAPI().Paths[registrationsPath].Post.Responses
 	retried := *responses["201"]
 	retried.Description = "Existing registration with a refreshed lease"
 	responses["200"] = &retried
 	huma.Post(api, registrationsPath+"/{registrationId}/renew", s.renewRegistration,
-		func(operation *huma.Operation) { operation.OperationID = "renewRegistration" })
+		func(operation *huma.Operation) {
+			operation.OperationID = "renewRegistration"
+			operation.Summary = "登録のLeaseを更新する"
+		})
 	huma.Put(api, registrationsPath+"/{registrationId}/tools", s.replaceTools,
-		func(operation *huma.Operation) { operation.OperationID = "replaceToolDeclarations" })
+		func(operation *huma.Operation) {
+			operation.OperationID = "replaceToolDeclarations"
+			operation.Summary = "Tool宣言を置き換える"
+		})
 	huma.Delete(api, registrationsPath+"/{registrationId}", s.deleteRegistration,
-		func(operation *huma.Operation) { operation.OperationID = "deleteRegistration" })
+		func(operation *huma.Operation) {
+			operation.OperationID = "deleteRegistration"
+			operation.Summary = "登録を削除する"
+		})
 	huma.Get(api, prefix+"/registry", func(context.Context, *struct{}) (*struct{ Body wire.RegistrySnapshot }, error) {
 		return &struct{ Body wire.RegistrySnapshot }{Body: s.registry.Snapshot()}, nil
-	}, func(operation *huma.Operation) { operation.OperationID = "getRegistrySnapshot" })
+	}, func(operation *huma.Operation) {
+		operation.OperationID = "getRegistrySnapshot"
+		operation.Summary = "RegistryのSnapshotを取得する"
+	})
 }
 
 func (s *Server) createRegistration(_ context.Context, input *struct{ Body wire.PluginIdentity }) (*leaseResponse, error) {

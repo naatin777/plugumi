@@ -56,7 +56,7 @@ func (s *Server) Handler() http.Handler {
 			writeAPIError(w, http.StatusUpgradeRequired, "protocol_mismatch", "unsupported protocol version")
 			return
 		}
-		if s.token != "" && subtle.ConstantTimeCompare(
+		if s.token != "" && !isDocsPath(r.URL.Path) && subtle.ConstantTimeCompare(
 			[]byte(r.Header.Get("Authorization")), []byte("Bearer "+s.token),
 		) != 1 {
 			w.Header().Set("WWW-Authenticate", "Bearer")
@@ -66,6 +66,10 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		mux.ServeHTTP(w, r)
 	})
+}
+
+func isDocsPath(path string) bool {
+	return path == "/docs" || path == "/openapi.json" || path == "/openapi.yaml"
 }
 
 func loopbackHost(host string) bool {

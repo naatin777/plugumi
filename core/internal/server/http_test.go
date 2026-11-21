@@ -53,6 +53,9 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	request("POST", "/v1/registrations", `{"pluginId":23}`, true, 400).Body.Close()
 	request("POST", "/v1/link/hello", `{}`, true, 404).Body.Close()
 	request("GET", "/v2/registry", "", true, 426).Body.Close()
+	request("GET", "/docs", "", false, 200).Body.Close()
+	request("GET", "/openapi.json", "", false, 200).Body.Close()
+	request("GET", "/openapi.yaml", "", false, 200).Body.Close()
 
 	eventStream := request("GET", "/v1/events", "", true, 200)
 	if got := eventStream.Header.Get("Content-Type"); got != "text/event-stream" {
