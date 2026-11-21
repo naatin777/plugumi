@@ -13,7 +13,7 @@ relations:
     - '00010'
 ---
 
-> 現行試作が使う旧v1のチャネル契約。新規設計には[v2草案](00004-plugin-client-protocol.md)を参照する。
+> 現行試作が使う旧v1のチャネル契約。新規設計には[現行契約](00004-plugin-client-protocol.md)を参照する。
 
 ## 当事者と範囲
 

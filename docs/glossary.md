@@ -36,15 +36,15 @@ Panel等を表示するためのビルド成果物。entrypointのほか、JS・
 
 ### Registration
 
-特定のCoreにおけるPluginインスタンスの論理的な登録。登録の識別子はv2草案では `registrationId`。物理接続から独立した寿命の候補を[接続契約の草案](contracts/00004-plugin-client-protocol.md)で比較する。
+特定のCoreにおけるPluginインスタンスの論理的な登録。登録の識別子は `registrationId`。物理接続から独立した寿命を持つ（[接続契約](contracts/00004-plugin-client-protocol.md)）。
 
 ### Lease
 
-期限内の更新を条件にRegistrationを維持するv2草案の候補。永続登録や通信路そのものとは異なる。
+期限内の更新を条件にRegistrationを維持する仕組み。永続登録や通信路そのものとは異なる。
 
 ### Revision
 
-Registryの観測時点を表す版。v2草案ではSSE通知とSnapshotの照合に使う。クライアントが連番やCore間での比較を仮定しない。
+Registryの観測時点を表す版。SSE通知とSnapshotの照合に使う。クライアントが連番やCore間での比較を仮定しない。
 
 ### Node
 
@@ -106,7 +106,7 @@ Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内
 
 ### Subscribe（購読）
 
-変更を継続的に受け取ること。旧v1では長時間の `kind: async` callを指す場合がある。v2草案のRegistry購読はSSEで行う。
+変更を継続的に受け取ること。旧v1では長時間の `kind: async` callを指す場合がある。現行契約のRegistry購読はSSEで行う。
 
 ## Specbook・文書
 

@@ -12,7 +12,7 @@ relations:
     - '00004'
 ---
 
-> 旧v1のLink Registry設計。新方式の登録寿命は未決定。[v2草案](../contracts/00004-plugin-client-protocol.md)で候補を示す。
+> 旧v1のLink Registry設計。新方式の登録寿命は[現行契約](../contracts/00004-plugin-client-protocol.md)を参照。
 
 ## 対応するrequirement
 

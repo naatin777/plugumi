@@ -1,8 +1,8 @@
 ---
 type: contract
-title: Plugin起点の接続・登録・RPC（v1）
-description: Coreを入口とするREST・SSE・WebSocket RPCのPoC候補。認証主体、登録、購読復旧、呼び出しの相関を定義する。
-status: draft
+title: Plugin起点の接続・登録・RPC
+description: Coreを入口とするREST・SSE・WebSocket RPCの契約。認証主体、登録、購読復旧、呼び出しの相関を定義する。
+status: accepted
 relations:
   architecture:
     - '00002'

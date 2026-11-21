@@ -8,7 +8,7 @@ relations:
     - '00002'
 ---
 
-> 旧v1のTool登録・配送設計。Toolの選択を呼び出し元に残す要件は維持する。新方式の通信は[v2草案](../contracts/00004-plugin-client-protocol.md)を参照する。
+> 旧v1のTool登録・配送設計。Toolの選択を呼び出し元に残す要件は維持する。新方式の通信は[現行契約](../contracts/00004-plugin-client-protocol.md)を参照する。
 
 ## 対応するrequirement
 
