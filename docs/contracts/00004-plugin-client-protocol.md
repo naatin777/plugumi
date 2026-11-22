@@ -8,6 +8,7 @@ relations:
     - '00002'
   decision:
     - '00012'
+    - '00014'
   requirement:
     - '00002'
     - '00005'
@@ -53,11 +54,12 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 | `POST /v1/registrations/{registrationId}/renew` | 失効前に明示更新。登録操作と同じ型で期限を返す。 |
 | `DELETE /v1/registrations/{registrationId}` | 登録を取り消す。配送を止め、宣言を公開対象から外す。 |
 | `PUT /v1/registrations/{registrationId}/tools` | Tool宣言を全置換。空配列で全解除。パスの重複があれば全体を拒否。同じ内容の再送は変更通知を発生させない。 |
+| `GET /v1/core` | Coreの識別情報。`coreId` と、Coreに設定されていればCore名 `name` を返す。`coreId` はプロセスごとに変わり、`name` は再起動しても変わらない。他の操作と同じ認証を要する。 |
 | `GET /v1/registry` | Snapshot。Coreの世代、`revision`、登録ごとのRPC到達可否とTool宣言を一貫した時点で返す。 |
 | `GET /v1/events` | Registry通知のSSE購読。詳細は次節。 |
 | `GET /v1/rpc` | WS upgrade。Pluginは `registrationId` をクエリで指定し、資格情報はヘッダーで送る。呼び出し専用接続は登録IDを指定しない。 |
 
-Bundleの有無確認・アップロード・版の参照、Panel宣言とSignalingのワイヤーは拡張候補。Bundleの識別子には内容ハッシュを使い、検証済みの版だけを公開候補にする。メディア本体はこのAPIのデータではない。Bundle形式と配信境界を検証してから、OpenAPIに操作を追加する。
+UIファイルとPanelの宣言は次節で定める。Signalingのワイヤーは拡張候補で、メディア本体はこのAPIのデータではない。
 
 現行のToolには `kind: sync | async` があり、省略時は `sync`。`sync` は応答を終端とする。`async` は `{ "accepted": true }` を先に返し、`tools.call.chunk` と `tools.call.result` を `callId` で相関させる。取消は `tools.call.close`。既存Toolが動くよう応答・通知の形を引き継いだが、旧宛先の `linkId` は受け付けない。
 
@@ -98,6 +100,23 @@ sequenceDiagram
 
 **未決事項:** 登録期限の長さと更新方式は、切断からの復帰にかかる時間と更新の負荷を見て決める。切断中の登録をTUIの通常一覧に出すかどうかも未決定。登録の永続化や透過的なWS再開はPoCの対象外。
 
+### UIファイルとPanelの宣言
+
+Pluginは、PanelのUI Bundleを構成するファイルを、登録のたびにCoreへ送る。Coreはファイルを内容のsha256で識別してメモリに保持し、HTTPで配信する。Panelのモジュールの形は[Contract 00005](00005-panel-module.md)で定める。
+
+| 操作 | 意味 |
+|---|---|
+| `POST /v1/assets/missing` | `{"sha256": [...]}` のうち、Coreが持っていないものを `{"missing": [...]}` で返す。 |
+| `PUT /v1/assets/{sha256}` | ファイルの中身をそのまま送る。中身のsha256が一致しなければ `400`。1ファイルの上限は16MiBで、超えると `413`。 |
+| `PUT /v1/registrations/{registrationId}/ui` | `{"files": [{"path", "sha256"}], "panels": [{"panelId", "title", "entry", "styles"}]}` で、その登録のUIを全置換する。両方を空配列にすると解除する。Coreが持っていないsha256を参照すると `400 missing_assets`。同じ内容の再送は変更通知を発生させない。 |
+| `GET /v1/ui/{registrationId}/{path}` | 登録のUIに含まれるファイルを返す。`Content-Type` は拡張子から決め、`ETag` にsha256を入れる。 |
+
+Pluginは、`missing` で不足を確かめ、不足するファイルだけを送ってから、`ui` を登録する。Coreを再起動するとファイルは失われるので、Pluginは再登録のたびにこの手順をやり直す。
+
+`files` の `path` は、Bundleのルートからの相対パスとする。Coreは次のパスを拒否する: 空、絶対パス、`path.Clean` した結果と異なるもの（`.`・`..`・連続した `/`・末尾の `/`）、`\` `:` `?` `%` `#` を含むもの、重複。1つのUIのファイル数は1000、合計サイズは64MiBまでとする。`panelId` は小文字の英数字とハイフンで、登録内で一意とする。`entry` と `styles` の各パスは `files` に含まれるパスでなければならない。`styles` は省略でき、重複を含められない。
+
+SnapshotはPanelの宣言を登録ごとの `panels` に含める。登録ごとの `uiSha256` は、`files` をパス順に並べたものと `panels` を正規化したJSONのsha256で、UIのどれか1つのファイルが変わっても変わる。UIを登録していなければ省略する。Coreは、どの登録のUIからも参照されなくなったファイルを削除する。送られたまま60秒以内に参照されなかったファイルも削除する。
+
 ### HTTPエラー
 
 本文は `{"error":{"code":"…","message":"…"}}`。機械判定にはstatusと `code` を使う。
@@ -112,7 +131,7 @@ sequenceDiagram
 
 ## SSE: 変更通知と復旧
 
-**推奨案:** SSEはPoCではRegistry通知専用とし、CommandやTool実行結果を載せない。`event` は `registry.reset`、`plugin.added`、`plugin.changed`（配送可否）、`plugin.removed`、`tools.changed`。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
+**推奨案:** SSEはPoCではRegistry通知専用とし、CommandやTool実行結果を載せない。`event` は `registry.reset`、`plugin.added`、`plugin.changed`（配送可否）、`plugin.removed`、`tools.changed`、`panels.changed`（UIの登録・置換・解除）。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
 
 ```text
 id: revision-7f

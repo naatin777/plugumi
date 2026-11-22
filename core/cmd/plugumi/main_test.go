@@ -27,7 +27,7 @@ func TestDefaultCoresUseDistinctPortsAndStopIndependently(t *testing.T) {
 		}
 		core := newRuntime(settings)
 		t.Cleanup(core.shutdown)
-		if err := core.start("", ""); err != nil {
+		if err := core.start("", "", ""); err != nil {
 			t.Fatal(err)
 		}
 		return coreinstances.Instance{URL: settings.Core.URL, ID: core.instanceID}
@@ -73,4 +73,21 @@ func TestDefaultCoresUseDistinctPortsAndStopIndependently(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("running after stop = %v, %v; want only %v", running, err, second)
+}
+
+func TestConflictingName(t *testing.T) {
+	running := []coreinstances.Instance{
+		{URL: "http://127.0.0.1:7700", ID: "core-a", Name: "local"},
+		{URL: "http://127.0.0.1:7701", ID: "core-b"},
+		{URL: "http://127.0.0.1:7702", ID: "core-c", Name: "other"},
+	}
+	if conflict, found := conflictingName(running, "local"); !found || conflict.URL != "http://127.0.0.1:7700" {
+		t.Fatalf("got (%v, %v), want the named instance", conflict, found)
+	}
+	if _, found := conflictingName(running, "unused"); found {
+		t.Fatal("reported a conflict for an unused name")
+	}
+	if _, found := conflictingName(running, ""); found {
+		t.Fatal("reported a conflict for an empty name")
+	}
 }

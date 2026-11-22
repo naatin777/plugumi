@@ -59,16 +59,51 @@ async fn assert_rejected(upgrade: bool) {
                 r#"{"registrationId":"test-registration","leaseSeconds":60}"#,
             )
             .await;
-            let (socket, _) = listener.accept().await.unwrap();
-            respond(
-                socket,
-                "PUT /v1/registrations/test-registration/tools ",
-                "204 No Content",
-                "",
-            )
-            .await;
-            let (socket, _) = listener.accept().await.unwrap();
-            respond(socket, "GET /v1/rpc?", "403 Forbidden", "").await;
+            // tools宣言と（UIがビルドされていれば）asset push・UI登録の後にupgradeする。
+            loop {
+                let (socket, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(socket);
+                let mut request_line = String::new();
+                reader.read_line(&mut request_line).await.unwrap();
+                let mut body_length = 0;
+                let mut header_line = String::new();
+                loop {
+                    header_line.clear();
+                    assert_ne!(reader.read_line(&mut header_line).await.unwrap(), 0);
+                    if header_line == "\r\n" {
+                        break;
+                    }
+                    if let Some(length) = header_line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        body_length = length.trim().parse().unwrap();
+                    }
+                }
+                reader.read_exact(&mut vec![0; body_length]).await.unwrap();
+                let (status, body) = if request_line.starts_with("PUT /v1/registrations/test-registration/tools ") {
+                    ("204 No Content", "")
+                } else if request_line.starts_with("POST /v1/assets/missing ") {
+                    ("200 OK", r#"{"missing":[]}"#)
+                } else if request_line.starts_with("PUT /v1/registrations/test-registration/ui ") {
+                    ("204 No Content", "")
+                } else if request_line.starts_with("GET /v1/rpc?") {
+                    ("403 Forbidden", "")
+                } else {
+                    panic!("unexpected request {request_line}");
+                };
+                reader
+                    .get_mut()
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 {status}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
+                            body.len()
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+                if request_line.starts_with("GET /v1/rpc?") {
+                    break;
+                }
+            }
         } else {
             respond(socket, "POST /v1/registrations ", "401 Unauthorized", "").await;
         }

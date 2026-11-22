@@ -39,7 +39,7 @@ func restartCore(ctx context.Context, target coreinstances.Instance) error {
 		return err
 	}
 	// 停止後に同じ起動条件で立て直すため、記録済みの引数を先に取る。
-	configPath, portOverride := target.ConfigPath, target.Port
+	configPath, portOverride, nameOverride := target.ConfigPath, target.Port, target.NameOverride
 
 	if err := instances.Stop(ctx, target); err != nil {
 		return err
@@ -66,6 +66,6 @@ func restartCore(ctx context.Context, target coreinstances.Instance) error {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	_, err = startBackgroundCore(configPath, portOverride)
+	_, err = startBackgroundCore(configPath, portOverride, nameOverride)
 	return err
 }

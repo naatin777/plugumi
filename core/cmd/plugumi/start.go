@@ -19,8 +19,8 @@ type startedCore struct {
 	LogPath string
 }
 
-func runStart(output io.Writer, configPath, portOverride string) error {
-	core, err := startBackgroundCore(configPath, portOverride)
+func runStart(output io.Writer, configPath, portOverride, nameOverride string) error {
+	core, err := startBackgroundCore(configPath, portOverride, nameOverride)
 	if err != nil {
 		return err
 	}

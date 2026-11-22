@@ -22,7 +22,7 @@ const (
 	createNewProcessGroup = 0x00000200
 )
 
-func startBackgroundCore(configPath, portOverride string) (startedCore, error) {
+func startBackgroundCore(configPath, portOverride, nameOverride string) (startedCore, error) {
 	executable, err := os.Executable()
 	if err != nil {
 		return startedCore{}, err
@@ -51,7 +51,12 @@ func startBackgroundCore(configPath, portOverride string) (startedCore, error) {
 	}
 	defer os.Remove(reportPath)
 
-	command := exec.Command(executable, "serve", "--config", configPath, "--port", portOverride, "--report-startup")
+	args := []string{"serve", "--config", configPath, "--port", portOverride, "--report-startup"}
+	// 空の--nameを渡すと設定ファイルのcore.nameまで消えるので、指定があるときだけ付ける。
+	if nameOverride != "" {
+		args = append(args, "--name", nameOverride)
+	}
+	command := exec.Command(executable, args...)
 	command.SysProcAttr = &syscall.SysProcAttr{
 		CreationFlags: detachedProcess | createNewProcessGroup,
 	}

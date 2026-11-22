@@ -2,10 +2,15 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +22,7 @@ import (
 
 func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	server := New(ctx, "test-core", "test-token")
+	server := New(ctx, "test-core", "", "test-token")
 	httpServer := httptest.NewServer(server.Handler())
 	t.Cleanup(func() {
 		cancel()
@@ -174,7 +179,7 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 func TestOpenAPIDescribesOnlyNativeREST(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	handler := New(ctx, "test-core", "").Handler()
+	handler := New(ctx, "test-core", "test-name", "").Handler()
 	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/openapi.json", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -186,7 +191,248 @@ func TestOpenAPIDescribesOnlyNativeREST(t *testing.T) {
 	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &api) != nil {
 		t.Fatalf("OpenAPI is not available: %d %s", response.Code, response.Body)
 	}
-	if len(api.Paths) != 5 || api.Paths["/v1/registrations"]["post"].OperationID != "createRegistration" {
+	if len(api.Paths) != 8 || api.Paths["/v1/registrations"]["post"].OperationID != "createRegistration" ||
+		api.Paths["/v1/core"]["get"].OperationID != "getCore" ||
+		api.Paths["/v1/registrations/{registrationId}/ui"]["put"].OperationID != "replaceUIManifest" ||
+		api.Paths["/v1/assets/missing"]["post"].OperationID != "listMissingAssets" {
 		t.Fatalf("unexpected REST operations: %+v", api.Paths)
+	}
+}
+
+func TestCoreInfo(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	for _, test := range []struct {
+		name     string
+		coreName string
+		wantBody string
+	}{
+		{"named", "test-name", `{"coreId":"test-core","name":"test-name"}`},
+		{"unnamed", "", `{"coreId":"test-core"}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(New(ctx, "test-core", test.coreName, "test-token").Handler())
+			t.Cleanup(server.Close)
+			get := func(authorized bool) *http.Response {
+				t.Helper()
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/v1/core", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if authorized {
+					req.Header.Set("Authorization", "Bearer test-token")
+				}
+				res, err := server.Client().Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return res
+			}
+			if res := get(false); res.StatusCode != http.StatusUnauthorized {
+				res.Body.Close()
+				t.Fatalf("unauthenticated GET /v1/core returned %d", res.StatusCode)
+			}
+			res := get(true)
+			defer res.Body.Close()
+			if res.StatusCode != http.StatusOK {
+				t.Fatalf("GET /v1/core returned %d", res.StatusCode)
+			}
+			var info wire.CoreInfo
+			if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
+				t.Fatal(err)
+			}
+			var want wire.CoreInfo
+			if err := json.Unmarshal([]byte(test.wantBody), &want); err != nil {
+				t.Fatal(err)
+			}
+			if info != want {
+				t.Fatalf("got %+v, want %+v", info, want)
+			}
+		})
+	}
+}
+
+func TestUIAssets(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	server := New(ctx, "test-core", "", "test-token")
+	httpServer := httptest.NewServer(server.Handler())
+	t.Cleanup(func() {
+		cancel()
+		httpServer.Close()
+	})
+	const token = "Bearer test-token"
+	request := func(method, path string, body any, want int) *http.Response {
+		t.Helper()
+		var reader io.Reader
+		var contentType string
+		switch value := body.(type) {
+		case []byte:
+			reader = bytes.NewReader(value)
+			contentType = "application/octet-stream"
+		case string:
+			if value != "" {
+				reader = strings.NewReader(value)
+				contentType = "application/json"
+			}
+		}
+		req, err := http.NewRequestWithContext(ctx, method, httpServer.URL+path, reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", token)
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+		res, err := httpServer.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = res.Body.Close() })
+		if res.StatusCode != want {
+			var raw json.RawMessage
+			_ = json.NewDecoder(res.Body).Decode(&raw)
+			t.Fatalf("%s %s: got %d, want %d: %s", method, path, res.StatusCode, want, raw)
+		}
+		return res
+	}
+	sha := func(data []byte) string {
+		sum := sha256.Sum256(data)
+		return hex.EncodeToString(sum[:])
+	}
+	panelJS := []byte("export function mount() {}")
+	panelHash := sha(panelJS)
+	extra := []byte("body { color: red; }")
+	extraHash := sha(extra)
+
+	// 何もない状態では全部missing。
+	res := request("POST", "/v1/assets/missing", `{"sha256":["`+panelHash+`","`+extraHash+`"]}`, 200)
+	var missing struct {
+		Missing []string `json:"missing"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&missing); err != nil || len(missing.Missing) != 2 {
+		t.Fatalf("missing = %+v, %v", missing, err)
+	}
+
+	// 不正なsha256形式・ハッシュ不一致・サイズ超過。
+	request("PUT", "/v1/assets/nothex", panelJS, 400)
+	request("PUT", "/v1/assets/"+extraHash, panelJS, 400)
+	request("PUT", "/v1/assets/"+panelHash, make([]byte, 16<<20+1), 413)
+
+	request("PUT", "/v1/assets/"+panelHash, panelJS, 204)
+	request("PUT", "/v1/assets/"+extraHash, extra, 204)
+	res = request("POST", "/v1/assets/missing", `{"sha256":["`+panelHash+`","`+extraHash+`"]}`, 200)
+	if err := json.NewDecoder(res.Body).Decode(&missing); err != nil || missing.Missing == nil || len(missing.Missing) != 0 {
+		t.Fatalf("missing after upload = %+v, %v", missing, err)
+	}
+
+	// 登録してmanifest検証。
+	res = request("POST", "/v1/registrations", `{"pluginId":"standard","pluginInstanceId":"i-1"}`, 201)
+	var lease wire.RegistrationLease
+	if err := json.NewDecoder(res.Body).Decode(&lease); err != nil {
+		t.Fatal(err)
+	}
+	uiPath := "/v1/registrations/" + lease.RegistrationID + "/ui"
+	manifest := func(files, panels string) string {
+		return `{"files":[` + files + `],"panels":[` + panels + `]}`
+	}
+	file := `{"path":"panel.js","sha256":"` + panelHash + `"}`
+	cssFile := `{"path":"style.css","sha256":"` + extraHash + `"}`
+	panel := `{"panelId":"files","title":"Files","entry":"panel.js"}`
+
+	// 参照がCoreに無いとmissing_assets。
+	res = request("PUT", uiPath, manifest(`{"path":"x.js","sha256":"`+sha([]byte("absent"))+`"}`, ""), 400)
+	if body := res.Body; body != nil {
+		var decoded struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		_ = json.NewDecoder(body).Decode(&decoded)
+		if decoded.Error.Code != "missing_assets" {
+			t.Fatalf("code = %q, want missing_assets", decoded.Error.Code)
+		}
+	}
+	// パス検証テーブル。
+	for _, bad := range []struct {
+		name string
+		path string
+	}{
+		{"empty", ""}, {"absolute", "/panel.js"}, {"dotdot", "../x.js"}, {"dot", "./x.js"},
+		{"double slash", "a//b.js"}, {"trailing slash", "a/"}, {"backslash", `a\b.js`},
+		{"colon", "a:b.js"}, {"percent", "a%b.js"},
+	} {
+		t.Run("path/"+bad.name, func(t *testing.T) {
+			badFile := `{"path":` + strconv.Quote(bad.path) + `,"sha256":"` + panelHash + `"}`
+			request("PUT", uiPath, manifest(badFile, ""), 400)
+		})
+	}
+	// files内重複、panelId検証、entry不在。
+	dup := file + `,` + file
+	request("PUT", uiPath, manifest(dup, ""), 400)
+	request("PUT", uiPath, manifest(file, panel+`,`+panel), 400)
+	request("PUT", uiPath, manifest(file, `{"panelId":"Bad","title":"x","entry":"panel.js"}`), 400)
+	request("PUT", uiPath, manifest(file, `{"panelId":"files","title":"","entry":"panel.js"}`), 400)
+	request("PUT", uiPath, manifest(file, `{"panelId":"files","title":"x","entry":"missing.js"}`), 400)
+	// stylesはfiles内のパスのみ・重複なし。
+	styledPanel := `{"panelId":"files","title":"Files","entry":"panel.js","styles":["style.css"]}`
+	request("PUT", uiPath, manifest(file, `{"panelId":"files","title":"x","entry":"panel.js","styles":["missing.css"]}`), 400)
+	request("PUT", uiPath, manifest(file+`,`+cssFile, `{"panelId":"files","title":"x","entry":"panel.js","styles":["style.css","style.css"]}`), 400)
+
+	request("PUT", uiPath, manifest(file+`,`+cssFile, panel), 204)
+	// 同じ内容の再送は204。
+	request("PUT", uiPath, manifest(file+`,`+cssFile, panel), 204)
+
+	// Snapshotにpanelsが出る。
+	res = request("GET", "/v1/registry", "", 200)
+	var snapshot wire.RegistrySnapshot
+	if err := json.NewDecoder(res.Body).Decode(&snapshot); err != nil ||
+		len(snapshot.Registrations) != 1 || len(snapshot.Registrations[0].Panels) != 1 ||
+		snapshot.Registrations[0].Panels[0].PanelID != "files" ||
+		len(snapshot.Registrations[0].UISHA256) != 64 {
+		t.Fatalf("snapshot = %+v, %v", snapshot, err)
+	}
+	uiSHA := snapshot.Registrations[0].UISHA256
+
+	// styles付きに置き換えるとuiSha256が変わる。
+	request("PUT", uiPath, manifest(file+`,`+cssFile, styledPanel), 204)
+	res = request("GET", "/v1/registry", "", 200)
+	var styled wire.RegistrySnapshot
+	if err := json.NewDecoder(res.Body).Decode(&styled); err != nil ||
+		styled.Registrations[0].UISHA256 == uiSHA ||
+		len(styled.Registrations[0].Panels[0].Styles) != 1 ||
+		styled.Registrations[0].Panels[0].Styles[0] != "style.css" {
+		t.Fatalf("snapshot = %+v, %v", styled, err)
+	}
+	// filesの順序を変えてもuiSha256は変わらない（path順に正規化するため）。
+	request("PUT", uiPath, manifest(cssFile+`,`+file, styledPanel), 204)
+	res = request("GET", "/v1/registry", "", 200)
+	var reordered wire.RegistrySnapshot
+	if err := json.NewDecoder(res.Body).Decode(&reordered); err != nil ||
+		reordered.Registrations[0].UISHA256 != styled.Registrations[0].UISHA256 {
+		t.Fatalf("reordered uiSha256 = %+v", reordered.Registrations[0].UISHA256)
+	}
+	request("PUT", uiPath, manifest(cssFile+`,`+file, styledPanel), 204)
+
+	// ファイル配信: 内容・Content-Type・ETag。
+	base := "/v1/ui/" + lease.RegistrationID + "/"
+	res = request("GET", base+"panel.js", nil, 200)
+	content, _ := io.ReadAll(res.Body)
+	if string(content) != string(panelJS) || !strings.Contains(res.Header.Get("Content-Type"), "javascript") ||
+		res.Header.Get("ETag") != `"`+panelHash+`"` {
+		t.Fatalf("asset = %q, %v", content, res.Header)
+	}
+	res = request("GET", base+"style.css", nil, 200)
+	if ct := res.Header.Get("Content-Type"); ct != "text/css; charset=utf-8" {
+		t.Fatalf("css content-type = %q", ct)
+	}
+	request("GET", base+"missing.js", nil, 404)
+	request("GET", "/v1/ui/unknown-registration/panel.js", nil, 404)
+
+	// 登録削除後はファイルも消える（missingに戻る）。
+	request("DELETE", "/v1/registrations/"+lease.RegistrationID, "", 204)
+	res = request("POST", "/v1/assets/missing", `{"sha256":["`+panelHash+`","`+extraHash+`"]}`, 200)
+	// 登録削除で参照は0になるが、TTL以内はassetが残る（sweeperが消す）。
+	if err := json.NewDecoder(res.Body).Decode(&missing); err != nil || len(missing.Missing) != 0 {
+		t.Fatalf("missing after delete = %+v, %v", missing, err)
 	}
 }

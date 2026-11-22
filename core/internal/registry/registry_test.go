@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -149,5 +150,63 @@ func TestConnectionReservationDoesNotSurviveDeletion(t *testing.T) {
 	}
 	if !registry.Delete(lease.RegistrationID) || second.Complete(&rpc.Connection{}) {
 		t.Fatal("upgrade completed on a deleted registration")
+	}
+}
+
+func TestReplaceUIPublishesPanelsChanged(t *testing.T) {
+	registry := New("test-core")
+	events, unsubscribe := registry.Subscribe()
+	defer unsubscribe()
+	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	drain(events)
+	hash := strings.Repeat("a", 64)
+	registry.PutAsset(hash, []byte("x"))
+	manifest := wire.UIManifest{
+		Files:  []wire.UIFile{{Path: "panel.js", SHA256: hash}},
+		Panels: []wire.PanelDeclaration{{PanelID: "files", Title: "Files", Entry: "panel.js"}},
+	}
+	if err := registry.ReplaceUI(lease.RegistrationID, manifest); err != nil {
+		t.Fatal(err)
+	}
+	if event := <-events; event.Name != "panels.changed" {
+		t.Fatalf("ReplaceUI published %q, want panels.changed", event.Name)
+	}
+}
+
+func drain(events <-chan Event) {
+	for {
+		select {
+		case <-events:
+		default:
+			return
+		}
+	}
+}
+
+func TestReleasedAssetSurvivesUntilTTL(t *testing.T) {
+	registry := New("test-core")
+	now := time.Now()
+	registry.now = func() time.Time { return now }
+	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	hash := strings.Repeat("b", 64)
+	registry.PutAsset(hash, []byte("x"))
+	manifest := wire.UIManifest{Files: []wire.UIFile{{Path: "panel.js", SHA256: hash}}}
+	if err := registry.ReplaceUI(lease.RegistrationID, manifest); err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.ReplaceUI(lease.RegistrationID, wire.UIManifest{}); err != nil {
+		t.Fatal(err)
+	}
+	// 参照は0だがTTL以内なのでassetは残る（即時削除だと別登録のmissing_assets競合になる）。
+	if missing := registry.MissingAssets([]string{hash}); len(missing) != 0 {
+		t.Fatalf("asset released within TTL was removed: %v", missing)
+	}
+	now = now.Add(unreferencedAssetTTL + time.Second)
+	registry.collectStaleAssetsLocked(now)
+	if missing := registry.MissingAssets([]string{hash}); len(missing) != 1 {
+		t.Fatalf("stale asset was not swept: %v", missing)
+	}
+	if got := registry.MissingAssets(nil); got == nil {
+		t.Fatal("MissingAssets must return an empty slice, not nil")
 	}
 }

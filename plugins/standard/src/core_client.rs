@@ -4,6 +4,7 @@ use http_body_util::{BodyExt, Full, Limited};
 use hyper::body::Bytes;
 use hyper::client::conn::http1;
 use hyper::{header, Method, Request, StatusCode, Uri};
+use include_dir::{include_dir, Dir};
 use hyper_util::rt::TokioIo;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -22,6 +23,10 @@ use crate::tools;
 use crate::wire::{self, ForwardCallParams, Incoming};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+// ui/distをバイナリに同梱する。plugumi-ui.jsonはvite buildが生成する
+// manifest（files+panels）。未ビルドならUI登録をスキップするだけ。
+static UI_DIST: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/ui/dist");
 
 #[derive(Default)]
 pub struct ConnectionCalls {
@@ -177,6 +182,10 @@ impl CoreClient {
             Some(json!({ "tools": tools::declarations() })),
         )
         .await?;
+        // UI登録に失敗してもTool提供は続ける（接続を落とさない）。
+        if let Err(error) = self.push_ui(&path).await {
+            crate::log::logln!("[standard] could not publish UI: {}", error.message);
+        }
         Ok(lease)
     }
 
@@ -236,11 +245,79 @@ impl CoreClient {
         result.unwrap_or(Ok(()))
     }
 
+    // missingを問い合わせて不足分だけpushし、manifestを登録する
+    // （登録のたびに実行。内容アドレスなので2回目以降はPUTが空になる）。
+    async fn push_ui(&self, registration_path: &str) -> Result<(), Failure> {
+        let Some(manifest_file) = UI_DIST.get_file("plugumi-ui.json") else {
+            crate::log::logln!("[standard] ui/dist is not built; skipping UI registration");
+            return Ok(());
+        };
+        let manifest: Value =
+            serde_json::from_slice(manifest_file.contents()).map_err(Failure::retry)?;
+        let files = manifest["files"].as_array().cloned().unwrap_or_default();
+        let hashes: Vec<&str> = files
+            .iter()
+            .filter_map(|file| file["sha256"].as_str())
+            .collect();
+        let response = self
+            .request(
+                Method::POST,
+                "/v1/assets/missing",
+                Some(json!({ "sha256": hashes })),
+            )
+            .await?;
+        let missing: Vec<String> = serde_json::from_slice::<Value>(&response)
+            .map_err(Failure::retry)?["missing"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|hash| hash.as_str().map(str::to_string))
+            .collect();
+        for hash in &missing {
+            let path = files
+                .iter()
+                .find(|file| file["sha256"].as_str() == Some(hash))
+                .and_then(|file| file["path"].as_str());
+            let Some(path) = path.and_then(|path| UI_DIST.get_file(path)) else {
+                return Err(Failure::retry("manifest refers to a file missing from ui/dist"));
+            };
+            self.send(
+                Method::PUT,
+                &format!("/v1/assets/{hash}"),
+                Some("application/octet-stream"),
+                Bytes::from_static(path.contents()),
+            )
+            .await?;
+        }
+        self.request(
+            Method::PUT,
+            &format!("{registration_path}/ui"),
+            Some(manifest),
+        )
+        .await?;
+        Ok(())
+    }
+
     async fn request(
         &self,
         method: Method,
         path: &str,
         body: Option<Value>,
+    ) -> Result<Bytes, Failure> {
+        let (content_type, bytes) = match body {
+            Some(value) => (Some("application/json"), Bytes::from(value.to_string())),
+            None => (None, Bytes::new()),
+        };
+        self.send(method, path, content_type, bytes).await
+    }
+
+    async fn send(
+        &self,
+        method: Method,
+        path: &str,
+        content_type: Option<&str>,
+        bytes: Bytes,
     ) -> Result<Bytes, Failure> {
         timeout(REQUEST_TIMEOUT, async {
             let socket = TcpStream::connect((self.host.as_str(), self.port))
@@ -259,13 +336,10 @@ impl CoreClient {
             if let Some(bearer) = &self.bearer {
                 request = request.header(header::AUTHORIZATION, bearer);
             }
-            if body.is_some() {
-                request = request.header(header::CONTENT_TYPE, "application/json");
+            if let Some(content_type) = content_type {
+                request = request.header(header::CONTENT_TYPE, content_type);
             }
-            let body = Full::new(
-                body.map(|value| Bytes::from(value.to_string()))
-                    .unwrap_or_default(),
-            );
+            let body = Full::new(bytes);
             let response = sender
                 .send_request(request.body(body).map_err(Failure::retry)?)
                 .await

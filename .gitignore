@@ -17,6 +17,13 @@ Thumbs.db
 # Node
 node_modules/
 dist/
+# embed対象のdistは.gitkeepだけ残す。
+!/plugins/web/frontend/dist/
+/plugins/web/frontend/dist/*
+!/plugins/web/frontend/dist/.gitkeep
+!/plugins/standard/ui/dist/
+/plugins/standard/ui/dist/*
+!/plugins/standard/ui/dist/.gitkeep
 /plugins/agent/plugumi-agent-*.tgz
 
 # Rust
