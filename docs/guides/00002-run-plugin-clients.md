@@ -23,7 +23,7 @@ pnpm run build
 (cd plugins/standard && cargo build --locked)
 ```
 
-ルートはpnpm workspaceで、TypeScriptのパッケージ（`packages/*`、`shared/*`、Agent、Web Pluginのフロントエンド、StandardのPanel）を `pnpm run build` でまとめてビルドする。StandardはPanelのビルド結果（`plugins/standard/ui/dist`）をバイナリに同梱するので、`cargo build` より先に実行する。各パッケージのビルドは生成先の `dist/` を作り直す。手書きのファイルは `dist/` に置かない。
+ルートはpnpm workspaceで、TypeScriptのパッケージ（`packages/*`、`shared/*`、Agent、Web Pluginのフロントエンド、StandardのPanel、Electron Plugin）を `pnpm run build` でまとめてビルドする。StandardはPanelのビルド結果（`plugins/standard/ui/dist`）をバイナリに同梱するので、`cargo build` より先に実行する。各パッケージのビルドは生成先の `dist/` を作り直す。手書きのファイルは `dist/` に置かない。
 
 別々の端末から次を実行する。
 
@@ -68,6 +68,16 @@ URLでCoreを指すにはCore名が要る。Coreを `--name` 付きで起動す�
 Web Pluginは `[web] listening on http://127.0.0.1:<port>` を出力する。ブラウザで開くと、`/` にCoreの一覧が表示される。`--listen 127.0.0.1:7800` を指定すると、待受のポートを固定できる。
 
 `/` の画面からCoreのURLを追加できる。追加したURLは設定ディレクトリの `plugumi/web.json` に保存され、次回の起動でも使われる。追加できるのは、Core名を設定してあり、他のCoreと名前が重ならないCoreだけである。Web Pluginが自身のパスに使う `api`・`assets`・`ui` もCore名として使えない。保存されるのはURLなので、追加するCoreはポートを固定して起動する。`--core` で指定したCoreは画面から削除できない。
+
+## Electron Plugin
+
+Electron Pluginは同じ画面をデスクトップアプリとして提供する別のPluginである。GoもHTTPサーバーも持たず、mainプロセスがTypeScriptでCoreへ登録・接続し、preloadのIPCを通してrendererへ `ShellHost` を渡す。PanelのUIファイルは独自プロトコル `plugumi-ui://` でCoreから取得する。
+
+```sh
+pnpm --dir plugins/electron start --core http://127.0.0.1:7700
+```
+
+`--core` は複数回指定できる。一つだけなら `PLUGUMI_CORE_URL` でも指定できる。画面の `/` からCoreのURLを追加でき、追加したURLは設定ディレクトリの `plugumi/electron.json` に保存される。Project以下の保存先はWeb Pluginとは別の `~/.plugumi/electron/` で、形式は同じである。`--core` で指定したCoreは画面から削除できない。
 
 ## RESTクライアントの型生成
 
