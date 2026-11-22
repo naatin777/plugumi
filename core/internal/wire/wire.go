@@ -26,10 +26,12 @@ type RegistrySnapshot struct {
 }
 
 type RegistryRegistration struct {
-	RegistrationID string            `json:"registrationId"`
-	PluginID       string            `json:"pluginId"`
-	RPCAvailable   bool              `json:"rpcAvailable"`
-	Tools          []ToolDeclaration `json:"tools"`
+	RegistrationID string             `json:"registrationId"`
+	PluginID       string             `json:"pluginId"`
+	RPCAvailable   bool               `json:"rpcAvailable"`
+	Tools          []ToolDeclaration  `json:"tools"`
+	Panels         []PanelDeclaration `json:"panels,omitempty"`
+	UISHA256       string             `json:"uiSha256,omitempty"`
 }
 
 type ToolDeclaration struct {
@@ -39,6 +41,36 @@ type ToolDeclaration struct {
 	Tags         []string        `json:"tags,omitempty"`
 	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
 	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
+}
+
+// PanelDeclaration はPluginが宣言するUIパネル。entryはUI file一覧内の
+// パスで、GET /v1/ui/{registrationId}/{entry} から取得する。
+// styles も同じくfiles内のパスで、Clientがentryより先に読み込む。
+type PanelDeclaration struct {
+	PanelID string   `json:"panelId"`
+	Title   string   `json:"title"`
+	Entry   string   `json:"entry"`
+	Styles  []string `json:"styles,omitempty"`
+}
+
+// UIFile はUI manifestが参照する1ファイル。pathは相対パス、
+// sha256はPUT /v1/assets/{sha256}で事前に送った内容アドレス。
+type UIFile struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+
+// UIManifest はPUT /v1/registrations/{registrationId}/uiの本文。
+// filesとpanelsが両方空ならUIを解除する。
+type UIManifest struct {
+	Files  []UIFile           `json:"files"`
+	Panels []PanelDeclaration `json:"panels"`
+}
+
+// CoreInfo はGET /v1/coreの応答。coreIdは起動ごとに変わる。
+type CoreInfo struct {
+	CoreID string `json:"coreId"`
+	Name   string `json:"name,omitempty"`
 }
 
 // ---- JSON-RPC 2.0 ----

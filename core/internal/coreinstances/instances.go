@@ -36,6 +36,11 @@ type Instance struct {
 	LogPath    string `json:"logPath,omitempty"`
 	ConfigPath string `json:"configPath,omitempty"`
 	Port       string `json:"port,omitempty"`
+	// 実際のCore名（設定と--nameを解決した結果）。ps表示用。
+	Name string `json:"name,omitempty"`
+	// --nameで指定された上書き値。restartが同じ条件で起動し直すために残す。
+	// 設定ファイル由来の名前はConfigPathから復元できるためここには入れない。
+	NameOverride string `json:"nameOverride,omitempty"`
 }
 
 type instanceRecord struct {

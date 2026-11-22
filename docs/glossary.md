@@ -19,18 +19,30 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
 Web PluginやElectron Pluginが提供する。Tool実行やPluginプロセス自体の寿命を管理しない。
 
+### Web Plugin
+
+ブラウザ向けのUIを提供するPlugin（`plugins/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。
+
 ### Plugin Views
 
 Panel・Embed・Indicator等を表示するための共通インターフェース（仕様）。
 実行環境ではなく、実行はUI Hostが担う。アセットの配信主体は構成によって異なる。
 
+### Plugin View
+
+Pluginが提供する、画面にはめ込まれるUIの1つ1つ（Panel・Embed・Indicator）。作者向けの型とTokenの名前は、配布用のパッケージ `@plugumi/plugin-view`（`packages/plugin-view`）にある。
+
+### Plugin Shell
+
+Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWeb PluginとElectron Pluginが共有する（`shared/plugin-shell`、リポジトリの中だけで使う）。Plugin Shellは `ShellHost` というinterfaceを通してだけ外とやりとりし、Web PluginとElectron Pluginがそれぞれ実装する。Tokenの値はPlugin Shellが持つ。
+
 ### Panel
 
-UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはToolと分ける。
+UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはToolと分ける。Web Pluginは、Panelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
 
 ### UI Bundle
 
-Panel等を表示するためのビルド成果物。entrypointのほか、JS・CSS・画像・フォント・分割chunkなどの相対パス付きアセットを含む。パッケージ形式は未決定。
+Panel等を表示するためのビルド成果物。entrypointのほか、JS・CSS・画像・フォント・分割chunkなどの相対パス付きアセットを含む。Pluginはファイルごとに内容のsha256を付けてCoreへ送り、Coreが配信する（[Contract 00004](contracts/00004-plugin-client-protocol.md)）。
 
 ## 接続・実行モデル
 
@@ -69,6 +81,30 @@ Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。Co
 ### caller channel
 
 Coreがcaller（Tool呼び出し元）向けに開くWebSocket接続（`GET /v1/call`、`docs/contracts/00001`）。Linkには紐付かず、connの寿命=接続の寿命。Pluginでないcaller（TUI・UI Host・スクリプト）は自身のtransportを持たないため、このchannel上で `docs/contracts/00003` のcaller側プロトコルをそのまま喋る。Transportとは別物。
+
+### Core名
+
+Coreに任意で付ける名前（`plugumi.json` の `core.name` または `--name`）。`coreId` はプロセスごとに変わるが、Core名は再起動しても変わらない。Web PluginはURLでCoreを指すときにCore名を使う。
+
+## 画面の階層
+
+Web Pluginの画面は Core > Project > Area > Workspace の順に入れ子になる。Coreより下の階層の状態はWeb Pluginのサーバーが保存し、Coreは扱わない（[Design 00004](designs/00004-web-plugin-screen-hierarchy.md)）。
+
+### Project
+
+Coreの中で扱う1つのプロジェクト。Coreが組織にあたるのに対し、Projectは組織の中の仕事の単位にあたる。
+
+### Area
+
+Projectのうち、どの部分を扱うかの単位。worktree、monorepo内のpackage、同じプロジェクトの別repositoryなど、種類の異なるものを同じ階層で扱う。Areaは入れ子にでき、フォルダのようなツリーになる。Areaごとに1つのWorkspaceを持つ。
+
+### Workspace
+
+Areaの中でファイルを見るなどの作業をする画面。Areaと1対1に対応し、left・center・right・bottomの4つのDockを持つ。
+
+### Dock
+
+Panelを置く場所。WorkspaceのDock（left・center・right・bottom）と、Projectに1つあるPinnedのDockがある。PinnedのDockに置いたPanelは、Areaを切り替えても閉じない。Dockは置き場所であり、表示する中身はPanelである。
 
 ## Tool・作業
 

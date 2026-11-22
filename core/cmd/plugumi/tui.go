@@ -33,7 +33,7 @@ func runTUI(configPath string) error {
 			return instances.Running(ctx)
 		},
 		StartCore: func() (string, error) {
-			core, err := startBackgroundCore(configPath, "0")
+			core, err := startBackgroundCore(configPath, "0", "")
 			return core.URL, err
 		},
 		StopCore: func(target coreinstances.Instance) error {

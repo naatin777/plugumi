@@ -20,6 +20,7 @@ Go core・standard(Rust)・agent(TS) の3実装で揃える用語。変更する
 | call中断用senderのmap | `call_close_senders` | `calls` だとcall一覧にしか読めない |
 | catalog変更の合図 | `catalogSignal` | `catalogCh` の `Ch` 略称を回避 |
 | Pluginのローカル実行記録 | `plugininstances` | 各Pluginが記録の時刻を更新し、Go側は読み取りだけ行う。確認のためにPluginに接続しない |
+| Core名 | `core.name` / `--name` / `GET /v1/core` の `name`（Go `wire.CoreInfo`） | `coreId` は起動ごとに変わるため、URLや表示で使う再起動後も変わらない識別子として別に持つ。`alias`・`label` は表示専用に聞こえるため不採用 |
 | Pluginインスタンス識別子 | `plugin-…`（`new_instance_id` / `newInstanceId`） | Coreの `core-…` と対称。プロセスごとに生成する不透明な値 |
 
 ## 略称の許容範囲

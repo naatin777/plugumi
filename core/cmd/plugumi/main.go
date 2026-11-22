@@ -34,6 +34,7 @@ func main() {
 
 	var serveConfigPath, startConfigPath, tuiConfigPath string
 	var servePort, startPort string
+	var serveName, startName string
 	var reportStartup bool
 
 	serveCmd := &cobra.Command{
@@ -41,11 +42,12 @@ func main() {
 		Short:        "Run the core daemon in the foreground",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(serveConfigPath, servePort, reportStartup)
+			return runServe(serveConfigPath, servePort, serveName, reportStartup)
 		},
 	}
 	serveCmd.Flags().StringVar(&serveConfigPath, "config", "", "config file path (uses plugumi.json if present)")
 	serveCmd.Flags().StringVar(&servePort, "port", "", "override the Core port (0 lets the OS choose)")
+	serveCmd.Flags().StringVar(&serveName, "name", "", "override core.name in the config file")
 	serveCmd.Flags().BoolVar(&reportStartup, "report-startup", false, "report startup to the parent process")
 	serveCmd.Flags().Lookup("report-startup").Hidden = true
 
@@ -55,11 +57,12 @@ func main() {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStart(cmd.OutOrStdout(), startConfigPath, startPort)
+			return runStart(cmd.OutOrStdout(), startConfigPath, startPort, startName)
 		},
 	}
 	startCmd.Flags().StringVar(&startConfigPath, "config", "", "config file path (uses plugumi.json if present)")
 	startCmd.Flags().StringVar(&startPort, "port", "", "override the Core port (0 lets the OS choose)")
+	startCmd.Flags().StringVar(&startName, "name", "", "override core.name in the config file")
 
 	stopCmd := &cobra.Command{
 		Use:          "stop [core-url]",
@@ -196,7 +199,7 @@ func newRuntime(settings *config.Config) *coreRuntime {
 		w.WriteHeader(http.StatusNoContent)
 		cancel()
 	})
-	mux.Handle("/", server.New(ctx, instanceID, os.Getenv("PLUGUMI_TOKEN")).Handler())
+	mux.Handle("/", server.New(ctx, instanceID, settings.Core.Name, os.Getenv("PLUGUMI_TOKEN")).Handler())
 	return &coreRuntime{
 		ctx: ctx, cancel: cancel, settings: settings,
 		instanceID: instanceID, stopToken: stopToken,
@@ -212,23 +215,33 @@ func newRuntime(settings *config.Config) *coreRuntime {
 // start はPluginと管理クライアントを受け付けるHTTPサーバーを開始する。
 // configPathとportOverrideはinstance記録に残し、restartが同じ条件で起動できるようにする。
 // listen失敗は同期的に返す（tuiがbind失敗のまま起動しないように）。
-func (r *coreRuntime) start(configPath, portOverride string) error {
+func (r *coreRuntime) start(configPath, portOverride, nameOverride string) error {
+	instances, instancesErr := coreinstances.Local()
+	if instancesErr == nil && r.settings.Core.Name != "" {
+		running, runningErr := instances.Running(r.ctx)
+		if runningErr != nil {
+			return runningErr
+		}
+		if conflict, found := conflictingName(running, r.settings.Core.Name); found {
+			return fmt.Errorf("another running Core already uses the name %q (%s)", r.settings.Core.Name, conflict.URL)
+		}
+	}
 	listener, err := net.Listen("tcp", r.settings.Core.Listen)
 	if err != nil {
 		return err
 	}
 	r.settings.SetCorePort(uint16(listener.Addr().(*net.TCPAddr).Port))
-	instances, err := coreinstances.Local()
-	if err == nil {
+	if instancesErr == nil {
 		instance := coreinstances.Instance{
 			URL: r.settings.Core.URL, ID: r.instanceID,
 			PID: os.Getpid(), LogPath: os.Getenv(coreLogFileEnv),
 			ConfigPath: configPath, Port: portOverride,
+			Name: r.settings.Core.Name, NameOverride: nameOverride,
 		}
-		r.unregister, err = instances.Register(instance, r.stopToken)
+		r.unregister, instancesErr = instances.Register(instance, r.stopToken)
 	}
-	if err != nil {
-		log.Printf("[core] could not publish Core to local TUI: %v", err)
+	if instancesErr != nil {
+		log.Printf("[core] could not publish Core to local TUI: %v", instancesErr)
 	}
 	log.Printf("[core] listening on %s", r.settings.Core.URL)
 	go func() {
@@ -266,7 +279,17 @@ type startupResult struct {
 	Error string `json:"error"`
 }
 
-func runServe(configPath, portOverride string, reportStartup bool) error {
+// conflictingName は起動中のCoreから同名のものを探す。一覧取得と分けて検査できるよう純粋関数にする。
+func conflictingName(running []coreinstances.Instance, name string) (coreinstances.Instance, bool) {
+	for _, instance := range running {
+		if instance.Name != "" && instance.Name == name {
+			return instance, true
+		}
+	}
+	return coreinstances.Instance{}, false
+}
+
+func runServe(configPath, portOverride, nameOverride string, reportStartup bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -286,11 +309,18 @@ func runServe(configPath, portOverride string, reportStartup bool) error {
 			settings.SetCorePort(uint16(port))
 		}
 	}
+	if err == nil && nameOverride != "" {
+		if nameErr := config.ValidateName(nameOverride); nameErr != nil {
+			err = nameErr
+		} else {
+			settings.Core.Name = nameOverride
+		}
+	}
 	var core *coreRuntime
 	if err == nil {
 		core = newRuntime(settings)
 		defer core.shutdown()
-		err = core.start(configPath, portOverride)
+		err = core.start(configPath, portOverride, nameOverride)
 		result.URL = settings.Core.URL
 	}
 	if reportStartup {

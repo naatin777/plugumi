@@ -17,12 +17,13 @@ relations:
 リポジトリのルートでビルドする。
 
 ```sh
+pnpm install --frozen-lockfile
+pnpm run build
 (cd core && go build -o plugumi ./cmd/plugumi)
 (cd plugins/standard && cargo build --locked)
-(cd plugins/agent && pnpm install --frozen-lockfile && pnpm run build)
 ```
 
-Agentのビルドは生成先の `dist/` を作り直す。手書きのファイルは `dist/` に置かない。
+ルートはpnpm workspaceで、TypeScriptのパッケージ（`packages/*`、`shared/*`、Agent、Web Pluginのフロントエンド、StandardのPanel）を `pnpm run build` でまとめてビルドする。StandardはPanelのビルド結果（`plugins/standard/ui/dist`）をバイナリに同梱するので、`cargo build` より先に実行する。各パッケージのビルドは生成先の `dist/` を作り直す。手書きのファイルは `dist/` に置かない。
 
 別々の端末から次を実行する。
 
@@ -46,6 +47,27 @@ AgentはToolの出力を標準出力に表示し、自身の診断ログには�
 `plugumi plugins add <名前> --command '<起動コマンド>'` はローカル起動コマンドを登録する。`plugumi plugins remove <名前>` はその登録だけを削除し、実行中のPluginを停止したり、Coreへの登録を解除したりはしない。Coreへの接続はPluginが開始する。
 
 Pluginの接続先はPlugin側で指定する。Coreの `plugumi.json` に `plugins` が残っている場合は、その項目を削除する。ローカルカタログの `plugins.json` に `endpoint` が残っている場合は、その項目を削除し、起動定義には `name` と `command` を指定する。既存の設定は自動で変換・上書きしない。Core自身の `--port` と `core.url` は引き続き使える。
+
+## Web Plugin
+
+Web Pluginはブラウザ向けの画面を提供する。フロントエンドを先にビルドし、Goのバイナリに同梱する。フロントエンドが未ビルドでも `go build` は通るが、画面の代わりに案内文が表示される。
+
+```sh
+(cd plugins/web && go build -o plugumi-web ./cmd/plugumi-web)
+```
+
+フロントエンドは、上の `pnpm run build` でビルド済みになる。画面の本体はPlugin Shell（`shared/plugin-shell`）にあり、Web Pluginのフロントエンドは、それにHTTPでの通信（`ShellHost` の実装）を渡す入口だけを持つ。
+
+URLでCoreを指すにはCore名が要る。Coreを `--name` 付きで起動する（`plugumi.json` の `core.name` でもよい）。名前には小文字の英数字とハイフンだけを使える。同じOSユーザーで、同じ名前のCoreを2つ起動することはできない。
+
+```sh
+./core/plugumi serve --port 7700 --name local
+./plugins/web/plugumi-web --core http://127.0.0.1:7700
+```
+
+Web Pluginは `[web] listening on http://127.0.0.1:<port>` を出力する。ブラウザで開くと、`/` にCoreの一覧が表示される。`--listen 127.0.0.1:7800` を指定すると、待受のポートを固定できる。
+
+`/` の画面からCoreのURLを追加できる。追加したURLは設定ディレクトリの `plugumi/web.json` に保存され、次回の起動でも使われる。追加できるのは、Core名を設定してあり、他のCoreと名前が重ならないCoreだけである。Web Pluginが自身のパスに使う `api`・`assets`・`ui` もCore名として使えない。保存されるのはURLなので、追加するCoreはポートを固定して起動する。`--core` で指定したCoreは画面から削除できない。
 
 ## RESTクライアントの型生成
 

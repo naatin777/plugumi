@@ -1,0 +1,22 @@
+{
+  "name": "plugumi-standard-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && svelte-check --tsconfig ./tsconfig.app.json && vite build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\""
+  },
+  "dependencies": {
+    "svelte": "5.57.3"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@types/node": "24.19.2",
+    "svelte-check": "4.7.8",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "@plugumi/plugin-view": "workspace:*"
+  }
+}

@@ -8,6 +8,9 @@ relations:
     - '00001'
   decision:
     - '00012'
+    - '00013'
+    - '00014'
+    - '00015'
   requirement:
     - '00003'
     - '00004'
@@ -21,7 +24,7 @@ relations:
 |---|---|---|
 | Core（Go） | 共通HTTP入口、登録と宣言の管理、認証・認可、通知、RPC配送。推奨案では静的Bundleの保管・配信も担う | AI推論、Toolの選択、アプリ固有の認証情報管理、Panelの実行、標準経路でのメディア転送 |
 | Plugin | 既存CLI・アプリ内Adapterまたは専用プロセスとして動く。Coreごとに接続と宣言を管理し、Tool・Panel API・UI Bundleを提供できる | PlugumiのためのHTTP/WS待受、独自ドメインの公開 |
-| UI Host | Web PluginまたはElectron Pluginが提供する役割。Panelを表示し、必要なら権限を限定したBridgeを提供する。UI HostなしでもCoreとPluginは動く | CoreやPluginプロセスの寿命管理。閉じたPanelの通話や購読を維持する義務 |
+| UI Host | Web PluginまたはElectron Pluginが提供する役割。Panelを表示し、PanelにToolの呼び出しなどの手段を渡す。UI HostなしでもCoreとPluginは動く | CoreやPluginプロセスの寿命管理。閉じたPanelの通話や購読を維持する義務 |
 | Node | Pluginの実行環境を表す。ホスト、コンテナや別マシンを含む | 認証主体や暗黙のTool配送先としての使用 |
 
 ```mermaid
@@ -30,7 +33,7 @@ flowchart LR
     Adapter["Plugin B: アプリ内Adapter"] -->|"発信: REST / SSE / WS"| Core
     Host["UI Host: Web または Electron"] -->|"発信: HTTP / SSE / WS"| Core
     Core -.->|"推奨: 静的Bundleの配信"| Host
-    Panel["隔離されたPanel"] <-->|"権限を限定したBridge"| Host
+    Panel["Panel（隔離しない）"] <-->|"mount(host, context)"| Host
     Panel <-.->|"必要時のみ: WebRTC Media"| Adapter
     Cli -->|"独立した接続"| OtherCore["別のCore"]
 ```
@@ -39,7 +42,7 @@ flowchart LR
 
 ## Webの表示入口
 
-WebとElectronは独立したPluginとする。Webがどう配信されるかをElectronに強制しない。Coreが静的ファイルを配信する場合も、Panelの配置・実行・BridgeはUI Hostの責務とする。
+WebとElectronは独立したPluginとする。Webがどう配信されるかをElectronに強制しない。Electron PluginはGoもHTTPサーバーも使わず、画面だけをPlugin Shellとして、`ShellHost` を通してWeb Pluginと共有する（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)）。Coreが静的ファイルを配信する場合も、Panelの配置・実行・BridgeはUI Hostの責務とする。
 
 | 比較軸 | A: Coreが配信 | B: Web PluginがGatewayを提供 | C: 単一CoreはA、統合時のみGateway |
 |---|---|---|---|
@@ -49,13 +52,17 @@ WebとElectronは独立したPluginとする。Webがどう配信されるかを
 | SSE・WS | 追加Proxyは不要。トンネルを使う場合は別途検証 | SSEのflush、途中のidle timeout、WS upgradeが必要 | Gateway経由だけでなく直接接続も検証対象 |
 | iframe・組織内公開 | Panelは信頼されたHostのOriginから分離。公開範囲はCoreごとに設定 | Gatewayを入口に集約可能。Core間・Panel間で認証やOriginを共有しない | どちらでも同じ隔離・認可基準を満たせることが条件 |
 
-**推奨案:** PoCはAで単一Coreの表示経路を検証する。Cは「単一画面で複数Coreを同時操作する」需要が確認できたときの候補。B/Cの採用やリバースプロキシの必須化はしない。
+**採用:** [Decision 00013](../decisions/00013-web-plugin-gateway.md)でBを採用した。以下の推奨案は採用前の比較として残す。
+
+**推奨案（置き換え済み）:** PoCはAで単一Coreの表示経路を検証する。Cは「単一画面で複数Coreを同時操作する」需要が確認できたときの候補。B/Cの採用やリバースプロキシの必須化はしない。
 
 **失敗条件:** Aで任意PanelコードがCoreの管理Originと権限を共有してしまう場合は公開しない。B/CでGatewayの広い権限が操作者個別の認可を迂回する、Core Aの資格情報がBへ流れる、SSEがバッファされる、WS upgradeが通らない場合は統合入口として採用しない。
 
 ## UI BundleとPanel通信
 
-**推奨案:** Pluginはmanifestと相対パス付きのビルド成果物をBundleとして渡す。ハッシュを版の識別に使い、不足するBundleだけを送る。検証が完了したBundleのみPanelの宣言から参照できるようにする。JSの動的import、CSS、画像、フォント、chunkを含めて元のディレクトリ構造で配信する。
+**採用:** UIファイルの受け渡しは[Contract 00004](../contracts/00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」、Panelのモジュールは[Contract 00005](../contracts/00005-panel-module.md)で定めた。[Decision 00014](../decisions/00014-panel-runs-unisolated.md)により、Panelは隔離せずにWeb Pluginの画面で動かす。以下の隔離とBridgeを前提にした推奨案・図・未決事項・仮説は、採用前の比較として残す。
+
+**推奨案（置き換え済み）:** Pluginはmanifestと相対パス付きのビルド成果物をBundleとして渡す。ハッシュを版の識別に使い、不足するBundleだけを送る。検証が完了したBundleのみPanelの宣言から参照できるようにする。JSの動的import、CSS、画像、フォント、chunkを含めて元のディレクトリ構造で配信する。
 
 ```mermaid
 sequenceDiagram

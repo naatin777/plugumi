@@ -23,6 +23,7 @@ use crate::wire::{self, ForwardCallParams, ToolDeclaration};
 /// handlerの選択は `dispatch` のmatchで行う（片方だけ更新しないこと）。
 const TOOLS: &[(&str, &str)] = &[
     ("echo", "sync"),
+    ("fs/list", "sync"),
     ("fs/read", "sync"),
     ("fs/write", "sync"),
     ("exec", "async"),
@@ -108,12 +109,13 @@ pub fn dispatch(
 
     match params.tool_path.as_str() {
         // sync: handlerの戻り値が呼び出しのresponseになる。
-        "echo" | "fs/read" | "fs/write" => {
+        "echo" | "fs/list" | "fs/read" | "fs/write" => {
             let call_key = req_id.to_string();
             tokio::spawn(async move {
                 let mut call = call;
                 let res = match call.tool_path.as_str() {
                     "echo" => echo::handle(&mut call).await,
+                    "fs/list" => fs::list(&mut call).await,
                     "fs/read" => fs::read(&mut call).await,
                     _ => fs::write(&mut call).await,
                 };

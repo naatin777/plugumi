@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -17,6 +18,9 @@ type Config struct {
 	Core struct {
 		// Pluginと管理クライアントの接続先URL。
 		URL string `json:"url"`
+		// ブラウザUI等でCoreを識別する名前。URLの一部として使うため
+		// 小文字とハイフンだけに限る。未設定でも動く。
+		Name string `json:"name,omitempty"`
 		// Listen はURLから導出した待受アドレス（host:port）。
 		// Loadが設定する派生値で、configファイルには書かない。
 		Listen string `json:"-"`
@@ -53,7 +57,25 @@ func Load(path string) (*Config, error) {
 	}
 	settings.Core.URL = coreURL
 	settings.Core.Listen = strings.TrimPrefix(coreURL, "http://")
+	if err := ValidateName(settings.Core.Name); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &settings, nil
+}
+
+// namePattern はcore.nameの形式。GET /v1/core の結果をURLの一部に
+// 使うため、エスケープなしでパスに載る文字だけを許可する。
+var namePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// ValidateName はcore.nameと--nameフラグ共通の検証。空は未設定として許可する。
+func ValidateName(name string) error {
+	if name == "" {
+		return nil
+	}
+	if len(name) > 63 || !namePattern.MatchString(name) {
+		return fmt.Errorf("core.name must be 1-63 characters of lowercase letters, digits and hyphens (got %q)", name)
+	}
+	return nil
 }
 
 // SetCorePort は読み込み済み設定のホストを保ったまま、ポートだけを変更する。

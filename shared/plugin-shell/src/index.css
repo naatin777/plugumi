@@ -1,0 +1,346 @@
+/* web自身のCSS。tokens/fonts以外は全て@scopeでPanelの入れ物（data-plugumi-plugin）
+   の手前で止める。bodyに当てた継承値（font/color）はPanelへ届いてよい。 */
+
+@scope (:root) to ([data-plugumi-plugin]) {
+  body {
+    margin: 0;
+    font-family: var(--plugumi-font-family-sans);
+    font-size: var(--plugumi-font-size-md);
+    line-height: var(--plugumi-line-height-md);
+    color: var(--plugumi-colors-text);
+    background: var(--plugumi-colors-canvas);
+  }
+
+  main {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: var(--plugumi-spacing-lg);
+  }
+
+  h1 { font-size: var(--plugumi-font-size-xl); font-weight: var(--plugumi-font-weight-semibold); color: var(--plugumi-colors-text-strong); }
+  h2 { font-size: var(--plugumi-font-size-md); font-weight: var(--plugumi-font-weight-semibold); color: var(--plugumi-colors-text-muted); }
+
+  table { border-collapse: collapse; margin-top: var(--plugumi-spacing-md); width: 100%; }
+  th, td {
+    border: 1px solid var(--plugumi-colors-border);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    text-align: left;
+  }
+  th { color: var(--plugumi-colors-text-muted); font-weight: var(--plugumi-font-weight-medium); }
+
+  a { color: var(--plugumi-colors-info); text-decoration: none; }
+  a:hover { color: var(--plugumi-colors-text-strong); }
+
+  input {
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    width: 22rem;
+    background: var(--plugumi-colors-surface-subtle);
+    color: var(--plugumi-colors-text);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-sm);
+    font-family: var(--plugumi-font-family-mono);
+    font-size: var(--plugumi-font-size-sm);
+  }
+
+  button {
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    background: var(--plugumi-colors-surface-raised);
+    color: var(--plugumi-colors-text);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-sm);
+    font-size: var(--plugumi-font-size-sm);
+    cursor: pointer;
+  }
+  button:hover { background: var(--plugumi-colors-surface-hover); }
+  button:active { background: var(--plugumi-colors-surface-active); }
+
+  .error { color: var(--plugumi-colors-error); }
+
+  dt { font-weight: var(--plugumi-font-weight-semibold); }
+  dd { margin-bottom: var(--plugumi-spacing-xs); }
+
+  .add-core { display: flex; gap: var(--plugumi-spacing-xs); margin-top: var(--plugumi-spacing-md); }
+
+  .status-connected { color: var(--plugumi-colors-success); }
+  .status-connecting { color: var(--plugumi-colors-warning); }
+  .status-rejected,
+  .status-unreachable { color: var(--plugumi-colors-error); }
+
+  /* Core詳細: 左のPanel一覧と右のDock。 */
+  .detail-body { display: flex; gap: var(--plugumi-spacing-lg); align-items: stretch; }
+  .panel-list { min-width: 12rem; flex-shrink: 0; }
+  .panel-list ul { list-style: none; padding: 0; margin: var(--plugumi-spacing-sm) 0; }
+  .panel-list button { width: 100%; text-align: left; margin-bottom: var(--plugumi-spacing-xs); }
+
+  .panel-area {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-surface);
+    min-height: 24rem;
+    overflow: hidden;
+  }
+
+  .panel-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--plugumi-colors-surface-subtle);
+    border-bottom: 1px solid var(--plugumi-colors-border);
+    padding: 2px 2px 0;
+    overflow-x: auto;
+  }
+  .panel-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--plugumi-spacing-xs);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--plugumi-radii-sm) var(--plugumi-radii-sm) 0 0;
+    background: transparent;
+    color: var(--plugumi-colors-text-muted);
+    white-space: nowrap;
+  }
+  .panel-tab.active {
+    background: var(--plugumi-colors-surface);
+    border-color: var(--plugumi-colors-border);
+    color: var(--plugumi-colors-text-strong);
+  }
+  .panel-tab .close {
+    border: none;
+    background: none;
+    padding: 0 var(--plugumi-spacing-xs);
+    color: var(--plugumi-colors-text-muted);
+  }
+  .panel-tab .close:hover { color: var(--plugumi-colors-text-strong); background: none; }
+
+  .panel-dock { flex: 1; min-height: 0; position: relative; }
+  .panel-dock .instance-frame { height: 100%; display: block; }
+  .panel-dock .instance-frame.hidden { display: none; }
+
+  .panel-message {
+    padding: var(--plugumi-spacing-md);
+    color: var(--plugumi-colors-text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: var(--plugumi-spacing-sm);
+    align-items: flex-start;
+  }
+  .panel-message .kind { font-family: var(--plugumi-font-family-mono); color: var(--plugumi-colors-error); }
+
+  .placeholder { color: var(--plugumi-colors-text-subtle); padding: var(--plugumi-spacing-md); }
+  .core-meta { color: var(--plugumi-colors-text-subtle); font-size: var(--plugumi-font-size-xs); margin-top: var(--plugumi-spacing-md); }
+
+  .project-list { list-style: none; padding: 0; }
+  .project-list li { display: flex; gap: var(--plugumi-spacing-sm); align-items: baseline; padding: var(--plugumi-spacing-xs) 0; }
+  .project-list .delete { font-size: var(--plugumi-font-size-xs); }
+
+  /* Plugin Shell: OS帯 / 左カラム / Workspace（left・center+bottom・right） / Pinned / ステータスバー。
+     列の区切り線は3本だけ（左カラム右・Pinned左）。Workspace内のDock同士は隙間だけで区切る。 */
+  main.shell {
+    max-width: none;
+    height: 100vh;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  html, body, #root { height: 100%; }
+
+  /* 最上段のOS帯。PWA Window Controls OverlayとElectronのドラッグ領域が
+     重なる帯。innerはenv(titlebar-area-*)の安全側だけを占め、左右はOS用に空ける。 */
+  .shell-os {
+    height: env(titlebar-area-height, 40px);
+    flex-shrink: 0;
+    background: var(--plugumi-colors-surface-subtle);
+    border-bottom: 1px solid var(--plugumi-colors-border);
+    app-region: drag;
+    -webkit-app-region: drag;
+  }
+  .shell-os-inner {
+    margin-left: env(titlebar-area-x, 0px);
+    width: env(titlebar-area-width, 100%);
+    height: 100%;
+  }
+  .shell-os button, .shell-os-inner button {
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+
+  .shell-body { flex: 1; min-height: 0; display: flex; }
+
+  /* 左カラム: Projectタブの札 + Areaカード */
+  .shell-side {
+    width: 16rem;
+    flex-shrink: 0;
+    border-right: 1px solid var(--plugumi-colors-border-strong);
+    display: flex;
+    flex-direction: column;
+    gap: var(--plugumi-spacing-md);
+    padding: var(--plugumi-spacing-md);
+    overflow: auto;
+    box-sizing: border-box;
+  }
+  .project-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--plugumi-spacing-xs);
+  }
+  .project-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-surface-raised);
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-sm);
+  }
+  .project-tab a { color: inherit; }
+  .project-tab .close {
+    border: none; background: none; padding: 0 var(--plugumi-spacing-xs);
+    color: var(--plugumi-colors-text-subtle); font-size: var(--plugumi-font-size-xs);
+    cursor: pointer;
+  }
+  .project-tab .close:hover { color: var(--plugumi-colors-text-strong); }
+  .project-tab.active {
+    color: var(--plugumi-colors-text-strong);
+    border-color: var(--plugumi-colors-border-strong);
+    background: var(--plugumi-colors-surface-hover);
+  }
+  .project-add {
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px dashed var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: transparent;
+    color: var(--plugumi-colors-text-muted);
+  }
+  .project-add:hover { color: var(--plugumi-colors-text-strong); }
+
+  .area-card {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--plugumi-colors-surface);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    padding: var(--plugumi-spacing-sm);
+  }
+  .area-tree { list-style: none; padding: 0; margin: 0; }
+  .area-tree ul { list-style: none; padding-left: var(--plugumi-spacing-md); margin: 0; }
+  .area-row { display: flex; align-items: center; gap: 2px; padding: 1px 0; border-radius: var(--plugumi-radii-sm); }
+  .area-row.active { background: var(--plugumi-colors-surface-raised); }
+  .area-row a { flex: 1; color: var(--plugumi-colors-text); padding: 2px var(--plugumi-spacing-xs); }
+  .area-row.active a { color: var(--plugumi-colors-text-strong); }
+  .area-tw {
+    width: 1.2rem; padding: 0; border: none; background: none;
+    color: var(--plugumi-colors-text-muted);
+  }
+  .area-tw:hover { background: none; color: var(--plugumi-colors-text-strong); }
+  .area-op {
+    padding: 0 var(--plugumi-spacing-xs); border: none; background: none;
+    color: var(--plugumi-colors-text-subtle); font-size: var(--plugumi-font-size-xs);
+  }
+  .area-op:hover { background: none; color: var(--plugumi-colors-text-strong); }
+  .add-root { margin-top: var(--plugumi-spacing-xs); }
+
+  /* Workspace列: Dock同士は線ではなく隙間で区切る。center:bottom = 6:4。 */
+  .shell-main { flex: 1; min-width: 0; display: flex; align-items: stretch; }
+  .shell-main > .placeholder { margin: auto; }
+  .shell-docks {
+    flex: 1; min-height: 0; display: flex;
+    gap: var(--plugumi-spacing-md);
+    padding: var(--plugumi-spacing-md);
+    box-sizing: border-box;
+  }
+  .shell-center-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--plugumi-spacing-md); }
+
+  .dock { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .dock-left { width: 15rem; flex-shrink: 0; }
+  .dock-center { flex: 6; min-height: 0; }
+  .dock-bottom { flex: 4; min-height: 0; }
+  .dock-right { width: 15rem; flex-shrink: 0; }
+
+  /* Dockのタブはカードの上に離して置く小さな札。「+」は並びの末尾。 */
+  .dock-tabs {
+    display: flex; gap: var(--plugumi-spacing-xs); align-items: center;
+    padding: 0 0 var(--plugumi-spacing-xs);
+    overflow-x: auto; flex-shrink: 0;
+  }
+  .panel-tab {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-surface-raised);
+    color: var(--plugumi-colors-text-muted);
+    white-space: nowrap;
+  }
+  .panel-tab.active {
+    border-color: var(--plugumi-colors-border-strong);
+    background: var(--plugumi-colors-surface-hover);
+    color: var(--plugumi-colors-text-strong);
+  }
+  .panel-tab .close {
+    border: none; background: none; padding: 0 var(--plugumi-spacing-xs);
+    color: var(--plugumi-colors-text-muted);
+  }
+  .panel-tab .close:hover { color: var(--plugumi-colors-text-strong); background: none; }
+  .dock-add {
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px dashed var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: transparent;
+    color: var(--plugumi-colors-text-muted);
+  }
+  .dock-add:hover { color: var(--plugumi-colors-text-strong); background: none; }
+
+  /* Panel本体のカード（空のDockでも札＋空カードの形）。 */
+  .dock-card {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    background: var(--plugumi-colors-surface);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    overflow: hidden;
+  }
+  .dock-picker {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: var(--plugumi-spacing-xs);
+    border-bottom: 1px solid var(--plugumi-colors-border);
+    background: var(--plugumi-colors-surface-subtle);
+  }
+  .dock-picker button { text-align: left; }
+  .dock-picker .meta, .meta { color: var(--plugumi-colors-text-subtle); font-size: var(--plugumi-font-size-xs); }
+
+  .dock-hosts { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .dock-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .dock-panel.hidden { display: none; }
+  .dock-panel .instance-host { flex: 1; min-height: 0; display: block; overflow: auto; }
+
+  /* Pinned列: 見出しは置かずタブ札＋カードだけ。 */
+  .shell-pinned {
+    width: 16rem; flex-shrink: 0;
+    border-left: 1px solid var(--plugumi-colors-border-strong);
+    display: flex; flex-direction: column; min-height: 0;
+    padding: var(--plugumi-spacing-md);
+    box-sizing: border-box;
+  }
+  .shell-pinned .dock { flex: 1; min-height: 0; }
+
+  .shell-status {
+    height: 40px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid var(--plugumi-colors-border);
+    background: var(--plugumi-colors-surface-subtle);
+    color: var(--plugumi-colors-text-subtle);
+    font-size: var(--plugumi-font-size-xs);
+    padding: 0 var(--plugumi-spacing-sm);
+  }
+}

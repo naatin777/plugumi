@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -85,11 +86,31 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 			operation.OperationID = "replaceToolDeclarations"
 			operation.Summary = "Tool宣言を置き換える"
 		})
+	huma.Put(api, registrationsPath+"/{registrationId}/ui", s.replaceUI,
+		func(operation *huma.Operation) {
+			operation.OperationID = "replaceUIManifest"
+			operation.Summary = "UI manifestを置き換える"
+		})
+	huma.Post(api, prefix+"/assets/missing", s.listMissingAssets,
+		func(operation *huma.Operation) {
+			operation.OperationID = "listMissingAssets"
+			operation.Summary = "Coreが持っていないassetのsha256を返す"
+		})
+	// assetのPUTは生バイト、UI配信はワイルドカードパスのためhumaではなく
+	// 直接muxへ（認証・loopback・Origin拒否は既存ミドルウェアがかかる）。
+	mux.HandleFunc("PUT "+prefix+"/assets/{sha256}", s.putAsset)
+	mux.HandleFunc("GET "+prefix+"/ui/{registrationId}/{path...}", s.uiAsset)
 	huma.Delete(api, registrationsPath+"/{registrationId}", s.deleteRegistration,
 		func(operation *huma.Operation) {
 			operation.OperationID = "deleteRegistration"
 			operation.Summary = "登録を削除する"
 		})
+	huma.Get(api, prefix+"/core", func(context.Context, *struct{}) (*struct{ Body wire.CoreInfo }, error) {
+		return &struct{ Body wire.CoreInfo }{Body: wire.CoreInfo{CoreID: s.coreID, Name: s.name}}, nil
+	}, func(operation *huma.Operation) {
+		operation.OperationID = "getCore"
+		operation.Summary = "Coreの識別情報を取得する"
+	})
 	huma.Get(api, prefix+"/registry", func(context.Context, *struct{}) (*struct{ Body wire.RegistrySnapshot }, error) {
 		return &struct{ Body wire.RegistrySnapshot }{Body: s.registry.Snapshot()}, nil
 	}, func(operation *huma.Operation) {
@@ -147,4 +168,42 @@ func (s *Server) deleteRegistration(_ context.Context, input *registrationPath) 
 		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
 	}
 	return nil, nil
+}
+
+func (s *Server) listMissingAssets(_ context.Context, input *struct {
+	Body struct {
+		SHA256 []string `json:"sha256"`
+	}
+}) (*struct {
+	Body struct {
+		Missing []string `json:"missing"`
+	}
+}, error) {
+	response := &struct {
+		Body struct {
+			Missing []string `json:"missing"`
+		}
+	}{}
+	response.Body.Missing = s.registry.MissingAssets(input.Body.SHA256)
+	return response, nil
+}
+
+func (s *Server) replaceUI(_ context.Context, input *struct {
+	RegistrationID string `path:"registrationId" minLength:"1"`
+	Body           wire.UIManifest
+}) (*struct{}, error) {
+	switch err := s.registry.ReplaceUI(input.RegistrationID, input.Body); {
+	case err == nil:
+		return nil, nil
+	case errors.Is(err, registry.ErrUnknownRegistration):
+		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
+	case errors.Is(err, registry.ErrInvalidUI):
+		return nil, newAPIError(http.StatusBadRequest, "invalid_params", err.Error())
+	default:
+		var missing *registry.MissingAssetsError
+		if errors.As(err, &missing) {
+			return nil, newAPIError(http.StatusBadRequest, "missing_assets", err.Error())
+		}
+		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace UI manifest")
+	}
 }
