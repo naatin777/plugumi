@@ -36,6 +36,16 @@ flowchart LR
 - PinnedのDockはProjectに属し、Areaを切り替えても閉じない。Areaの形が固まったら、Pinnedの扱いは見直す可能性がある。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 
+## 画面の構成
+
+Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
+
+- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉、Core switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、右端に検索・メニュー・設定の置き場所、テーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）、Pinned列の開閉を持つ。検索・メニュー・設定の中身は未実装。
+- **本体**: 左のサイドバー（ProjectタブとAreaツリー）、中央のWorkspaceの4 Dock、右のPinned Dock。
+- **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
+
+Coreの切り替えを一番外側の帯に置くのは、Coreが接続先でありProject以下がCoreごとに分かれた状態だからである。`/<core>/` に移動すると、そのCoreでこの端末が最後に開いていた場所へ戻る。
+
 ## 保存
 
 Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
@@ -50,7 +60,7 @@ Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `
 | パス | 画面 |
 |---|---|
 | `/` | Core一覧。Coreの追加と削除もここで行う |
-| `/<core>/` | Coreの中のProject一覧 |
+| `/<core>/` | この端末で最後に開いた場所へ移動する。なければ先頭のProject、ProjectもなければPlugin Shellの画面 |
 | `/<core>/<project>/` | Projectの画面。Areaのツリーと、PinnedのDockを表示する |
 | `/<core>/<project>/<area>/<子のarea>/...` | そのAreaのWorkspace |
 

@@ -1,6 +1,6 @@
 // Electron Pluginのmainプロセス。PluginとしてCoreへ登録し、rendererに
 // Plugin Shellを表示する。GoもHTTPサーバーも使わない（decisions/00015）。
-import { app, BrowserWindow, protocol } from "electron";
+import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseCoreArgs } from "./args.js";
@@ -24,10 +24,13 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-// OS領域の帯（shellのenv(titlebar-area-height)既定値）とDarkテーマに合わせる。
+// OS領域の帯（shellのenv(titlebar-area-height)既定値）に合わせる。
+// 色はテーマ連動（rendererのplugumi:theme通知でsetTitleBarOverlayする）。
 const TITLEBAR_HEIGHT = 40;
-const TITLEBAR_COLOR = "#080808";
-const TITLEBAR_SYMBOL = "#e6e6e6";
+const TITLEBAR_COLORS: Record<string, { color: string; symbolColor: string }> = {
+  dark: { color: "#080808", symbolColor: "#e6e6e6" },
+  light: { color: "#f7f7f7", symbolColor: "#1a1a1a" },
+};
 
 // rendererからUIファイルを取る独自scheme。host=Coreのkey、
 // path=/<registrationId>/<file>（rendererのipc-host.tsが組み立てる）。
@@ -78,12 +81,16 @@ async function start(): Promise<void> {
     width: 1440,
     height: 900,
     titleBarStyle: "hidden",
-    titleBarOverlay: { color: TITLEBAR_COLOR, symbolColor: TITLEBAR_SYMBOL, height: TITLEBAR_HEIGHT },
+    titleBarOverlay: { ...TITLEBAR_COLORS.dark, height: TITLEBAR_HEIGHT },
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       sandbox: true,
     },
+  });
+  ipcMain.on("plugumi:theme", (_event, theme: unknown) => {
+    const colors = TITLEBAR_COLORS[String(theme)] ?? TITLEBAR_COLORS.dark;
+    window.setTitleBarOverlay({ ...colors, height: TITLEBAR_HEIGHT });
   });
   await window.loadFile(join(__dirname, "../renderer/index.html"));
 

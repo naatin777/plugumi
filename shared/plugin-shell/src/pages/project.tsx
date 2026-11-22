@@ -5,8 +5,9 @@ import {
   useShellHost,
   type AreaTree, type Dock, type PanelEntry, type PanelRef, type ProjectTree,
 } from "../host";
-import { saveLastLocation } from "../storage";
+import { loadPinnedOpen, loadSideOpen, saveLastLocation, savePinnedOpen, saveSideOpen } from "../storage";
 import { PanelInstance } from "../panels/instance";
+import { TopBar } from "../top-bar";
 
 type DockKind = "left" | "center" | "right" | "bottom";
 const dockKinds: DockKind[] = ["left", "center", "right", "bottom"];
@@ -39,6 +40,16 @@ export default function ProjectPage() {
   const [projects, { refetch: refetchProjects }] = createResource(key, (k) => host.listProjects(k));
   const [panels, { refetch: refetchPanels }] = createResource(key, (k) => host.listPanels(k));
   const [error, setError] = createSignal("");
+  const [sideOpen, setSideOpen] = createSignal(loadSideOpen());
+  const toggleSide = () => {
+    setSideOpen(!sideOpen());
+    saveSideOpen(sideOpen());
+  };
+  const [pinnedOpen, setPinnedOpen] = createSignal(loadPinnedOpen());
+  const togglePinned = () => {
+    setPinnedOpen(!pinnedOpen());
+    savePinnedOpen(pinnedOpen());
+  };
 
   // layout["pinned"|"ws:a/b"] = 4 Dock。Instanceはページ生存中は保持する。
   const [layout, setLayout] = createStore<Record<string, Record<DockKind, DockData>>>({});
@@ -224,11 +235,18 @@ export default function ProjectPage() {
   return (
     <main class="shell">
       {/* PWAのWindow Controls OverlayとElectronのウィンドウ操作が載るOS領域。
-          innerはOSの操作領域を避けたtitlebar-area。今は高さだけ確保する。 */}
+          innerはOSの操作領域を避けたtitlebar-area。Shell固有のTopBarを置く。 */}
       <header class="shell-os">
-        <div class="shell-os-inner" />
+        <div class="shell-os-inner">
+          <TopBar
+            coreKey={key()} core={core}
+            sideOpen={sideOpen} onToggleSide={toggleSide}
+            pinnedOpen={pinnedOpen} onTogglePinned={togglePinned}
+          />
+        </div>
       </header>
       <div class="shell-body">
+        <Show when={sideOpen()}>
         <aside class="shell-side">
           <div class="project-tabs">
             <For each={projects() ?? []}>
@@ -285,6 +303,7 @@ export default function ProjectPage() {
             <p class="error">{error()}</p>
           </Show>
         </aside>
+        </Show>
         <section class="shell-main">
           <Show
             when={project() !== ""}
@@ -335,6 +354,7 @@ export default function ProjectPage() {
             </Show>
           </Show>
         </section>
+        <Show when={pinnedOpen()}>
         <aside class="shell-pinned">
           <Show when={project() !== ""} fallback={<p class="placeholder">Project を作成してください</p>}>
           <Show when={layout[PINNED]}>
@@ -349,9 +369,12 @@ export default function ProjectPage() {
           </Show>
           </Show>
         </aside>
+        </Show>
       </div>
       <footer class="shell-status">
-        {params.core} — {core()?.status ?? "…"}
+        <span class="status-text">{params.core} — {core()?.status ?? "…"}</span>
+        {/* Indicator（Plugin View）のマウント領域。protocol未実装のため今は空。 */}
+        <div class="shell-indicators" />
       </footer>
     </main>
   );
