@@ -164,11 +164,68 @@
     margin-left: env(titlebar-area-x, 0px);
     width: env(titlebar-area-width, 100%);
     height: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--plugumi-spacing-xs);
+    padding: 0 var(--plugumi-spacing-sm);
+    box-sizing: border-box;
   }
   .shell-os button, .shell-os-inner button {
     app-region: no-drag;
     -webkit-app-region: no-drag;
   }
+
+  /* TopBar: Shell固有の操作（サイドバー開閉・Core switcher・右端の置き場所）。 */
+  .shell-top-spacer { flex: 1; }
+  .shell-tool {
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    height: 1.6rem; padding: 0 var(--plugumi-spacing-sm);
+    border: 1px solid transparent; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-sm); white-space: nowrap;
+  }
+  .shell-tool:hover:not(:disabled) {
+    background: var(--plugumi-colors-surface-hover); color: var(--plugumi-colors-text-strong);
+  }
+  .shell-tool:disabled { opacity: 0.4; cursor: default; }
+
+  /* Core switcher: 状態ドット＋Core名。ドロップダウンでCoreを切り替える。 */
+  .core-switch { position: relative; }
+  .core-switch-btn { color: var(--plugumi-colors-text); }
+  .core-switch-btn svg { color: var(--plugumi-colors-text-subtle); }
+  .dot {
+    width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0;
+    background: var(--plugumi-colors-text-subtle);
+  }
+  .dot.ok { background: var(--plugumi-colors-success); }
+  .dot.warn { background: var(--plugumi-colors-warning); }
+  .dot.err { background: var(--plugumi-colors-error); }
+  .dot.off { background: var(--plugumi-colors-text-subtle); opacity: 0.5; }
+
+  .shell-core-menu {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 10;
+    min-width: 14rem;
+    display: flex; flex-direction: column; gap: 1px;
+    padding: var(--plugumi-spacing-xs);
+    background: var(--plugumi-colors-surface-raised);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+  .shell-core-item {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-sm);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text);
+    font-size: var(--plugumi-font-size-sm); text-align: left; white-space: nowrap;
+  }
+  .shell-core-item:hover { background: var(--plugumi-colors-surface-hover); }
+  .shell-core-item.active { background: var(--plugumi-colors-surface-active); }
+  .shell-core-item .name { flex: 1; }
+  .shell-core-item .status { color: var(--plugumi-colors-text-subtle); font-size: var(--plugumi-font-size-xs); }
+  .menu-sep { height: 1px; margin: var(--plugumi-spacing-xs) 0; background: var(--plugumi-colors-border); }
 
   .shell-body { flex: 1; min-height: 0; display: flex; }
 
@@ -342,5 +399,11 @@
     color: var(--plugumi-colors-text-subtle);
     font-size: var(--plugumi-font-size-xs);
     padding: 0 var(--plugumi-spacing-sm);
+  }
+  .shell-status .status-text { flex: 1; }
+  /* Indicator（Plugin View）のマウント領域。右寄せで並ぶ。 */
+  .shell-indicators {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    margin-left: auto;
   }
 }

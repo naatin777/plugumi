@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 // contextBridge越しにShellHost相当の呼び出しをrendererへ出す。
 // contextIsolationを有効にし、rendererからNodeへは触れさせない。
 import { contextBridge, ipcRenderer } from "electron";
@@ -9,6 +10,12 @@ const plain = (value: unknown): unknown =>
 
 const invoke = (method: string, ...args: unknown[]): Promise<unknown> =>
   ipcRenderer.invoke("shell", method, args.map(plain));
+
+// rendererのテーマ変更をmainへ転送し、titleBarOverlayの色を合わせる。
+// DOMイベントはisolated worldを越えるのでcontextBridgeを経由しなくても届く。
+window.addEventListener("plugumi:theme", () => {
+  ipcRenderer.send("plugumi:theme", document.documentElement.getAttribute("data-plugumi-theme") ?? "");
+});
 
 contextBridge.exposeInMainWorld("plugumiShell", {
   listCores: () => invoke("listCores"),
