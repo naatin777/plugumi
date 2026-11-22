@@ -33,9 +33,33 @@ export interface PanelRef {
   panelId: string;
 }
 
+// Workspace(center)のレイアウト。splitは区画をx/yで分け、leafは中身の
+// Panel群をdisplayで決めた形（tab stack / 横scroll帯 / pageめくり）に見せる。
+export interface WsLeaf {
+  kind: "leaf";
+  id: string;
+  panels: PanelRef[];
+  selected: string;
+  display: "tabs" | "scroll" | "pages";
+}
+export interface WsSplit {
+  kind: "split";
+  id: string;
+  axis: "x" | "y";
+  ratio: number;
+  first: WsNode;
+  second: WsNode;
+}
+export type WsNode = WsLeaf | WsSplit;
+
 export interface Dock {
   panels: PanelRef[];
   selected: string;
+  // Workspace(center)のみ。split treeのleafがdisplayを持つ。
+  layout?: WsNode;
+  // Shelfのみ: 積層sectionの状態（collapsed=折畳、grow=高さ比）。
+  // 他dockはtab切替で同時表示しないのでsection概念を持たない。
+  shelfSections?: Record<string, { collapsed?: boolean; grow?: number }>;
 }
 
 export interface Workspace {
@@ -72,8 +96,8 @@ export interface ShellHost {
   deleteProject(key: string, project: string): Promise<void>;
   createArea(key: string, project: string, parent: string[], name: string): Promise<void>;
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
-  getPinned(key: string, project: string): Promise<Dock>;
-  putPinned(key: string, project: string, dock: Dock): Promise<void>;
+  getShelf(key: string, project: string): Promise<Dock>;
+  putShelf(key: string, project: string, dock: Dock): Promise<void>;
   getWorkspace(key: string, project: string, areaPath: string[]): Promise<Workspace>;
   putWorkspace(key: string, project: string, areaPath: string[], workspace: Workspace): Promise<void>;
 

@@ -60,8 +60,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}", s.removeProject)
 	mux.HandleFunc("POST /api/cores/{key}/projects/{project}/areas", s.addArea)
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}/areas/{rest...}", s.removeArea)
-	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/pinned", s.getPinned)
-	mux.HandleFunc("PUT /api/cores/{key}/projects/{project}/pinned", s.putPinned)
+	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/shelf", s.getShelf)
+	mux.HandleFunc("PUT /api/cores/{key}/projects/{project}/shelf", s.putShelf)
 	// workspaceのパスは{rest...}末尾が"workspace"のときだけ扱う
 	// （muxのワイルドカードは末尾にしか置けないため）。
 	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/areas/{rest...}", s.getWorkspace)
@@ -206,6 +206,14 @@ func (s *Server) staticFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		name = "index.html"
+	}
+	// index.htmlは毎回再検証させる（embedにはLast-Modifiedが無く、ヘッダ未指定だと
+	// ブラウザが古いHTMLを使い回すことがある）。assets以下はコンテンツハッシュ入りの
+	// ファイル名なので長期キャッシュしてよい。
+	if name == "index.html" {
+		w.Header().Set("Cache-Control", "no-cache")
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	}
 	http.ServeFileFS(w, r, s.static, name)
 }
@@ -450,15 +458,15 @@ func (s *Server) removeArea(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) getPinned(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getShelf(w http.ResponseWriter, r *http.Request) {
 	s.withArea(w, r, false, func(project *projects.Project, _ *projects.Area) (any, int) {
-		return project.Pinned, http.StatusOK
+		return project.Shelf, http.StatusOK
 	})
 }
 
-func (s *Server) putPinned(w http.ResponseWriter, r *http.Request) {
+func (s *Server) putShelf(w http.ResponseWriter, r *http.Request) {
 	s.putDock(w, r, func(project *projects.Project, _ []string, dock projects.Dock) {
-		project.Pinned = dock
+		project.Shelf = dock
 	})
 }
 

@@ -18,8 +18,8 @@ interface PlugumiShellBridge {
   deleteProject(key: string, project: string): Promise<void>;
   createArea(key: string, project: string, parent: string[], name: string): Promise<void>;
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
-  getPinned(key: string, project: string): Promise<Dock>;
-  putPinned(key: string, project: string, dock: Dock): Promise<void>;
+  getShelf(key: string, project: string): Promise<Dock>;
+  putShelf(key: string, project: string, dock: Dock): Promise<void>;
   getWorkspace(key: string, project: string, areaPath: string[]): Promise<Workspace>;
   putWorkspace(key: string, project: string, areaPath: string[], workspace: Workspace): Promise<void>;
 }
@@ -66,8 +66,8 @@ export function ipcShellHost(): ShellHost {
     createArea: (key, project, parent, name) =>
       wrap(bridge.createArea(key, project, plain(parent), name)),
     deleteArea: (key, project, areaPath) => wrap(bridge.deleteArea(key, project, plain(areaPath))),
-    getPinned: (key, project) => wrap(bridge.getPinned(key, project)),
-    putPinned: (key, project, dock) => wrap(bridge.putPinned(key, project, plain(dock))),
+    getShelf: (key, project) => wrap(bridge.getShelf(key, project)),
+    putShelf: (key, project, dock) => wrap(bridge.putShelf(key, project, plain(dock))),
     getWorkspace: (key, project, areaPath) => wrap(bridge.getWorkspace(key, project, plain(areaPath))),
     putWorkspace: (key, project, areaPath, workspace) =>
       wrap(bridge.putWorkspace(key, project, plain(areaPath), plain(workspace))),

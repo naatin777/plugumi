@@ -501,14 +501,14 @@ func TestProjectAPIs(t *testing.T) {
 	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", missing); response.Code != http.StatusBadRequest {
 		t.Fatalf("incomplete docks: %d", response.Code)
 	}
-	// pinnedのPUT/GET。
-	pinned := `{"panels":[{"instanceId":"panel-p1","pluginId":"standard","panelId":"files"}],"selected":"panel-p1"}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/pinned", pinned); response.Code != http.StatusNoContent {
-		t.Fatalf("put pinned: %d", response.Code)
+	// shelfのPUT/GET。
+	shelf := `{"panels":[{"instanceId":"panel-p1","pluginId":"standard","panelId":"files"}],"selected":"panel-p1"}`
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/shelf", shelf); response.Code != http.StatusNoContent {
+		t.Fatalf("put shelf: %d", response.Code)
 	}
-	response = do(t, fixture.handler, http.MethodGet, base+"/projects/plugumi/pinned", "")
+	response = do(t, fixture.handler, http.MethodGet, base+"/projects/plugumi/shelf", "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "panel-p1") {
-		t.Fatalf("get pinned: %d %s", response.Code, response.Body)
+		t.Fatalf("get shelf: %d %s", response.Code, response.Body)
 	}
 	// Area削除は子ごと。workspaceも一緒に消える。
 	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/plugumi/areas/main", ""); response.Code != http.StatusNoContent {

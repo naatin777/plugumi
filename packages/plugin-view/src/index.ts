@@ -4,6 +4,30 @@
 // Panel の mount に渡される宿主コンテキスト。
 export interface PanelContext {
   callTool(toolPath: string, input: unknown): Promise<unknown>;
+  // Panelの活動状態をShellへ通知する。Pluginは意味だけ渡し、
+  // 色・速度・太さなどの表現はShell側のtokenが決める。
+  // 呼ぶたびに全体を置き換える。永続化されず再mountで消える。
+  setActivity(activity: PanelActivity | null): void;
+}
+
+export type PanelActivityTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type PanelActivitySurface = "header" | "border" | "divider" | "content";
+export type PanelActivityEffect = "static" | "flow" | "glow";
+
+export type PanelActivityProgress =
+  | { kind: "determinate"; value: number }
+  | { kind: "indeterminate" };
+
+export interface PanelActivityLayer {
+  surface: PanelActivitySurface;
+  tone: PanelActivityTone;
+  effect?: PanelActivityEffect;
+}
+
+export interface PanelActivity {
+  busy?: boolean;
+  progress?: PanelActivityProgress;
+  layers?: PanelActivityLayer[];
 }
 
 export interface PanelHandle {
@@ -51,6 +75,11 @@ export const tokenNames = {
     infoContrast: "--plugumi-colors-info-contrast",
     infoSurface: "--plugumi-colors-info-surface",
     infoBorder: "--plugumi-colors-info-border",
+    activity1: "--plugumi-colors-activity-1",
+    activity2: "--plugumi-colors-activity-2",
+    activity3: "--plugumi-colors-activity-3",
+    activity4: "--plugumi-colors-activity-4",
+    activity5: "--plugumi-colors-activity-5",
   },
   fontFamily: {
     sans: "--plugumi-font-family-sans",

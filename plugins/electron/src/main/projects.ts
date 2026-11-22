@@ -12,6 +12,9 @@ export interface PanelRef {
 export interface Dock {
   panels: PanelRef[];
   selected: string;
+  // Workspace(center)のみ。split treeのleafがdisplay（tabs/scroll）を持つ
+  // Client所有のopaque JSON。
+  layout?: unknown;
 }
 
 export interface Workspace {
@@ -29,7 +32,7 @@ export interface Area {
 
 export interface Project {
   name: string;
-  pinned: Dock;
+  shelf: Dock;
   areas: Area[];
 }
 
@@ -102,7 +105,7 @@ export function findProject(document: Document, name: string): Project | undefin
 export function addProject(document: Document, name: string): void {
   if (!validName(name)) throw new InvalidNameError("invalid name");
   if (findProject(document, name)) throw new DuplicateNameError("name already exists");
-  document.projects.push({ name, pinned: emptyDock(), areas: [] });
+  document.projects.push({ name, shelf: emptyDock(), areas: [] });
 }
 
 export function removeProject(document: Document, name: string): boolean {

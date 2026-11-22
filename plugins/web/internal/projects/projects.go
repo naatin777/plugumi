@@ -3,6 +3,7 @@
 package projects
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
 	"slices"
@@ -35,9 +36,14 @@ type PanelRef struct {
 }
 
 // Dock は1つのDockの状態。selectedはpanels内のinstanceIdか空。
+// Workspace(center)のみlayoutを持つ。split treeのleafがdisplay（tabs/
+// scroll）を持つClient所有のopaque JSONで、serverは中身を解釈しない。
 type Dock struct {
-	Panels   []PanelRef `json:"panels"`
-	Selected string     `json:"selected"`
+	Panels       []PanelRef      `json:"panels"`
+	Selected     string          `json:"selected"`
+	Layout       json.RawMessage `json:"layout,omitempty"`
+	// Shelfのみ: instanceIdごとの積層section状態。Layouts同様Client所有のopaque JSON。
+	ShelfSections json.RawMessage `json:"shelfSections,omitempty"`
 }
 
 // Workspace はAreaが持つ4 Dockの配置。
@@ -55,10 +61,10 @@ type Area struct {
 	Areas     []Area    `json:"areas"`
 }
 
-// Project はpinned DockとAreaの木を持つ。
+// Project はshelf DockとAreaの木を持つ。
 type Project struct {
 	Name   string `json:"name"`
-	Pinned Dock   `json:"pinned"`
+	Shelf Dock   `json:"shelf"`
 	Areas  []Area `json:"areas"`
 }
 
@@ -115,7 +121,7 @@ func (document *Document) AddProject(name string) error {
 		return ErrDuplicateName
 	}
 	document.Projects = append(document.Projects, Project{
-		Name: name, Pinned: Dock{Panels: []PanelRef{}}, Areas: []Area{},
+		Name: name, Shelf: Dock{Panels: []PanelRef{}}, Areas: []Area{},
 	})
 	return nil
 }

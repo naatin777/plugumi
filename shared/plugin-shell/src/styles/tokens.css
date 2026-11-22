@@ -73,6 +73,11 @@
   --plugumi-colors-info-contrast: #1b2635;
   --plugumi-colors-info-surface: #1b2635;
   --plugumi-colors-info-border: #4a6b93;
+  --plugumi-colors-activity-1: #f3a1aa;
+  --plugumi-colors-activity-2: #edca8e;
+  --plugumi-colors-activity-3: #a0d4b5;
+  --plugumi-colors-activity-4: #93b7ee;
+  --plugumi-colors-activity-5: #b9a7e8;
 }
 
 [data-plugumi-theme="light"] {
@@ -111,6 +116,11 @@
   --plugumi-colors-info-contrast: #e9f1fb;
   --plugumi-colors-info-surface: #e9f1fb;
   --plugumi-colors-info-border: #7f9fc4;
+  --plugumi-colors-activity-1: #a33348;
+  --plugumi-colors-activity-2: #825600;
+  --plugumi-colors-activity-3: #316b48;
+  --plugumi-colors-activity-4: #1c5f9e;
+  --plugumi-colors-activity-5: #6d3fa0;
 }
 
 [data-plugumi-theme="dark"] {
@@ -149,4 +159,9 @@
   --plugumi-colors-info-contrast: #1b2635;
   --plugumi-colors-info-surface: #1b2635;
   --plugumi-colors-info-border: #4a6b93;
+  --plugumi-colors-activity-1: #f3a1aa;
+  --plugumi-colors-activity-2: #edca8e;
+  --plugumi-colors-activity-3: #a0d4b5;
+  --plugumi-colors-activity-4: #93b7ee;
+  --plugumi-colors-activity-5: #b9a7e8;
 }

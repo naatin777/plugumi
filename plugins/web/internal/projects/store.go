@@ -23,7 +23,36 @@ func Load(directory, coreName string) (*Document, error) {
 	if err := json.Unmarshal(data, document); err != nil {
 		return nil, err
 	}
+	document.normalize()
 	return document, nil
+}
+
+// normalize はclientが配列を必須とするフィールドを非nilに揃える。
+// 省略・nullで保存されたDockは、レスポンスで "panels": null になると
+// client側の配列操作が落ちるため、読み込み時にだけ補正する。
+func (document *Document) normalize() {
+	for index := range document.Projects {
+		project := &document.Projects[index]
+		project.Shelf.normalize()
+		normalizeAreas(project.Areas)
+	}
+}
+
+func normalizeAreas(areas []Area) {
+	for index := range areas {
+		workspace := &areas[index].Workspace
+		workspace.Left.normalize()
+		workspace.Center.normalize()
+		workspace.Right.normalize()
+		workspace.Bottom.normalize()
+		normalizeAreas(areas[index].Areas)
+	}
+}
+
+func (dock *Dock) normalize() {
+	if dock.Panels == nil {
+		dock.Panels = []PanelRef{}
+	}
 }
 
 // Save は一時ファイルへ書いてからrenameで置き換える。

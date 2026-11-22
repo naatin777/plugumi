@@ -4,7 +4,7 @@
 // 仕様は docs/contracts/00005-panel-module.md を参照。
 import { createSignal } from "solid-js";
 import type { PanelEntry, PanelRef, ShellHost } from "../host";
-import type { PanelHandle, PanelMount } from "@plugumi/plugin-view";
+import type { PanelActivity, PanelHandle, PanelMount } from "@plugumi/plugin-view";
 import { acquirePanelStyles } from "./styles";
 
 export type InstanceState = "mounting" | "mounted" | "missing";
@@ -39,6 +39,9 @@ export class PanelInstance {
 
   readonly state: () => InstanceState;
   readonly error: () => MountError | undefined;
+  // PluginがsetActivityで通知した活動状態。Shellが描画する。
+  readonly activity: () => PanelActivity | null;
+  private setActivity: (activity: PanelActivity | null) => void;
   private setState: (state: InstanceState) => void;
   private setError: (error: MountError | undefined) => void;
 
@@ -62,8 +65,11 @@ export class PanelInstance {
     this.host.dataset.plugumiPlugin = "";
     const [state, setState] = createSignal<InstanceState>("mounting");
     const [error, setError] = createSignal<MountError>();
+    const [activity, setActivity] = createSignal<PanelActivity | null>(null);
     this.state = state;
     this.error = error;
+    this.activity = activity;
+    this.setActivity = setActivity;
     this.setState = setState;
     this.setError = setError;
   }
@@ -133,6 +139,7 @@ export class PanelInstance {
           this.shellHost.callTool(this.coreKey, {
             registrationId: this.registrationId, toolPath, input,
           }),
+        setActivity: (activity) => this.setActivity(activity),
       });
     } catch (cause) {
       release();

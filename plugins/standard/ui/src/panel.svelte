@@ -21,13 +21,23 @@
   $effect(() => {
     const directory = path;
     error = "";
+    context.setActivity({
+      busy: true,
+      progress: { kind: "indeterminate" },
+      layers: [
+        { surface: "border", tone: "neutral", effect: "flow" },
+        { surface: "divider", tone: "info", effect: "flow" },
+      ],
+    });
     context
       .callTool("fs/list", { path: directory })
       .then((result) => {
         entries = (result as { entries: Entry[] }).entries;
+        context.setActivity(null);
       })
       .catch((reason) => {
         error = String(reason);
+        context.setActivity({ layers: [{ surface: "header", tone: "danger" }] });
       });
   });
 
@@ -107,6 +117,8 @@
     font-size: var(--plugumi-font-size-sm);
   }
   form button {
+    flex-shrink: 0;
+    white-space: nowrap;
     padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
     background: var(--plugumi-colors-surface-raised);
     color: var(--plugumi-colors-text);

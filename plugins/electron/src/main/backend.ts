@@ -185,15 +185,15 @@ export class Backend {
     });
   }
 
-  getPinned(key: string, projectName: string): Dock {
+  getShelf(key: string, projectName: string): Dock {
     const project = this.projectByName(key, projectName);
-    return project.pinned;
+    return project.shelf;
   }
 
-  putPinned(key: string, projectName: string, dock: Dock): void {
+  putShelf(key: string, projectName: string, dock: Dock): void {
     projects.validateDock(dock);
     this.mutateProject(key, projectName, (project) => {
-      project.pinned = dock;
+      project.shelf = dock;
     });
   }
 

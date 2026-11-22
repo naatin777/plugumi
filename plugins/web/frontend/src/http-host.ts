@@ -80,13 +80,13 @@ export function httpShellHost(): ShellHost {
       const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}`, { method: "DELETE" });
       if (!response.ok) throw new Error(await errorMessage(response));
     },
-    async getPinned(key: string, project: string): Promise<Dock> {
-      const response = await fetch(`${base(key)}/${project}/pinned`);
-      if (!response.ok) throw new Error(`GET pinned: HTTP ${response.status}`);
+    async getShelf(key: string, project: string): Promise<Dock> {
+      const response = await fetch(`${base(key)}/${project}/shelf`);
+      if (!response.ok) throw new Error(`GET shelf: HTTP ${response.status}`);
       return response.json();
     },
-    async putPinned(key: string, project: string, dock: Dock): Promise<void> {
-      const response = await fetch(`${base(key)}/${project}/pinned`, {
+    async putShelf(key: string, project: string, dock: Dock): Promise<void> {
+      const response = await fetch(`${base(key)}/${project}/shelf`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dock),
       });

@@ -33,6 +33,9 @@ flowchart LR
 
 - Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
 - WorkspaceはAreaと1対1に対応する。Workspaceは、left・center・right・bottomの4つのDockを持ち、各DockにPanelのタブを並べる。
+- center Dockは2つの表示モードを持つ。**tabs**モードではPanelをタブスタックとして表示し、タブをAreaの四辺にドラッグ&ドロップするとその方向に分割できる（分割は`axis`と`ratio`を持つ再帰ツリー、どちらの向きにも割れる）。**scroll**モードでは全Panelを横に並べた列として表示し、列へのドロップは分割ではなく挿入（並び替え）を意味する。scrollモードでも分割はできるが縦方向のみで、横並びの行が縦に積まれる。
+- モード切替は表示の切り替えだけでPanelを失わない。center Dockは`tabsLayout`と`scrollLayout`の2本のツリーを保持し、両ツリーは常に同じPanel集合を記述する。Panelの追加・削除・移動は両ツリーに反映される。空になったAreaはツリーから畳まれ、最後の1枚は残る。
+- Panelのタブはregionをまたいでドラッグできる。center↔left/right/bottom、dock↔dock、center/dock↔pinnedの相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。
 - PinnedのDockはProjectに属し、Areaを切り替えても閉じない。Areaの形が固まったら、Pinnedの扱いは見直す可能性がある。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 

@@ -74,6 +74,7 @@ export default function CoreList() {
           </For>
         </tbody>
       </table>
+      <p class="core-meta"><A href="/lab">Style Lab</A></p>
     </main>
   );
 }
