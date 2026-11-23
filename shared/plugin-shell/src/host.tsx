@@ -69,6 +69,9 @@ export interface ShellHost {
   // Electron は plugumi-ui://… を返す。
   uiURL(coreKey: string, registrationId: string, path: string, uiSha256: string): string;
 
+  // Areaを別windowに出す（detach）。Electronだけが実装し、Webはnull
+  // （「別windowで開く」の項目自体を出さない）。pathはrouteのpath+query。
+  windows: { open(path: string): void } | null;
 }
 
 export const ShellHostContext = createContext<ShellHost>();

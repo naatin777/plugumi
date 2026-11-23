@@ -203,8 +203,8 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
 export function TitleSegmentSub(props: { area: AreaController }): JSX.Element {
   const shell = useShell();
   const navigate = useNavigate();
-  // drawer化している間はcrumbやdockボタンを出さない（開閉ボタンだけの形）。
-  // Area未選択でも開いていればdockボタンは出し、crumbは「Sub」だけにする。
+  // drawer化している間はcrumb等を出さない。Subはcenterだけの表示なので
+  // dock開閉ボタンは持たない（crumbと「+」だけ）。
   const detailed = () => !shell.subDrawerMode() && shell.subShown();
   const crumb = () => {
     const ref = shell.subRef();
@@ -229,8 +229,6 @@ export function TitleSegmentSub(props: { area: AreaController }): JSX.Element {
         >
           <IconPlus />
         </ToolButton>
-        <span class="bar-flex" />
-        <DockButtons area={props.area} />
       </Show>
     </>
   );

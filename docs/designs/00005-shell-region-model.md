@@ -36,7 +36,7 @@ relations:
 |---|---|---|
 | Area list | Shellのナビ中枢。AreaをMain・Subの2セクションに並べる（SigmaOSと同じ形）。行をPanelではなくAreaが占める | shell固有（Panelではない） |
 | Main | Main listで選択中のAreaを表示する。URLの`/<core>/<project>/<area>/…`が正本で、Main行のclickはそのURLへの移動になる | shell |
-| Sub | Sub listで選択中のAreaを右に表示する。開閉でき、閉じるとMainが全幅になる（幅はResizerで調整） | shell |
+| Sub | Sub listで選択中のAreaを右に表示する。開閉でき、閉じるとMainが全幅になる（幅はResizerで調整）。Subは**centerだけ**を描き、dock（left・bottom・right）は出さない（そのAreaをMainへ移せばdockは戻る） | shell |
 | left / bottom / right | Areaの中のWorkspaceの縁領域。位置が契約（left=一覧系、bottom=terminal系の横広、right=右の列でMainの脇に置く補助）。開閉できる | Area |
 | center | 作業面。splitの木で区画に分けてパネルを配置する | Area |
 
@@ -77,7 +77,7 @@ Area listはAreaを**Main**・**Sub**の2セクションで一覧する（SigmaO
 
 - **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する。URLのAreaがlistに無ければ追加して選択する（deep link）。
 - **Sub**: 行のclickでそのAreaをSub領域に表示する。Subは開閉でき、閉じるとMainが全幅になる。
-- Floatingはpanel単位・Electronのみ（設計中）。
+- **別windowで開く（detach）**: 行メニューからそのAreaを別windowで開く。Electronのみ（Webは項目自体を出さない）。detached windowはtitle帯最小限＋そのAreaのAreaView1個（Main扱い＝dockあり）だけを描く。
 - **追加は「＋」からpicker**: 各セクションの「＋ Areaを追加」はProject/Areaのツリーから選ぶpopoverを開く。Area・Projectの作成もここで行う。
 
 ### 列ごとの開閉ボタン
@@ -85,8 +85,8 @@ Area listはAreaを**Main**・**Sub**の2セクションで一覧する（SigmaO
 title barのwork区間はMainとSubで2つに分かれ、それぞれの列の真上にボタン群が並ぶ。どの列のボタンかは位置と境界線で分かるようにする。
 
 - **Mainのsegment**: MainのAreaのcrumb・「+」・検索・`[左][下][右]`のdock開閉。
-- **Sub側**: SubのAreaのcrumb（clickでMainへ移動）・「+」・Sub用の`[左][下][右]`。Subが閉じている・drawerのときはこの区画自体を出さない（幅0に畳まれる）。Subの開閉ボタンはtitle右端の操作群の先頭に固定で置き、drawer時はSub drawerを開閉する。
-- dockの開閉状態はslot（Main/Sub）ごとに独立して持つ（`dockOpen[slot][kind]`）。⌥⌘2〜4は「触っている側」のAreaのdockを開閉する。
+- **Sub側**: SubのAreaのcrumb（clickでMainへ移動）・「+」。Subはcenterだけの表示なのでdock開閉ボタンは持たない。Subが閉じている・drawerのときはこの区画自体を出さない（幅0に畳まれる）。Subの開閉ボタンはtitle右端の操作群の先頭に固定で置き、drawer時はSub drawerを開閉する。
+- dockの開閉状態（`dockOpen[kind]`）はMain用だけ（Subはcenterだけなので）。⌥⌘2〜4はMainのdockを開閉する。
 - dockの幅・高さ（`dockSize`）は両slotで共通。
 
 ### 幅に応じたdrawer化

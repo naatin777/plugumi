@@ -35,4 +35,6 @@ contextBridge.exposeInMainWorld("plugumiShell", {
     invoke("getWorkspace", key, project, areaPath),
   putWorkspace: (key: string, project: string, areaPath: string[], workspace: unknown) =>
     invoke("putWorkspace", key, project, areaPath, workspace),
+  // Areaのdetach用の別window。mainが同じindex.htmlをhashで開く。
+  openWindow: (path: string) => ipcRenderer.send("plugumi:open-window", path),
 });

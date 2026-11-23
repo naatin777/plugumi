@@ -96,5 +96,7 @@ export function httpShellHost(): ShellHost {
       return `/ui/${encodeURIComponent(coreKey)}/${encodeURIComponent(registrationId)}` +
         `/${path}?v=${uiSha256}`;
     },
+    // Webでは別windowを開かない。
+    windows: null,
   };
 }

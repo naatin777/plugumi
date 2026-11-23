@@ -339,6 +339,14 @@
     display: none;
   }
 
+  /* detached window: AreaView1個だけを全面に出す。 */
+  main.shell.detached {
+    grid-template-rows: calc(var(--titlebar-h) + var(--work-gap)) minmax(0, 1fr);
+  }
+  main.shell.detached > .area-view {
+    margin: 0 var(--work-gap) var(--work-gap);
+  }
+
   .status-bar {
     position: relative;
     display: flex; align-items: center;

@@ -1,5 +1,8 @@
 // 1つのAreaの表示（designs/00005「Areaの中身」）。左の列で選ばれたAreaの
 // workspaceを、dock構成（left / center / bottom / right）で描く。
+// Subはcenterだけを出す — dockを描画しない（data-closedで畳むのではなく
+// component自体を出さず、SubでdockのPanel Instanceをmountさせない）。
+// workspaceのデータは触らないので、そのAreaをMainへ移せばdockは戻る。
 // 表示形式 "center" はdockをdata-closedで畳むだけ — Panelの配置は保つ。
 // 幅に応じてdata-sizeを立て、狭いときはdockがdrawerになる（dock.css）。
 import { Show, onCleanup } from "solid-js";
@@ -44,10 +47,14 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
         data-display={display()}
         onPointerDown={() => shell.setFocusedArea(props.area)}
       >
-        <Dock kind="left" closed={dockClosed("left")} drawer={props.area.dockIsDrawer("left")} />
+        <Show when={props.slot === "main"}>
+          <Dock kind="left" closed={dockClosed("left")} drawer={props.area.dockIsDrawer("left")} />
+        </Show>
         <CenterView />
-        <Dock kind="right" closed={dockClosed("right")} drawer={props.area.dockIsDrawer("right")} />
-        <Dock kind="bottom" closed={dockClosed("bottom")} drawer={props.area.dockIsDrawer("bottom")} />
+        <Show when={props.slot === "main"}>
+          <Dock kind="right" closed={dockClosed("right")} drawer={props.area.dockIsDrawer("right")} />
+          <Dock kind="bottom" closed={dockClosed("bottom")} drawer={props.area.dockIsDrawer("bottom")} />
+        </Show>
       </div>
     </AreaContext>
   );

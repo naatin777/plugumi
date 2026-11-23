@@ -21,7 +21,7 @@ import {
   addArea, areaKey, emptyAreaList, loadAreaList, saveAreaList, selectArea,
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
-import { loadPrefs, savePrefs, type DockSlot, type ShellPrefs } from "../prefs.ts";
+import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
 import { saveLastLocation } from "../storage.ts";
 import { createDragController, type DragController } from "./drag.ts";
@@ -108,8 +108,6 @@ export type AreaSize = "wide" | "narrow" | "compact";
 // 1つのAreaViewが持つ状態。layout・Panel Instance・dragは全部Area単位。
 export interface AreaController {
   shell: ShellController;
-  // dockOpen prefsのスロット。
-  slot: DockSlot;
   ref(): AreaRef | null;
 
   // AreaViewの実測幅に応じた段階（ResizeObserverがセット）。
@@ -346,7 +344,6 @@ export function createShellController(
 export function createAreaController(
   shell: ShellController,
   ref: () => AreaRef | null,
-  slot: DockSlot,
 ): AreaController {
   const host = shell.host;
 
@@ -356,18 +353,10 @@ export function createAreaController(
   const dockIsDrawer = (kind: DockKind) =>
     size() === "compact" || (size() === "narrow" && kind !== "bottom");
   const dockShown = (kind: DockKind) =>
-    dockIsDrawer(kind) ? drawer() === kind : shell.prefs().dockOpen[slot][kind];
+    dockIsDrawer(kind) ? drawer() === kind : shell.prefs().dockOpen[kind];
   const toggleDock = (kind: DockKind) => {
     if (dockIsDrawer(kind)) setDrawer(drawer() === kind ? null : kind);
-    else {
-      shell.updatePrefs((prefs) => {
-        const slotOpen = prefs.dockOpen[slot];
-        prefs.dockOpen = {
-          ...prefs.dockOpen,
-          [slot]: { ...slotOpen, [kind]: !slotOpen[kind] },
-        };
-      });
-    }
+    else shell.updatePrefs((prefs) => { prefs.dockOpen[kind] = !prefs.dockOpen[kind]; });
   };
 
   // ---- layout（workspaceを1つの状態に持つ） ----
@@ -484,7 +473,7 @@ export function createAreaController(
   });
 
   const controller: AreaController = {
-    shell, slot, ref,
+    shell, ref,
     size, setSize, drawer, setDrawer, dockIsDrawer, dockShown, toggleDock,
     layout, applyLayout,
     instance, openPanel,

@@ -154,19 +154,36 @@ function AreaRow(props: { slot: ListSlot; entry: AreaEntry }): JSX.Element {
             <button class="area-menu-item" onClick={move(item.to)}>{item.label}</button>
           )}
         </For>
-        <p class="area-menu-label">表示</p>
-        <button
-          class={{ "area-menu-item": true, selected: props.entry.display === "full" }}
-          onClick={setMode("full")}
-        >
-          すべて
-        </button>
-        <button
-          class={{ "area-menu-item": true, selected: props.entry.display === "center" }}
-          onClick={setMode("center")}
-        >
-          centerのみ
-        </button>
+        {/* Subはcenterだけの表示なので表示切替はMain行にだけ出す。 */}
+        <Show when={props.slot === "main"}>
+          <p class="area-menu-label">表示</p>
+          <button
+            class={{ "area-menu-item": true, selected: props.entry.display === "full" }}
+            onClick={setMode("full")}
+          >
+            すべて
+          </button>
+          <button
+            class={{ "area-menu-item": true, selected: props.entry.display === "center" }}
+            onClick={setMode("center")}
+          >
+            centerのみ
+          </button>
+        </Show>
+        {/* detachはElectronのみ（host.windowsがnullなら出さない）。 */}
+        <Show when={shell.host.windows}>
+          {(windows) => (
+            <button
+              class="area-menu-item"
+              onClick={(event) => {
+                closePopover(event);
+                windows().open(`${href()}?window=detached`);
+              }}
+            >
+              別windowで開く
+            </button>
+          )}
+        </Show>
         <button class="area-menu-item danger" onClick={remove}>リストから外す</button>
       </div>
     </div>

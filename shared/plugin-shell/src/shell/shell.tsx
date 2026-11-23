@@ -26,8 +26,8 @@ export function ShellFrame(): JSX.Element {
   const subInline = () => !shell.subDrawerMode() && shell.subShown();
 
   // Main/SubのAreaController。MainはURLが指すArea、SubはArea listの選択。
-  const mainArea = createAreaController(shell, () => shell.mainRef(), "main");
-  const subArea = createAreaController(shell, () => shell.subRef(), "sub");
+  const mainArea = createAreaController(shell, () => shell.mainRef());
+  const subArea = createAreaController(shell, () => shell.subRef());
 
   const keydown = (event: KeyboardEvent) => {
     if (event.code === "Escape") {
@@ -73,11 +73,7 @@ export function ShellFrame(): JSX.Element {
     if (!which) return;
     if (which === "sidebar") shell.toggleSide();
     else if (which === "sub") shell.toggleSub();
-    else {
-      // 触っている側のArea（無ければMain）のdockを開閉。
-      const area = shell.focusedArea() ?? mainArea;
-      area.toggleDock(which);
-    }
+    else mainArea.toggleDock(which);
     event.preventDefault();
   };
 

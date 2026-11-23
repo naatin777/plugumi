@@ -77,7 +77,7 @@ async function start(): Promise<void> {
   protocol.handle(UI_SCHEME, (request) => backend.uiAsset(request));
   registerIpc(backend);
 
-  const createWindow = async (): Promise<BrowserWindow> => {
+  const createWindow = async (hash?: string): Promise<BrowserWindow> => {
     const window = new BrowserWindow({
       width: 1440,
       height: 900,
@@ -89,7 +89,12 @@ async function start(): Promise<void> {
         sandbox: true,
       },
     });
-    await window.loadFile(join(__dirname, "../renderer/index.html"));
+    // detachedのAreaは同じindex.htmlをhashで開く（hashHistoryなので
+    // routeのpath+queryをそのままhashに入れる）。
+    await window.loadFile(
+      join(__dirname, "../renderer/index.html"),
+      hash ? { hash } : undefined,
+    );
     return window;
   };
   ipcMain.on("plugumi:theme", (event, theme: unknown) => {
@@ -99,6 +104,10 @@ async function start(): Promise<void> {
     if (!window || typeof window.setTitleBarOverlay !== "function") return;
     const colors = TITLEBAR_COLORS[String(theme)] ?? TITLEBAR_COLORS.dark;
     window.setTitleBarOverlay({ ...colors, height: TITLEBAR_HEIGHT });
+  });
+  // Areaを別windowに出す（detach）要求。
+  ipcMain.on("plugumi:open-window", (_event, path: unknown) => {
+    if (typeof path === "string") void createWindow(path);
   });
   await createWindow();
 
