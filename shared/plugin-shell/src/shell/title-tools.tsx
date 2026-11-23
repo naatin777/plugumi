@@ -153,25 +153,28 @@ export function TitleToolsCenter(): JSX.Element {
         <span class="bar-search-key">⌘K</span>
       </button>
       <span class="bar-flex" />
-      <ToolButton
-        label="左の領域" pressed={shell.prefs().dockOpen.left}
-        onClick={() => toggleDock("left")}
-      >
-        <IconDockLeft />
-      </ToolButton>
-      <ToolButton
-        label="下の領域" pressed={shell.prefs().dockOpen.bottom}
-        onClick={() => toggleDock("bottom")}
-      >
-        <IconDockBottom />
-      </ToolButton>
-      <ToolButton
-        label="右の領域" pressed={shell.prefs().dockOpen.right}
-        onClick={() => toggleDock("right")}
-      >
-        <IconDockRight />
-      </ToolButton>
-      <span class="title-gap" />
+      {/* zen中はdockを出せないので開閉ボタンも隠す。 */}
+      <Show when={!shell.prefs().frameHidden}>
+        <ToolButton
+          label="左の領域" pressed={shell.prefs().dockOpen.left}
+          onClick={() => toggleDock("left")}
+        >
+          <IconDockLeft />
+        </ToolButton>
+        <ToolButton
+          label="下の領域" pressed={shell.prefs().dockOpen.bottom}
+          onClick={() => toggleDock("bottom")}
+        >
+          <IconDockBottom />
+        </ToolButton>
+        <ToolButton
+          label="右の領域" pressed={shell.prefs().dockOpen.right}
+          onClick={() => toggleDock("right")}
+        >
+          <IconDockRight />
+        </ToolButton>
+        <span class="title-gap" />
+      </Show>
       <ToolButton
         label="zen" pressed={shell.prefs().frameHidden}
         onClick={() => shell.updatePrefs((prefs) => { prefs.frameHidden = !prefs.frameHidden; })}
