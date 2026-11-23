@@ -46,7 +46,7 @@ function DetachedArea(): JSX.Element {
       {/* Main扱い（dockあり）で1個だけ描く。同じAreaを元windowと同時に
           開くと独立に保存されlast-write-winsになる。 */}
       <AreaView area={area} slot="main" />
-      <DragGhost area={area} />
+      <DragGhost />
     </main>
   );
 }

@@ -75,11 +75,12 @@ export function AreaEmpty(): JSX.Element {
   );
 }
 
-// AreaControllerのdrag ghost。AreaViewの外に出ても追従するようwindowで追う
-// dragの結果なので、表示だけ各AreaViewにぶら下げる。
-export function DragGhost(props: { area: AreaController }): JSX.Element {
+// drag ghost。dragはwindowで追う（AreaViewの外に出ても追従する）。
+// drag controllerはshellに1個なのでghostも1つだけ描く。
+export function DragGhost(): JSX.Element {
+  const shell = useShell();
   return (
-    <Show when={props.area.ghost()}>
+    <Show when={shell.ghost()}>
       {(ghost) => (
         <div class="drag-ghost" style={{ left: `${ghost().x + 8}px`, top: `${ghost().y + 8}px` }}>
           {ghost().title}

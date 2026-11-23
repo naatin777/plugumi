@@ -12,7 +12,7 @@ import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
 import type { WorkspaceState, PanelRef, MoveTarget, DockKind } from "../layout/model.ts";
 import {
-  emptyWorkspace, addPanel, closePanel, selectPanel, movePanel,
+  emptyWorkspace, addPanel, closePanel, selectPanel, movePanel, detachPanel,
   splitAt, setRatio,
   allPanelRefs,
   decodeWorkspace, newInstanceId,
@@ -71,6 +71,11 @@ export interface ShellController {
   // ページ送りなど「触っている側」のArea（.area-viewのpointerdownで更新）。
   focusedArea(): AreaController | null;
   setFocusedArea(area: AreaController): void;
+
+  // ---- drag & drop（windowに1個。全AreaControllerが共有する） ----
+  drag: DragController;
+  ghost(): { x: number; y: number; title: string } | null;
+  dropElement(): HTMLElement | null;
 
   // Shellの横幅に応じた段階（ResizeObserverがセット）。
   // <1100pxでSubがdrawer、<800pxでArea listもdrawerになる。
@@ -131,10 +136,13 @@ export interface AreaController {
 
   instance(ref: PanelRef): PanelInstance;
   openPanel(pluginId: string, panelId: string, target?: MoveTarget): void;
+  // 別AreaControllerへ移す: 元からPanelRefを取り出し（disposeしない）、
+  // 先へInstanceごと入れる。移すと両方のlayoutがそれぞれ保存される。
+  detach(instanceId: string): { instance: PanelInstance; ref: PanelRef } | null;
+  adopt(instance: PanelInstance, ref: PanelRef, target: MoveTarget): void;
 
+  // drag controllerはshellが持つ1個を共有する。
   drag: DragController;
-  ghost(): { x: number; y: number; title: string } | null;
-  dropElement(): HTMLElement | null;
 }
 
 // 3秒ごとの巡回用。fetcherの結果をsignalに入れる。中身が変わらなければ
@@ -255,6 +263,27 @@ export function createShellController(
     setSideDrawer(false);
   };
 
+  // ---- drag & drop（windowに1個。AreaControllerが共有する） ----
+  const [ghost, setGhost] = createSignal<{ x: number; y: number; title: string } | null>(null);
+  const [dropElement, setDropElementRaw] = createSignal<HTMLElement | null>(null);
+  let marked: HTMLElement | null = null;
+  const setDropElement = (element: HTMLElement | null) => {
+    marked?.removeAttribute("data-drop-target");
+    marked = element;
+    marked?.setAttribute("data-drop-target", "");
+    setDropElementRaw(element);
+  };
+  const drag = createDragController(setGhost, setDropElement, (session, target, targetArea) => {
+    if (targetArea === session.area) {
+      targetArea.applyLayout((state) => movePanel(state, session.instanceId, target));
+      return;
+    }
+    // 別のAreaControllerへはInstanceを作り直さず移す。
+    const detached = session.area.detach(session.instanceId);
+    if (!detached) return;
+    targetArea.adopt(detached.instance, detached.ref, target);
+  });
+
   // ---- panel picker（shellに1個。開くとき対象のAreaControllerを取る） ----
   const [picker, setPicker] = createSignal<HTMLElement>();
   const [pickerArea, setPickerArea] = createSignal<AreaController | null>(null);
@@ -300,6 +329,7 @@ export function createShellController(
     areaList, applyAreaList,
     mainRef, subRef, displayOf,
     focusedArea, setFocusedArea,
+    drag, ghost, dropElement,
     shellSize, setShellSize,
     subDrawer, setSubDrawer,
     sideDrawer, setSideDrawer,
@@ -447,19 +477,21 @@ export function createAreaController(
     applyLayout((state) => addPanel(state, panelRef, target));
   };
 
-  // ---- drag & drop ----
-  const [ghost, setGhost] = createSignal<{ x: number; y: number; title: string } | null>(null);
-  const [dropElement, setDropElementRaw] = createSignal<HTMLElement | null>(null);
-  let marked: HTMLElement | null = null;
-  const setDropElement = (element: HTMLElement | null) => {
-    marked?.removeAttribute("data-drop-target");
-    marked = element;
-    marked?.setAttribute("data-drop-target", "");
-    setDropElementRaw(element);
+  // ---- 別AreaControllerへの移譲 ----
+  // detachはMapから先に外す — syncInstancesはlayoutから外れたInstanceを
+  // disposeするので、layoutを書き換える前にMapから消しておく。
+  const detach = (instanceId: string): { instance: PanelInstance; ref: PanelRef } | null => {
+    const panelInstance = instances.get(instanceId);
+    const result = detachPanel(layoutState, instanceId);
+    if (!panelInstance || !result) return null;
+    instances.delete(instanceId);
+    applyLayout(() => result.state);
+    return { instance: panelInstance, ref: result.ref };
   };
-  const drag = createDragController(setGhost, setDropElement, (instanceId, target) => {
-    applyLayout((state) => movePanel(state, instanceId, target));
-  });
+  const adopt = (panelInstance: PanelInstance, ref: PanelRef, target: MoveTarget): void => {
+    instances.set(ref.instanceId, panelInstance);
+    applyLayout((state) => addPanel(state, ref, target));
+  };
 
   onCleanup(() => {
     for (const found of instances.values()) found.dispose();
@@ -471,8 +503,8 @@ export function createAreaController(
     shell, ref,
     size, setSize, drawer, setDrawer, dockIsDrawer, dockShown, toggleDock,
     layout, applyLayout,
-    instance, openPanel,
-    drag, ghost, dropElement,
+    instance, openPanel, detach, adopt,
+    drag: shell.drag,
   };
 
   // effectは2系統だけ: (a) refの変化 → 読み直し、(b) panels一覧の変化 →

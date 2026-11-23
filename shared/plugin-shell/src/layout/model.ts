@@ -324,6 +324,17 @@ function replaceNode(workspace: WorkspaceState, id: string, other: Node): void {
   workspace.center.root = replace(workspace.center.root);
 }
 
+// PanelRefをstateから取り出す（別controllerへ移すArea間drop用）。
+// 片付けはclosePanelと同じ — 取り出したあとのlayoutはclosePanelと同じ形。
+export function detachPanel(
+  state: WorkspaceState, instanceId: string,
+): { state: WorkspaceState; ref: PanelRef } | null {
+  const next = clone(state);
+  const ref = take(next, instanceId);
+  if (!ref) return null;
+  return { state: next, ref };
+}
+
 export function closePanel(state: WorkspaceState, instanceId: string): WorkspaceState {
   const next = clone(state);
   take(next, instanceId);

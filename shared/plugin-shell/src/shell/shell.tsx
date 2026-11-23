@@ -174,8 +174,7 @@ export function ShellFrame(): JSX.Element {
         </div>
       </WorkShape>
       <StatusBar />
-      <DragGhost area={mainArea} />
-      <DragGhost area={subArea} />
+      <DragGhost />
     </main>
   );
 }

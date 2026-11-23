@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
   addPanel, allLeaves, closePanel,
-  decodeWorkspace, emptyWorkspace, findLeaf, locationOf,
+  decodeWorkspace, detachPanel, emptyWorkspace, findLeaf, locationOf,
   movePanel, selectPanel, setRatio,
   splitAt, type WorkspaceState, type PanelRef,
 } from "./model.ts";
@@ -217,6 +217,32 @@ describe("split", () => {
     state = closePanel(state, "a");
     assert.equal(state.center.focusedLeaf, "leaf-root");
     assert.equal(state.center.root.id, "leaf-root");
+  });
+});
+
+describe("detach", () => {
+  test("取り出したあとのlayoutはclosePanelと同じ形でrefを返す", () => {
+    let state = emptyWorkspace();
+    state = withPanel(state, "a");
+    state = withPanel(state, "b", { region: "dock", dock: "left", index: -1 });
+    const detached = detachPanel(state, "a");
+    assert.ok(detached);
+    assert.equal(detached.ref.instanceId, "a");
+    assert.deepEqual(detached.state, closePanel(state, "a"));
+  });
+
+  test("最後の1枚を抜いたleafは畳まれる", () => {
+    let state = emptyWorkspace();
+    state = splitAt(state, "leaf-root", "right");
+    state = withPanel(state, "a", { region: "leaf", leafId: "leaf-root", index: -1 });
+    const detached = detachPanel(state, "a");
+    assert.ok(detached);
+    assert.equal(detached.state.center.root.kind, "leaf");
+  });
+
+  test("存在しないinstanceIdはnull", () => {
+    const state = withPanel(emptyWorkspace(), "a");
+    assert.equal(detachPanel(state, "missing"), null);
   });
 });
 

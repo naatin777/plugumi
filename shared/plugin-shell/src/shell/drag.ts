@@ -5,6 +5,8 @@
 // class名での要素探索はしない。getBoundingClientRectはこのファイル内だけで
 // 使う（登録要素の中でのindex/edgeの計算）。
 import type { MoveTarget } from "../layout/model.ts";
+import type { AreaController } from "./controller.tsx";
+import { areaKey } from "../layout/area-list.ts";
 
 export type DropTester = (
   element: HTMLElement, x: number, y: number, session: DragSession,
@@ -13,6 +15,9 @@ export type DropTester = (
 export interface DragSession {
   instanceId: string;
   title: string;
+  // dragを始めたAreaController。同じcontrollerへのdropは区域内の移動、
+  // 別controllerへのdropはInstanceごとの移譲になる。
+  area: AreaController;
 }
 
 export interface StartOptions {
@@ -23,10 +28,11 @@ export interface StartOptions {
 export interface DragController {
   start(session: DragSession, event: PointerEvent, options?: StartOptions): void;
   // 返り値は登録解除。要素が外れたら必ず呼ぶ（閉じた領域はdrop先にしない）。
-  register(element: HTMLElement, test: DropTester): () => void;
+  // drop先がどのAreaControllerに属するかも一緒に持つ。
+  register(area: AreaController, element: HTMLElement, test: DropTester): () => void;
   session(): DragSession | null;
   overElement(): HTMLElement | null;
-  onDrop: (instanceId: string, target: MoveTarget) => void;
+  onDrop: (session: DragSession, target: MoveTarget, area: AreaController) => void;
 }
 
 // clickとdragを分ける閾値。drag.tsが一元管理し、tab stripは
@@ -41,12 +47,13 @@ const SPLIT_MIN_SIZE = 240;
 export function createDragController(
   setGhost: (ghost: { x: number; y: number; title: string } | null) => void,
   setOver: (element: HTMLElement | null) => void,
-  onDrop: (instanceId: string, target: MoveTarget) => void,
+  onDrop: (session: DragSession, target: MoveTarget, area: AreaController) => void,
 ): DragController {
-  const targets = new Map<HTMLElement, DropTester>();
+  const targets = new Map<HTMLElement, { area: AreaController; test: DropTester }>();
   let session: DragSession | null = null;
   let onClick: (() => void) | null = null;
   let over: HTMLElement | null = null;
+  let overArea: AreaController | null = null;
   let overTarget: MoveTarget | null = null;
   let startX = 0;
   let startY = 0;
@@ -56,17 +63,29 @@ export function createDragController(
   // 最も内側をdrop先にする。
   const pick = (x: number, y: number): void => {
     over = null;
+    overArea = null;
     overTarget = null;
     if (!session) return;
     let node = document.elementFromPoint(x, y);
     while (node) {
-      const test = targets.get(node as HTMLElement);
-      if (test) {
-        const target = test(node as HTMLElement, x, y, session);
-        if (target) {
-          over = node as HTMLElement;
-          overTarget = target;
-          break;
+      const found = targets.get(node as HTMLElement);
+      if (found) {
+        // 同じAreaをMainとSubに出しているときは別controllerへのdropを
+        // 受け付けない（両者が別々にworkspaceを保存するので、移すと片方の
+        // 保存で消える）。testerに届かず印も出ない。
+        const sameRef =
+          found.area !== session.area &&
+          found.area.ref() !== null &&
+          session.area.ref() !== null &&
+          areaKey(found.area.ref()!) === areaKey(session.area.ref()!);
+        if (!sameRef) {
+          const target = found.test(node as HTMLElement, x, y, session);
+          if (target) {
+            over = node as HTMLElement;
+            overArea = found.area;
+            overTarget = target;
+            break;
+          }
         }
       }
       node = node.parentElement;
@@ -92,16 +111,20 @@ export function createDragController(
     const click = onClick;
     const dragged = active;
     let target: MoveTarget | null = null;
+    let droppedArea: AreaController | null = null;
     if (dropped && dragged) {
       pick(event.clientX, event.clientY);
       target = overTarget;
+      droppedArea = overArea;
     }
     session = null;
     onClick = null;
     active = false;
     setGhost(null);
     setOver(null);
-    if (current && dragged && target) onDrop(current.instanceId, target);
+    if (current && dragged && target && droppedArea) {
+      onDrop(current, target, droppedArea);
+    }
     if (dropped && current && !dragged && click) click();
   };
   const up = (event: PointerEvent): void => finish(event, true);
@@ -119,8 +142,8 @@ export function createDragController(
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", cancel);
     },
-    register(element, test) {
-      targets.set(element, test);
+    register(area, element, test) {
+      targets.set(element, { area, test });
       return () => targets.delete(element);
     },
     session: () => session,

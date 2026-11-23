@@ -33,7 +33,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   const register = (node: HTMLElement) => {
     unregister?.();
     strip = node;
-    unregister = area.drag.register(node, stripTest(props.target));
+    unregister = area.drag.register(area, node, stripTest(props.target));
     node.addEventListener("wheel", onWheel, { passive: false });
     const prevUnregister = unregister;
     unregister = () => {
@@ -88,7 +88,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   const press = (ref: PanelRef, instance: PanelInstance, event: PointerEvent) => {
     if (event.button !== 0) return;
     area.drag.start(
-      { instanceId: ref.instanceId, title: instance.title() },
+      { instanceId: ref.instanceId, title: instance.title(), area },
       event,
       { onClick: () => (props.onSelect ?? ops.select)(ref.instanceId) },
     );

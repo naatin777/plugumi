@@ -25,7 +25,7 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
   const register = (node: HTMLElement) => {
     el = node;
     unregister?.();
-    unregister = area.drag.register(node, bodyTest(target(-1)));
+    unregister = area.drag.register(area, node, bodyTest(target(-1)));
   };
 
   const ops = layoutOps(area);

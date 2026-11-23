@@ -20,7 +20,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
   const registerBody = (node: HTMLElement) => {
     unregister?.();
     // props.leafはlive getter（loadで差し替わる）なのでidはdrop時に読む
-    unregister = area.drag.register(node, leafBodyTest(() => props.leaf.id));
+    unregister = area.drag.register(area, node, leafBodyTest(() => props.leaf.id));
   };
   const markFocus = () => {
     // leafのどこを触っても、「+」の足し先・前後キーの対象はこの区画になる
