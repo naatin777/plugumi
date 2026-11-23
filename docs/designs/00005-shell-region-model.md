@@ -116,7 +116,7 @@ title barのwork区間はMainとSubで2つに分かれ、それぞれの列の�
 
 - **drawerの開閉は一時的**: drawer化した領域はprefsではなくAreaView/Shellごとのsignalで開閉し、初期は閉。狭くなった瞬間に保存済みの「開」がcenterを覆わないため。同じボタン・ショートカットがdrawerのときはこのsignalを切り替える。同時に開くdock drawerはAreaViewごとに1つ。
 - **閉じ方**: drawerの外をpointerdownするかEscape。drawerでもPanelはunmountしない（`data-closed`で畳む、transformで画面外へ逃がす）。
-- **drawerの見た目は「台＋タイル」**: dockのdrawerはdock要素自体を「台」(sheet)にする — AreaViewの端（境界線・横線の位置）にぴったり付いた四角い不透明の領域（`--shell-frame-color`、角丸・影なし、center側の辺だけ1pxの境界線）。タイル（`.dock-inner`）は台の内側に`--area-pad`の余白を取って載せ、見た目はinlineと同じ。台の幅/高さ = dockの大きさ + `--area-pad`×2（上限の`85cqw`/`70cqh`は台に効かせる）。left/rightはAreaViewの上下端いっぱい、bottomは左右いっぱい。台ごとslideして開閉し、閉じ終わったら不可視。`.dock-inner`は常設のwrapperで、drawer⇔inlineの切替でPanel Instanceをunmountしない。
+- **drawerの見た目は「台＋タイル」**: dockのdrawerはdock要素自体を「台」(sheet)にする — AreaViewの端（境界線・横線の位置）にぴったり付いた四角い不透明の領域（`--shell-frame-color`、角丸・影なし、center側の辺だけ1pxの境界線）。タイル（`.dock-inner`）は台の内側に`--area-pad`の余白を取って載せ、見た目はinlineと同じ。台の幅/高さ = dockの大きさ + `--area-pad`×2（上限の`85cqw`/`70cqh`は台に効かせる）。台のcenter側の辺（境界線）の上にはresizerがあり、inlineと同じdockSizeを共有して変更できる（上限でclampし、越えた値は保存しない）。left/rightはAreaViewの上下端いっぱい、bottomは左右いっぱい。台ごとslideして開閉し、閉じ終わったら不可視。`.dock-inner`は常設のwrapperで、drawer⇔inlineの切替でPanel Instanceをunmountしない。
 - Subがdrawerのとき、Sub側の区画は出さず、開閉はtitle右端のSub開閉ボタンがdrawerを切り替える。
 
 ## 面と縁

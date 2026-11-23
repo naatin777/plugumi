@@ -118,11 +118,19 @@
     height: min(calc(var(--dock-size, 0px) + var(--area-pad) * 2), 70cqh);
     border-top: 1px solid var(--plugumi-colors-border);
   }
-  /* drawerのresizerは出さない — drawerの大きさはdockSizeの値をそのまま使う。 */
+  /* drawerのresizerは台のcenter側の辺（境界線）をまたぐ位置に置く。
+     見た目・cursorはinlineと同じ。帯の中心を線に合わせる。 */
   .area-view:is([data-size="narrow"], [data-size="compact"])
-      .dock:is([data-dock="left"], [data-dock="right"]) > .resizer,
-  .area-view[data-size="compact"] .dock[data-dock="bottom"] > .resizer {
-    display: none;
+      .dock:is([data-dock="left"], [data-dock="right"]) > .resizer[data-axis="x"],
+  .area-view[data-size="compact"] .dock[data-dock="bottom"] > .resizer[data-axis="y"] {
+    --resizer-out: calc(-1 * var(--resizer-size) / 2);
+    z-index: 4;
+  }
+  /* 帯が台の外へ4pxはみ出すのでclipしない（タイルはdock-inner側がclip）。 */
+  .area-view:is([data-size="narrow"], [data-size="compact"])
+      .dock:is([data-dock="left"], [data-dock="right"]),
+  .area-view[data-size="compact"] .dock[data-dock="bottom"] {
+    overflow: visible;
   }
   /* 閉じたdrawerは影・枠ごと完全に画面外へ（幅0だと中身のtextが
      1列に潰れる）。visibilityはtransition後に落とし、開くときは即戻す。 */

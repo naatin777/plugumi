@@ -20,8 +20,10 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
     ({ region: "dock", dock: props.kind, index });
 
   let unregister: (() => void) | undefined;
+  let el!: HTMLElement;
   onCleanup(() => unregister?.());
   const register = (node: HTMLElement) => {
+    el = node;
     unregister?.();
     unregister = area.drag.register(node, bodyTest(target(-1)));
   };
@@ -84,7 +86,16 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
         direction={props.kind === "left" ? 1 : -1}
         value={() => shell.prefs().dockSize[props.kind]}
         apply={(size) => {
-          const max = horizontal() ? 480 : 640;
+          // drawerでも同じdockSizeを共有する。上限は台の上限（幅85cqw・
+          // 高さ70cqh。台 = dockSize + --area-pad*2 なのでpad分引く）で
+          // clampし、上限を越えた値を保存しない。
+          const view = el.closest(".area-view");
+          const pad = 2 * parseFloat(getComputedStyle(el).paddingTop);
+          const max = props.drawer
+            ? (horizontal()
+                ? 0.70 * (view?.clientHeight ?? 0)
+                : 0.85 * (view?.clientWidth ?? 0)) - pad
+            : horizontal() ? 480 : 640;
           const min = horizontal() ? 80 : 120;
           const clamped = Math.min(max, Math.max(min, size));
           shell.updatePrefs((prefs) => {
