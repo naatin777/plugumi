@@ -3,10 +3,18 @@
    Panelの入れ物の手前で止まり、PanelにはTokenと継承値だけが届く。 */
 /* 変数の既定値。@scopeの中の:rootはscopeの起点自身には当たらないため、
    既定値はscopeの外で:rootに書く（tokens.cssと同じ置き方）。 */
+/* 開閉アニメ用に登録する長さ変数。@propertyは@scopeの外に置く
+   （scope内では受理されない）。登録するとtransitionで値が補間され、
+   これを参照する幅・margin・barの端が一斉に滑る。 */
+@property --side-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --pinned-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
+
 :root {
   --work-radius: 10px;
   /* work面のカード同士の溝と、カードの周りの余白。 */
   --work-gap: var(--plugumi-spacing-xs);
+  /* 領域の開閉（畳み込み）のアニメ時間。 */
+  --work-anim: 180ms;
   /* frame（土台・title左右・sidebar・pinned・status帯）は全てこの1色。
      work面（canvas）と明確に分ける色を決定済みのtokenから引く。 */
   --shell-frame-color: var(--plugumi-colors-background-primary);
@@ -26,6 +34,10 @@
     overflow: hidden;
     display: grid;
     grid-template-rows: calc(var(--titlebar-h) + var(--work-gap)) 1fr 40px;
+    /* 登録済み変数の値が変わると補間される。これを参照する列幅・
+       margin・title barの端がまとめて滑る。drag中は遅延になるので
+       別途transitionを無効化する。 */
+    transition: --side-width var(--work-anim) ease, --pinned-width var(--work-anim) ease;
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);
@@ -143,22 +155,23 @@
     overflow: hidden;
   }
 
-  /* body側の列。開いている側の列だけTS側が--body-colsに組む —
-     0幅の列を残すとgapだけが空きレーンになるため（fallbackは
-     Style Lab用の3列）。列間のgapと上下のpaddingがタイルの周りの溝。 */
+  /* body側の列。3列は常時存在し、閉じた側は列の中身（aside）が
+     幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは
+     常時発生して空きレーンになるが、marginは閉じた側で0に畳め、
+     しかもtransitionできるため。上下のpaddingはタイルの周りの溝。 */
   .work-body {
     display: grid;
-    grid-template-columns: var(--body-cols, var(--side-width, 0px) 1fr var(--pinned-width, 0px));
+    grid-template-columns: auto minmax(0, 1fr) auto;
     /* 行をautoにするとpinnedの中身の高さで行が伸び、全列が
        bodyをはみ出す。bodyの高さに固定する。 */
     grid-template-rows: minmax(0, 1fr);
-    gap: var(--work-gap);
+    column-gap: 0;
     padding: var(--work-gap);
     min-height: 0;
     background: transparent;
   }
-  main.shell:not([data-side]) .frame-side { display: none; }
-  main.shell:not([data-pinned]) .frame-pinned { display: none; }
+  /* 列自体はasideの幅に追従。閉じると--side-width/--pinned-widthが
+     0になり、marginとborderも畳まれて跡形もなく消える。 */
   .frame-side, .frame-pinned {
     position: relative;
     box-sizing: border-box;
@@ -171,18 +184,27 @@
     border-radius: var(--work-radius);
     background: transparent;
     backdrop-filter: blur(32px) saturate(1.4);
+    transition: margin var(--work-anim) ease, border-width var(--work-anim) ease;
   }
+  .frame-side { width: var(--side-width); margin-right: var(--work-gap); }
+  .frame-pinned { width: var(--pinned-width); margin-left: var(--work-gap); }
+  main.shell:not([data-side]) .frame-side { margin-right: 0; border-width: 0; }
+  main.shell:not([data-pinned]) .frame-pinned { margin-left: 0; border-width: 0; }
+  main.shell:not([data-side]) .frame-side > .resizer,
+  main.shell:not([data-pinned]) .frame-pinned > .resizer { display: none; }
+  /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
+     アニメがポインタに遅れて追従してしまう。 */
+  main.shell:has(.resizer[data-dragging]) { transition: none; }
 
   .work-mat {
     min-width: 0; min-height: 0;
     display: grid;
-    /* 開いているdock分の列/行だけをTS側が--mat-templateに組む。
-       fallbackはStyle Lab用の全領域template。 */
-    grid-template: var(--mat-template,
+    /* 全領域のtemplateは常時固定。閉じたdockは幅/高さ0に畳まれる。 */
+    grid-template:
       "left center right" minmax(0, 1fr)
       "left bottom right" auto
-      / auto minmax(0, 1fr) auto);
-    gap: var(--work-gap);
+      / auto minmax(0, 1fr) auto;
+    gap: 0;
     border-radius: var(--work-radius);
   }
 
@@ -203,13 +225,14 @@
   }
 
   /* focus: 個別の開閉は潰さず、まとめてframeを引っ込める。
-     幅はTS側が既知の値として0を渡すので、ここではtool帯とstatusだけ潰す。
-     statusは行トラックごと潰す — display:noneだけでは40pxの空き帯が残る。 */
+     幅はTS側が既知の値として0を渡すので、ここではtool帯の中身とstatusだけ潰す。
+     statusは行トラックごと潰す — display:noneだけでは40pxの空き帯が残る。
+     title pillは端のボタンだけ残す（左pill=サイドバー、右pill=設定）—
+     pill自体を消すとframe操作の出口が無くなるため。 */
   main.shell.focus {
-    --title-tools-left: 0px;
-    --title-tools-right: 0px;
     grid-template-rows: calc(var(--titlebar-h) + var(--work-gap)) 1fr 0px;
   }
-  main.shell.focus .title-tools { display: none; }
+  main.shell.focus .title-tools.left .tools-inner > :not(:first-child),
+  main.shell.focus .title-tools.right .tools-inner > :not(:last-child) { display: none; }
   main.shell.focus .status-bar { display: none; }
 }

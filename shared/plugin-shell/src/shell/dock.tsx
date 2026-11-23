@@ -11,7 +11,7 @@ import { Resizer } from "./resizer.tsx";
 import { bodyTest } from "./drag.ts";
 import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
 
-export function Dock(props: { kind: DockKind }): JSX.Element {
+export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
   const shell = useShell();
   const stack = () => shell.layout().workspace[props.kind];
   const horizontal = () => props.kind === "bottom";
@@ -43,9 +43,10 @@ export function Dock(props: { kind: DockKind }): JSX.Element {
       // カードの枠は選択中のPanelのactivityを写す
       {...surfaceAttrs(selectedActivity(), "border")}
       {...busyAttr(selectedActivity())}
+      data-closed={props.closed || undefined}
       style={horizontal()
-        ? { height: `${shell.prefs().dockSize.bottom}px` }
-        : { width: `${shell.prefs().dockSize[props.kind]}px` }}
+        ? { height: props.closed ? "0px" : `${shell.prefs().dockSize.bottom}px` }
+        : { width: props.closed ? "0px" : `${shell.prefs().dockSize[props.kind]}px` }}
       ref={register}
       {...pageNavProps(flip)}
     >

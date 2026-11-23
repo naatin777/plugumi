@@ -17,10 +17,21 @@
     overflow: clip;
     /* resizerの棒が溝の中心まで出られるようclip領域を広げる。 */
     overflow-clip-margin: 8px;
+    /* 開閉はdata-closedで幅・margin・borderを0に畳む。 */
+    transition: width var(--work-anim) ease, height var(--work-anim) ease,
+      margin var(--work-anim) ease, border-width var(--work-anim) ease;
   }
-  .dock[data-dock="left"] { grid-area: left; }
-  .dock[data-dock="right"] { grid-area: right; }
-  .dock[data-dock="bottom"] { grid-area: bottom; flex-direction: column; }
+  /* drag中のtransitionはポインタに遅れて追従してしまうので切る。 */
+  .dock:has(> .resizer[data-dragging]) { transition: none; }
+  .dock[data-dock="left"] { grid-area: left; margin-right: var(--work-gap); }
+  .dock[data-dock="right"] { grid-area: right; margin-left: var(--work-gap); }
+  .dock[data-dock="bottom"] { grid-area: bottom; flex-direction: column; margin-top: var(--work-gap); }
+  .dock[data-closed] {
+    width: 0; height: 0;
+    margin: 0; border-width: 0;
+    pointer-events: none;
+  }
+  .dock[data-closed] > .resizer { display: none; }
   .dock-body { flex: 1; min-height: 0; }
   .dock-empty {
     height: 100%;
