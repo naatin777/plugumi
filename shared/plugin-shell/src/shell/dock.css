@@ -72,6 +72,22 @@
     visibility: hidden;
   }
 
+  /* ---- scrim: dock drawerが開いている間、AreaView内だけを暗くする
+     薄い幕（台 z 6 のすぐ下、centerの上）。pointerは通す。 ---- */
+  .dock-scrim {
+    position: absolute; inset: 0;
+    z-index: 5;
+    background: var(--plugumi-colors-scrim);
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+  }
+  .dock-scrim[data-closed] {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   /* ---- drawer: 狭いAreaViewではdockをcenterの上に重ねる。
      drawerのdockは「台」(sheet)になる — AreaViewの端にぴったり付いた
      四角い不透明の領域（角丸・影なし、center側の辺だけ1px線）で、

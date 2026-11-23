@@ -48,6 +48,10 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
         onPointerDown={() => shell.setFocusedArea(props.area)}
       >
         <Show when={props.slot === "main"}>
+          {/* drawerの台のすぐ下・centerの上に敷く薄い暗幕。
+              AreaView内だけを暗くする。pointerは通す（閉じるのは
+              今の外click判定のまま）。 */}
+          <div class="dock-scrim" data-closed={props.area.drawer() === null ? "" : undefined} />
           <Dock kind="left" closed={dockClosed("left")} drawer={props.area.dockIsDrawer("left")} />
         </Show>
         <CenterView />

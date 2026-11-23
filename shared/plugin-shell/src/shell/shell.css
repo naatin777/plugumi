@@ -298,6 +298,27 @@
   .sub-pane > .area-view { flex: 1; min-width: 0; }
   .sub-pane > .area-view-empty { flex: 1; min-width: 0; }
 
+  /* scrim — Sub・Area listのdrawerが開いている間、作業域全体（app bar
+     下の線〜status bar上の線）を暗くする薄い幕。台(sub-pane z 7・
+     frame-side z 8)のすぐ下、col-dividerの上（線は一緒に暗くなる）。
+     pointerは通す（閉じるのは今の外click判定のまま）。 */
+  .shell-scrim {
+    position: absolute;
+    left: 0; right: 0;
+    top: calc(var(--titlebar-h) + var(--work-gap));
+    bottom: 40px;
+    z-index: 7;
+    background: var(--plugumi-colors-scrim);
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+  }
+  .shell-scrim[data-closed] {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   .work-mat { position: relative; }
   /* <1100px: Subはdrawer — work-matの右端からMainの上に重ねる。
      中身はunmountしないままtransformで画面外へ逃がす。 */

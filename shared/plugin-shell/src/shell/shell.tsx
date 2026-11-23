@@ -134,6 +134,10 @@ export function ShellFrame(): JSX.Element {
         }
         sidebarDrawer={shell.sideDrawerMode()}
         sidebarClosed={!shell.sideShown()}
+        scrimOpen={
+          (shell.subDrawerMode() && shell.subShown()) ||
+          (shell.sideDrawerMode() && shell.sideShown())
+        }
       >
         <Show when={shell.mainRef()} fallback={<AreaEmpty />}>
           <AreaView area={mainArea} slot="main" />

@@ -19,6 +19,8 @@ export interface WorkShapeProps {
   // drawerのときは列自体は畳み、閉じると画面外へ逃がす。
   sidebarDrawer?: boolean;
   sidebarClosed?: boolean;
+  // SubまたはArea listのdrawerが開いているか（shell-scrimの表示）。
+  scrimOpen?: boolean;
 }
 
 export function WorkShape(props: ParentProps<WorkShapeProps>) {
@@ -70,6 +72,10 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         </div>
       </header>
       <div class="work-body">
+        {/* Sub・Area listのdrawerが開いている間、台のすぐ下・作業域全体に
+            敷く薄い暗幕（app bar・status barは暗くしない）。col-dividerは
+            DOM順でこの下になるので線は一緒に暗くなる。pointerは通す。 */}
+        <div class="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
         <aside
           class="frame-side"
           data-drawer={props.sidebarDrawer ? "" : undefined}

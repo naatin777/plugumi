@@ -49,6 +49,8 @@
   --plugumi-colors-border: #3a3a3a;
   --plugumi-colors-border-strong: #6a6a6a;
   --plugumi-colors-border-highlight: #8c8c8c;
+  /* 背景がほぼ黒なので弱い値だと効かない — ライトより濃くする。 */
+  --plugumi-colors-scrim: rgb(0 0 0 / 0.45);
   --plugumi-colors-accent: #f0f0f0;
   --plugumi-colors-accent-contrast: #080808;
   --plugumi-colors-accent-surface: #343434;
@@ -89,6 +91,7 @@
   --plugumi-colors-border: #d4d4d4;
   --plugumi-colors-border-strong: #949494;
   --plugumi-colors-border-highlight: #6f6f6f;
+  --plugumi-colors-scrim: rgb(0 0 0 / 0.18);
   --plugumi-colors-accent: #111111;
   --plugumi-colors-accent-contrast: #ffffff;
   --plugumi-colors-accent-surface: #e2e2e2;
@@ -129,6 +132,8 @@
   --plugumi-colors-border: #3a3a3a;
   --plugumi-colors-border-strong: #6a6a6a;
   --plugumi-colors-border-highlight: #8c8c8c;
+  /* 背景がほぼ黒なので弱い値だと効かない — ライトより濃くする。 */
+  --plugumi-colors-scrim: rgb(0 0 0 / 0.45);
   --plugumi-colors-accent: #f0f0f0;
   --plugumi-colors-accent-contrast: #080808;
   --plugumi-colors-accent-surface: #343434;

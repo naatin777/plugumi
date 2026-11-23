@@ -42,7 +42,6 @@ export type PanelMount = (host: HTMLElement, context: PanelContext) => PanelHand
 export const tokenNames = {
   colors: {
     backgroundPrimary: "--plugumi-colors-background-primary",
-    backgroundWidget: "--plugumi-colors-background-widget",
     backgroundSecondary: "--plugumi-colors-background-secondary",
     backgroundTertiary: "--plugumi-colors-background-tertiary",
     text: "--plugumi-colors-text",
@@ -53,6 +52,7 @@ export const tokenNames = {
     border: "--plugumi-colors-border",
     borderStrong: "--plugumi-colors-border-strong",
     borderHighlight: "--plugumi-colors-border-highlight",
+    scrim: "--plugumi-colors-scrim",
     accent: "--plugumi-colors-accent",
     accentContrast: "--plugumi-colors-accent-contrast",
     accentSurface: "--plugumi-colors-accent-surface",
