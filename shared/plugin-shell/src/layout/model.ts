@@ -13,10 +13,9 @@ export type PanelRef = {
   panelId: string;
 };
 
-// workspaceの縁領域（位置の契約）。sideは右の列 — SigmaOSのSide相当で、
-// Main（left/center/bottom）の脇に常時置くpanelの置き場。
-export type DockKind = "left" | "bottom" | "side";
-export const dockKinds: DockKind[] = ["left", "bottom", "side"];
+// workspaceの縁領域（位置の契約）。rightは右の列。
+export type DockKind = "left" | "bottom" | "right";
+export const dockKinds: DockKind[] = ["left", "bottom", "right"];
 
 export type Stack = {
   panels: PanelRef[];
@@ -41,14 +40,14 @@ export type Split = {
 
 export type Node = Leaf | Split;
 
-// workspace = Main（left・bottom・center）+ Side（右の列）。
-// sideもdockと同じStackで、panelは全領域で共通（widgetのような
+// workspace = left・bottom・center・rightの領域。
+// dockは全て同じStackで、panelは全領域で共通（widgetのような
 // 別種は存在しない）。
 export type WorkspaceState = {
   version: 1;
   left: Stack;
   bottom: Stack;
-  side: Stack;
+  right: Stack;
   center: { root: Node; focusedLeaf: string };
 };
 
@@ -92,7 +91,7 @@ export const emptyWorkspace = (): WorkspaceState => ({
   version: 1,
   left: emptyStack(),
   bottom: emptyStack(),
-  side: emptyStack(),
+  right: emptyStack(),
   center: { root: rootLeaf(), focusedLeaf: "leaf-root" },
 });
 
@@ -195,16 +194,16 @@ export function decodeWorkspace(raw: unknown): WorkspaceState {
   }
   const left = decodeStack(raw.left);
   const bottom = decodeStack(raw.bottom);
-  const side = decodeStack(raw.side);
+  const right = decodeStack(raw.right);
   const root = decodeNode(raw.center.root);
-  if (!left || !bottom || !side || !root) return emptyWorkspace();
+  if (!left || !bottom || !right || !root) return emptyWorkspace();
   const focused = raw.center.focusedLeaf;
   const leaves = allLeaves(root);
   const focusedLeaf =
     typeof focused === "string" && leaves.some((leaf) => leaf.id === focused)
       ? focused
       : leaves[0].id;
-  return { version: 1, left, bottom, side, center: { root, focusedLeaf } };
+  return { version: 1, left, bottom, right, center: { root, focusedLeaf } };
 }
 
 // ---- 操作 ----

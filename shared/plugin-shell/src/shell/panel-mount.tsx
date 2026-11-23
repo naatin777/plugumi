@@ -5,7 +5,7 @@
 import { Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelInstance } from "../panels/instance.ts";
-import { useShell } from "./controller.tsx";
+import { useArea } from "./controller.tsx";
 
 export function PanelMount(props: { instance: PanelInstance }): JSX.Element {
   const host = props.instance.host;
@@ -39,7 +39,7 @@ export function ActivityProgress(props: { instance: PanelInstance }): JSX.Elemen
 
 // mounting/missing/errorの表示。hostは常に残し、tab切替ではDOMを壊さない。
 export function PanelState(props: { instance: PanelInstance }): JSX.Element {
-  const shell = useShell();
+  const area = useArea();
   return (
     <Show when={props.instance.state() !== "mounted" || props.instance.error()}>
       <div class="panel-state">
@@ -47,7 +47,7 @@ export function PanelState(props: { instance: PanelInstance }): JSX.Element {
           {(error) => (
             <>
               <p>Panelを開けませんでした（{error().kind}）</p>
-              <button onClick={() => props.instance.retry(shell.panels() ?? [])}>
+              <button onClick={() => props.instance.retry(area.shell.panels() ?? [])}>
                 再試行
               </button>
             </>

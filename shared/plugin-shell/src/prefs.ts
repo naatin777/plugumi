@@ -6,12 +6,16 @@ import type { DockKind } from "./layout/model.ts";
 export type ThemeMode = "system" | "light" | "dark";
 
 export interface ShellPrefs {
+  // Area list（左の列）の開閉と幅。
   sidebarOpen: boolean;
-  dockOpen: Record<DockKind, boolean>;
-  // dockの幅/高さ（px）。bottomは高さ。
-  dockSize: Record<DockKind, number>;
   sidebarWidth: number;
-  // 左右の端の列（sidebar＋side）をまとめて畳む。
+  // Area内のdockの開閉と幅/高さ（px）。bottomは高さ。
+  dockOpen: Record<DockKind, boolean>;
+  dockSize: Record<DockKind, number>;
+  // Sub列（右のAreaView）の開閉と幅。
+  subOpen: boolean;
+  subWidth: number;
+  // 両端の列（Area list＋Sub）をまとめて畳む。
   // 個別の開閉状態は潰さないので、戻すと元の開き方に復帰する。
   sideHidden: boolean;
   theme: ThemeMode;
@@ -23,10 +27,11 @@ const KEY = "plugumi:shell:prefs";
 
 const defaults = (): ShellPrefs => ({
   sidebarOpen: true,
-  dockOpen: { left: true, bottom: true, side: true },
-  dockSize: { left: 280, bottom: 200, side: 280 },
-  // --title-tools-left（260px）以上にしておき、既定のwork面は矩形になる。
   sidebarWidth: 260,
+  dockOpen: { left: true, bottom: true, right: true },
+  dockSize: { left: 280, bottom: 200, right: 280 },
+  subOpen: false,
+  subWidth: 480,
   sideHidden: false,
   theme: "system",
   aurora: true,
@@ -34,7 +39,7 @@ const defaults = (): ShellPrefs => ({
 
 const clampWidth = (value: unknown, fallback: number): number =>
   typeof value === "number" && Number.isFinite(value)
-    ? Math.min(640, Math.max(80, value))
+    ? Math.min(960, Math.max(80, value))
     : fallback;
 
 // 形が合わないフィールドだけ既定に戻す。キー全体が壊れていれば全既定。
@@ -59,17 +64,19 @@ export function loadPrefs(): ShellPrefs {
   const theme = saved.theme;
   return {
     sidebarOpen: flag(saved.sidebarOpen, base.sidebarOpen),
+    sidebarWidth: clampWidth(saved.sidebarWidth, base.sidebarWidth),
     dockOpen: {
       left: flag(dockOpen.left, base.dockOpen.left),
       bottom: flag(dockOpen.bottom, base.dockOpen.bottom),
-      side: flag(dockOpen.side, base.dockOpen.side),
+      right: flag(dockOpen.right, base.dockOpen.right),
     },
     dockSize: {
       left: clampWidth(dockSize.left, base.dockSize.left),
       bottom: clampWidth(dockSize.bottom, base.dockSize.bottom),
-      side: clampWidth(dockSize.side, base.dockSize.side),
+      right: clampWidth(dockSize.right, base.dockSize.right),
     },
-    sidebarWidth: clampWidth(saved.sidebarWidth, base.sidebarWidth),
+    subOpen: flag(saved.subOpen, base.subOpen),
+    subWidth: clampWidth(saved.subWidth, base.subWidth),
     sideHidden: flag(saved.sideHidden, base.sideHidden),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
     aurora: flag(saved.aurora, base.aurora),

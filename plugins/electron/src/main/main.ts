@@ -77,25 +77,39 @@ async function start(): Promise<void> {
   protocol.handle(UI_SCHEME, (request) => backend.uiAsset(request));
   registerIpc(backend);
 
-  const window = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    titleBarStyle: "hidden",
-    titleBarOverlay: { ...TITLEBAR_COLORS.dark, height: TITLEBAR_HEIGHT },
-    webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
-  ipcMain.on("plugumi:theme", (_event, theme: unknown) => {
+  const createWindow = async (hash?: string): Promise<BrowserWindow> => {
+    const window = new BrowserWindow({
+      width: 1440,
+      height: 900,
+      titleBarStyle: "hidden",
+      titleBarOverlay: { ...TITLEBAR_COLORS.dark, height: TITLEBAR_HEIGHT },
+      webPreferences: {
+        preload: join(__dirname, "../preload/index.js"),
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+    // Floatingは同じindex.htmlをhashで開く（hashHistoryなので
+    // routeのpath+queryをそのままhashに入れる）。
+    await window.loadFile(
+      join(__dirname, "../renderer/index.html"),
+      hash ? { hash } : undefined,
+    );
+    return window;
+  };
+  ipcMain.on("plugumi:theme", (event, theme: unknown) => {
     // setTitleBarOverlayはWindows/Linux専用。macOSにはメソッド自体が
     // 存在しないので呼ぶと例外になる（hiddenInsetで十分なため不要）。
-    if (typeof window.setTitleBarOverlay !== "function") return;
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window || typeof window.setTitleBarOverlay !== "function") return;
     const colors = TITLEBAR_COLORS[String(theme)] ?? TITLEBAR_COLORS.dark;
     window.setTitleBarOverlay({ ...colors, height: TITLEBAR_HEIGHT });
   });
-  await window.loadFile(join(__dirname, "../renderer/index.html"));
+  // FloatingのAreaを別windowで開く要求。
+  ipcMain.on("plugumi:open-window", (_event, path: unknown) => {
+    if (typeof path === "string") void createWindow(path);
+  });
+  await createWindow();
 
   app.on("window-all-closed", () => {
     app.quit();

@@ -5,10 +5,10 @@
 // まま描画だけを止める（content-visibility:hidden）。
 // slideの途中は行き・帰りの両pageを描画する必要があるので、
 // hiddenの付与はslideが終わってから行う。
-import { For, createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, mapArray, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelRef } from "../layout/model.ts";
-import { useShell } from "./controller.tsx";
+import { useArea } from "./controller.tsx";
 import { PanelMount } from "./panel-mount.tsx";
 import { surfaceAttrs } from "./activity.ts";
 
@@ -49,16 +49,21 @@ export function PagesTrack(props: {
   refs: PanelRef[];
   selected: string | null;
 }): JSX.Element {
-  const shell = useShell();
+  const area = useArea();
   // slide中に描画するもう1枚（行きのpage）。selectedはpropsから、
   // 帰り側は遷移元としてだけ保持する。
   const [outgoing, setOutgoing] = createSignal<string | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let previous = props.selected;
+  // setup中にprops.selectedを読むとuntracked read警告になるので遅延初期化。
+  let previous: string | null | undefined;
 
   createEffect(
     () => props.selected,
     (selected) => {
+      if (previous === undefined) {
+        previous = selected;
+        return;
+      }
       if (selected === previous) return;
       clearTimeout(timer);
       // 遷移元をslideの間だけ描画に残す。
@@ -83,19 +88,26 @@ export function PagesTrack(props: {
           ),
         }}
       >
-        <For each={props.refs}>
-          {(ref) => (
-            <div
-              class="pages-page"
-              style={{
-                "content-visibility": visible(ref.instanceId) ? "visible" : "hidden",
-              }}
-              {...surfaceAttrs(shell.instance(ref).activity(), "content")}
-            >
-              <PanelMount instance={shell.instance(ref)} />
-            </div>
-          )}
-        </For>
+        {/* <For each={store配列}>はeachの評価がuntracked setupで走り
+            警告になるのでmapArrayを直接使う（mapper内は各itemがtracked）。 */}
+        {mapArray(
+          () => props.refs,
+          (ref) => {
+            const instanceId = ref.instanceId;
+            const instance = area.instance(ref);
+            return (
+              <div
+                class="pages-page"
+                style={{
+                  "content-visibility": visible(instanceId) ? "visible" : "hidden",
+                }}
+                {...surfaceAttrs(instance.activity(), "content")}
+              >
+                <PanelMount instance={instance} />
+              </div>
+            );
+          },
+        )()}
       </div>
     </div>
   );

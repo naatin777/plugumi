@@ -3,7 +3,7 @@
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Leaf } from "../layout/model.ts";
-import { useShell } from "./controller.tsx";
+import { useArea } from "./controller.tsx";
 import type { Edges } from "./center.tsx";
 import { TabStrip } from "./tab-strip.tsx";
 import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
@@ -13,27 +13,27 @@ import { dividerAttr, surfaceAttrs, busyAttr } from "./activity.ts";
 import { IconPlus } from "../icons.tsx";
 
 export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
-  const shell = useShell();
-  const focused = () => shell.layout().center.focusedLeaf === props.leaf.id;
+  const area = useArea();
+  const focused = () => area.layout().center.focusedLeaf === props.leaf.id;
   let unregister: (() => void) | undefined;
   onCleanup(() => unregister?.());
   const registerBody = (node: HTMLElement) => {
     unregister?.();
     // props.leafはlive getter（loadで差し替わる）なのでidはdrop時に読む
-    unregister = shell.drag.register(node, leafBodyTest(() => props.leaf.id));
+    unregister = area.drag.register(node, leafBodyTest(() => props.leaf.id));
   };
   const markFocus = () => {
     // leafのどこを触っても、「+」の足し先・前後キーの対象はこの区画になる
-    if (!focused()) shell.applyLayout((state) => focusLeaf(state, props.leaf.id));
+    if (!focused()) area.applyLayout((state) => focusLeaf(state, props.leaf.id));
   };
   // カードの枠・divider面は選択中のPanelのactivityを写す。
   const selectedInstance = () => {
     const ref = props.leaf.panels.find((entry) => entry.instanceId === props.leaf.selected);
-    return ref ? shell.instance(ref) : undefined;
+    return ref ? area.instance(ref) : undefined;
   };
   const flip = (direction: 1 | -1) => {
     const id = flipPage(props.leaf.panels, props.leaf.selected, direction);
-    if (id) shell.applyLayout((state) => selectPanel(state, id));
+    if (id) area.applyLayout((state) => selectPanel(state, id));
   };
   return (
     <section
@@ -71,7 +71,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
 }
 
 function LeafEmpty(props: { leafId: string }): JSX.Element {
-  const shell = useShell();
+  const area = useArea();
   return (
     <button
       class="leaf-empty"
@@ -79,7 +79,7 @@ function LeafEmpty(props: { leafId: string }): JSX.Element {
       onClick={(event) => {
         event.stopPropagation();
         // 空区画の「+」はtitleの「+」と同じpickerを開き、足し先をこの区画にする
-        shell.openPicker({ region: "leaf", leafId: props.leafId, index: -1 });
+        area.shell.openPicker(area, { region: "leaf", leafId: props.leafId, index: -1 });
       }}
     >
       <IconPlus />

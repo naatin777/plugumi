@@ -22,6 +22,8 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
   // tool群のmin-widthは「必要な分だけ」— 中身の自然幅を.tools-innerで
   // 測り、paddingと外側の溝を足したfootprintを--title-tools-*へ書く。
   // ResizeObserverなので内容増減・フォント適用の後追いも拾う。
+  let ro: ResizeObserver | undefined;
+  onCleanup(() => ro?.disconnect());
   createEffect(
     () => null,
     () => {
@@ -35,7 +37,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
       const gap = parseFloat(getComputedStyle(shell).getPropertyValue("--work-gap")) || 0;
       // entryの測定値をそのまま使う（callback内でoffsetWidth等を読むと
       // レイアウトflushが起き、ResizeObserver loop警告の要因になる）。
-      const ro = new ResizeObserver((entries) => {
+      ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const w = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
           const name = entry.target === leftInner
@@ -46,7 +48,6 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
       });
       ro.observe(leftInner);
       ro.observe(rightInner);
-      onCleanup(() => ro.disconnect());
     },
   );
 

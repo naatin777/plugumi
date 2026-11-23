@@ -8,7 +8,7 @@ import type { JSX } from "@solidjs/web";
 import type { PanelRef, MoveTarget } from "../layout/model.ts";
 import type { PanelInstance } from "../panels/instance.ts";
 import { surfaceAttrs, busyAttr } from "./activity.ts";
-import { useShell, layoutOps } from "./controller.tsx";
+import { useArea, layoutOps } from "./controller.tsx";
 import { IconClose } from "../icons.tsx";
 import { stripTest } from "./drag.ts";
 
@@ -23,8 +23,8 @@ export interface TabStripProps {
 }
 
 export function TabStrip(props: TabStripProps): JSX.Element {
-  const shell = useShell();
-  const ops = layoutOps(shell);
+  const area = useArea();
+  const ops = layoutOps(area);
   // strip全体がdrop先。登録はrefで行い、class名では探さない。
   let unregister: (() => void) | undefined;
   onCleanup(() => unregister?.());
@@ -32,7 +32,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   const register = (node: HTMLElement) => {
     unregister?.();
     strip = node;
-    unregister = shell.drag.register(node, stripTest(props.target));
+    unregister = area.drag.register(node, stripTest(props.target));
     node.addEventListener("wheel", onWheel, { passive: false });
     const prevUnregister = unregister;
     unregister = () => {
@@ -79,7 +79,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
 
   const press = (ref: PanelRef, instance: PanelInstance, event: PointerEvent) => {
     if (event.button !== 0) return;
-    shell.drag.start(
+    area.drag.start(
       { instanceId: ref.instanceId, title: instance.title() },
       event,
       { onClick: () => (props.onSelect ?? ops.select)(ref.instanceId) },
@@ -90,7 +90,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
     <div class="tab-strip" ref={register}>
       <For each={props.refs}>
         {(ref) => {
-          const inst = () => shell.instance(ref);
+          const inst = () => area.instance(ref);
           return (
             <div
               class={{ tab: true, selected: props.selected === ref.instanceId }}

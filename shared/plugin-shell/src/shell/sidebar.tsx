@@ -1,34 +1,31 @@
-// sidebar（Shell固有のナビ領域。Panelではない）。
-// Space=Projectを札で切替え、選択中のProjectのAreaツリーを見せる。
-// その下にworkspaceのpanelをMain/Sideで分けて一覧する（SigmaOSの
-// sidebarと同じ形 — Main=作業面のpanel、Side=右の列に置くpanel）。
-// 行はclickで選択、dragでsection間の移動（dropは各sectionが受ける）。
-// Areaを選ぶとURLが変わり、Workspaceが入れ替わる。
+// sidebar（Shell固有のナビ領域。Panelではない）= Area list。
+// Main/Sub/Floatingの3セクションにAreaへの参照を並べる（SigmaOSの
+// sidebarと同じ形）。行のclickでMainはURL切替、Subは選択、Floatingは別window。
+// 「＋ Areaを追加」はProject/Areaのツリーから選ぶpopover。
 // prompt/confirmはElectronで使えないため、作成はinline入力、
 // 削除は2段階のinline確認にする。
-import { For, Show, createSignal, onCleanup } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import { useHref } from "@solidjs/router";
+import { useHref, useNavigate } from "@solidjs/router";
 import type { AreaTree } from "../host.tsx";
-import type { PanelRef } from "../layout/model.ts";
-import { allLeaves, leafOf, locationOf } from "../layout/model.ts";
-import { useShell, layoutOps } from "./controller.tsx";
+import type { AreaRef, AreaEntry, AreaDisplay, ListSlot } from "../layout/area-list.ts";
+import { addArea, areaKey, moveArea, removeArea, selectArea, setDisplay } from "../layout/area-list.ts";
+import { useShell } from "./controller.tsx";
 import { NameForm, ConfirmButton } from "./inline.tsx";
 import { Resizer } from "./resizer.tsx";
-import type { DropTester } from "./drag.ts";
-import { surfaceAttrs, busyAttr } from "./activity.ts";
 import { IconChevronRight, IconClose, IconPlus } from "../icons.tsx";
+
+// popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
+const closePopover = (event: MouseEvent) => {
+  const trigger = event.currentTarget as HTMLElement | null;
+  trigger?.closest<HTMLElement>("[popover]")?.hidePopover();
+};
+
+const slotLabel = (ref: AreaRef): string =>
+  ref.path[ref.path.length - 1] ?? ref.project;
 
 export function SidebarView(): JSX.Element {
   const shell = useShell();
-  const [addingProject, setAddingProject] = createSignal(false);
-  const [addingArea, setAddingArea] = createSignal(false);
-  // Main = side以外の全panel（left/bottom dockとcenterのleaf）。
-  const mainPanels = (): PanelRef[] => [
-    ...shell.layout().left.panels,
-    ...shell.layout().bottom.panels,
-    ...allLeaves(shell.layout().center.root).flatMap((leaf) => leaf.panels),
-  ];
   return (
     <>
       {/* 列の幅のresizer（溝を掴む）。 */}
@@ -44,217 +41,283 @@ export function SidebarView(): JSX.Element {
         }}
       />
       <nav class="sidebar">
-      <div class="project-tabs">
-        <For each={shell.projects()}>
-          {(tree) => <ProjectTab name={tree.name} />}
-        </For>
-        <Show
-          when={addingProject()}
-          fallback={
-            <button
-              class="project-add"
-              aria-label="Projectを作成"
-              onClick={() => setAddingProject(true)}
-            >
-              <IconPlus size={12} />
-            </button>
-          }
-        >
-          <NameForm
-            label="Project名"
-            submit={async (name) => {
-              await shell.createProject(name);
-              setAddingProject(false);
-            }}
-            cancel={() => setAddingProject(false)}
-          />
-        </Show>
-      </div>
-      <div class="area-tree">
-        <Show when={shell.projectTree()} fallback={<p class="area-hint">Project を作成してください</p>}>
-          <AreaBranch areas={shell.projectTree()!.areas} path={[]} />
-          <Show
-            when={addingArea()}
-            fallback={
-              <button class="area-add" onClick={() => setAddingArea(true)}>
-                <IconPlus size={12} /> Area を追加
-              </button>
-            }
-          >
-            <NameForm
-              label="Area名"
-              submit={async (name) => {
-                await shell.createArea([], name);
-                setAddingArea(false);
-              }}
-              cancel={() => setAddingArea(false)}
-            />
-          </Show>
-        </Show>
-      </div>
-      <PanelSection
-        label="Main"
-        panels={mainPanels}
-        // MainへのdropはfocusedLeafの末尾へ（leafはloadで差し替わるので
-        // targetはdrop時点の値を読む）。
-        dropTarget={() => ({
-          region: "leaf",
-          leafId: shell.layout().center.focusedLeaf,
-          index: -1,
-        })}
-        addTarget={undefined}
-      />
-      <PanelSection
-        label="Side"
-        panels={() => shell.layout().side.panels}
-        dropTarget={() => ({ region: "dock", dock: "side", index: -1 })}
-        addTarget={{ region: "dock", dock: "side", index: -1 }}
-      />
-    </nav>
+        <AreaSlot slot="main" label="Main" />
+        <AreaSlot slot="sub" label="Sub" />
+        <AreaSlot slot="floating" label="Floating" />
+      </nav>
     </>
   );
 }
 
-// Main/Sideの1セクション。行リスト＋追加ボタンで、section自体が
-// panelのdrop先にもなる（nav上のdragで領域を移す）。
-function PanelSection(props: {
-  label: string;
-  panels: () => PanelRef[];
-  dropTarget: () => import("../layout/model.ts").MoveTarget;
-  addTarget: import("../layout/model.ts").MoveTarget | undefined;
-}): JSX.Element {
+// 1セクション。行リスト＋「＋ Areaを追加」のpicker。
+function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
   const shell = useShell();
-  let unregister: (() => void) | undefined;
-  onCleanup(() => unregister?.());
-  const tester: DropTester = (element, x, y) => {
-    const rect = element.getBoundingClientRect();
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
-    return props.dropTarget();
-  };
-  const register = (node: HTMLElement) => {
-    unregister?.();
-    unregister = shell.drag.register(node, tester);
-  };
+  const entries = () => shell.areaList()[props.slot];
   return (
-    <section class="nav-section" ref={register}>
+    <section class="area-slot">
       <p class="nav-label">{props.label}</p>
-      <Show when={props.panels().length === 0}>
-        <p class="nav-empty">Panelがありません</p>
+      <Show when={entries().length === 0}>
+        <p class="nav-empty">Areaがありません</p>
       </Show>
-      <For each={props.panels()}>
-        {(panelRef) => <NavPanelRow panel={panelRef} />}
+      <For each={entries()}>
+        {(entry) => <AreaRow slot={props.slot} entry={entry} />}
       </For>
-      <button class="nav-add" onClick={() => shell.openPicker(props.addTarget)}>
-        <IconPlus size={12} /> Pageを追加
-      </button>
+      <AreaPicker slot={props.slot} />
     </section>
   );
 }
 
-// パネル1行。clickで選択し、dragすれば領域移動になる。
+const sameArea = (a: AreaRef | null, b: AreaRef | null) =>
+  (a ? areaKey(a) : null) === (b ? areaKey(b) : null);
+
+// Area1行。clickでMainはURL移動・Subは選択・Floatingは別window。
 // prop名はrefにしない — refはJSXの予約属性で、転送の対象になる。
-function NavPanelRow(props: { panel: PanelRef }): JSX.Element {
+function AreaRow(props: { slot: ListSlot; entry: AreaEntry }): JSX.Element {
   const shell = useShell();
-  const ops = layoutOps(shell);
-  const instance = () => shell.instance(props.panel);
-  // そのpanelが自分の領域で選択中か。leafならfocusedLeaf側も見る。
-  const selected = () => {
-    const state = shell.layout();
-    const location = locationOf(state, props.panel.instanceId);
-    if (!location) return false;
-    if (location.region === "dock") {
-      return state[location.dock].selected === props.panel.instanceId;
+  const navigate = useNavigate();
+  const key = () => areaKey(props.entry.area);
+  const href = useHref(() =>
+    `/${shell.coreKey()}/${props.entry.area.project}/` +
+    `${props.entry.area.path.map(encodeURIComponent).join("/")}/`);
+  // 強調は「そのAreaが実際にそのslotに出ているか」で決める。
+  // MainはURL（mainRef）が正本 — listのselectedはURL同期の結果に過ぎない。
+  const selected = () =>
+    (props.slot === "main" && sameArea(shell.mainRef(), props.entry.area)) ||
+    (props.slot === "sub" && sameArea(shell.subRef(), props.entry.area));
+  const label = () =>
+    props.entry.area.project === shell.project()
+      ? slotLabel(props.entry.area)
+      : `${props.entry.area.project} / ${slotLabel(props.entry.area)}`;
+
+  const open = (event: MouseEvent) => {
+    event.preventDefault();
+    if (props.slot === "main") {
+      navigate(`/${shell.coreKey()}/${props.entry.area.project}/` +
+        `${props.entry.area.path.map(encodeURIComponent).join("/")}/`);
+      return;
     }
-    const leaf = leafOf(state.center.root, props.panel.instanceId);
-    return leaf?.selected === props.panel.instanceId;
+    if (props.slot === "sub") {
+      shell.applyAreaList((state) => selectArea(state, "sub", key()));
+      shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+      return;
+    }
+    shell.host.openWindow(`${href()}?window=floating`);
   };
 
-  const press = (event: PointerEvent) => {
-    if (event.button !== 0) return;
-    shell.drag.start(
-      { instanceId: props.panel.instanceId, title: instance().title() },
-      event,
-      {
-        onClick: () => {
-          // dockのpanelならそのdockを開いてから選択する（畳まれていても見える）。
-          const location = locationOf(shell.layout(), props.panel.instanceId);
-          if (location?.region === "dock") {
-            shell.updatePrefs((prefs) => {
-              prefs.dockOpen = { ...prefs.dockOpen, [location.dock]: true };
-            });
-          }
-          ops.select(props.panel.instanceId);
-        },
-      },
-    );
+  const move = (to: ListSlot) => (event: MouseEvent) => {
+    closePopover(event);
+    shell.applyAreaList((state) => moveArea(state, props.slot, key(), to));
+    if (to === "main") {
+      navigate(`/${shell.coreKey()}/${props.entry.area.project}/` +
+        `${props.entry.area.path.map(encodeURIComponent).join("/")}/`);
+    }
+    if (to === "sub") shell.updatePrefs((prefs) => { prefs.subOpen = true; });
   };
+
+  const setMode = (display: AreaDisplay) => (event: MouseEvent) => {
+    closePopover(event);
+    shell.applyAreaList((state) => setDisplay(state, props.slot, key(), display));
+  };
+
+  const remove = (event: MouseEvent) => {
+    closePopover(event);
+    // URLが指しているAreaを外すとdeep linkで即座に戻るので、先に入口へ戻す。
+    const current = shell.mainRef();
+    if (props.slot === "main" && current && areaKey(current) === key()) {
+      navigate(`/${shell.coreKey()}/${shell.project()}/`);
+    }
+    shell.applyAreaList((state) => removeArea(state, props.slot, key()));
+  };
+
+  let menu!: HTMLDivElement;
+  const otherSlots = (
+    [
+      { to: "main", label: "Mainへ" },
+      { to: "sub", label: "Subへ" },
+      { to: "floating", label: "Floatingへ" },
+    ] as { to: ListSlot; label: string }[]
+  ).filter((item) => item.to !== props.slot);
 
   return (
-    <div
-      class="nav-row"
-      data-selected={selected() || undefined}
-      {...surfaceAttrs(instance().activity(), "header")}
-      {...busyAttr(instance().activity())}
-      onPointerDown={press}
-    >
-      <span class="nav-title">{instance().title()}</span>
+    <div class={{ "area-row": true, selected: selected() }}>
+      <a href={href()} onClick={open}>{label()}</a>
       <button
-        class="tab-close"
-        aria-label="閉じる"
-        onPointerDown={(event) => event.stopPropagation()}
+        class="area-menu-button"
+        aria-label="Areaのメニュー"
         onClick={(event) => {
           event.stopPropagation();
-          ops.close(props.panel.instanceId);
+          menu.showPopover();
         }}
       >
-        <IconClose size={12} />
+        …
       </button>
+      <div class="area-menu" popover="auto" ref={menu}>
+        <For each={otherSlots}>
+          {(item) => (
+            <button class="area-menu-item" onClick={move(item.to)}>{item.label}</button>
+          )}
+        </For>
+        <p class="area-menu-label">表示</p>
+        <button
+          class={{ "area-menu-item": true, selected: props.entry.display === "full" }}
+          onClick={setMode("full")}
+        >
+          すべて
+        </button>
+        <button
+          class={{ "area-menu-item": true, selected: props.entry.display === "center" }}
+          onClick={setMode("center")}
+        >
+          centerのみ
+        </button>
+        <button class="area-menu-item danger" onClick={remove}>リストから外す</button>
+      </div>
     </div>
   );
 }
 
-function ProjectTab(props: { name: string }): JSX.Element {
+// 「＋ Areaを追加」。Project/AreaのツリーからAreaを選ぶpopover。
+// Area・Projectの作成もここで行う。
+function AreaPicker(props: { slot: ListSlot }): JSX.Element {
   const shell = useShell();
-  const href = useHref(() => `/${shell.coreKey()}/${props.name}/`);
+  const navigate = useNavigate();
+  const [browse, setBrowse] = createSignal<string | null>(null);
+  const project = () => browse() ?? shell.project() ?? shell.projects()[0]?.name ?? "";
+  const tree = () => shell.projects().find((item) => item.name === project());
+  const [addingProject, setAddingProject] = createSignal(false);
+  let picker!: HTMLDivElement;
+
+  const pick = (ref: AreaRef) => (event: MouseEvent) => {
+    closePopover(event);
+    shell.applyAreaList((state) => addArea(state, props.slot, ref));
+    if (props.slot === "main") {
+      navigate(`/${shell.coreKey()}/${ref.project}/` +
+        `${ref.path.map(encodeURIComponent).join("/")}/`);
+    }
+    if (props.slot === "sub") shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+  };
+
   return (
-    <span class={{ "project-tab": true, selected: props.name === shell.project() }}>
-      <a href={href()}>{props.name}</a>
-      <ConfirmButton
-        class="project-close"
-        label="Projectを削除"
-        confirmLabel="削除する？"
-        confirm={() => void shell.removeProject(props.name)}
+    <>
+      <button
+        class="area-add"
+        onClick={() => {
+          setBrowse(null);
+          picker.showPopover();
+        }}
       >
-        <IconClose size={10} />
-      </ConfirmButton>
-    </span>
+        <IconPlus size={12} /> Areaを追加
+      </button>
+      <div class="area-picker" popover="auto" ref={picker}>
+        <div class="project-tabs">
+          <For each={shell.projects()}>
+            {(item) => (
+              <button
+                class={{ "project-tab": true, selected: item.name === project() }}
+                onClick={() => setBrowse(item.name)}
+              >
+                {item.name}
+              </button>
+            )}
+          </For>
+          <Show
+            when={addingProject()}
+            fallback={
+              <button
+                class="project-add"
+                aria-label="Projectを作成"
+                onClick={() => setAddingProject(true)}
+              >
+                <IconPlus size={12} />
+              </button>
+            }
+          >
+            <NameForm
+              label="Project名"
+              submit={async (name) => {
+                await shell.createProject(name);
+                setAddingProject(false);
+              }}
+              cancel={() => setAddingProject(false)}
+            />
+          </Show>
+        </div>
+        <Show when={tree()} fallback={<p class="area-hint">Project を作成してください</p>}>
+          <PickBranch areas={tree()!.areas} path={[]} project={project} pick={pick} />
+        </Show>
+      </div>
+    </>
   );
 }
 
-function AreaBranch(props: { areas: AreaTree[]; path: string[] }): JSX.Element {
+// picker内のAreaツリー。名前のclickが選択（slotへ追加）になる。
+function PickBranch(props: {
+  areas: AreaTree[];
+  path: string[];
+  project: () => string;
+  pick: (ref: AreaRef) => (event: MouseEvent) => void;
+}): JSX.Element {
   return (
     <ul class="area-list">
       <For each={props.areas}>
-        {(area) => <AreaRow area={area} path={props.path} />}
+        {(area) => (
+          <PickRow area={area} path={props.path} project={props.project} pick={props.pick} />
+        )}
       </For>
+      <Show when={props.areas.length === 0 && props.path.length === 0}>
+        <PickRootAdd project={props.project} />
+      </Show>
     </ul>
   );
 }
 
-function AreaRow(props: { area: AreaTree; path: string[] }): JSX.Element {
+// ツリー最下段の「＋ Areaを追加」（rootのAreaを作る）。
+function PickRootAdd(props: { project: () => string }): JSX.Element {
+  const shell = useShell();
+  const [adding, setAdding] = createSignal(false);
+  return (
+    <Show
+      when={adding()}
+      fallback={
+        <button class="area-add" onClick={() => setAdding(true)}>
+          <IconPlus size={12} /> Areaを追加
+        </button>
+      }
+    >
+      <NameForm
+        label="Area名"
+        submit={async (name) => {
+          await shell.createArea(props.project(), [], name);
+          setAdding(false);
+        }}
+        cancel={() => setAdding(false)}
+      />
+    </Show>
+  );
+}
+
+function PickRow(props: {
+  area: AreaTree;
+  path: string[];
+  project: () => string;
+  pick: (ref: AreaRef) => (event: MouseEvent) => void;
+}): JSX.Element {
   const shell = useShell();
   const [addingChild, setAddingChild] = createSignal(false);
   const path = () => [...props.path, props.area.name];
-  const href = useHref(() =>
-    `/${shell.coreKey()}/${shell.project()}/${path().map(encodeURIComponent).join("/")}/`);
-  const selected = () => shell.areaPath().join("/") === path().join("/");
   return (
     <li>
-      <div class={{ "area-row": true, selected: selected() }}>
+      <div class="area-row">
         <Show when={props.area.areas.length > 0}>
           <IconChevronRight size={10} />
         </Show>
-        <a href={href()}>{props.area.name}</a>
+        <a
+          href="#"
+          onClick={(event) =>
+            props.pick({ project: props.project(), path: path() })(event)}
+        >
+          {props.area.name}
+        </a>
         <button
           class="area-add-child"
           aria-label="子のAreaを作成"
@@ -266,7 +329,7 @@ function AreaRow(props: { area: AreaTree; path: string[] }): JSX.Element {
           class="area-remove"
           label="Areaを削除"
           confirmLabel="削除する？"
-          confirm={() => void shell.removeArea(path())}
+          confirm={() => void shell.removeArea(props.project(), path())}
         >
           <IconClose size={10} />
         </ConfirmButton>
@@ -275,13 +338,18 @@ function AreaRow(props: { area: AreaTree; path: string[] }): JSX.Element {
         <NameForm
           label="子のArea名"
           submit={async (name) => {
-            await shell.createArea(path(), name);
+            await shell.createArea(props.project(), path(), name);
             setAddingChild(false);
           }}
           cancel={() => setAddingChild(false)}
         />
       </Show>
-      <AreaBranch areas={props.area.areas} path={path()} />
+      <PickBranch
+        areas={props.area.areas}
+        path={path()}
+        project={props.project}
+        pick={props.pick}
+      />
     </li>
   );
 }

@@ -68,6 +68,10 @@ export interface ShellHost {
   // Panel の entry/styles を取るURL。web は /ui/<key>/<rid>/<path>?v=<sha>、
   // Electron は plugumi-ui://… を返す。
   uiURL(coreKey: string, registrationId: string, path: string, uiSha256: string): string;
+
+  // 別windowで同じShellを開く（FloatingのArea用）。webは新タブ、
+  // Electronは新しいBrowserWindow。pathはrouteのpath+query。
+  openWindow(path: string): void;
 }
 
 export const ShellHostContext = createContext<ShellHost>();

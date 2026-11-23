@@ -1,10 +1,10 @@
-// titleのtool群。左: sidebar開閉 + Core switcher、
-// 中央（work区間）: 「+」・dock開閉、
+// titleのtool群。左: Area list開閉 + Core switcher、
+// 中央（work区間）: 「+」・dock開閉・Sub開閉、
 // 右: 両サイド畳み・テーマ・背景・設定。pillの下限は中身の実測幅。
 import { For, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
-import { useShell } from "./controller.tsx";
+import { useShell, type AreaController } from "./controller.tsx";
 import { ToolButton } from "./tool-button.tsx";
 import { nextTheme } from "../theme.ts";
 import {
@@ -25,7 +25,7 @@ export function TitleToolsLeft(): JSX.Element {
   return (
     <>
       <ToolButton
-        label="サイドバー"
+        label="Area list"
         pressed={shell.prefs().sidebarOpen}
         onClick={() => shell.updatePrefs((prefs) => { prefs.sidebarOpen = !prefs.sidebarOpen; })}
       >
@@ -91,20 +91,22 @@ function Crumb(props: { label: string; to: string }): JSX.Element {
   return <a class="bar-crumb-item" href={href()}>{props.label}</a>;
 }
 
-export function TitleToolsCenter(): JSX.Element {
+export function TitleToolsCenter(props: { area: AreaController }): JSX.Element {
   const shell = useShell();
-  const toggleDock = (kind: "left" | "bottom" | "side") =>
+  const toggleDock = (kind: "left" | "bottom" | "right") =>
     shell.updatePrefs((prefs) => {
       prefs.dockOpen = { ...prefs.dockOpen, [kind]: !prefs.dockOpen[kind] };
     });
+  // crumbはMainに表示中のArea（URLのpath）。
+  const mainPath = () => shell.mainRef()?.path ?? [];
   const crumbTo = (depth: number) =>
-    `/${shell.coreKey()}/${shell.project()}/${shell.areaPath()
+    `/${shell.coreKey()}/${shell.project()}/${mainPath()
       .slice(0, depth).map(encodeURIComponent).join("/")}/`;
   return (
     <>
       <nav class="bar-crumb" aria-label="現在位置">
         <Crumb label={shell.project()} to={crumbTo(0)} />
-        <For each={shell.areaPath()}>
+        <For each={mainPath()}>
           {(name, i) => (
             <>
               <span class="bar-crumb-sep">/</span>
@@ -115,10 +117,10 @@ export function TitleToolsCenter(): JSX.Element {
       </nav>
       <ToolButton
         label="Panelを開く"
-        // titleの「+」はfocused leafへ足す（leaf指定をリセットしてから開く）。
+        // titleの「+」はMainのAreaへ足す（leaf指定をリセットしてから開く）。
         // popovertargetを併用するとtoggleとshowPopoverが二重に効いて
         // 閉じてしまうので、onClickから開く。
-        onClick={() => shell.openPicker()}
+        onClick={() => shell.openPicker(props.area)}
       >
         <IconPlus />
       </ToolButton>
@@ -130,7 +132,7 @@ export function TitleToolsCenter(): JSX.Element {
                 class="picker-item"
                 onClick={(event) => {
                   closePopover(event);
-                  shell.openPanel(entry.pluginId, entry.panelId, shell.pickerTarget() ?? undefined);
+                  shell.pickPanel(entry);
                 }}
               >
                 {entry.title}
@@ -146,7 +148,7 @@ export function TitleToolsCenter(): JSX.Element {
       {/* 仮: 中身はまだないので、ひとまずpanel pickerを開くだけ。 */}
       <button
         class="bar-search" aria-label="検索"
-        onClick={() => shell.openPicker()}
+        onClick={() => shell.openPicker(props.area)}
       >
         <IconSearch size={12} />
         検索
@@ -166,10 +168,16 @@ export function TitleToolsCenter(): JSX.Element {
         <IconDockBottom />
       </ToolButton>
       <ToolButton
-        label="Side" pressed={shell.prefs().dockOpen.side}
-        onClick={() => toggleDock("side")}
+        label="右の領域" pressed={shell.prefs().dockOpen.right}
+        onClick={() => toggleDock("right")}
       >
         <IconDockRight />
+      </ToolButton>
+      <ToolButton
+        label="Sub" pressed={shell.prefs().subOpen}
+        onClick={() => shell.updatePrefs((prefs) => { prefs.subOpen = !prefs.subOpen; })}
+      >
+        <IconSidebar />
       </ToolButton>
     </>
   );
@@ -183,7 +191,7 @@ export function TitleToolsRight(): JSX.Element {
   };
   return (
     <>
-      {/* 左右の端の列（sidebar＋side）をまとめて畳む。 */}
+      {/* 両端の列（Area list＋Sub）をまとめて畳む。 */}
       <ToolButton
         label="両サイド" pressed={shell.prefs().sideHidden}
         onClick={() => shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; })}

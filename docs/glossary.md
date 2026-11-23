@@ -100,11 +100,11 @@ Projectのうち、どの部分を扱うかの単位。worktree、monorepo内の
 
 ### Workspace
 
-Areaの中でファイルを見るなどの作業をする画面。Areaと1対1に対応し、left・bottom・center・sideのDockを持つ。
+Areaの中でファイルを見るなどの作業をする画面。Areaと1対1に対応し、left・bottom・center・rightのDockを持つ。
 
 ### Dock
 
-Panelを置く場所。WorkspaceのDock（left・bottom・center・side）がある。sideは右の列で、Main（left・bottom・center）の脇に常時置くPanelの置き場。Dockは置き場所であり、表示する中身はPanelである。
+Panelを置く場所。WorkspaceのDock（left・bottom・center・right）がある。rightは右の列で、Main（left・bottom・center）の脇に常時置くPanelの置き場。Dockは置き場所であり、表示する中身はPanelである。
 
 ## Tool・作業
 

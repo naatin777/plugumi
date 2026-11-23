@@ -96,5 +96,8 @@ export function httpShellHost(): ShellHost {
       return `/ui/${encodeURIComponent(coreKey)}/${encodeURIComponent(registrationId)}` +
         `/${path}?v=${uiSha256}`;
     },
+    openWindow(path: string): void {
+      window.open(path, "_blank");
+    },
   };
 }

@@ -1,10 +1,10 @@
-// left/bottom/sideの縁領域（位置の契約）。tab切替の1列。
-// sideは右の列（SigmaOSのSide相当）。
+// left/bottom/rightの縁領域（位置の契約）。tab切替の1列。
+// rightは右の列。
 // 開いているときだけdrop先になる（閉じたdockはregisterしない）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { DockKind, MoveTarget } from "../layout/model.ts";
-import { useShell, layoutOps } from "./controller.tsx";
+import { useArea, layoutOps } from "./controller.tsx";
 import { TabStrip } from "./tab-strip.tsx";
 import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
 import { Resizer } from "./resizer.tsx";
@@ -12,8 +12,9 @@ import { bodyTest } from "./drag.ts";
 import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
 
 export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
-  const shell = useShell();
-  const stack = () => shell.layout()[props.kind];
+  const area = useArea();
+  const shell = area.shell;
+  const stack = () => area.layout()[props.kind];
   const horizontal = () => props.kind === "bottom";
   const target = (index: number): MoveTarget =>
     ({ region: "dock", dock: props.kind, index });
@@ -22,14 +23,14 @@ export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
   onCleanup(() => unregister?.());
   const register = (node: HTMLElement) => {
     unregister?.();
-    unregister = shell.drag.register(node, bodyTest(target(-1)));
+    unregister = area.drag.register(node, bodyTest(target(-1)));
   };
 
-  const ops = layoutOps(shell);
+  const ops = layoutOps(area);
   const selected = () => stack().panels.find((ref) => ref.instanceId === stack().selected);
   const selectedActivity = () => {
     const ref = selected();
-    return ref ? shell.instance(ref).activity() : undefined;
+    return ref ? area.instance(ref).activity() : undefined;
   };
   const flip = (direction: 1 | -1) => {
     const id = flipPage(stack().panels, stack().selected, direction);
@@ -46,7 +47,13 @@ export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
       data-closed={props.closed || undefined}
       style={horizontal()
         ? { height: props.closed ? "0px" : `${shell.prefs().dockSize.bottom}px` }
-        : { width: props.closed ? "0px" : `${shell.prefs().dockSize[props.kind]}px` }}
+        : {
+            // 両側が開くと left+right がcenterを潰すので、実効幅はAreaView幅の
+            // 40%までに抑える（cqwは.area-viewのcontainer query単位）。
+            width: props.closed
+              ? "0px"
+              : `min(${shell.prefs().dockSize[props.kind]}px, 40cqw)`,
+          }}
       ref={register}
       {...pageNavProps(flip)}
     >

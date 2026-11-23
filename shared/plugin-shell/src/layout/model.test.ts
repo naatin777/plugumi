@@ -20,7 +20,7 @@ describe("decode", () => {
       version: 1,
       left: { panels: [ref("a")], selected: "a" },
       bottom: { panels: [], selected: null },
-      side: { panels: [], selected: null },
+      right: { panels: [], selected: null },
       center: {
         root: {
           kind: "split", id: "s1", axis: "x", ratio: 0.5,
@@ -52,7 +52,7 @@ describe("decode", () => {
       version: 1,
       left: { panels: [], selected: null },
       bottom: { panels: [], selected: null },
-      side: { panels: [], selected: null },
+      right: { panels: [], selected: null },
       center: {
         root: {
           kind: "leaf", id: "l1",
@@ -64,9 +64,9 @@ describe("decode", () => {
     assert.equal(state.center.focusedLeaf, "l1");
   });
 
-  test("旧形（rightキー・pinned）は空のWorkspaceになる", () => {
+  test("旧形（sideキー・pinned）は空のWorkspaceになる", () => {
     for (const raw of [
-      { version: 1, left: { panels: [], selected: null }, right: { panels: [], selected: null },
+      { version: 1, left: { panels: [], selected: null }, side: { panels: [], selected: null },
         bottom: { panels: [], selected: null },
         center: { root: { kind: "leaf", id: "l1", panels: [], selected: null }, focusedLeaf: "l1" } },
     ]) {
@@ -141,20 +141,20 @@ describe("move", () => {
     assert.equal(findLeaf(state.center.root, "leaf-root")!.panels.length, 1);
   });
 
-  test("leaf→sideの移動（領域の違いだけでpanelは同じ）", () => {
+  test("leaf→rightの移動（領域の違いだけでpanelは同じ）", () => {
     let state = setup();
-    state = movePanel(state, "a", { region: "dock", dock: "side", index: -1 });
-    assert.equal(state.side.panels.length, 1);
-    assert.equal(state.side.selected, "a");
+    state = movePanel(state, "a", { region: "dock", dock: "right", index: -1 });
+    assert.equal(state.right.panels.length, 1);
+    assert.equal(state.right.selected, "a");
     assert.equal(locationOf(state, "a")?.region, "dock");
   });
 
-  test("side→leafの移動", () => {
+  test("right→leafの移動", () => {
     let state = emptyWorkspace();
-    state = withPanel(state, "a", { region: "dock", dock: "side", index: -1 });
+    state = withPanel(state, "a", { region: "dock", dock: "right", index: -1 });
     state = movePanel(state, "a",
       { region: "leaf", leafId: state.center.focusedLeaf, index: -1 });
-    assert.equal(state.side.panels.length, 0);
+    assert.equal(state.right.panels.length, 0);
     assert.equal(locationOf(state, "a")?.region, "leaf");
   });
 
@@ -225,7 +225,7 @@ describe("leafのdecodeの厳密さ", () => {
     version: 1,
     left: { panels: [], selected: null },
     bottom: { panels: [], selected: null },
-    side: { panels: [], selected: null },
+    right: { panels: [], selected: null },
     center: { root: leaf, focusedLeaf: "l1" },
   });
   const leaf = { kind: "leaf", id: "l1", panels: [ref("x")], selected: "x" };

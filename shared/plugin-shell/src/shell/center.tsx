@@ -3,7 +3,7 @@
 import { Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Node, Split } from "../layout/model.ts";
-import { useShell, layoutOps } from "./controller.tsx";
+import { useArea, layoutOps } from "./controller.tsx";
 import { LeafView } from "./leaf.tsx";
 import { Resizer } from "./resizer.tsx";
 
@@ -14,8 +14,8 @@ export interface Edges { top: boolean; right: boolean; bottom: boolean; left: bo
 const OUTER_EDGES: Edges = { top: true, right: true, bottom: true, left: true };
 
 export function CenterView(): JSX.Element {
-  const shell = useShell();
-  const root = () => shell.layout().center.root;
+  const area = useArea();
+  const root = () => area.layout().center.root;
   return (
     <div class="center" data-region="center">
       <NodeView node={root()} edges={OUTER_EDGES} />
@@ -34,7 +34,7 @@ export function NodeView(props: { node: Node; edges: Edges }): JSX.Element {
 }
 
 function SplitView(props: { split: Split; edges: Edges }): JSX.Element {
-  const ops = layoutOps(useShell());
+  const ops = layoutOps(useArea());
   let element!: HTMLDivElement;
   const firstEdges = () => (props.split.axis === "x"
     ? { ...props.edges, right: false }

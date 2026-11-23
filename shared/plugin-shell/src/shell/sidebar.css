@@ -52,8 +52,8 @@
   .area-row:hover .area-add-child, .area-row:hover .area-remove { visibility: visible; }
   .area-hint { color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-xs); }
 
-  /* ---- Main/Sideセクション（workspaceのpanel一覧） ---- */
-  .nav-section {
+  /* ---- Main/Sub/Floatingセクション（Areaの一覧） ---- */
+  .area-slot {
     display: flex; flex-direction: column;
     gap: 1px;
     border-top: 1px solid var(--plugumi-colors-border);
@@ -70,41 +70,40 @@
     color: var(--plugumi-colors-text-subtle);
     font-size: var(--plugumi-font-size-xs);
   }
-  .nav-row {
-    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
-    height: 26px; box-sizing: border-box;
-    padding: 0 var(--plugumi-spacing-xs);
-    border-radius: var(--plugumi-radii-md);
-    color: var(--plugumi-colors-text-muted);
-    font-size: var(--plugumi-font-size-xs);
-    cursor: pointer; user-select: none;
+  /* Area listの行（.area-rowはtree側と同じ見た目を共有）。 */
+  .area-menu-button {
+    border: none; padding: 0 4px;
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    font: inherit; cursor: pointer; border-radius: var(--plugumi-radii-sm);
+    visibility: hidden;
   }
-  .nav-row:hover { background: var(--plugumi-colors-background-tertiary); }
-  .nav-row[data-selected] {
+  .area-row:hover .area-menu-button, .area-menu-button:focus-visible { visibility: visible; }
+  .area-menu-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+
+  .area-menu, .area-picker {
+    padding: var(--plugumi-spacing-xs);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
     background: var(--plugumi-colors-background-tertiary);
     color: var(--plugumi-colors-text);
+    font: inherit; font-size: var(--plugumi-font-size-xs);
+    min-width: 160px;
   }
-  .nav-title {
-    flex: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  .area-picker { width: 220px; max-height: 320px; overflow-y: auto; }
+  .area-menu-label {
+    margin: var(--plugumi-spacing-xs) var(--plugumi-spacing-xs) 2px;
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-2xs, 10px);
   }
-  .nav-row .tab-close { opacity: 0; }
-  .nav-row:hover .tab-close, .nav-row .tab-close:focus-visible { opacity: 1; }
-  .nav-add {
-    display: inline-flex; align-items: center; gap: 2px;
-    align-self: flex-start;
-    margin-top: var(--plugumi-spacing-xs);
-    border: 1px dashed var(--plugumi-colors-border);
-    border-radius: var(--plugumi-radii-md);
-    background: transparent; color: var(--plugumi-colors-text-muted);
+  .area-menu-item {
+    display: flex; width: 100%;
     padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+    border: none; border-radius: var(--plugumi-radii-sm);
+    background: transparent; color: var(--plugumi-colors-text);
+    font: inherit; font-size: var(--plugumi-font-size-xs);
+    cursor: pointer; text-align: left;
   }
-  /* sectionがdrop先のとき全体を光らせる（data-drop-targetは
-     drag側が置く）。 */
-  .nav-section[data-drop-target] {
-    outline: 1px solid var(--plugumi-colors-border-strong);
-    outline-offset: -1px;
-    border-radius: var(--plugumi-radii-md);
-  }
+  .area-menu-item:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
+  .area-menu-item.selected { font-weight: 600; }
+  .area-menu-item.danger { color: var(--plugumi-colors-text-danger, #e26d75); }
 }

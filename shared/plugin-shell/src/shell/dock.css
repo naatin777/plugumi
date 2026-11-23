@@ -1,4 +1,4 @@
-/* dock — 「tab帯＋中身」の1枚のカード（left/bottom/sideのpanel置き場）。 */
+/* dock — 「tab帯＋中身」の1枚のカード（left/bottom/rightのpanel置き場）。 */
 @scope (:root) to ([data-plugumi-plugin]) {
 
   /* ---- dock: 「tab帯＋中身」の1枚のカード ---- */
@@ -24,7 +24,7 @@
   /* drag中のtransitionはポインタに遅れて追従してしまうので切る。 */
   .dock:has(> .resizer[data-dragging]) { transition: none; }
   .dock[data-dock="left"] { grid-area: left; margin-right: var(--work-gap); }
-  .dock[data-dock="side"] { grid-area: side; margin-left: var(--work-gap); }
+  .dock[data-dock="right"] { grid-area: right; margin-left: var(--work-gap); }
   .dock[data-dock="bottom"] { grid-area: bottom; flex-direction: column; margin-top: var(--work-gap); }
   .dock[data-closed] {
     width: 0; height: 0;

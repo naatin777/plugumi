@@ -202,7 +202,7 @@ function ShapeDemo(): JSX.Element {
         >
           <div class="lab-fill lab-mat" style={{ "grid-area": "left" }}>left</div>
           <div class="lab-fill lab-mat" style={{ "grid-area": "center" }}>center</div>
-          <div class="lab-fill lab-mat" style={{ "grid-area": "side" }}>side</div>
+          <div class="lab-fill lab-mat" style={{ "grid-area": "right" }}>right</div>
           <div class="lab-fill lab-mat" style={{ "grid-area": "bottom" }}>bottom</div>
         </WorkShape>
       </div>

@@ -1,9 +1,11 @@
-// 1つのProject画面（Area移動を含む）が持つ状態の束。
-// routeのparams・保存・Panel Instance・表示設定・dragをここにまとめ、
-// 見た目だけの部品にはcontext経由で渡す。
+// Shellの状態を2段に分ける。ShellControllerはページ（URL・Core・Project・
+// Area list・表示設定・panel picker）を持ち、AreaControllerは1つのAreaView
+// が持つ状態（workspaceのlayout・Panel Instance・drag）を持つ。
+// 同じAreaをMainとSubに同時に出した場合は別々のAreaControllerになり、
+// 読み書きはlast-write-wins — プロトタイプの既知の制約。
 import {
-  createContext, createEffect, createSignal, createStore, flush,
-  onCleanup, reconcile, useContext,
+  createContext, createEffect, createMemo, createSignal, createStore,
+  flush, onCleanup, reconcile, useContext,
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
@@ -14,6 +16,10 @@ import {
   allPanelRefs,
   decodeWorkspace, newInstanceId,
 } from "../layout/model.ts";
+import type { AreaRef, AreaListState, ListSlot, AreaDisplay } from "../layout/area-list.ts";
+import {
+  addArea, areaKey, emptyAreaList, loadAreaList, saveAreaList, selectArea,
+} from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
 import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
@@ -52,26 +58,44 @@ export interface ShellController {
   prefs(): ShellPrefs;
   updatePrefs(mutate: (prefs: ShellPrefs) => void): void;
 
+  // Area list（左の列）。URLのAreaがMainを指し、main listと同期する。
+  areaList(): AreaListState;
+  applyAreaList(mutate: (state: AreaListState) => AreaListState): void;
+  // Main/Subに表示するArea。MainはURLが正本で、listの無いAreaはdeep linkで追加する。
+  mainRef(): AreaRef | null;
+  subRef(): AreaRef | null;
+  displayOf(ref: AreaRef | null, slot: ListSlot): AreaDisplay;
+  // ページ送りなど「触っている側」のArea（.area-viewのpointerdownで更新）。
+  focusedArea(): AreaController | null;
+  setFocusedArea(area: AreaController): void;
+
+  // 「+」のpanel pickerはshellに1個。開くとき対象のAreaControllerを指定する。
+  pickerArea(): AreaController | null;
+  pickerTarget(): MoveTarget | null;
+  openPicker(area: AreaController, target?: MoveTarget): void;
+  bindPicker(element: HTMLElement): void;
+  pickPanel(entry: PanelEntry): void;
+
+  createProject(name: string): Promise<void>;
+  removeProject(name: string): Promise<void>;
+  createArea(project: string, parent: string[], name: string): Promise<void>;
+  removeArea(project: string, path: string[]): Promise<void>;
+}
+
+// 1つのAreaViewが持つ状態。layout・Panel Instance・dragは全部Area単位。
+export interface AreaController {
+  shell: ShellController;
+  ref(): AreaRef | null;
+
   layout(): WorkspaceState;
   applyLayout(mutate: (state: WorkspaceState) => WorkspaceState): void;
 
   instance(ref: PanelRef): PanelInstance;
   openPanel(pluginId: string, panelId: string, target?: MoveTarget): void;
 
-  // 「+」のpanel picker。空leafの「+」やnavのSide追加も同じpickerを開き、
-  // 足し先をMoveTargetで指定する（未指定はfocusedLeaf）。
-  pickerTarget(): MoveTarget | null;
-  openPicker(target?: MoveTarget): void;
-  bindPicker(element: HTMLElement): void;
-
   drag: DragController;
   ghost(): { x: number; y: number; title: string } | null;
   dropElement(): HTMLElement | null;
-
-  createProject(name: string): Promise<void>;
-  removeProject(name: string): Promise<void>;
-  createArea(parent: string[], name: string): Promise<void>;
-  removeArea(path: string[]): Promise<void>;
 }
 
 // 3秒ごとの巡回用。fetcherの結果をsignalに入れる。中身が変わらなければ
@@ -88,7 +112,9 @@ function poll<T>(fetcher: () => Promise<T>, ms: number): () => T | undefined {
       // 巡回の失敗はstatus表示に任せ、ここでは握る
     }
   };
-  void refresh();
+  // 初回はmicrotaskへ逃がす — componentのsetup中に同期fetchすると、
+  // fetcher内のreactive読み（coreKey等）がuntracked readとして警告される。
+  queueMicrotask(() => void refresh());
   const timer = setInterval(refresh, ms);
   onCleanup(() => clearInterval(timer));
   return value;
@@ -127,6 +153,134 @@ export function createShellController(
     applyTheme(next.theme);
   };
 
+  // ---- Area list ----
+  const [areaListState, setAreaList] = createSignal<AreaListState>(emptyAreaList());
+  const areaList = () => areaListState();
+  const applyAreaList = (mutate: (state: AreaListState) => AreaListState) => {
+    const next = mutate(areaListState());
+    if (next === areaListState()) return;
+    setAreaList(next);
+    saveAreaList(coreKey(), next);
+  };
+
+  // 選択中のAreaRef。MainはURLが正本（listのselectedは行の強調に使う）。
+  // 呼ぶたびに新しいobjectを返すとref()===currentの比較が常にfalseになるので、
+  // areaKeyが同じなら同一参照（memoのequals）で返す。
+  const sameArea = (a: AreaRef | null, b: AreaRef | null) =>
+    (a ? areaKey(a) : null) === (b ? areaKey(b) : null);
+  const entryOf = (slot: ListSlot, key: string | null) =>
+    key === null ? undefined : areaListState()[slot].find((entry) => areaKey(entry.area) === key);
+  const mainRef = createMemo<AreaRef | null>(
+    () => {
+      const path = areaPath();
+      if (path.length === 0) return null;
+      return { project: project(), path };
+    },
+    { equals: (a, b) => sameArea(a, b) },
+  );
+  const subRef = createMemo<AreaRef | null>(
+    () => entryOf("sub", areaListState().selected.sub)?.area ?? null,
+    { equals: (a, b) => sameArea(a, b) },
+  );
+  const displayOf = (ref: AreaRef | null, slot: ListSlot): AreaDisplay => {
+    if (!ref) return "full";
+    // displayはslotごとのentryに付く — 同じAreaが別slotにあっても
+    // 別の表示形式を持てるので自分のslotだけ見る。
+    return entryOf(slot, areaKey(ref))?.display ?? "full";
+  };
+
+  // URLのAreaがmain listに無ければ足して選択する（deep link）。
+  const syncMain = (projectName: string, path: string[]) => {
+    if (path.length === 0 || !projectName) return;
+    const ref: AreaRef = { project: projectName, path };
+    const key = areaKey(ref);
+    const list = areaListState();
+    if (!list.main.some((entry) => areaKey(entry.area) === key)) {
+      applyAreaList((state) => addArea(state, "main", ref));
+    } else if (list.selected.main !== key) {
+      applyAreaList((state) => selectArea(state, "main", key));
+    }
+  };
+
+  // ---- 触っている側のArea ----
+  const [focusedArea, setFocusedArea] = createSignal<AreaController | null>(null);
+
+  // ---- panel picker（shellに1個。開くとき対象のAreaControllerを取る） ----
+  const [picker, setPicker] = createSignal<HTMLElement>();
+  const [pickerArea, setPickerArea] = createSignal<AreaController | null>(null);
+  const [pickerTarget, setPickerTarget] = createSignal<MoveTarget | null>(null);
+  const openPicker = (area: AreaController, target?: MoveTarget) => {
+    setPickerArea(area);
+    setPickerTarget(target ?? null);
+    picker()?.showPopover();
+  };
+  const pickPanel = (entry: PanelEntry) => {
+    pickerArea()?.openPanel(entry.pluginId, entry.panelId, pickerTarget() ?? undefined);
+  };
+
+  // ---- project/area ----
+  const createProject = async (name: string) => {
+    await host.createProject(coreKey(), name);
+    navigate(`/${coreKey()}/${name}/`);
+  };
+  const removeProject = async (name: string) => {
+    await host.deleteProject(coreKey(), name);
+    if (name === project()) navigate(`/${coreKey()}/`, { replace: true });
+  };
+  const createArea = async (projectName: string, parent: string[], name: string) => {
+    await host.createArea(coreKey(), projectName, parent, name);
+  };
+  const removeArea = async (projectName: string, path: string[]) => {
+    await host.deleteArea(coreKey(), projectName, path);
+    // 開いていたArea（またはその祖先）を消したらprojectの入口へ戻す
+    const current = areaPath();
+    if (projectName === project() && path.every((part, index) => current[index] === part)) {
+      navigate(`/${coreKey()}/${project()}/`, { replace: true });
+    }
+  };
+
+  const controller: ShellController = {
+    host, coreKey, project, areaPath, projectTree,
+    cores, core, panels, projects,
+    prefs, updatePrefs,
+    areaList, applyAreaList,
+    mainRef, subRef, displayOf,
+    focusedArea, setFocusedArea,
+    pickerArea, pickerTarget, openPicker, bindPicker: setPicker, pickPanel,
+    createProject, removeProject, createArea, removeArea,
+  };
+
+  // effectは2系統だけ: (a) core/areaの変化 → listの読み替え・URLとMainの同期・
+  // 場所記憶、(b) 何もしない。pollは同一内容を通知しないので巡回だけでは走らない。
+  let loadedCore = "";
+  createEffect(
+    () => ({ core: coreKey(), project: project(), area: areaPath() }),
+    ({ core, project, area }) => {
+      // callbackはowned scope — signalへの書き込み（setAreaList・syncMain内の
+      // applyAreaList）はREACTIVE_WRITE_IN_OWNED_SCOPEになるのでmicrotaskへ。
+      const firstLoad = core !== loadedCore;
+      loadedCore = core;
+      queueMicrotask(() => {
+        if (firstLoad) setAreaList(loadAreaList(core));
+        syncMain(project, area);
+      });
+      const path = area.length > 0
+        ? `/${core}/${project}/${area.map(encodeURIComponent).join("/")}/`
+        : `/${core}/${project}/`;
+      saveLastLocation(core, path);
+    },
+  );
+
+  return controller;
+}
+
+// AreaViewごとに1個作る。refが変わる（選択の切替）とworkspaceを読み直す。
+export function createAreaController(
+  shell: ShellController,
+  ref: () => AreaRef | null,
+): AreaController {
+  const host = shell.host;
+
   // ---- layout（workspaceを1つの状態に持つ） ----
   // store+reconcileで、変わらないleaf/PanelRefのproxyを保つ。
   // 全体を置き換えるとtabやPanel hostが毎回作り直され、Panel内の
@@ -137,16 +291,16 @@ export function createShellController(
     writeLayout(reconcile(next, layoutKey) as (state: WorkspaceState) => WorkspaceState);
   };
 
-  let loadedArea = "";
+  let loadedKey = "";
   let saveTimer = 0;
   const scheduleSave = () => {
     // 発火時ではなく操作時点のAreaへ保存する（300ms以内の切替で隣へ書かない）
-    const area = [...areaPath()];
-    const key = coreKey();
-    const proj = project();
+    const current = ref();
+    if (!current) return;
+    const key = shell.coreKey();
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      void host.putWorkspace(key, proj, area, layoutState);
+      void host.putWorkspace(key, current.project, current.path, layoutState);
     }, 300);
   };
 
@@ -161,22 +315,29 @@ export function createShellController(
 
   // ---- Panel Instance ----
   const instances = new Map<string, PanelInstance>();
-  const instance = (ref: PanelRef): PanelInstance => {
-    let found = instances.get(ref.instanceId);
+  const instance = (panelRef: PanelRef): PanelInstance => {
+    let found = instances.get(panelRef.instanceId);
     if (!found) {
-      const declaration = resolvePanel(ref, panels());
-      found = new PanelInstance(host, coreKey(), ref, declaration?.title ?? ref.panelId);
-      instances.set(ref.instanceId, found);
-      if (declaration) void found.mount(declaration);
-      else found.retry(panels());
+      const declaration = resolvePanel(panelRef, shell.panels());
+      found = new PanelInstance(host, shell.coreKey(), panelRef, declaration?.title ?? panelRef.panelId);
+      instances.set(panelRef.instanceId, found);
+      // instance()は描画中（spread・memo内）にも呼ばれる。mountのsignal書き込みを
+      // その場で走らせるとowned scopeへの書き込みでREACTIVITY_HALTEDするので、
+      // microtaskへ逃がす。
+      const mounted = found;
+      queueMicrotask(() => {
+        if (declaration) void mounted.mount(declaration);
+        else mounted.retry(shell.panels());
+      });
     }
     return found;
   };
-  // panels一覧の変化を追従し、layoutから外れたInstanceは捨てる。
+  // panels一覧・layoutの変化を追従し、layoutから外れたInstanceは捨てる
+  // （effect本体は下部。reload/applyLayoutからも即時呼ぶ）。
   const syncInstances = () => {
-    const list = panels();
+    const list = shell.panels();
     for (const found of instances.values()) found.update(list);
-    const alive = new Set(allPanelRefs(layoutState).map((ref) => ref.instanceId));
+    const alive = new Set(allPanelRefs(layoutState).map((panelRef) => panelRef.instanceId));
     for (const [id, found] of instances) {
       if (!alive.has(id)) {
         found.dispose();
@@ -185,15 +346,17 @@ export function createShellController(
     }
   };
 
-  // areaが変わるたびworkspaceを読み直す。
+  // refが変わるたびworkspaceを読み直す。
   let loadingWorkspace = 0;
-  const reload = async () => {
-    const area = areaPath().join("/");
-    if (area !== loadedArea) {
+  const reload = async (current: AreaRef, core: string) => {
+    // refは毎回新しいobjectを返し得るので、比較はareaKey同士で行う。
+    const key = areaKey(current);
+    if (key !== loadedKey) {
       const token = ++loadingWorkspace;
-      const raw = await host.getWorkspace(coreKey(), project(), areaPath()).catch(() => null);
-      if (token === loadingWorkspace) {
-        loadedArea = area;
+      const raw = await host.getWorkspace(core, current.project, current.path).catch(() => null);
+      const live = ref();
+      if (token === loadingWorkspace && live && areaKey(live) === key) {
+        loadedKey = key;
         setLayout(decodeWorkspace(raw));
         flush();
         syncInstances();
@@ -202,21 +365,13 @@ export function createShellController(
   };
 
   const openPanel = (pluginId: string, panelId: string, target?: MoveTarget) => {
-    const declaration = panels().find(
+    const declaration = shell.panels().find(
       (entry) => entry.pluginId === pluginId && entry.panelId === panelId,
     );
     if (!declaration) return;
-    const ref: PanelRef = { instanceId: newInstanceId(), pluginId, panelId };
-    instance(ref); // mountを始めてからlayoutに入れる
-    applyLayout((state) => addPanel(state, ref, target));
-  };
-
-  // ---- panel picker（「+」はtitle・空leaf・navの追加のどれからでも開く） ----
-  const [picker, setPicker] = createSignal<HTMLElement>();
-  const [pickerTarget, setPickerTarget] = createSignal<MoveTarget | null>(null);
-  const openPicker = (target?: MoveTarget) => {
-    setPickerTarget(target ?? null);
-    picker()?.showPopover();
+    const panelRef: PanelRef = { instanceId: newInstanceId(), pluginId, panelId };
+    instance(panelRef); // mountを始めてからlayoutに入れる
+    applyLayout((state) => addPanel(state, panelRef, target));
   };
 
   // ---- drag & drop ----
@@ -233,60 +388,53 @@ export function createShellController(
     applyLayout((state) => movePanel(state, instanceId, target));
   });
 
-  // ---- project/area ----
-  const createProject = async (name: string) => {
-    await host.createProject(coreKey(), name);
-    navigate(`/${coreKey()}/${name}/`);
-  };
-  const removeProject = async (name: string) => {
-    await host.deleteProject(coreKey(), name);
-    if (name === project()) navigate(`/${coreKey()}/`, { replace: true });
-  };
-  const createArea = async (parent: string[], name: string) => {
-    await host.createArea(coreKey(), project(), parent, name);
-  };
-  const removeArea = async (path: string[]) => {
-    await host.deleteArea(coreKey(), project(), path);
-    // 開いていたArea（またはその祖先）を消したらprojectの入口へ戻す
-    const current = areaPath();
-    if (path.every((part, index) => current[index] === part)) {
-      navigate(`/${coreKey()}/${project()}/`, { replace: true });
-    }
-  };
-
   onCleanup(() => {
     for (const found of instances.values()) found.dispose();
     instances.clear();
     window.clearTimeout(saveTimer);
   });
 
-  const controller: ShellController = {
-    host, coreKey, project, areaPath, projectTree,
-    cores, core, panels, projects,
-    prefs, updatePrefs,
+  const controller: AreaController = {
+    shell, ref,
     layout, applyLayout,
     instance, openPanel,
-    pickerTarget, openPicker, bindPicker: setPicker,
     drag, ghost, dropElement,
-    createProject, removeProject, createArea, removeArea,
   };
 
-  // effectは2系統だけ: (a) project/areaの変化 → 読み直し + 端末の場所記憶、
-  // (b) panels一覧の変化 → Instance追従。pollは同一内容を通知しないので
-  // 巡回だけでは走らない。
+  // effectは2系統だけ: (a) refの変化 → 読み直し、(b) panels一覧の変化 →
+  // Instance追従。
   createEffect(
-    () => ({ project: project(), area: areaPath().join("/") }),
-    ({ project, area }) => {
-      void reload();
-      const path = area
-        ? `/${coreKey()}/${project}/${area}/`
-        : `/${coreKey()}/${project}/`;
-      saveLastLocation(coreKey(), path);
+    () => ({ current: ref(), core: shell.coreKey() }),
+    ({ current, core }) => {
+      if (current) void reload(current, core);
     },
   );
+  // panels一覧とlayoutの両方をcomputeで読む — Instance追従はどちらの
+  // 変化でも必要。storeの中身の読み出し（allPanelRefs）もcompute側でやる
+  // — callbackはuntrackedなのでreactive読みはstrict警告になる。
   createEffect(
-    () => panels(),
-    () => syncInstances(),
+    // update()の中でもsignal(state)を読むので、callbackではなく
+    // compute側で回す（書き込みはInstance内部のsignalだけ）。
+    // panels一覧とlayoutの両方をdepに取る（update自体はcallback内のmicrotask）。
+    () => {
+      shell.panels();
+      return allPanelRefs(layoutState).map((panelRef) => panelRef.instanceId);
+    },
+    (alive) => {
+      // update/disposeはInstanceのsignalを書く — owned scope(effect)内では
+      // 書けないのでmicrotaskへ逃がす。
+      const keys = new Set(alive);
+      queueMicrotask(() => {
+        const list = shell.panels();
+        for (const found of instances.values()) found.update(list);
+        for (const [id, found] of instances) {
+          if (!keys.has(id)) {
+            found.dispose();
+            instances.delete(id);
+          }
+        }
+      });
+    },
   );
 
   return controller;
@@ -300,14 +448,22 @@ export function useShell(): ShellController {
   return shell;
 }
 
+export const AreaContext = createContext<AreaController>();
+
+export function useArea(): AreaController {
+  const area = useContext(AreaContext);
+  if (!area) throw new Error("AreaContext の外で使われました");
+  return area;
+}
+
 // leaf操作用の小さい操作群。UIから直接model関数へ橋渡しする。
-export const layoutOps = (shell: ShellController) => ({
+export const layoutOps = (area: AreaController) => ({
   select: (instanceId: string) =>
-    shell.applyLayout((state) => selectPanel(state, instanceId)),
+    area.applyLayout((state) => selectPanel(state, instanceId)),
   close: (instanceId: string) =>
-    shell.applyLayout((state) => closePanel(state, instanceId)),
+    area.applyLayout((state) => closePanel(state, instanceId)),
   split: (leafId: string, edge: "top" | "bottom" | "left" | "right") =>
-    shell.applyLayout((state) => splitAt(state, leafId, edge)),
+    area.applyLayout((state) => splitAt(state, leafId, edge)),
   ratio: (splitId: string, ratio: number) =>
-    shell.applyLayout((state) => setRatio(state, splitId, ratio)),
+    area.applyLayout((state) => setRatio(state, splitId, ratio)),
 });
