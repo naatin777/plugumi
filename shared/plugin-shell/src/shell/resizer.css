@@ -11,7 +11,7 @@
        外へ出す必要がある — 親の--tile-border（border宣言と同じ値）
        を引いて補正する。borderなしの親では0になる。 */
     --resizer-size: 8px;
-    --resizer-out: calc(-1 * (var(--work-gap) + var(--resizer-size)) / 2 - var(--tile-border, 0px));
+    --resizer-out: calc(-1 * (var(--area-gap) + var(--resizer-size)) / 2 - var(--tile-border, 0px));
   }
   /* 溝の中央に短い棒のハンドルを置く。普段は薄く、hover/ドラッグ中に
      濃くして掴める場所だと分からせる。 */

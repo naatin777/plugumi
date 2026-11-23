@@ -28,12 +28,12 @@
      AreaView幅（cqw）の40%までに抑える。 */
   .dock[data-dock="left"],
   .dock[data-dock="right"] { width: min(var(--dock-size, 0px), 40cqw); }
-  .dock[data-dock="left"] { grid-area: left; margin-right: var(--work-gap); }
-  .dock[data-dock="right"] { grid-area: right; margin-left: var(--work-gap); }
+  .dock[data-dock="left"] { grid-area: left; margin-right: var(--area-gap); }
+  .dock[data-dock="right"] { grid-area: right; margin-left: var(--area-gap); }
   .dock[data-dock="bottom"] {
     grid-area: bottom; flex-direction: column;
     height: var(--dock-size, 0px);
-    margin-top: var(--work-gap);
+    margin-top: var(--area-gap);
   }
   .dock[data-closed] {
     width: 0; height: 0;
@@ -69,15 +69,16 @@
   }
   .area-view:is([data-size="narrow"], [data-size="compact"])
       .dock:is([data-dock="left"], [data-dock="right"]) {
-    top: 0; bottom: 0;
+    /* inlineのdockの位置（外周--area-padの内側）に合わせる。 */
+    top: var(--area-pad); bottom: var(--area-pad);
     width: min(var(--dock-size, 0px), 85cqw);
   }
   .area-view:is([data-size="narrow"], [data-size="compact"])
-      .dock[data-dock="left"] { left: 0; }
+      .dock[data-dock="left"] { left: var(--area-pad); }
   .area-view:is([data-size="narrow"], [data-size="compact"])
-      .dock[data-dock="right"] { right: 0; }
+      .dock[data-dock="right"] { right: var(--area-pad); }
   .area-view[data-size="compact"] .dock[data-dock="bottom"] {
-    left: 0; right: 0; bottom: 0;
+    left: var(--area-pad); right: var(--area-pad); bottom: var(--area-pad);
     width: auto;
     height: min(var(--dock-size, 0px), 70cqh);
   }

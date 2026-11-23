@@ -48,8 +48,8 @@ function SplitView(props: { split: Split; edges: Edges }): JSX.Element {
       class="split"
       data-axis={props.split.axis}
       style={props.split.axis === "x"
-        ? { "grid-template-columns": `${props.split.ratio}fr var(--work-gap) ${1 - props.split.ratio}fr` }
-        : { "grid-template-rows": `${props.split.ratio}fr var(--work-gap) ${1 - props.split.ratio}fr` }}
+        ? { "grid-template-columns": `${props.split.ratio}fr var(--area-gap) ${1 - props.split.ratio}fr` }
+        : { "grid-template-rows": `${props.split.ratio}fr var(--area-gap) ${1 - props.split.ratio}fr` }}
     >
       <NodeView node={props.split.first} edges={firstEdges()} />
       <Resizer
