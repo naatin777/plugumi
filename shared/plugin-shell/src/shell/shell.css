@@ -25,7 +25,7 @@
     isolation: isolate;
     overflow: hidden;
     display: grid;
-    grid-template-rows: calc(env(titlebar-area-height, var(--os-inset-height, 40px)) + var(--work-gap)) 1fr 40px;
+    grid-template-rows: calc(var(--titlebar-h) + var(--work-gap)) 1fr 40px;
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);
@@ -55,18 +55,25 @@
 
   /* title帯の中でsegment（浮きバー）の端を決める変数。barの端は極力
      work面の端（=sidebar/pinned列の端、下のタイルの外縁）に揃える。
-     列がtool群の設計幅より狭い時だけtool群が優先される（tool群は
+     列がtool群のfootprintより狭い時だけtool群が優先される（tool群は
      frameに直置きで、barには含めない）。 */
   main.shell, .lab-shape {
+    /* env(titlebar-area-*)を読むのはここだけ（envは1箇所で変数へ
+       読み替えるのが公式の推奨形）。fallbackはenv未対応の表示向け。
+       inset-right = 窓の右端からtitlebar area右端までの距離
+       （macならtraffic lightが占める幅）。 */
+    --titlebar-x: env(titlebar-area-x, var(--os-inset-x, 0px));
+    --titlebar-h: env(titlebar-area-height, var(--os-inset-height, 40px));
+    --titlebar-w: env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)));
+    --titlebar-inset-right: calc(
+      var(--shell-viewport, 100vw) - var(--titlebar-x) - var(--titlebar-w));
     /* 列の端 = bodyの外周padding + 列幅。列が窓端からgap分内側に
        入るので、揃える側も同じ分だけ足す。 */
     --title-left: calc(max(
-      env(titlebar-area-x, var(--os-inset-x, 0px)) + var(--title-tools-left),
+      var(--titlebar-x) + var(--title-tools-left),
       var(--side-width, 0px) + var(--work-gap)));
     --title-right: calc(max(
-      var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px))
-        - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)))
-        + var(--title-tools-right),
+      var(--titlebar-inset-right) + var(--title-tools-right),
       var(--pinned-width, 0px) + var(--work-gap)));
   }
 
@@ -100,13 +107,13 @@
      --title-tools-*にはwork-shapeが実測footprintを書くので、
      bar側のmax()も実幅に追従する。 */
   .title-tools.left {
-    left: calc(env(titlebar-area-x, var(--os-inset-x, 0px)) + var(--work-gap));
-    width: calc(var(--title-left) - env(titlebar-area-x, var(--os-inset-x, 0px)) - var(--work-gap));
+    left: calc(var(--titlebar-x) + var(--work-gap));
+    width: calc(var(--title-left) - var(--titlebar-x) - var(--work-gap));
     min-width: max-content;
   }
   .title-tools.right {
-    right: calc(var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px)) - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw))) + var(--work-gap));
-    width: calc(var(--title-right) - (var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px)) - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)))) - var(--work-gap));
+    right: calc(var(--titlebar-inset-right) + var(--work-gap));
+    width: calc(var(--title-right) - var(--titlebar-inset-right) - var(--work-gap));
     min-width: max-content;
     justify-content: flex-end;
   }
@@ -159,7 +166,8 @@
     overflow: clip;
     /* resizerの棒が溝の中心まで出られるようclip領域を広げる。 */
     overflow-clip-margin: 8px;
-    border: 1px solid var(--plugumi-colors-border);
+    --tile-border: 1px;
+    border: var(--tile-border) solid var(--plugumi-colors-border);
     border-radius: var(--work-radius);
     background: transparent;
     backdrop-filter: blur(32px) saturate(1.4);

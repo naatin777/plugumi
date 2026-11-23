@@ -6,13 +6,12 @@
     flex: none;
     position: relative;
     /* ハンドル帯の太さと、帯を溝の中心へ出す外側オフセット。帯は溝
-       より太いので両側のタイルへ等しく食い込ませる。親がborderを
-       持つとpadding edge基準で1pxずれるため、親側で--resizer-adjを
-       立てて補正する。 */
+       より太いので両側のタイルへ等しく食い込ませる。absolute配置の
+       基準は親のpadding edgeなので、親がborderを持つぶんだけ更に
+       外へ出す必要がある — 親の--tile-border（border宣言と同じ値）
+       を引いて補正する。borderなしの親では0になる。 */
     --resizer-size: 8px;
-    /* --resizer-adjはここでは宣言しない — 自分で0を宣言すると親
-       （border持ち）からの継承値を上書きして補正が効かなくなる。 */
-    --resizer-out: calc(-1 * (var(--work-gap) + var(--resizer-size)) / 2 - var(--resizer-adj, 0px));
+    --resizer-out: calc(-1 * (var(--work-gap) + var(--resizer-size)) / 2 - var(--tile-border, 0px));
   }
   /* 溝の中央に短い棒のハンドルを置く。普段は薄く、hover/ドラッグ中に
      濃くして掴める場所だと分からせる。 */
@@ -31,7 +30,6 @@
   .resizer:hover::before, .resizer[data-dragging]::before { opacity: 0.9; }
   .resizer[data-axis="x"] { width: var(--resizer-size); margin: 0; cursor: col-resize; z-index: 2; justify-self: center; }
   .resizer[data-axis="y"] { height: var(--resizer-size); margin: 0; cursor: row-resize; z-index: 2; align-self: center; }
-  .dock, .frame-pinned, .frame-side { --resizer-adj: 1px; }
   .dock > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: var(--resizer-out); }
   .dock[data-dock="right"] > .resizer[data-axis="x"] { right: auto; left: var(--resizer-out); }
   .dock > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; top: var(--resizer-out); }

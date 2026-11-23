@@ -35,13 +35,16 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
       const cs = getComputedStyle(pill);
       const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
       const gap = parseFloat(getComputedStyle(shell).getPropertyValue("--work-gap")) || 0;
-      const write = (inner: HTMLDivElement | undefined, name: string) => {
-        const w = inner?.offsetWidth ?? 0;
-        shell.style.setProperty(name, w === 0 ? "0px" : `${w + padX + gap}px`);
-      };
-      const ro = new ResizeObserver(() => {
-        write(leftInner, "--title-tools-left");
-        write(rightInner, "--title-tools-right");
+      // entryの測定値をそのまま使う（callback内でoffsetWidth等を読むと
+      // レイアウトflushが起き、ResizeObserver loop警告の要因になる）。
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const w = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+          const name = entry.target === leftInner
+            ? "--title-tools-left"
+            : "--title-tools-right";
+          shell.style.setProperty(name, w === 0 ? "0px" : `${w + padX + gap}px`);
+        }
       });
       ro.observe(leftInner);
       ro.observe(rightInner);
