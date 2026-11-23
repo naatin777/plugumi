@@ -41,12 +41,11 @@
       --sub-width var(--work-anim) ease;
     /* Subのsegmentの最小幅（開閉ボタンだけの小さい形）。開いているときは
        Sub列の幅（--sub-width）と揃え、閉じると最小幅に畳まれる。 */
-    --sub-seg-min: 44px;
     /* Subのsegmentは「Sub列の左端〜右pillの左端−溝」の区間に置く。
-       幅は sub-width − tools-right。Sub列がpillより狭いときは最小幅を
-       確保し、足りない分は左（Sub列より手前）へ伸びる。 */
+       Sub閉時（--sub-width:0）・drawer時は幅0に畳まれる — 開閉ボタンは
+       右pillに置くのでsegment自体は出さない。 */
     --sub-seg-w: max(
-      var(--sub-seg-min),
+      0px,
       calc(var(--sub-width, 0px) - var(--title-tools-right)));
     height: 100vh;
     background: var(--shell-frame-color);
@@ -167,17 +166,17 @@
       + var(--sub-seg-w) + var(--work-gap));
     min-width: 0;
   }
-  /* SubのsegmentはSub列の左端に揃え、右端は右pillの手前。 */
+  /* SubのsegmentはSub列の左端に揃え、右端は右pillの手前。
+     Subが閉じている・drawerのときは幅0（畳み込みは--sub-widthの
+     transitionに乗る）。 */
   .work-segment[data-slot="sub"] {
     right: calc(var(--title-right) + var(--work-gap));
     width: var(--sub-seg-w);
-    /* 狭いとき中身（LBR＋開閉）が潰れないよう自然幅を下限にする。
-       開いているSub列がpillより狭い場合は左へ伸びる。 */
-    min-width: var(--sub-seg-min);
   }
-  /* Subがdrawerのときは開閉ボタンだけの小さい形。 */
-  main.shell:is([data-size="medium"], [data-size="compact"]) {
-    --sub-seg-w: var(--sub-seg-min);
+  /* 畳んだsegmentはborderも消す（幅0でも2pxの枠が残るので）。 */
+  main.shell:not([data-sub]) .work-segment[data-slot="sub"] {
+    border-width: 0;
+    padding: 0;
   }
   /* Floating windowはAreaView1個だけ — Subのsegmentは出さない。 */
   main.shell.floating { --sub-seg-w: 0px; }

@@ -232,12 +232,6 @@ export function TitleSegmentSub(props: { area: AreaController }): JSX.Element {
         <span class="bar-flex" />
         <DockButtons area={props.area} />
       </Show>
-      <ToolButton
-        label="Sub" keep pressed={shell.subShown()}
-        onClick={() => shell.toggleSub()}
-      >
-        <IconSidebar />
-      </ToolButton>
     </>
   );
 }
@@ -285,6 +279,15 @@ export function TitleToolsRight(): JSX.Element {
   let menu!: HTMLDivElement;
   return (
     <>
+      {/* Sub開閉は右pillの先頭（Sub列寄り）で固定 — Sub列の有無で
+          segment側が伸縮してもボタンの位置は変わらない。 */}
+      <ToolButton
+        label="Sub" keep pressed={shell.subShown()}
+        onClick={() => shell.toggleSub()}
+      >
+        <IconSidebar />
+      </ToolButton>
+      <span class="tool-sep" />
       <Show
         when={shell.shellSize() === "compact"}
         fallback={<MiscButtons />}

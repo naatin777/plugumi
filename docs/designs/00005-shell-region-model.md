@@ -87,7 +87,7 @@ Area listはAreaを**Main**・**Sub**・**Floating**の3セクションで一覧
 title barのwork区間（segment）はMainとSubで2つに分かれ、各segmentがその列の真上に浮く。どの列のボタンかは位置で分かるようにする。
 
 - **Mainのsegment**: MainのAreaのcrumb・「+」・検索・`[左][下][右]`のdock開閉。
-- **Subのsegment**: SubのAreaのcrumb（clickでMainへ移動）・「+」・Sub用の`[左][下][右]`・右端のSub開閉ボタン。Subが閉じているときは開閉ボタンだけの小さいsegmentに畳まれ、Subを開くとその真下からSub列が出る。
+- **Subのsegment**: SubのAreaのcrumb（clickでMainへ移動）・「+」・Sub用の`[左][下][右]`。Subが閉じている・drawerのときはsegment自体を出さない（幅0に畳まれる）。Subの開閉ボタンは右pillの先頭に固定で置き、drawer時はSub drawerを開閉する。
 - dockの開閉状態はslot（Main/Sub）ごとに独立して持つ（`dockOpen[slot][kind]`）。⌥⌘2〜4は「触っている側」のAreaのdockを開閉する。
 - dockの幅・高さ（`dockSize`）は両slotで共通。
 
