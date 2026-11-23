@@ -72,36 +72,27 @@ Panelの置き場所がそのままスコープになる。「pin」という概
 
 ## 面と縁
 
-Shellの背景は奥から3層を重ねて描く。Darkでは手前ほど明るく、Lightでは手前ほどグレーが濃い。
+Shellは「土台の上にタイルを並べる」だけで描く。領域同士の区切りは線ではなく、タイル同士の間に覗く土台色の溝（gap）である。
 
-1. **土台**: ページ全体。窓の四隅や、work面の角を切った部分にはこの色が見える。
-2. **frame領域**: topbarの左右区間、sidebar、pinnedの周り、statusbar。土台と同じ色の1枚の面として続く。
-3. **work面**: left・center・right・bottomの4領域を包む面と、topbarの中央区間（work区間）を合わせた図形。土台より手前に浮いている。内側には、centerの区画を包むもう1つの面（center面）がある。
+1. **土台（primary）**: ページ全体と、sidebar・pinned・topbar両端・statusbarのframe領域、そしてmatの内側全面に敷く床（work-bed）。カード間のgapは全部この床が覗くので、溝は領域をまたいで連続して貫く。
+2. **タイル（secondary）**: dock（left・right・bottom）・leaf（centerの区画）・pinnedの各カードと、topbar中央の浮きバー（segment）。全て同じ色・同じ角丸で、borderは持たない。
+3. **操作系（tertiary）**: 入力欄、popover・メニュー、hover、選択中のtab、実行中の強調。タイルの内側にだけ使う。
 
-- **Panelは自分の縁を持つ**: Panelの枠は`1px border + radius`を持つ。領域の区切り線は引かず、Panelの形が区切りを兼ねる。
-- **tab帯はカードのheader**: dock（left・right・bottom・pinned）・centerのleafは、それぞれ「tab帯（header）＋中身」の1枚のカードである。tab帯はカードの輪郭の内側の上端に置き、中身との間はhairline（divider面）で区切る。
-- **背景は3段**: 次の3つのtokenで塗る。区切り線ではなく面の明るさの差を区切りにする。
+| token | 使う場所 | Dark | Light |
+|---|---|---|---|
+| `--plugumi-colors-background-primary` | 土台・frame・床（溝） | #121212 | #FFFFFF |
+| `--plugumi-colors-background-secondary` | タイル（dock・leaf・pinned・segmentバー）、Panelの面 | #1E1E1E | #F1F1F1 |
+| `--plugumi-colors-background-tertiary` | 入力欄・popover・hover・選択中のtab | #2D2D2D | #E5E5E5 |
 
-| token | 段 | 使う場所 | Dark | Light |
-|---|---|---|---|---|
-| `--plugumi-colors-background-primary` | 最奥 | 土台、frame（topbarの左右区間・sidebar・pinnedの周り・statusbar） | #121212 | #FFFFFF |
-| `--plugumi-colors-background-secondary` | 手前 | work面（4領域を包む面とtopbarのwork区間）、Panelのカード（dock・leaf・pinned） | #1E1E22 | #F1F3F4 |
-| `--plugumi-colors-background-tertiary` | さらに手前 | center面、入力欄、popover・メニュー、hover、選択中のtab、実行中の強調 | #2D2D33 | #E5E7EB |
-
-- work面とカードは同じ色で、カードは1pxの縁で区切る。領域の区切りはwork面の形（輪郭とカードの間の溝）が担う。
-- **center面**: centerの区画の中は一段明るいtertiaryの床が敷かれ、frame→work面→center面で内側ほど明るいグラデーションになる。床は常に長方形で、dockのカードの縁まで届き、dockを閉じた側ではwork面の内縁まで届く。角は外側の面と同じ半径で丸め、dockカードの縁との接点では丸めた分だけ下のwork面が覗いてフィレットになる。leafのカードはこの床の上に置かれ、1pxの縁で区切る。
+- **区切りは溝が担う**: カードはborderを引かない。隣り合うカードの間は溝1つだけで、「border｜溝｜border」の二重区切りにしない。溝の幅は`--work-gap`（4px）で、カードの四方は必ず溝に面する。
+- **tab帯はカードのheader**: dock・leafは「tab帯（header）＋中身」の1枚のカード。tab帯と中身の間はhairline（divider面）で区切る。
 - Panelの面は領域によらずsecondaryで統一し、Shellが敷く。Panelの最背面は透明にして、Shellが敷いた面の色をそのまま使う。
 
-### work面の形
+### タイルの輪郭
 
-work面の形は、topbarの左右に何をどれだけ表示するかと、sidebar・pinnedの幅で決まる。長方形・凸形（上が下より狭い）・きのこ形（上が下より広い）のどれにもなりうる。左右はそれぞれ独立に決まる。
-
-- 下の部分（4領域を包む面）の左端はsidebarの右端、右端はpinnedの左端に一致する。
-- topbarのwork区間の左端は、topbar左区間の右端に置く。topbar左区間の幅は、OSの操作領域（`env(titlebar-area-x)`）とShellのボタン群の幅を足したものである。sidebarの幅は見ない。右端も同じ規則で、topbar右区間の左端に置く。
-- 左右それぞれ、上下の端の差を段差`d`とする。work区間が内側にあれば凸、外側にあればきのこになる。どちらの向きでも、外側の凸角と内側の凹角を半径`min(R, d/2)`の2つの弧（S字）で繋ぐ。段差がなければ直線で繋ぐ。
-- きのこのとき、work区間はsidebarやpinnedの上まで伸び、sidebar・pinnedはwork区間の下から始まる。
-- 段差`d`が24px未満のときは段差を作らず、work区間の端を下の部分の端に揃えて長方形にする。細かいS字を出さないため、また、sidebar・pinnedの幅を少し変えたくらいでは形を変えないためである。
-- 形は、sidebar幅・pinned幅・OSの操作領域・ボタン群の幅という既知の値だけから計算する。描画後の要素の位置を読み取って形を決めることはしない。
+- **浮きバー**: topbarでは中央のwork区間（segment）だけが浮きバーになる。左右のtool群（sidebar・pinnedの開閉などframeの操作）はframeに直置きし、バーには含めない。バーは四辺ともgapで離す。
+- **splitはsegment方式**: centerをsplitすると、分割したleaf同士は溝で離れるが、regionの外縁の角だけが丸い。splitの内側の辺は直角にして溝を真っ直ぐに通し、外からは1枚のカードの輪郭に見える（Googleのlist viewのsegment方式）。leafの各辺が外縁かどうかはsplit木で伝播する（`Edges`）。
+- dockカード・pinnedカードは領域全体で1枚なので全角丸い。
 
 ## 保存の形
 
@@ -163,6 +154,6 @@ panel.setActivity({
 | Region | Panelの配置先（left/right/bottom/workspace/pinned）。位置の契約 |
 | pinned | Project-scopeのRegion。Areaをまたぐ。中身はleft・rightと同じtab切替 |
 | 表示モード | Region内のPanelの出し方。全領域でpagesの1つだけ |
-| Panel Frame | Panelの枠（縁+radius）。Regionに依らず同じ輪郭 |
+| Panel Frame | Panelの枠（radius）。Regionに依らず同じ輪郭 |
 | frame | Shell固有の帯（topbar/statusbar/sidebar）。不透明slab面 |
 | activity | Panelの活動状態。Pluginが意味を通知、Shellが描く |

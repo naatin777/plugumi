@@ -11,11 +11,8 @@
      work面（canvas）と明確に分ける色を決定済みのtokenから引く。 */
   --shell-frame-color: var(--plugumi-colors-background-primary);
   /* titleのtool群は固定設計幅。中身は収まるように組み、
-     名前のような可変幅はellipsisで収める。sidebar幅の既定値より
-     小さくしておき、既定の見た目は矩形（凸なし）になるようにする。 */
+     名前のような可変幅はellipsisで収める。 */
   --title-tools-left: 260px;
-  /* pinned幅の既定値に合わせ、既定の見た目は矩形になる。
-     pinnedを狭めるときのこ段差が現れる（designs/00005「work面の形」）。 */
   --title-tools-right: 280px;
   /* カードのheader帯（tab strip）の高さ */
   --shell-strip-h: 30px;
@@ -25,7 +22,7 @@
 
   main.shell {
     display: grid;
-    grid-template-rows: env(titlebar-area-height, var(--os-inset-height, 40px)) 1fr 40px;
+    grid-template-rows: calc(env(titlebar-area-height, var(--os-inset-height, 40px)) + var(--work-gap)) 1fr 40px;
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);
@@ -33,40 +30,17 @@
     font-size: var(--plugumi-font-size-sm);
   }
 
-  /* work面の形に使う変数は全部ここで1回だけ定義する。
-     .work-title/.work-segment/.work-matのどれかで定義すると、
-     兄弟（titleとbodyは別枝）には届かず段差が消える。 */
+  /* title帯の中でsegment（浮きバー）の端を決める変数。work区間の幅は
+     左右のtool群の固定設計幅だけで決まる。tool群はframeに直置きで、
+     barには含めない。 */
   main.shell, .lab-shape {
     --title-left: calc(env(titlebar-area-x, var(--os-inset-x, 0px)) + var(--title-tools-left));
     --title-right: calc(var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px))
       - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw))) + var(--title-tools-right));
-    /* 段差は向きで分ける: work区間が内側なら凸、外側（sideが広い）なら
-       きのこ。両方0以上で片方しか0にならない。 */
-    /* 段差が24px未満なら段を作らず矩形に揃える。--snap-*は0 or 1pxのフラグで、
-       sign()/round()/length同士の除算を使わずcalcの閾値クランプだけで作る。
-       段差が生きる側では*10000pxで実質∞に化かしてclamp/minを通す。 */
-    --snap-left: clamp(0px,
-      (max(var(--title-left) - var(--side-width, 0px), var(--side-width, 0px) - var(--title-left)) - 23.999px) * 1000,
-      1px);
-    --snap-right: clamp(0px,
-      (max(var(--title-right) - var(--pinned-width, 0px), var(--pinned-width, 0px) - var(--title-right)) - 23.999px) * 1000,
-      1px);
-    --convex-step-left: min(max(0px, var(--title-left) - var(--side-width, 0px)), var(--snap-left) * 10000);
-    --convex-step-right: min(max(0px, var(--title-right) - var(--pinned-width, 0px)), var(--snap-right) * 10000);
-    --mushroom-step-left: min(max(0px, var(--side-width, 0px) - var(--title-left)), var(--snap-left) * 10000);
-    --mushroom-step-right: min(max(0px, var(--pinned-width, 0px) - var(--title-right)), var(--snap-right) * 10000);
-    /* 吸着した側はwork区間の端をmatの端に寄せる（矩形側はtool区間にはみ出す）。 */
-    --edge-left: calc(var(--side-width, 0px) + clamp(var(--snap-left) * -10000,
-      var(--title-left) - var(--side-width, 0px), var(--snap-left) * 10000));
-    --edge-right: calc(var(--pinned-width, 0px) + clamp(var(--snap-right) * -10000,
-      var(--title-right) - var(--pinned-width, 0px), var(--snap-right) * 10000));
-    --convex-curve-left: min(var(--work-radius), var(--convex-step-left) / 2);
-    --convex-curve-right: min(var(--work-radius), var(--convex-step-right) / 2);
-    --mushroom-curve-left: min(var(--work-radius), var(--mushroom-step-left) / 2);
-    --mushroom-curve-right: min(var(--work-radius), var(--mushroom-step-right) / 2);
   }
 
-  /* ---- 面と縁: 3段。土台とframe領域はbackground-primary、その上に浮くwork面はbackground-secondary。 ---- */
+  /* ---- 面と縁: 土台とframe領域はbackground-primary、その上に浮く
+     面はbackground-secondary。title帯ではsegmentだけが浮きバー。 ---- */
   .work-title {
     position: relative;
     background: var(--shell-frame-color);
@@ -78,7 +52,7 @@
 
   .title-tools {
     position: absolute;
-    top: 0; bottom: 0;
+    top: var(--work-gap); bottom: 0;
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
@@ -87,36 +61,35 @@
   .title-tools.left {
     left: env(titlebar-area-x, var(--os-inset-x, 0px));
     width: var(--title-tools-left);
-    /* 段差吸着でwork区間が最大23px左にはみ出すので、内側端24pxは空ける */
-    padding-right: 24px;
   }
   .title-tools.right {
     right: calc(var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px)) - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw))));
     width: var(--title-tools-right);
     justify-content: flex-end;
-    padding-left: 24px;
   }
 
-  /* work区間の左右の端はtool区間の端そのもの（side/pinned幅は見ない）。
-     下側の角はきのこ段差のときだけ丸める（上が広い凸角）。 */
+  /* segmentはtool群の間に浮くbar。下はbodyのpaddingが溝になるので
+     行の下端まで伸ばす。 */
   .work-segment {
     position: absolute;
-    top: 0; bottom: 0;
-    left: var(--edge-left);
-    right: var(--edge-right);
+    top: var(--work-gap); bottom: 0;
+    left: calc(var(--title-left) + var(--work-gap));
+    right: calc(var(--title-right) + var(--work-gap));
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
     background: var(--plugumi-colors-background-secondary);
-    border-radius: var(--work-radius) var(--work-radius)
-      var(--mushroom-curve-right) var(--mushroom-curve-left);
+    border-radius: var(--work-radius);
     overflow: hidden;
   }
 
-  /* body側の3列。sideとpinnedはframe色、matはcanvas。 */
+  /* body側の3列。sideとpinnedはframe色、matはcanvas。
+     列間のgapと上下のpaddingがタイルの周りの溝になる。 */
   .work-body {
     display: grid;
     grid-template-columns: var(--side-width, 0px) 1fr var(--pinned-width, 0px);
+    gap: var(--work-gap);
+    padding: var(--work-gap) 0;
     min-height: 0;
     background: var(--shell-frame-color);
   }
@@ -126,11 +99,10 @@
     overflow: hidden;
     background: var(--shell-frame-color);
   }
-  /* pinnedカードはwork面のカードと同じgapだけ内側に入れ、
-     輪郭全体がframe色の上に見えるようにする。
-     左側のgapはwork面のresizer溝と同じ間隔に揃える。 */
+  /* pinnedカードの溝: 左はbodyの列間gap、上下はbodyのpaddingが
+     担うので、ここでは窓の右端ぶんだけ取る。 */
   .frame-pinned {
-    padding: var(--work-gap);
+    padding: 0 var(--work-gap) 0 0;
   }
 
   .work-mat {
@@ -141,68 +113,20 @@
       "left bottom right" auto
       / auto minmax(0, 1fr) auto;
     gap: var(--work-gap);
-    padding: var(--work-gap);
     background: var(--plugumi-colors-background-secondary);
-    border-radius: var(--convex-curve-left) var(--convex-curve-right)
-      var(--work-radius) var(--work-radius);
+    border-radius: var(--work-radius);
   }
 
-  /* centerを囲む床。centerセルの内側に収め、dockの縁には届かせない。
-     こうするとセルの外側のgap溝が領域をまたいで貫き、接点に床が
-     食い込まない。.centerはgapぶん内側に入るので、床はgap幅の帯として
-     leafを囲む。床は一段明るいtertiaryで、frame→work面→center面で
-     内側ほど明るい3段のグラデーションになる。角は外側の面と同じ
-     半径で、接点では下のwork面が覗く。 */
-  .work-center-mat {
-    grid-area: center;
-    background: var(--plugumi-colors-background-tertiary);
+  /* matの内側全面に敷く床。全セルと全gapをまたぐ1枚の面なので、
+     カード間のgapは領域をまたいで貫く連続した溝として見える。
+     区切りは線ではなくこの奥の面の露出で担い、カードはborderを持たない。
+     外周まで届くので角はmatの輪郭と同じ半径。 */
+  .work-bed {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    background: var(--plugumi-colors-background-primary);
     border-radius: var(--work-radius);
     pointer-events: none;
-  }
-
-  /* 凸の凹角: 象限だけ欠いた角片。title帯の下端に置き、
-     円は凹頂点から遠い角に置く（頂点に置くと内側を塗ってしまう）。 */
-  .work-corner {
-    position: absolute;
-    bottom: 0;
-    pointer-events: none;
-  }
-  .work-corner.left {
-    left: calc(var(--side-width, 0px) + var(--convex-step-left) - var(--convex-curve-left));
-    width: var(--convex-curve-left);
-    height: var(--convex-curve-left);
-    background: radial-gradient(circle at 0 0,
-      transparent calc(var(--convex-curve-left) - 0.5px),
-      var(--plugumi-colors-background-secondary) var(--convex-curve-left));
-  }
-  .work-corner.right {
-    right: calc(var(--pinned-width, 0px) + var(--convex-step-right) - var(--convex-curve-right));
-    width: var(--convex-curve-right);
-    height: var(--convex-curve-right);
-    background: radial-gradient(circle at 100% 0,
-      transparent calc(var(--convex-curve-right) - 0.5px),
-      var(--plugumi-colors-background-secondary) var(--convex-curve-right));
-  }
-
-  /* きのこの凹角: side/pinnedの方がwork区間より外側に出るとき、
-     張り出した区間の丸まった下角の下にできる凹み。side/pinned帯の
-     上端の内側コーナーに置く（頂点=区画の端、y=seam）。 */
-  .work-corner.under { top: 0; bottom: auto; }
-  .work-corner.under-left {
-    right: 0;
-    width: var(--mushroom-curve-left);
-    height: var(--mushroom-curve-left);
-    background: radial-gradient(circle at 0 100%,
-      transparent calc(var(--mushroom-curve-left) - 0.5px),
-      var(--plugumi-colors-background-secondary) var(--mushroom-curve-left));
-  }
-  .work-corner.under-right {
-    left: 0;
-    width: var(--mushroom-curve-right);
-    height: var(--mushroom-curve-right);
-    background: radial-gradient(circle at 100% 100%,
-      transparent calc(var(--mushroom-curve-right) - 0.5px),
-      var(--plugumi-colors-background-secondary) var(--mushroom-curve-right));
   }
   .status-bar {
     display: flex; align-items: center;
