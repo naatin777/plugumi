@@ -1,5 +1,5 @@
 // Project画面の外枠。main.shellに既知の幅をCSS変数として供給し、
-// work面の形はCSSだけで決まる。zenは個別の開閉を潰さずframeをまとめて
+// work面の形はCSSだけで決まる。focusは個別の開閉を潰さずframeをまとめて
 // 引っ込める。キーはe.codeで見る（⌥⌘1-5, ⌥⌘Z）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -17,13 +17,13 @@ import { CenterView } from "./center.tsx";
 export function ShellFrame(): JSX.Element {
   const shell = useShell();
   const prefs = () => shell.prefs();
-  const zen = () => prefs().frameHidden;
-  // work面の形に使う幅。zenでは0を渡す（開閉状態自体は潰さない）。
-  const sideWidth = () => (zen() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
-  const pinnedWidth = () => (zen() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
-  // dockもzenでは引っ込める — 開閉状態は潰さず表示だけ0にする。
+  const focus = () => prefs().focusMode;
+  // work面の形に使う幅。focusでは0を渡す（開閉状態自体は潰さない）。
+  const sideWidth = () => (focus() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
+  const pinnedWidth = () => (focus() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
+  // dockもfocusでは引っ込める — 開閉状態は潰さず表示だけ0にする。
   const dockShown = (kind: "left" | "bottom" | "right") =>
-    !zen() && prefs().dockOpen[kind];
+    !focus() && prefs().dockOpen[kind];
   // matのgrid template。閉じたdockの分は列/行ごと消す — 0幅のauto列を
   // 残すと列間のgapだけが溝として残って空きレーンになるため。
   // bodyの列も開いている側だけ（aside自体はdata-attrで消す）。
@@ -66,7 +66,7 @@ export function ShellFrame(): JSX.Element {
       return;
     }
     if (event.code === "KeyZ") {
-      shell.updatePrefs((prefs) => { prefs.frameHidden = !prefs.frameHidden; });
+      shell.updatePrefs((prefs) => { prefs.focusMode = !prefs.focusMode; });
       event.preventDefault();
       return;
     }
@@ -87,7 +87,7 @@ export function ShellFrame(): JSX.Element {
 
   return (
     <main
-      class={{ shell: true, "frame-hidden": zen(), "no-aurora": !prefs().aurora }}
+      class={{ shell: true, "focus": focus(), "no-aurora": !prefs().aurora }}
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
       data-side={sideWidth() > 0 ? "" : undefined}
       data-pinned={pinnedWidth() > 0 ? "" : undefined}
@@ -102,8 +102,8 @@ export function ShellFrame(): JSX.Element {
         titleLeft={<TitleToolsLeft />}
         titleCenter={<TitleToolsCenter />}
         titleRight={<TitleToolsRight />}
-        sidebar={<Show when={prefs().sidebarOpen && !zen()}><SidebarView /></Show>}
-        pinned={<Show when={prefs().pinnedOpen && !zen()}><PinnedBoard /></Show>}
+        sidebar={<Show when={prefs().sidebarOpen && !focus()}><SidebarView /></Show>}
+        pinned={<Show when={prefs().pinnedOpen && !focus()}><PinnedBoard /></Show>}
       >
         <Show when={dockShown("left")}><Dock kind="left" /></Show>
         <CenterView />

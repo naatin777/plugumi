@@ -42,7 +42,7 @@ flowchart LR
 
 Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
-- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）、left/bottom/rightの開閉、zen、右端にテーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）とPinned列の開閉を持つ。
+- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）、left/bottom/rightの開閉、focus（現在の作業領域だけを表示）、右端にテーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）とPinned列の開閉を持つ。
 - **本体**: 左のサイドバー（ProjectタブとAreaツリー）、中央のWorkspaceの4 Dock、右のPinned Dock。
 - **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
 

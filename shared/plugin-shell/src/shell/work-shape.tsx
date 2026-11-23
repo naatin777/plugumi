@@ -23,7 +23,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
   // tool群のmin-widthは「必要な分だけ」— 中身の自然幅を.tools-innerで
   // 測り、paddingと外側の溝を足したfootprintを--title-tools-*へ書く。
   // ResizeObserverなので内容増減・フォント適用の後追いも拾う。
-  // display:none（zen）では0が入り、frame-hidden側の0潰しと一致する。
+  // display:none（focus）では0が入り、focus側の0潰しと一致する。
   createEffect(
     () => null,
     () => {

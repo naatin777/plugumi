@@ -202,12 +202,12 @@
     overflow: hidden;
   }
 
-  /* zen: 個別の開閉は潰さず、まとめてframeを引っ込める。
+  /* focus: 個別の開閉は潰さず、まとめてframeを引っ込める。
      幅はTS側が既知の値として0を渡すので、ここではtool帯とstatusだけ潰す。 */
-  main.shell.frame-hidden {
+  main.shell.focus {
     --title-tools-left: 0px;
     --title-tools-right: 0px;
   }
-  main.shell.frame-hidden .title-tools { display: none; }
-  main.shell.frame-hidden .status-bar { display: none; }
+  main.shell.focus .title-tools { display: none; }
+  main.shell.focus .status-bar { display: none; }
 }

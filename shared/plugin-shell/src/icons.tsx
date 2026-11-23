@@ -98,8 +98,8 @@ export const IconGrip = icon(() => <>
   <circle cx="10.5" cy="12.5" r="0.8" fill="currentColor" stroke="none" />
 </>);
 
-// zen: 枠が引っ込んで中央だけ残るイメージ。
-export const IconZen = icon(() => <>
+// focus: 枠が引っ込んで中央の作業領域だけ残るイメージ。
+export const IconFocus = icon(() => <>
   <polyline points="6,2.5 2.5,2.5 2.5,6" />
   <polyline points="10,2.5 13.5,2.5 13.5,6" />
   <polyline points="6,13.5 2.5,13.5 2.5,10" />

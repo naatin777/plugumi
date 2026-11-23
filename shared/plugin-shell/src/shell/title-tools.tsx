@@ -1,5 +1,5 @@
 // titleのtool群。左: sidebar開閉 + Core switcher、
-// 中央（work区間）: 「+」・dock開閉・zen、
+// 中央（work区間）: 「+」・dock開閉・focus、
 // 右: テーマ・背景・pinned開閉。pillの下限は中身の実測幅。
 import { For, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -8,7 +8,7 @@ import { useShell } from "./controller.tsx";
 import { ToolButton } from "./tool-button.tsx";
 import { nextTheme } from "../theme.ts";
 import {
-  IconSidebar, IconPinned, IconZen, IconPlus,
+  IconSidebar, IconPinned, IconFocus, IconPlus,
   IconDockLeft, IconDockBottom, IconDockRight,
   IconThemeSystem, IconThemeLight, IconThemeDark,
   IconSearch, IconSettings, IconAurora,
@@ -153,8 +153,8 @@ export function TitleToolsCenter(): JSX.Element {
         <span class="bar-search-key">⌘K</span>
       </button>
       <span class="bar-flex" />
-      {/* zen中はdockを出せないので開閉ボタンも隠す。 */}
-      <Show when={!shell.prefs().frameHidden}>
+      {/* focus中はdockを出せないので開閉ボタンも隠す。 */}
+      <Show when={!shell.prefs().focusMode}>
         <ToolButton
           label="左の領域" pressed={shell.prefs().dockOpen.left}
           onClick={() => toggleDock("left")}
@@ -176,10 +176,10 @@ export function TitleToolsCenter(): JSX.Element {
         <span class="title-gap" />
       </Show>
       <ToolButton
-        label="zen" pressed={shell.prefs().frameHidden}
-        onClick={() => shell.updatePrefs((prefs) => { prefs.frameHidden = !prefs.frameHidden; })}
+        label="フォーカス" pressed={shell.prefs().focusMode}
+        onClick={() => shell.updatePrefs((prefs) => { prefs.focusMode = !prefs.focusMode; })}
       >
-        <IconZen />
+        <IconFocus />
       </ToolButton>
     </>
   );
