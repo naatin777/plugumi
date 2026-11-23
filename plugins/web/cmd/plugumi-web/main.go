@@ -172,8 +172,11 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	// Electron等のviewerが実行記録からhostを発見できるよう、待受URLを
+	// 記録に書く。loopback限定なのでhttp://<addr>のまま使える。
+	listenURL := fmt.Sprintf("http://%s", listener.Addr())
 	logPath := logfile.Path("web")
-	unregister, registerErr := plugininstances.Register(instanceID, version, logPath)
+	unregister, registerErr := plugininstances.Register(instanceID, version, logPath, listenURL)
 	if registerErr == nil {
 		defer unregister()
 	}
@@ -189,7 +192,7 @@ func run(args []string) error {
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)
 	}()
-	logfile.Write(logPath, fmt.Sprintf("[web] listening on http://%s", listener.Addr()))
+	logfile.Write(logPath, fmt.Sprintf("[web] listening on %s", listenURL))
 	err = httpServer.Serve(listener)
 	if err != nil && err != http.ErrServerClosed {
 		return err

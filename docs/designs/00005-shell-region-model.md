@@ -87,9 +87,9 @@ Area listは**今のProjectの全Area**を**Main**・**Sub**の2セクション�
   ```
 
   path keyはpathの各segmentを`encodeURIComponent`して`/`で継いだ文字列。保存先はlocalStorageの`plugumi:shell:area-list:<coreKey>:<project>`（Projectごとに読み替える）。Main = 全Areaのうち`sub`に無いもの（tree順・入れ子はインデント）、Sub = `sub`の順でtreeに実在するものだけ（消えたAreaは表示から外すだけで、保存は掃除しない）。
-- **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する（Mainの選択はURLが正本）。行メニュー: 「Subへ」「子Areaを追加」、表示形式「すべて / centerのみ」、「別windowで開く」（Electronのみ）、「Areaを削除」（確認あり。「<name> とその下のAreaを削除します」）。
+- **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する（Mainの選択はURLが正本）。行メニュー: 「Subへ」「子Areaを追加」、表示形式「すべて / centerのみ」、「別windowで開く」、「Areaを削除」（確認あり。「<name> とその下のAreaを削除します」）。
 - **Sub**: 行のclickでそのAreaをSub領域に表示する（Subが閉じていれば開く）。Subは開閉でき、閉じるとMainが全幅になる。Subはcenterだけの表示なので表示切替は出さない。行メニュー: 「Mainへ」「子Areaを追加」「別windowで開く」「Areaを削除」。
-- **別windowで開く（detach）**: 行メニューからそのAreaを別windowで開く。Electronのみ（Webは項目自体を出さない）。detached windowはtitle帯最小限＋そのAreaのAreaView1個（Main扱い＝dockあり）だけを描く。
+- **別windowで開く（detach）**: 行メニューからそのAreaを別windowで開く。Electronではpreloadのbridge経由でBrowserWindowを開く（Webでは項目自体を出さない）。detached windowはtitle帯最小限＋そのAreaのAreaView1個（Main扱い＝dockあり）だけを描く。
 - **「＋ Areaを追加」は新規作成**（名前入力。親はProject直下）。Subの「＋」で作ったAreaはそのままSubへ入る。「子Areaを追加」は行メニューから。Areaが0個のProjectでは各セクションに案内文を出す。
 
 ### 列ごとの開閉ボタン

@@ -71,13 +71,15 @@ Web Pluginは `[web] listening on http://127.0.0.1:<port>` を出力する。ブ
 
 ## Electron Plugin
 
-Electron Pluginは同じ画面をデスクトップアプリとして提供する別のPluginである。GoもHTTPサーバーも持たず、mainプロセスがTypeScriptでCoreへ登録・接続し、preloadのIPCを通してrendererへ `ShellHost` を渡す。PanelのUIファイルは独自プロトコル `plugumi-ui://` でCoreから取得する。
+Electron PluginはWeb Pluginの配る画面をデスクトップアプリのwindowで開くviewerである。Coreへ自分で接続せず、動作中のWeb Pluginを実行記録から見つけて再利用するか、無ければplugumi-webを子プロセスとして起動し、その待受URLを `BrowserWindow` で開く。
 
 ```sh
 pnpm --dir plugins/electron start --core http://127.0.0.1:7700
 ```
 
-`--core` は複数回指定できる。一つだけなら `PLUGUMI_CORE_URL` でも指定できる。画面の `/` からCoreのURLを追加でき、追加したURLは設定ディレクトリの `plugumi/electron.json` に保存される。Project以下の保存先はWeb Pluginとは別の `~/.plugumi/electron/` で、形式は同じである。`--core` で指定したCoreは画面から削除できない。
+`--core` は起動するplugumi-webへ転送される。一つだけなら `PLUGUMI_CORE_URL` でも指定できる。`PLUGUMI_TOKEN` も環境変数として引き継がれる。CoreのURL追加やProject以下の保存はすべてWeb Plugin側で行われるため、画面から追加したCoreは `plugumi/web.json` に、Projectは `~/.plugumi/web/` に保存される。
+
+起動するplugumi-webバイナリは `PLUGUMI_HOST_BIN` で指定できる。無ければリポジトリ（`PLUGUMI_REPO`、未指定なら配置からの相対位置）の `plugins/web` から `go build` してキャッシュへ置く。既に動いているWeb Pluginがあれば子プロセスは起動せず、そちらを再利用する。
 
 ## RESTクライアントの型生成
 

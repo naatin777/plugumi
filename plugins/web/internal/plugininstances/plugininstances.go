@@ -25,7 +25,8 @@ func NewID() string {
 }
 
 // record はplugins/<id>.jsonの内容。フィールド名はagent/standardの
-// 実行記録と一致させる。
+// 実行記録と一致させる。urlはweb pluginの待受アドレスで、Electron等の
+// viewerがhostを発見するために使う（待受を持たないPluginは書かない）。
 type record struct {
 	Name                 string `json:"name"`
 	ID                   string `json:"id"`
@@ -33,26 +34,27 @@ type record struct {
 	PID                  int    `json:"pid"`
 	HeartbeatUnixSeconds int64  `json:"heartbeatUnixSeconds"`
 	Log                  string `json:"log,omitempty"`
+	URL                  string `json:"url,omitempty"`
 }
 
 // Register は実行記録を書き、5秒ごとのheartbeat更新と終了時削除を行う。
 // 記録先が使えない環境でもPlugin自体は動かすため、失敗時はnilとエラーを返す。
-func Register(id, version, logPath string) (func(), error) {
+func Register(id, version, logPath, url string) (func(), error) {
 	cacheDirectory, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err
 	}
-	return register(filepath.Join(cacheDirectory, "plugumi", "plugins"), id, version, logPath)
+	return register(filepath.Join(cacheDirectory, "plugumi", "plugins"), id, version, logPath, url)
 }
 
-func register(directory, id, version, logPath string) (func(), error) {
+func register(directory, id, version, logPath, url string) (func(), error) {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return nil, err
 	}
 	path := filepath.Join(directory, id+".json")
 	// 読みかけの不完全ファイルを見せないよう、別名で書いてからrenameする。
 	temp := filepath.Join(directory, fmt.Sprintf(".%d", os.Getpid()))
-	entry := record{Name: "web", ID: id, Version: version, PID: os.Getpid(), Log: logPath}
+	entry := record{Name: "web", ID: id, Version: version, PID: os.Getpid(), Log: logPath, URL: url}
 	var stopped atomic.Bool
 	heartbeat := func() error {
 		entry.HeartbeatUnixSeconds = time.Now().Unix()

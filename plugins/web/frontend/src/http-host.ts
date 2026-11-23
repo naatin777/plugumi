@@ -15,6 +15,14 @@ async function errorMessage(response: Response): Promise<string> {
 
 const base = (key: string) => `/api/cores/${encodeURIComponent(key)}/projects`;
 
+declare global {
+  interface Window {
+    // Electronのpreloadが注入する別window起動bridge。BrowserWindowを
+    // 開ける宿主だけが置く。無ければブラウザのwindow.openに落とす。
+    plugumiWindows?: { open(path: string): void };
+  }
+}
+
 export function httpShellHost(): ShellHost {
   return {
     async listCores(): Promise<CoreEntry[]> {
@@ -98,7 +106,9 @@ export function httpShellHost(): ShellHost {
       return `/ui/${encodeURIComponent(coreKey)}/${encodeURIComponent(registrationId)}` +
         `/${path}?v=${uiSha256}`;
     },
-    // Webでは別windowを開かない。
-    windows: null,
+    // Areaを別windowに出す（detach）。Electronのpreload bridgeがある
+    // 環境だけ有効にする（titleBarOverlay付きのBrowserWindowが開く）。
+    // ブラウザでは項目自体を出さない（designs/00005「別windowはElectronのみ」）。
+    windows: window.plugumiWindows ?? null,
   };
 }

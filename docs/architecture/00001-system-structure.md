@@ -61,7 +61,7 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 
 - CoreはCLI/TUIで単体管理可能。独立したManagerは必須にしない（`docs/decisions/00003`）
 - UI Host無しでもCore+Pluginは動作する
-- 静的ファイル: webはGoサーバーから配信、electronはアプリ同梱
+- 静的ファイル: webはGoサーバーから配信。electronはそのURLをwindowで開くviewer
 
 ## 旧実装からの継承・非継承
 

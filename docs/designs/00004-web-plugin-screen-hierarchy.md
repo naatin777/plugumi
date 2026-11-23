@@ -32,7 +32,7 @@ flowchart LR
 - Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
 - WorkspaceはAreaと1対1に対応し、left・bottom・center・rightのDockを持つ。rightは右の列で、Main（left・bottom・center）の脇に常時置くPanelの置き場。
 - 各DockはPanelのタブを並べる。center Dockは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分ける。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式（pages）と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
-- 画面は左の**Area list**（今のProjectの全AreaをMain・Subの2セクションで一覧する。上部にProject切替）と、右の**Main**（選択中Areaを表示、URLが正本）と**Sub**（別のAreaを右に表示、開閉できる）からなる。FloatingはAreaを別windowに出す（detach）。Electronのみ、Area listの行メニューから。
+- 画面は左の**Area list**（今のProjectの全AreaをMain・Subの2セクションで一覧する。上部にProject切替）と、右の**Main**（選択中Areaを表示、URLが正本）と**Sub**（別のAreaを右に表示、開閉できる）からなる。FloatingはAreaを別windowに出す（detach）。Area listの行メニューから。
 - Panelはregionをまたいでドラッグできる。Area内の全領域の相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。Areaをまたぐ移動はArea listの行で行う。Panelは同じwindowのMain・Subの間でもdragで移せる（Panel Instanceは作り直さず移譲する）。ただし同じAreaをMainとSubの両方に出しているときは移せない（両者が別々にworkspaceを保存するため）。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
