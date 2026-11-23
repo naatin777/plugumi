@@ -21,9 +21,8 @@ export function ShellFrame(): JSX.Element {
   // work面の形に使う幅。focusでは0を渡す（開閉状態自体は潰さない）。
   const sideWidth = () => (focus() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
   const pinnedWidth = () => (focus() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
-  // dockもfocusでは引っ込める — 開閉状態は潰さず表示だけ0にする。
-  const dockShown = (kind: "left" | "bottom" | "right") =>
-    !focus() && prefs().dockOpen[kind];
+  // dockはwork帯（作業領域）の一部なので、focusでも引っ込めない。
+  const dockShown = (kind: "left" | "bottom" | "right") => prefs().dockOpen[kind];
   // matのgrid template。閉じたdockの分は列/行ごと消す — 0幅のauto列を
   // 残すと列間のgapだけが溝として残って空きレーンになるため。
   // bodyの列も開いている側だけ（aside自体はdata-attrで消す）。

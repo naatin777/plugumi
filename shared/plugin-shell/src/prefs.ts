@@ -13,8 +13,8 @@ export interface ShellPrefs {
   dockSize: Record<DockKind, number>;
   sidebarWidth: number;
   pinnedWidth: number;
-  // focus: 現在の作業領域（center）だけを残し、sidebar/pinned/dock/
-  // status/topbarをまとめて引っ込める。個別の開閉状態は潰さない。
+  // focus: sidebar/pinned/statusとtopbarのframe区間をまとめて引っ込め、
+  // 作業領域（center＋dock）だけを残す。個別の開閉状態は潰さない。
   focusMode: boolean;
   theme: ThemeMode;
   // 床の虹色もやもや。消すとフラットな暗い床になる。
