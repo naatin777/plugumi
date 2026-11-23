@@ -6,7 +6,7 @@ import type { JSX } from "@solidjs/web";
 import type { DockKind, MoveTarget } from "../layout/model.ts";
 import { useShell, layoutOps } from "./controller.tsx";
 import { TabStrip } from "./tab-strip.tsx";
-import { PagesTrack, flipPage, pageMouse } from "./pages.tsx";
+import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
 import { Resizer } from "./resizer.tsx";
 import { bodyTest } from "./drag.ts";
 import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
@@ -47,12 +47,7 @@ export function Dock(props: { kind: DockKind }): JSX.Element {
         ? { height: `${shell.prefs().dockSize.bottom}px` }
         : { width: `${shell.prefs().dockSize[props.kind]}px` }}
       ref={register}
-      onMouseDown={pageMouse(flip)}
-      // 戻る/進むボタンのhistory遷移を止める（flipはmousedownの1回だけ）
-      onMouseUp={(event) => {
-        if (event.button === 3 || event.button === 4) event.preventDefault();
-      }}
-      onAuxClick={(event) => event.preventDefault()}
+      {...pageNavProps(flip)}
     >
       <div class="dock-strip" {...dividerAttr(selectedActivity())}>
         <TabStrip

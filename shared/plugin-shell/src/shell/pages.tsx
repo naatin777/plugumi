@@ -35,6 +35,16 @@ export const pageMouse = (flip: (direction: 1 | -1) => void) =>
     }
   };
 
+// カード要素へまとめて展開するpageナビ用のhandler群。mouseup/auxclickは
+// ブラウザの戻る/進む遷移を止めるだけ（flipはmousedownの1回で完結）。
+export const pageNavProps = (flip: (direction: 1 | -1) => void) => ({
+  onMouseDown: pageMouse(flip),
+  onMouseUp: (event: MouseEvent) => {
+    if (event.button === 3 || event.button === 4) event.preventDefault();
+  },
+  onAuxClick: (event: MouseEvent) => event.preventDefault(),
+});
+
 export function PagesTrack(props: {
   refs: PanelRef[];
   selected: string | null;

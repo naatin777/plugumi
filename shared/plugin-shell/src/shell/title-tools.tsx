@@ -1,6 +1,6 @@
 // titleのtool群。左: sidebar開閉 + Core switcher、
 // 中央（work区間）: 「+」・dock開閉・zen、
-// 右: テーマ・pinned開閉。固定設計幅内に収める。
+// 右: テーマ・背景・pinned開閉。pillの下限は中身の実測幅。
 import { For, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";

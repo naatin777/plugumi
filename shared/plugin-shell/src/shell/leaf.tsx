@@ -6,7 +6,7 @@ import type { Leaf } from "../layout/model.ts";
 import { useShell } from "./controller.tsx";
 import type { Edges } from "./center.tsx";
 import { TabStrip } from "./tab-strip.tsx";
-import { PagesTrack, flipPage, pageMouse } from "./pages.tsx";
+import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
 import { leafBodyTest } from "./drag.ts";
 import { focusLeaf, selectPanel } from "../layout/model.ts";
 import { dividerAttr, surfaceAttrs, busyAttr } from "./activity.ts";
@@ -46,12 +46,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
         "border-bottom-left-radius": props.edges.bottom && props.edges.left ? "var(--plugumi-radii-lg)" : "0",
       }}
       onPointerDown={markFocus}
-      onMouseDown={pageMouse(flip)}
-      // 戻る/進むボタンのhistory遷移を止める（flipはmousedownの1回だけ）
-      onMouseUp={(event) => {
-        if (event.button === 3 || event.button === 4) event.preventDefault();
-      }}
-      onAuxClick={(event) => event.preventDefault()}
+      {...pageNavProps(flip)}
       {...surfaceAttrs(selectedInstance()?.activity(), "border")}
       {...busyAttr(selectedInstance()?.activity())}
     >

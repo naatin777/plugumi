@@ -1,9 +1,9 @@
 // 1つのProject画面（Area移動を含む）が持つ状態の束。
 // routeのparams・保存・Panel Instance・表示設定・dragをここにまとめ、
 // 見た目だけの部品にはcontext経由で渡す。
-import { createContext, useContext } from "solid-js";
 import {
-  createEffect, createSignal, createStore, flush, onCleanup, reconcile, snapshot,
+  createContext, createEffect, createSignal, createStore, flush,
+  onCleanup, reconcile, snapshot, useContext,
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";

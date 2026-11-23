@@ -5,6 +5,7 @@ import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useShell } from "./controller.tsx";
 import { findLeaf, selectPanel } from "../layout/model.ts";
+import { flipPage } from "./pages.tsx";
 import { WorkShape } from "./work-shape.tsx";
 import { StatusBar } from "./status-bar.tsx";
 import { TitleToolsLeft, TitleToolsCenter, TitleToolsRight } from "./title-tools.tsx";
@@ -52,14 +53,12 @@ export function ShellFrame(): JSX.Element {
       // focused leafのpageを前後へ（pagesの切替え）
       const center = shell.layout().workspace.center;
       const leaf = findLeaf(center.root, center.focusedLeaf);
-      if (leaf && leaf.panels.length > 1) {
-        const index = leaf.panels.findIndex((ref) => ref.instanceId === leaf.selected);
-        const step = event.code === "BracketRight" ? 1 : -1;
-        const next = leaf.panels[Math.min(leaf.panels.length - 1, Math.max(0, index + step))];
-        if (next) {
-          shell.applyLayout((state) => selectPanel(state, next.instanceId));
-          event.preventDefault();
-        }
+      const next = leaf && flipPage(
+        leaf.panels, leaf.selected, event.code === "BracketRight" ? 1 : -1,
+      );
+      if (next) {
+        shell.applyLayout((state) => selectPanel(state, next));
+        event.preventDefault();
       }
       return;
     }
