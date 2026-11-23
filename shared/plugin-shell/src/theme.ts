@@ -4,9 +4,6 @@ import type { ThemeMode } from "./prefs.ts";
 
 const systemQuery = () => window.matchMedia("(prefers-color-scheme: dark)");
 
-export const nextTheme = (mode: ThemeMode): ThemeMode =>
-  mode === "system" ? "light" : mode === "light" ? "dark" : "system";
-
 export function applyTheme(mode: ThemeMode): void {
   const resolved = mode === "system" ? (systemQuery().matches ? "dark" : "light") : mode;
   document.documentElement.setAttribute("data-plugumi-theme", resolved);

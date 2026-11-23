@@ -84,8 +84,8 @@ Area listはAreaを**Main**・**Sub**の2セクションで一覧する（SigmaO
 
 title barのwork区間はMainとSubで2つに分かれ、それぞれの列の真上にボタン群が並ぶ。どの列のボタンかは位置と境界線で分かるようにする。
 
-- **Mainのsegment**: MainのAreaのcrumb・「+」・検索・`[左][下][右]`のdock開閉。
-- **Sub側**: SubのAreaのcrumb（clickでMainへ移動）・「+」。Subはcenterだけの表示なのでdock開閉ボタンは持たない。Subが閉じている・drawerのときはこの区画自体を出さない（幅0に畳まれる）。Subの開閉ボタンはtitle右端の操作群の先頭に固定で置き、drawer時はSub drawerを開閉する。
+- **Mainのsegment**: 「+」・検索・`[左][下][右]`のdock開閉。
+- **Sub側**: 「+」だけ。Subはcenterだけの表示なのでdock開閉ボタンは持たない。Subが閉じている・drawerのときはこの区画自体を出さない（幅0に畳まれる）。Subの開閉ボタンはtitle右端の操作群の先頭に固定で置き、drawer時はSub drawerを開閉する。
 - dockの開閉状態（`dockOpen[kind]`）はMain用だけ（Subはcenterだけなので）。⌥⌘2〜4はMainのdockを開閉する。
 - dockの幅・高さ（`dockSize`）は両slotで共通。
 
@@ -126,7 +126,7 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 
 ### タイルの輪郭
 
-- **title帯は平ら**: title帯に枠・溝は無く、ボタン群は境界線で分かれた区画にただ並ぶ。Main区画の左端はsidebar列の端に揃え、Sub区画はSub列の真上に置く。右端の操作群（Sub開閉・両サイド・テーマ・もや・設定）はtitle帯の右端に並べる。
+- **title帯は平ら**: title帯に枠・溝は無く、ボタン群は境界線で分かれた区画にただ並ぶ。Main区画の左端はsidebar列の端に揃え、Sub区画はSub列の真上に置く。右端にはSub開閉ボタンだけを先頭（Sub列寄り）に固定で置く。
 - **splitはsegment方式**: centerをsplitすると、分割したleaf同士は溝で離れるが、regionの外縁の角だけが丸い。splitの内側の辺は直角にして溝を真っ直ぐに通し、外からは1枚のカードの輪郭に見える（Googleのlist viewのsegment方式）。leafの各辺が外縁かどうかはsplit木で伝播する（`Edges`）。
 - dockカードは領域全体で1枚なので全角丸い。
 

@@ -16,9 +16,6 @@ export interface ShellPrefs {
   // Sub列（右のAreaView）の開閉と幅。
   subOpen: boolean;
   subWidth: number;
-  // 両端の列（Area list＋Sub）をまとめて畳む。
-  // 個別の開閉状態は潰さないので、戻すと元の開き方に復帰する。
-  sideHidden: boolean;
   theme: ThemeMode;
   // 床の虹色もやもや。消すとフラットな暗い床になる。
   aurora: boolean;
@@ -33,7 +30,6 @@ const defaults = (): ShellPrefs => ({
   dockSize: { left: 280, bottom: 200, right: 280 },
   subOpen: false,
   subWidth: 480,
-  sideHidden: false,
   theme: "system",
   aurora: true,
 });
@@ -78,7 +74,6 @@ export function loadPrefs(): ShellPrefs {
     },
     subOpen: flag(saved.subOpen, base.subOpen),
     subWidth: clampWidth(saved.subWidth, base.subWidth),
-    sideHidden: flag(saved.sideHidden, base.sideHidden),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
     aurora: flag(saved.aurora, base.aurora),
   };

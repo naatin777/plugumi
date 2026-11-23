@@ -70,15 +70,6 @@ export const IconSearch = icon(() => <>
 </>);
 
 // 設定はスライダー（歯車はlightの太陽と見紛うので使わない）。
-export const IconSettings = icon(() => <>
-  <line x1="2.5" y1="4.5" x2="13.5" y2="4.5" />
-  <circle cx="5.5" cy="4.5" r="1.8" />
-  <line x1="2.5" y1="8" x2="13.5" y2="8" />
-  <circle cx="10.5" cy="8" r="1.8" />
-  <line x1="2.5" y1="11.5" x2="13.5" y2="11.5" />
-  <circle cx="6.5" cy="11.5" r="1.8" />
-</>);
-
 export const IconClose = icon(() => <>
   <line x1="4.5" y1="4.5" x2="11.5" y2="11.5" />
   <line x1="11.5" y1="4.5" x2="4.5" y2="11.5" />
@@ -103,40 +94,7 @@ export const IconGrip = icon(() => <>
 </>);
 
 // focus: 枠が引っ込んで中央の作業領域だけ残るイメージ。
-export const IconSides = icon(() => <>
-  <polyline points="6,2.5 2.5,2.5 2.5,6" />
-  <polyline points="10,2.5 13.5,2.5 13.5,6" />
-  <polyline points="6,13.5 2.5,13.5 2.5,10" />
-  <polyline points="10,13.5 13.5,13.5 13.5,10" />
-</>);
-
 // テーマ: system=半分、light=日、dark=月。
-export const IconThemeSystem = icon(() => <>
-  <circle cx="8" cy="8" r="5.5" />
-  <path d="M8 2.5 A5.5 5.5 0 0 1 8 13.5 Z" fill="currentColor" stroke="none" />
-</>);
-
-export const IconThemeLight = icon(() => <>
-  <circle cx="8" cy="8" r="3.5" />
-  <line x1="8" y1="1" x2="8" y2="3" />
-  <line x1="8" y1="13" x2="8" y2="15" />
-  <line x1="1" y1="8" x2="3" y2="8" />
-  <line x1="13" y1="8" x2="15" y2="8" />
-  <line x1="3" y1="3" x2="4.5" y2="4.5" />
-  <line x1="11.5" y1="11.5" x2="13" y2="13" />
-  <line x1="13" y1="3" x2="11.5" y2="4.5" />
-  <line x1="4.5" y1="11.5" x2="3" y2="13" />
-</>);
-
-export const IconThemeDark = icon(() =>
-  <path d="M13 9.5 A5.5 5.5 0 0 1 6.5 3 A5.5 5.5 0 1 0 13 9.5 Z" />
-);
-
-// 床のもやもや（aurora）切替。四つ星のきらめき。
-export const IconAurora = icon(() =>
-  <path d="M8 2 L9.4 6.6 L14 8 L9.4 9.4 L8 14 L6.6 9.4 L2 8 L6.6 6.6 Z" />
-);
-
 // Core一覧やswitcherに使う丸い接続状態はCSSで描くのでアイコンは不要。
 
 export const IconProject = icon(() => <>

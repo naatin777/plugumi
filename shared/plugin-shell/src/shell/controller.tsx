@@ -249,9 +249,9 @@ export function createShellController(
   const subDrawerMode = () => shellSize() !== "wide";
   const sideDrawerMode = () => shellSize() === "compact";
   const subShown = () =>
-    subDrawerMode() ? subDrawer() : prefs().subOpen && !prefs().sideHidden;
+    subDrawerMode() ? subDrawer() : prefs().subOpen;
   const sideShown = () =>
-    sideDrawerMode() ? sideDrawer() : prefs().sidebarOpen && !prefs().sideHidden;
+    sideDrawerMode() ? sideDrawer() : prefs().sidebarOpen;
   const toggleSub = () => {
     if (subDrawerMode()) setSubDrawer(!subDrawer());
     else updatePrefs((prefs) => { prefs.subOpen = !prefs.subOpen; });

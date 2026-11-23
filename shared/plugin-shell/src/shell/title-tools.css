@@ -1,40 +1,9 @@
-/* work帯（title）の中身 — Core switcher・picker・crumb・検索仮置き。 */
+/* work帯（title）の中身 — Core switcher・picker・検索仮置き。 */
 @scope (:root) to ([data-plugumi-plugin]) {
-
-  /* tool群の中の区切り線（両サイド畳みと表示設定の間）。 */
-  .tool-sep {
-    flex: none;
-    align-self: center;
-    width: 1px; height: 16px;
-    margin: 0 2px;
-    background: var(--plugumi-colors-border);
-  }
-
 
   /* 見えない空白。Firefoxのflexible space相当で、両側が同じflexなので
      中央の要素はbarが伸縮しても真ん中に留まる。 */
   .bar-flex { flex: 1; }
-  /* ロケーション（project/areaのcrumb）。長い時は左から溢れて隠す。 */
-  .bar-crumb {
-    display: flex; align-items: center;
-    min-width: 0; overflow: hidden;
-    font-size: var(--plugumi-font-size-xs);
-    color: var(--plugumi-colors-text-muted);
-  }
-  .bar-crumb-item {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: inherit; text-decoration: none;
-    padding: 2px var(--plugumi-spacing-xs);
-    border-radius: var(--plugumi-radii-sm);
-  }
-  .bar-crumb-item:hover {
-    background: var(--plugumi-colors-background-tertiary);
-    color: var(--plugumi-colors-text);
-  }
-  .bar-crumb-sep { color: var(--plugumi-colors-text-subtle); }
   /* 検索の仮置き。Command Center的な箱で、中身はまだない。 */
   .bar-search {
     display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
@@ -48,18 +17,4 @@
   }
   .bar-search:hover { color: var(--plugumi-colors-text); }
   .bar-search-key { margin-left: auto; color: var(--plugumi-colors-text-subtle); }
-  /* compactの「…」メニュー（両サイド・テーマ・もやをまとめたpopover）。
-     popoverのUA非表示規則にauthorのdisplayが勝って閉じても見えるので、
-     :popover-openのときだけflexにする。位置は「…」の真下・右揃え。 */
-  .misc-menu:popover-open {
-    display: flex; align-items: center;
-    gap: var(--plugumi-spacing-xs);
-    padding: var(--plugumi-spacing-xs);
-    margin: 0;
-    /* top/rightは開くときに「…」のrectからinlineで書く。 */
-    inset: auto;
-    border: 1px solid var(--plugumi-colors-border);
-    border-radius: var(--work-radius);
-    background: var(--plugumi-colors-background-tertiary);
-  }
 }

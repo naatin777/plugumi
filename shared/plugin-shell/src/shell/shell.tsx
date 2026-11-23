@@ -1,5 +1,5 @@
 // Project画面の外枠。main.shellに既知の幅をCSS変数として供給し、
-// work面の形はCSSだけで決まる。sideHiddenは個別の開閉を潰さず両端の列
+// work面の形はCSSだけで決まる。
 // （Area list＋Sub）をまとめて畳む。キーはe.codeで見る（⌥⌘1-5, ⌥⌘Z）。
 // main.shellの幅はResizeObserverで測りshellSizeへ — 狭いときはSubと
 // Area listがdrawerになる（shell.cssのdata-size規則）。
@@ -18,7 +18,6 @@ import { Resizer } from "./resizer.tsx";
 export function ShellFrame(): JSX.Element {
   const shell = useShell();
   const prefs = () => shell.prefs();
-  const sideHidden = () => prefs().sideHidden;
   // work面の形に使う幅。drawer化している列はgridから外すので0を渡す。
   const sideWidth = () => (
     shell.sideDrawerMode() || !shell.sideShown() ? 0 : prefs().sidebarWidth
@@ -51,12 +50,6 @@ export function ShellFrame(): JSX.Element {
         area.applyLayout((state) => selectPanel(state, next));
         event.preventDefault();
       }
-      return;
-    }
-    if (event.code === "KeyZ") {
-      shell.closeDrawers();
-      shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; });
-      event.preventDefault();
       return;
     }
     const toggle = () => {
@@ -135,7 +128,7 @@ export function ShellFrame(): JSX.Element {
         titleSub={<TitleSegmentSub area={subArea} />}
         titleRight={<TitleToolsRight />}
         sidebar={
-          <Show when={shell.sideDrawerMode() || (prefs().sidebarOpen && !sideHidden())}>
+          <Show when={shell.sideDrawerMode() || prefs().sidebarOpen}>
             <SidebarView />
           </Show>
         }
