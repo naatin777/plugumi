@@ -2,7 +2,7 @@
 // body側のmatタイルからなる。溝の奥には床要素は敷かず、shellの背景が
 // そのまま見える。
 // 使う変数（親要素のinline styleやCSSで供給）:
-//   --side-width / --pinned-width … 開いていなければ0
+//   --side-width … sidebarが開いていなければ0
 //   --title-tools-left / --title-tools-right … tool群の実測footprint
 //   --work-radius … 面の角丸
 import type { JSX } from "@solidjs/web";
@@ -13,7 +13,6 @@ export interface WorkShapeProps {
   titleCenter?: JSX.Element;
   titleRight?: JSX.Element;
   sidebar?: JSX.Element;
-  pinned?: JSX.Element;
 }
 
 export function WorkShape(props: ParentProps<WorkShapeProps>) {
@@ -69,9 +68,6 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         <div class="work-mat">
           {props.children}
         </div>
-        <aside class="frame-pinned">
-          {props.pinned}
-        </aside>
       </div>
     </>
   );

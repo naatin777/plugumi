@@ -3,16 +3,16 @@
 // 見た目だけの部品にはcontext経由で渡す。
 import {
   createContext, createEffect, createSignal, createStore, flush,
-  onCleanup, reconcile, snapshot, useContext,
+  onCleanup, reconcile, useContext,
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
-import type { LayoutState, PanelRef, MoveTarget } from "../layout/model.ts";
+import type { WorkspaceState, PanelRef, MoveTarget } from "../layout/model.ts";
 import {
-  emptyLayout, addPanel, closePanel, selectPanel, movePanel,
+  emptyWorkspace, addPanel, closePanel, selectPanel, movePanel,
   splitAt, setRatio,
   allPanelRefs,
-  decodePinned, decodeWorkspace, newInstanceId,
+  decodeWorkspace, newInstanceId,
 } from "../layout/model.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
 import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
@@ -52,14 +52,13 @@ export interface ShellController {
   prefs(): ShellPrefs;
   updatePrefs(mutate: (prefs: ShellPrefs) => void): void;
 
-  layout(): LayoutState;
-  // 1回の操作でworkspaceとpinnedを同時に触れるよう、状態は1つに持つ。
-  applyLayout(mutate: (state: LayoutState) => LayoutState): void;
+  layout(): WorkspaceState;
+  applyLayout(mutate: (state: WorkspaceState) => WorkspaceState): void;
 
   instance(ref: PanelRef): PanelInstance;
   openPanel(pluginId: string, panelId: string, target?: MoveTarget): void;
 
-  // 「+」のpanel picker。空leafの「+」やpinnedの追加も同じpickerを開き、
+  // 「+」のpanel picker。空leafの「+」やnavのSide追加も同じpickerを開き、
   // 足し先をMoveTargetで指定する（未指定はfocusedLeaf）。
   pickerTarget(): MoveTarget | null;
   openPicker(target?: MoveTarget): void;
@@ -95,13 +94,10 @@ function poll<T>(fetcher: () => Promise<T>, ms: number): () => T | undefined {
   return value;
 }
 
-// store reconcileのキー。並びの中身は leaf/split(id)・PanelRef(instanceId)・
-// pinned(panelsはinstanceId) のどれかなので、全部を1つの関数で見る。
-const layoutKey = (item: {
-  id?: string;
-  instanceId?: string;
-  panel?: { instanceId?: string };
-}): string | undefined => item.id ?? item.instanceId ?? item.panel?.instanceId;
+// store reconcileのキー。並びの中身は leaf/split(id) か PanelRef(instanceId)
+// のどれかなので、全部を1つの関数で見る。
+const layoutKey = (item: { id?: string; instanceId?: string }): string | undefined =>
+  item.id ?? item.instanceId;
 
 export function createShellController(
   host: ShellHost,
@@ -131,44 +127,34 @@ export function createShellController(
     applyTheme(next.theme);
   };
 
-  // ---- layout（workspace + pinnedを1つの状態に持つ） ----
+  // ---- layout（workspaceを1つの状態に持つ） ----
   // store+reconcileで、変わらないleaf/PanelRefのproxyを保つ。
   // 全体を置き換えるとtabやPanel hostが毎回作り直され、Panel内の
   // scroll位置や読み込み状態が消える。
-  const [layoutState, writeLayout] = createStore<LayoutState>(emptyLayout());
+  const [layoutState, writeLayout] = createStore<WorkspaceState>(emptyWorkspace());
   const layout = () => layoutState;
-  const setLayout = (next: LayoutState) => {
-    writeLayout(reconcile(next, layoutKey) as (state: LayoutState) => LayoutState);
+  const setLayout = (next: WorkspaceState) => {
+    writeLayout(reconcile(next, layoutKey) as (state: WorkspaceState) => WorkspaceState);
   };
 
   let loadedArea = "";
-  const saveTimers = { workspace: 0, pinned: 0 };
-  const scheduleSave = (what: "workspace" | "pinned") => {
+  let saveTimer = 0;
+  const scheduleSave = () => {
     // 発火時ではなく操作時点のAreaへ保存する（300ms以内の切替で隣へ書かない）
     const area = [...areaPath()];
     const key = coreKey();
     const proj = project();
-    window.clearTimeout(saveTimers[what]);
-    saveTimers[what] = window.setTimeout(() => {
-      if (what === "workspace") {
-        void host.putWorkspace(key, proj, area, layoutState.workspace);
-      } else {
-        void host.putPinned(key, proj, layoutState.pinned);
-      }
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => {
+      void host.putWorkspace(key, proj, area, layoutState);
     }, 300);
   };
 
-  const applyLayout = (mutate: (state: LayoutState) => LayoutState) => {
+  const applyLayout = (mutate: (state: WorkspaceState) => WorkspaceState) => {
     const next = mutate(layoutState);
     if (next === layoutState) return;
-    // 操作は小さいので、変わった側だけ文字列比較で保存対象を決める。
-    const workspaceChanged =
-      JSON.stringify(next.workspace) !== JSON.stringify(layoutState.workspace);
-    const pinnedChanged =
-      JSON.stringify(next.pinned) !== JSON.stringify(layoutState.pinned);
     setLayout(next);
-    if (workspaceChanged) scheduleSave("workspace");
-    if (pinnedChanged) scheduleSave("pinned");
+    scheduleSave();
     flush();
     syncInstances();
   };
@@ -199,31 +185,16 @@ export function createShellController(
     }
   };
 
-  // areaが変わるたびworkspaceを読み直す。pinnedはprojectごとに1回。
-  let loadedProject = "";
-  // pinnedとworkspaceは別系統で読む。同じtokenで潰し合うと、次のeffect runが
-  // 先のfetch結果を捨ててpinnedが一度も載らない。
-  let loadingPinned = 0;
+  // areaが変わるたびworkspaceを読み直す。
   let loadingWorkspace = 0;
   const reload = async () => {
     const area = areaPath().join("/");
-    if (project() !== loadedProject) {
-      loadedProject = project();
-      loadedArea = "";
-      const token = ++loadingPinned;
-      const raw = await host.getPinned(coreKey(), project()).catch(() => null);
-      if (token === loadingPinned) {
-        setLayout({ workspace: snapshot(layoutState.workspace), pinned: decodePinned(raw) });
-        flush();
-        syncInstances();
-      }
-    }
     if (area !== loadedArea) {
       const token = ++loadingWorkspace;
       const raw = await host.getWorkspace(coreKey(), project(), areaPath()).catch(() => null);
       if (token === loadingWorkspace) {
         loadedArea = area;
-        setLayout({ workspace: decodeWorkspace(raw), pinned: snapshot(layoutState.pinned) });
+        setLayout(decodeWorkspace(raw));
         flush();
         syncInstances();
       }
@@ -240,7 +211,7 @@ export function createShellController(
     applyLayout((state) => addPanel(state, ref, target));
   };
 
-  // ---- panel picker（「+」はtitle・空leaf・pinnedの追加のどれからでも開く） ----
+  // ---- panel picker（「+」はtitle・空leaf・navの追加のどれからでも開く） ----
   const [picker, setPicker] = createSignal<HTMLElement>();
   const [pickerTarget, setPickerTarget] = createSignal<MoveTarget | null>(null);
   const openPicker = (target?: MoveTarget) => {
@@ -286,8 +257,7 @@ export function createShellController(
   onCleanup(() => {
     for (const found of instances.values()) found.dispose();
     instances.clear();
-    window.clearTimeout(saveTimers.workspace);
-    window.clearTimeout(saveTimers.pinned);
+    window.clearTimeout(saveTimer);
   });
 
   const controller: ShellController = {

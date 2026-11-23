@@ -1,6 +1,6 @@
 // titleのtool群。左: sidebar開閉 + Core switcher、
-// 中央（work区間）: 「+」・dock開閉・focus、
-// 右: テーマ・背景・pinned開閉。pillの下限は中身の実測幅。
+// 中央（work区間）: 「+」・dock開閉、
+// 右: 両サイド畳み・テーマ・背景・設定。pillの下限は中身の実測幅。
 import { For, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
@@ -8,7 +8,7 @@ import { useShell } from "./controller.tsx";
 import { ToolButton } from "./tool-button.tsx";
 import { nextTheme } from "../theme.ts";
 import {
-  IconSidebar, IconPinned, IconSides, IconPlus,
+  IconSidebar, IconSides, IconPlus,
   IconDockLeft, IconDockBottom, IconDockRight,
   IconThemeSystem, IconThemeLight, IconThemeDark,
   IconSearch, IconSettings, IconAurora,
@@ -93,7 +93,7 @@ function Crumb(props: { label: string; to: string }): JSX.Element {
 
 export function TitleToolsCenter(): JSX.Element {
   const shell = useShell();
-  const toggleDock = (kind: "left" | "bottom" | "right") =>
+  const toggleDock = (kind: "left" | "bottom" | "side") =>
     shell.updatePrefs((prefs) => {
       prefs.dockOpen = { ...prefs.dockOpen, [kind]: !prefs.dockOpen[kind] };
     });
@@ -166,8 +166,8 @@ export function TitleToolsCenter(): JSX.Element {
         <IconDockBottom />
       </ToolButton>
       <ToolButton
-        label="右の領域" pressed={shell.prefs().dockOpen.right}
-        onClick={() => toggleDock("right")}
+        label="Side" pressed={shell.prefs().dockOpen.side}
+        onClick={() => toggleDock("side")}
       >
         <IconDockRight />
       </ToolButton>
@@ -183,7 +183,7 @@ export function TitleToolsRight(): JSX.Element {
   };
   return (
     <>
-      {/* 左右のframe領域（sidebar＋pinned）をまとめて畳む。 */}
+      {/* 左右の端の列（sidebar＋side）をまとめて畳む。 */}
       <ToolButton
         label="両サイド" pressed={shell.prefs().sideHidden}
         onClick={() => shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; })}
@@ -202,12 +202,6 @@ export function TitleToolsRight(): JSX.Element {
         onClick={() => shell.updatePrefs((prefs) => { prefs.aurora = !prefs.aurora; })}
       >
         <IconAurora />
-      </ToolButton>
-      <ToolButton
-        label="pinned" pressed={shell.prefs().pinnedOpen}
-        onClick={() => shell.updatePrefs((prefs) => { prefs.pinnedOpen = !prefs.pinnedOpen; })}
-      >
-        <IconPinned />
       </ToolButton>
       <ToolButton label="設定">
         <IconSettings />

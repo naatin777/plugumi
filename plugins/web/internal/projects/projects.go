@@ -1,6 +1,6 @@
 // Package projects はCoreごとのProject/Area/Workspaceの木構造を扱う。
 // ファイルI/Oはstore.go。~/.plugumi/web/<Core名>.jsonの形に対応する。
-// WorkspaceとPinnedはShellが所有するJSONで、serverは中身を解釈せず
+// WorkspaceはShellが所有するJSONで、serverは中身を解釈せず
 // そのまま保存・返却する（designs/00005「保存の形」）。
 package projects
 
@@ -38,10 +38,9 @@ type Area struct {
 	Areas     []Area `json:"areas"`
 }
 
-// Project はpinnedとAreaの木を持つ。
+// Project はAreaの木を持つ。
 type Project struct {
 	Name  string `json:"name"`
-	Pinned Opaque `json:"pinned"`
 	Areas []Area `json:"areas"`
 }
 

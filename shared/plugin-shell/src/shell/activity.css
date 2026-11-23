@@ -51,9 +51,9 @@
     --activity-color: var(--plugumi-colors-error);
   }
 
-  /* header: tab・pinned行のheaderのtint */
+  /* header: tab・nav行のheaderのtint */
   .tab[data-activity-header],
-  .pin-row[data-activity-header],
+  .nav-row[data-activity-header],
   [data-activity-header].activity-header {
     background: linear-gradient(var(--activity-color), var(--activity-color))
       0 0 / 100% 2px no-repeat;

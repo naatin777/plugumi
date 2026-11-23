@@ -15,7 +15,7 @@ import { stripTest } from "./drag.ts";
 export interface TabStripProps {
   refs: PanelRef[];
   selected: string | null;
-  // drop先のindexをMoveTargetに変える（dock/leaf/pinnedで形が違う）
+  // drop先のindexをMoveTargetに変える（dock/leafで形が違う）
   target: (index: number) => MoveTarget;
   onSelect?: (instanceId: string) => void;
   // 帯の上の横スワイプでpageを前後させる（未指定ならwheelは素通し）
@@ -80,7 +80,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   const press = (ref: PanelRef, instance: PanelInstance, event: PointerEvent) => {
     if (event.button !== 0) return;
     shell.drag.start(
-      { instanceId: ref.instanceId, title: instance.title(), kind: "panel" },
+      { instanceId: ref.instanceId, title: instance.title() },
       event,
       { onClick: () => (props.onSelect ?? ops.select)(ref.instanceId) },
     );

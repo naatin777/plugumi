@@ -15,7 +15,7 @@ const OUTER_EDGES: Edges = { top: true, right: true, bottom: true, left: true };
 
 export function CenterView(): JSX.Element {
   const shell = useShell();
-  const root = () => shell.layout().workspace.center.root;
+  const root = () => shell.layout().center.root;
   return (
     <div class="center" data-region="center">
       <NodeView node={root()} edges={OUTER_EDGES} />

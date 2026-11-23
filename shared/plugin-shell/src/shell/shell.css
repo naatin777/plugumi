@@ -7,7 +7,6 @@
    （scope内では受理されない）。登録するとtransitionで値が補間され、
    これを参照する幅・margin・barの端が一斉に滑る。 */
 @property --side-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
-@property --pinned-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
 
 :root {
   --work-radius: 10px;
@@ -15,7 +14,7 @@
   --work-gap: var(--plugumi-spacing-xs);
   /* 領域の開閉（畳み込み）のアニメ時間。 */
   --work-anim: 180ms;
-  /* frame（土台・title左右・sidebar・pinned・status帯）は全てこの1色。
+  /* frame（土台・title左右・sidebar・status帯）は全てこの1色。
      work面（canvas）と明確に分ける色を決定済みのtokenから引く。 */
   --shell-frame-color: var(--plugumi-colors-background-primary);
   /* titleのtool群のfootprint。実行時はwork-shapeが中身の自然幅を
@@ -37,7 +36,7 @@
     /* 登録済み変数の値が変わると補間される。これを参照する列幅・
        margin・title barの端がまとめて滑る。drag中は遅延になるので
        別途transitionを無効化する。 */
-    transition: --side-width var(--work-anim) ease, --pinned-width var(--work-anim) ease;
+    transition: --side-width var(--work-anim) ease;
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);
@@ -65,10 +64,9 @@
     to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
   }
 
-  /* title帯の中でsegment（浮きバー）の端を決める変数。barの端は極力
-     work面の端（=sidebar/pinned列の端、下のタイルの外縁）に揃える。
-     列がtool群のfootprintより狭い時だけtool群が優先される（tool群は
-     frameに直置きで、barには含めない）。 */
+  /* title帯の中でsegment（浮きバー）の端を決める変数。barの左端は
+     sidebar列の端に揃える（sidebarがtool群より狭い時だけtool群が優先）。
+     右端は窓の端 — 右列はmatの中のdockなので揃える対象はtool群だけ。 */
   main.shell, .lab-shape {
     /* env(titlebar-area-*)を読むのはここだけ（envは1箇所で変数へ
        読み替えるのが公式の推奨形）。fallbackはenv未対応の表示向け。
@@ -84,9 +82,8 @@
     --title-left: calc(max(
       var(--titlebar-x) + var(--title-tools-left),
       var(--side-width, 0px) + var(--work-gap)));
-    --title-right: calc(max(
-      var(--titlebar-inset-right) + var(--title-tools-right),
-      var(--pinned-width, 0px) + var(--work-gap)));
+    --title-right: calc(
+      var(--titlebar-inset-right) + var(--title-tools-right));
   }
 
   /* ---- title帯: 左右のtool群（pill）と中央のsegment（bar）は
@@ -155,24 +152,24 @@
     overflow: hidden;
   }
 
-  /* body側の列。3列は常時存在し、閉じた側は列の中身（aside）が
+  /* body側の列。sidebar列は常時存在し、閉じると中身（aside）が
      幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは
      常時発生して空きレーンになるが、marginは閉じた側で0に畳め、
      しかもtransitionできるため。上下のpaddingはタイルの周りの溝。 */
   .work-body {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    /* 行をautoにするとpinnedの中身の高さで行が伸び、全列が
-       bodyをはみ出す。bodyの高さに固定する。 */
+    grid-template-columns: auto minmax(0, 1fr);
+    /* 行をautoにすると中身の高さで行が伸び、全列がbodyをはみ出す。
+       bodyの高さに固定する。 */
     grid-template-rows: minmax(0, 1fr);
     column-gap: 0;
     padding: var(--work-gap);
     min-height: 0;
     background: transparent;
   }
-  /* 列自体はasideの幅に追従。閉じると--side-width/--pinned-widthが
-     0になり、marginとborderも畳まれて跡形もなく消える。 */
-  .frame-side, .frame-pinned {
+  /* 列自体はasideの幅に追従。閉じると--side-widthが0になり、
+     marginとborderも畳まれて跡形もなく消える。 */
+  .frame-side {
     position: relative;
     box-sizing: border-box;
     min-width: 0;
@@ -187,11 +184,8 @@
     transition: margin var(--work-anim) ease, border-width var(--work-anim) ease;
   }
   .frame-side { width: var(--side-width); margin-right: var(--work-gap); }
-  .frame-pinned { width: var(--pinned-width); margin-left: var(--work-gap); }
   main.shell:not([data-side]) .frame-side { margin-right: 0; border-width: 0; }
-  main.shell:not([data-pinned]) .frame-pinned { margin-left: 0; border-width: 0; }
-  main.shell:not([data-side]) .frame-side > .resizer,
-  main.shell:not([data-pinned]) .frame-pinned > .resizer { display: none; }
+  main.shell:not([data-side]) .frame-side > .resizer { display: none; }
   /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
      アニメがポインタに遅れて追従してしまう。 */
   main.shell:has(.resizer[data-dragging]) { transition: none; }
@@ -201,8 +195,8 @@
     display: grid;
     /* 全領域のtemplateは常時固定。閉じたdockは幅/高さ0に畳まれる。 */
     grid-template:
-      "left center right" minmax(0, 1fr)
-      "left bottom right" auto
+      "left center side" minmax(0, 1fr)
+      "left bottom side" auto
       / auto minmax(0, 1fr) auto;
     gap: 0;
     border-radius: var(--work-radius);

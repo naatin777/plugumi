@@ -25,36 +25,36 @@ flowchart LR
     Project --> Area["Area（worktree・package・別repositoryなど）"]
     Area --> Child["子のArea（入れ子にできる）"]
     Area --> Workspace["Workspace（Areaに1つ）"]
-    Workspace --> Dock["Dock: left / center / right / bottom"]
-    Project --> Pinned["Pinned Dock（Projectに1つ）"]
-    Dock --> Panel["Panel"]
-    Pinned --> Panel
+    Workspace --> Main["Main（Dock: left / bottom / center）"]
+    Workspace --> Side["Side（右の列）"]
+    Main --> Panel["Panel"]
+    Side --> Panel
 ```
 
 - Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
-- WorkspaceはAreaと1対1に対応する。Workspaceは、left・center・right・bottomの4つのDockを持ち、各DockにPanelのタブを並べる。
-- center Dockは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分ける。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式（pages）と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
-- Panelのタブはregionをまたいでドラッグできる。center↔left/right/bottom、dock↔dockの相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。WorkspaceのPanelとpinnedのwidgetは別物で、相互変換はない。
-- PinnedはProjectに属し、Areaを切り替えても閉じない。中身はSide（widgetの行リスト）＋Main（選択中のwidgetの中身）の2段で、詳しくは[Design 00005](00005-shell-region-model.md)に従う。
+- WorkspaceはAreaと1対1に対応する。Workspaceは**Main**（left・bottom・centerの領域）と**Side**（右の列）に分かれる。SideはSigmaOSのSideページ相当で、Mainの脇に常時置くPanelの置き場。
+- 各DockはPanelのタブを並べる。center Dockは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分ける。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式（pages）と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
+- Panelはregionをまたいでドラッグできる。Main⇔Sideを含む全領域の相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。sidebarのMain/Sideセクションに落としても移せる。
+- Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 
 ## 画面の構成
 
 Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
-- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とleft/bottom/rightの開閉、右端に両サイド一括畳み（sidebarとpinnedをまとめて引っ込める。個別の開閉状態は潰さない）とテーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）とPinned列の開閉を持つ。
-- **本体**: 左のサイドバー（ProjectタブとAreaツリー）、中央のWorkspaceの4 Dock、右のPinned Dock。
+- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とleft/bottom/sideの開閉、右端に両サイド一括畳み（sidebarとsideをまとめて引っ込める。個別の開閉状態は潰さない）とテーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）を持つ。
+- **本体**: 左のサイドバー（ProjectタブとAreaツリーに加え、WorkspaceのPanelをMain/Sideで分けて一覧する）、中央のWorkspaceのDock（left・bottom・center・side）。
 - **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
 
 Coreの切り替えを一番外側の帯に置くのは、Coreが接続先でありProject以下がCoreごとに分かれた状態だからである。`/<core>/` に移動すると、そのCoreでこの端末が最後に開いていた場所へ戻る。
 
 ## 保存
 
-Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
+Project・Area・Workspaceの状態は、Web Pluginのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
 
 - Core名をキーにする。`coreId` はCoreの再起動で変わるので、Core名のないCoreではProjectを作れない。
 - PanelはPanel InstanceのIDと、Pluginの識別子（`pluginId`）と `panelId` で保存する。登録の識別子（`registrationId`）はPluginの再起動で変わるので保存しない。表示するときに、同じPluginの同じPanelを提供している登録を探す。
-- WorkspaceとPinnedの中身はPlugin Shellが所有するJSONで、Web Pluginのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
+- Workspaceの中身はPlugin Shellが所有するJSONで、Web Pluginのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
 - 同じWorkspaceを複数のタブで同時に編集した場合は、後から保存した内容が残る。
 - `~/.plugumi/` には旧リポジトリのファイルが残っている場合がある。Web Pluginは `~/.plugumi/web/` の下だけを使い、それ以外には触れない。
 
@@ -64,7 +64,7 @@ Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `
 |---|---|
 | `/` | Core一覧。Coreの追加と削除もここで行う |
 | `/<core>/` | この端末で最後に開いた場所へ移動する。なければ先頭のProject、ProjectもなければPlugin Shellの画面 |
-| `/<core>/<project>/` | Projectの画面。Areaのツリーと、PinnedのDockを表示する |
+| `/<core>/<project>/` | Projectの画面。Areaのツリーを表示する |
 | `/<core>/<project>/<area>/<子のarea>/...` | そのAreaのWorkspace |
 
 `<core>` にはCore名を使う。Core名がないCoreは `coreId` で表すが、`coreId` はCoreの再起動で変わるため、ブックマークには使えない。
@@ -115,7 +115,6 @@ Core名を返すAPIは[接続契約 00004](../contracts/00004-plugin-client-prot
 ## 未解決の問い
 
 - Areaが入れ子の構造のほかに持つ内容
-- Areaの形が固まったあとのPinnedの扱い
 - 名前に日本語などを使えるようにするか（表示名とURLの識別子を分けるか）
 - 同時編集を後勝ちより丁寧に扱う必要があるか
 - 同じマシンで動いているCoreを、URLを入力せずに一覧から選べるようにするか

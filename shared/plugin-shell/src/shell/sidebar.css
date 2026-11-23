@@ -51,4 +51,60 @@
   .area-add-child, .area-remove { border: none; padding: 2px; visibility: hidden; }
   .area-row:hover .area-add-child, .area-row:hover .area-remove { visibility: visible; }
   .area-hint { color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-xs); }
+
+  /* ---- Main/Sideセクション（workspaceのpanel一覧） ---- */
+  .nav-section {
+    display: flex; flex-direction: column;
+    gap: 1px;
+    border-top: 1px solid var(--plugumi-colors-border);
+    padding-top: var(--plugumi-spacing-sm);
+  }
+  .nav-label {
+    margin: 0 0 var(--plugumi-spacing-xs);
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-2xs, 10px);
+  }
+  .nav-empty {
+    margin: 0;
+    padding: 2px var(--plugumi-spacing-xs);
+    color: var(--plugumi-colors-text-subtle);
+    font-size: var(--plugumi-font-size-xs);
+  }
+  .nav-row {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    height: 26px; box-sizing: border-box;
+    padding: 0 var(--plugumi-spacing-xs);
+    border-radius: var(--plugumi-radii-md);
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+    cursor: pointer; user-select: none;
+  }
+  .nav-row:hover { background: var(--plugumi-colors-background-tertiary); }
+  .nav-row[data-selected] {
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+  }
+  .nav-title {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .nav-row .tab-close { opacity: 0; }
+  .nav-row:hover .tab-close, .nav-row .tab-close:focus-visible { opacity: 1; }
+  .nav-add {
+    display: inline-flex; align-items: center; gap: 2px;
+    align-self: flex-start;
+    margin-top: var(--plugumi-spacing-xs);
+    border: 1px dashed var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+  }
+  /* sectionがdrop先のとき全体を光らせる（data-drop-targetは
+     drag側が置く）。 */
+  .nav-section[data-drop-target] {
+    outline: 1px solid var(--plugumi-colors-border-strong);
+    outline-offset: -1px;
+    border-radius: var(--plugumi-radii-md);
+  }
 }

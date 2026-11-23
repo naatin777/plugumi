@@ -111,7 +111,6 @@ func TestSaveLoad(t *testing.T) {
 	}
 	project.FindArea([]string{"main"}).Workspace =
 		Opaque(`{"version":1,"center":{"focusedLeaf":"leaf-1"}}`)
-	project.Pinned = Opaque(`{"version":1,"sections":[]}`)
 	if err := Save(dir, "local", document); err != nil {
 		t.Fatal(err)
 	}
@@ -132,9 +131,6 @@ func TestSaveLoad(t *testing.T) {
 	if workspace.(map[string]any)["version"].(float64) != 1 ||
 		len(loaded.Trees()) != 1 || loaded.Trees()[0].Areas[0].Name != "main" {
 		t.Fatalf("roundtrip: %+v", loaded.Trees())
-	}
-	if string(loaded.FindProject("plugumi").Pinned) == "" {
-		t.Fatal("pinned not persisted")
 	}
 	if data, _ := os.ReadFile(other); string(data) != "{}" {
 		t.Fatal("other files under ~/.plugumi were touched")

@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-// WorkspaceとPinnedはShellが所有するJSON（designs/00005「保存の形」）。
+// WorkspaceはShellが所有するJSON（designs/00005「保存の形」）。
 // mainは中身を解釈せずそのまま保存・返却する。型はunknownで運び、
 // PUTの入力だけJSON objectかnullに絞る（isOpaque）。
 export type Opaque = unknown;
@@ -16,7 +16,6 @@ export interface Area {
 
 export interface Project {
   name: string;
-  pinned: Opaque;
   areas: Area[];
 }
 
@@ -89,7 +88,7 @@ export function findProject(document: Document, name: string): Project | undefin
 export function addProject(document: Document, name: string): void {
   if (!validName(name)) throw new InvalidNameError("invalid name");
   if (findProject(document, name)) throw new DuplicateNameError("name already exists");
-  document.projects.push({ name, pinned: null, areas: [] });
+  document.projects.push({ name, areas: [] });
 }
 
 export function removeProject(document: Document, name: string): boolean {

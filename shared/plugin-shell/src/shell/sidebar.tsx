@@ -1,24 +1,37 @@
 // sidebar（Shell固有のナビ領域。Panelではない）。
 // Space=Projectを札で切替え、選択中のProjectのAreaツリーを見せる。
+// その下にworkspaceのpanelをMain/Sideで分けて一覧する（SigmaOSの
+// sidebarと同じ形 — Main=作業面のpanel、Side=右の列に置くpanel）。
+// 行はclickで選択、dragでsection間の移動（dropは各sectionが受ける）。
 // Areaを選ぶとURLが変わり、Workspaceが入れ替わる。
 // prompt/confirmはElectronで使えないため、作成はinline入力、
 // 削除は2段階のinline確認にする。
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createSignal, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref } from "@solidjs/router";
 import type { AreaTree } from "../host.tsx";
-import { useShell } from "./controller.tsx";
+import type { PanelRef } from "../layout/model.ts";
+import { allLeaves, leafOf, locationOf } from "../layout/model.ts";
+import { useShell, layoutOps } from "./controller.tsx";
 import { NameForm, ConfirmButton } from "./inline.tsx";
 import { Resizer } from "./resizer.tsx";
+import type { DropTester } from "./drag.ts";
+import { surfaceAttrs, busyAttr } from "./activity.ts";
 import { IconChevronRight, IconClose, IconPlus } from "../icons.tsx";
 
 export function SidebarView(): JSX.Element {
   const shell = useShell();
   const [addingProject, setAddingProject] = createSignal(false);
   const [addingArea, setAddingArea] = createSignal(false);
+  // Main = side以外の全panel（left/bottom dockとcenterのleaf）。
+  const mainPanels = (): PanelRef[] => [
+    ...shell.layout().left.panels,
+    ...shell.layout().bottom.panels,
+    ...allLeaves(shell.layout().center.root).flatMap((leaf) => leaf.panels),
+  ];
   return (
     <>
-      {/* 列の幅のresizer（pinnedと同じく溝を掴む）。 */}
+      {/* 列の幅のresizer（溝を掴む）。 */}
       <Resizer
         axis="x"
         direction={1}
@@ -79,8 +92,124 @@ export function SidebarView(): JSX.Element {
           </Show>
         </Show>
       </div>
+      <PanelSection
+        label="Main"
+        panels={mainPanels}
+        // MainへのdropはfocusedLeafの末尾へ（leafはloadで差し替わるので
+        // targetはdrop時点の値を読む）。
+        dropTarget={() => ({
+          region: "leaf",
+          leafId: shell.layout().center.focusedLeaf,
+          index: -1,
+        })}
+        addTarget={undefined}
+      />
+      <PanelSection
+        label="Side"
+        panels={() => shell.layout().side.panels}
+        dropTarget={() => ({ region: "dock", dock: "side", index: -1 })}
+        addTarget={{ region: "dock", dock: "side", index: -1 }}
+      />
     </nav>
     </>
+  );
+}
+
+// Main/Sideの1セクション。行リスト＋追加ボタンで、section自体が
+// panelのdrop先にもなる（nav上のdragで領域を移す）。
+function PanelSection(props: {
+  label: string;
+  panels: () => PanelRef[];
+  dropTarget: () => import("../layout/model.ts").MoveTarget;
+  addTarget: import("../layout/model.ts").MoveTarget | undefined;
+}): JSX.Element {
+  const shell = useShell();
+  let unregister: (() => void) | undefined;
+  onCleanup(() => unregister?.());
+  const tester: DropTester = (element, x, y) => {
+    const rect = element.getBoundingClientRect();
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+    return props.dropTarget();
+  };
+  const register = (node: HTMLElement) => {
+    unregister?.();
+    unregister = shell.drag.register(node, tester);
+  };
+  return (
+    <section class="nav-section" ref={register}>
+      <p class="nav-label">{props.label}</p>
+      <Show when={props.panels().length === 0}>
+        <p class="nav-empty">Panelがありません</p>
+      </Show>
+      <For each={props.panels()}>
+        {(panelRef) => <NavPanelRow panel={panelRef} />}
+      </For>
+      <button class="nav-add" onClick={() => shell.openPicker(props.addTarget)}>
+        <IconPlus size={12} /> Pageを追加
+      </button>
+    </section>
+  );
+}
+
+// パネル1行。clickで選択し、dragすれば領域移動になる。
+// prop名はrefにしない — refはJSXの予約属性で、転送の対象になる。
+function NavPanelRow(props: { panel: PanelRef }): JSX.Element {
+  const shell = useShell();
+  const ops = layoutOps(shell);
+  const instance = () => shell.instance(props.panel);
+  // そのpanelが自分の領域で選択中か。leafならfocusedLeaf側も見る。
+  const selected = () => {
+    const state = shell.layout();
+    const location = locationOf(state, props.panel.instanceId);
+    if (!location) return false;
+    if (location.region === "dock") {
+      return state[location.dock].selected === props.panel.instanceId;
+    }
+    const leaf = leafOf(state.center.root, props.panel.instanceId);
+    return leaf?.selected === props.panel.instanceId;
+  };
+
+  const press = (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    shell.drag.start(
+      { instanceId: props.panel.instanceId, title: instance().title() },
+      event,
+      {
+        onClick: () => {
+          // dockのpanelならそのdockを開いてから選択する（畳まれていても見える）。
+          const location = locationOf(shell.layout(), props.panel.instanceId);
+          if (location?.region === "dock") {
+            shell.updatePrefs((prefs) => {
+              prefs.dockOpen = { ...prefs.dockOpen, [location.dock]: true };
+            });
+          }
+          ops.select(props.panel.instanceId);
+        },
+      },
+    );
+  };
+
+  return (
+    <div
+      class="nav-row"
+      data-selected={selected() || undefined}
+      {...surfaceAttrs(instance().activity(), "header")}
+      {...busyAttr(instance().activity())}
+      onPointerDown={press}
+    >
+      <span class="nav-title">{instance().title()}</span>
+      <button
+        class="tab-close"
+        aria-label="閉じる"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          ops.close(props.panel.instanceId);
+        }}
+      >
+        <IconClose size={12} />
+      </button>
+    </div>
   );
 }
 

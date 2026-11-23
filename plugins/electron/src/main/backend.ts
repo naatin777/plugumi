@@ -184,18 +184,6 @@ export class Backend {
     });
   }
 
-  getPinned(key: string, projectName: string): projects.Opaque {
-    const project = this.projectByName(key, projectName);
-    return project.pinned;
-  }
-
-  putPinned(key: string, projectName: string, pinned: projects.Opaque): void {
-    projects.validateOpaque(pinned);
-    this.mutateProject(key, projectName, (project) => {
-      project.pinned = pinned;
-    });
-  }
-
   getWorkspace(key: string, projectName: string, areaPath: string[]): projects.Opaque {
     return this.areaByPath(key, projectName, areaPath).workspace;
   }

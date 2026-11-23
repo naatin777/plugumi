@@ -1,5 +1,5 @@
-// left/right/bottomの縁領域（位置の契約）。tab切替の1列。
-// pinnedはProject-scopeのwidget列で別物（pinned.tsx）。
+// left/bottom/sideの縁領域（位置の契約）。tab切替の1列。
+// sideは右の列（SigmaOSのSide相当）。
 // 開いているときだけdrop先になる（閉じたdockはregisterしない）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -13,7 +13,7 @@ import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
 
 export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
   const shell = useShell();
-  const stack = () => shell.layout().workspace[props.kind];
+  const stack = () => shell.layout()[props.kind];
   const horizontal = () => props.kind === "bottom";
   const target = (index: number): MoveTarget =>
     ({ region: "dock", dock: props.kind, index });

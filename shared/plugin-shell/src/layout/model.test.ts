@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
-  addPanel, allLeaves, closePanel, decodePinned,
-  decodeWorkspace, emptyLayout, emptyWorkspace, findLeaf, locationOf,
-  movePanel, selectPanel, selectPinned, setRatio,
-  splitAt, type LayoutState, type PanelRef,
+  addPanel, allLeaves, closePanel,
+  decodeWorkspace, emptyWorkspace, findLeaf, locationOf,
+  movePanel, selectPanel, setRatio,
+  splitAt, type WorkspaceState, type PanelRef,
 } from "./model.ts";
 
 const ref = (id: string): PanelRef => ({
   instanceId: id, pluginId: "standard", panelId: "files",
 });
 
-const withPanel = (state: LayoutState, id: string, target?: Parameters<typeof addPanel>[2]) =>
+const withPanel = (state: WorkspaceState, id: string, target?: Parameters<typeof addPanel>[2]) =>
   addPanel(state, ref(id), target);
 
 describe("decode", () => {
@@ -19,8 +19,8 @@ describe("decode", () => {
     const raw = {
       version: 1,
       left: { panels: [ref("a")], selected: "a" },
-      right: { panels: [], selected: null },
       bottom: { panels: [], selected: null },
+      side: { panels: [], selected: null },
       center: {
         root: {
           kind: "split", id: "s1", axis: "x", ratio: 0.5,
@@ -51,8 +51,8 @@ describe("decode", () => {
     const state = decodeWorkspace({
       version: 1,
       left: { panels: [], selected: null },
-      right: { panels: [], selected: null },
       bottom: { panels: [], selected: null },
+      side: { panels: [], selected: null },
       center: {
         root: {
           kind: "leaf", id: "l1",
@@ -64,72 +64,60 @@ describe("decode", () => {
     assert.equal(state.center.focusedLeaf, "l1");
   });
 
-  test("Pinnedのdecodeはpanelだけを検査し、selectedを拾う", () => {
-    const good = decodePinned({
-      version: 1,
-      widgets: [{ panel: ref("a") }, { panel: ref("b") }],
-      selected: "a",
-    });
-    assert.equal(good.widgets.length, 2);
-    assert.equal(good.widgets[0].panel.instanceId, "a");
-    assert.equal(good.selected, "a");
-    // selectedが壊れていれば末尾へ、widgetsが無ければnull。
-    const fallback = decodePinned({ version: 1, widgets: [{ panel: ref("a") }], selected: "gone" });
-    assert.equal(fallback.selected, "a");
-    assert.equal(decodePinned({ version: 1, widgets: [] }).selected, null);
+  test("旧形（rightキー・pinned）は空のWorkspaceになる", () => {
     for (const raw of [
-      null, {}, { version: 2 },
-      { version: 1, widgets: [{ panelId: "x" }] },
-      { version: 1, widgets: [{ panel: { instanceId: "a" } }] },
+      { version: 1, left: { panels: [], selected: null }, right: { panels: [], selected: null },
+        bottom: { panels: [], selected: null },
+        center: { root: { kind: "leaf", id: "l1", panels: [], selected: null }, focusedLeaf: "l1" } },
     ]) {
-      const state = decodePinned(raw);
-      assert.equal(state.widgets.length, 0, JSON.stringify(raw));
+      const state = decodeWorkspace(raw);
+      assert.deepEqual(state, emptyWorkspace(), JSON.stringify(raw));
     }
   });
 });
 
 describe("add/close", () => {
   test("addはfocusedLeafに入れてselectedにする", () => {
-    let state = emptyLayout();
+    let state = emptyWorkspace();
     state = withPanel(state, "a");
-    const leaf = findLeaf(state.workspace.center.root, "leaf-root")!;
+    const leaf = findLeaf(state.center.root, "leaf-root")!;
     assert.equal(leaf.panels.length, 1);
     assert.equal(leaf.selected, "a");
   });
 
   test("空のleafはcloseでsplitが畳まれ、rootのleafは空でも残る", () => {
-    let state = emptyLayout();
+    let state = emptyWorkspace();
     state = splitAt(state, "leaf-root", "right");
-    const addedId = state.workspace.center.focusedLeaf;
+    const addedId = state.center.focusedLeaf;
     state = withPanel(state, "a", { region: "leaf", leafId: "leaf-root", index: -1 });
-    assert.equal(allLeaves(state.workspace.center.root).length, 2);
+    assert.equal(allLeaves(state.center.root).length, 2);
     // 両方空なのは片方だけ畳まれるのではなく、空leafはcloseしたときだけ畳く。
     // ここでは片方にパネルを入れたので、両方残る。
     // 次に両方消せばrootだけ残る。
     state = closePanel(state, "a");
     // "a"を閉じたleafが空になったのでsplitが畳まれる。
-    assert.equal(allLeaves(state.workspace.center.root).length, 1);
-    assert.equal(state.workspace.center.root.kind, "leaf");
-    assert.equal(state.workspace.center.root.id, addedId);
+    assert.equal(allLeaves(state.center.root).length, 1);
+    assert.equal(state.center.root.kind, "leaf");
+    assert.equal(state.center.root.id, addedId);
   });
 
   test("選択中のPanelを閉じると選択が末尾にfallbackし、無ければnullになる", () => {
-    let state = emptyLayout();
+    let state = emptyWorkspace();
     state = withPanel(state, "a");
     state = withPanel(state, "b");
-    const leaf = findLeaf(state.workspace.center.root, "leaf-root")!;
+    const leaf = findLeaf(state.center.root, "leaf-root")!;
     state = selectPanel(state, "b");
     state = closePanel(state, "b");
-    const after = findLeaf(state.workspace.center.root, leaf.id)!;
+    const after = findLeaf(state.center.root, leaf.id)!;
     assert.equal(after.selected, "a");
     state = closePanel(state, "a");
-    assert.equal(findLeaf(state.workspace.center.root, leaf.id)!.selected, null);
+    assert.equal(findLeaf(state.center.root, leaf.id)!.selected, null);
   });
 });
 
 describe("move", () => {
-  const setup = (): LayoutState => {
-    let state = emptyLayout();
+  const setup = (): WorkspaceState => {
+    let state = emptyWorkspace();
     state = withPanel(state, "a");
     state = withPanel(state, "b");
     state = withPanel(state, "c");
@@ -140,65 +128,40 @@ describe("move", () => {
     let state = setup();
     // a,b,c の順。 c を index 0 へ。
     state = movePanel(state, "c", { region: "leaf", leafId: "leaf-root", index: 0 });
-    const leaf = findLeaf(state.workspace.center.root, "leaf-root")!;
+    const leaf = findLeaf(state.center.root, "leaf-root")!;
     assert.deepEqual(leaf.panels.map((p) => p.instanceId), ["c", "a", "b"]);
   });
 
   test("dock→leafの移動", () => {
-    let state = emptyLayout();
+    let state = emptyWorkspace();
     state = withPanel(state, "a", { region: "dock", dock: "left", index: -1 });
     assert.equal(locationOf(state, "a")?.region, "dock");
     state = movePanel(state, "a", { region: "leaf", leafId: "leaf-root", index: -1 });
-    assert.equal(state.workspace.left.panels.length, 0);
-    assert.equal(findLeaf(state.workspace.center.root, "leaf-root")!.panels.length, 1);
+    assert.equal(state.left.panels.length, 0);
+    assert.equal(findLeaf(state.center.root, "leaf-root")!.panels.length, 1);
   });
 
-  // panelとwidgetは別物。pinned⇔workspaceをまたぐ移動は変換になるので
-  // 操作ごと捨てる（UI側もdrop testerがkindで弾いている）。
-  test("leaf→pinnedは変換なので移動しない", () => {
+  test("leaf→sideの移動（領域の違いだけでpanelは同じ）", () => {
     let state = setup();
-    state = movePanel(state, "a", { region: "pinned", index: -1 });
-    assert.equal(state.pinned.widgets.length, 0);
-    assert.equal(locationOf(state, "a")?.region, "leaf");
+    state = movePanel(state, "a", { region: "dock", dock: "side", index: -1 });
+    assert.equal(state.side.panels.length, 1);
+    assert.equal(state.side.selected, "a");
+    assert.equal(locationOf(state, "a")?.region, "dock");
   });
 
-  test("pinned→leafは変換なので移動しない", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
+  test("side→leafの移動", () => {
+    let state = emptyWorkspace();
+    state = withPanel(state, "a", { region: "dock", dock: "side", index: -1 });
     state = movePanel(state, "a",
-      { region: "leaf", leafId: state.workspace.center.focusedLeaf, index: -1 });
-    assert.equal(state.pinned.widgets.length, 1);
-    assert.equal(locationOf(state, "a")?.region, "pinned");
-  });
-
-  test("pinned→dockは変換なので移動しない", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
-    state = movePanel(state, "a", { region: "dock", dock: "left", index: -1 });
-    assert.equal(state.pinned.widgets.length, 1);
-    assert.equal(state.workspace.left.panels.length, 0);
-  });
-
-  test("dock→pinnedは変換なので移動しない", () => {
-    let state = setup();
-    state = movePanel(state, "a", { region: "dock", dock: "left", index: -1 });
-    state = movePanel(state, "a", { region: "pinned", index: 0 });
-    assert.equal(state.workspace.left.panels.length, 1);
-    assert.equal(state.pinned.widgets.length, 0);
-  });
-
-  test("同じinstanceIdのaddでも種別は跨げない", () => {
-    let state = setup();
-    // leafにある"a"をpinnedへaddしても変換にならない。
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
+      { region: "leaf", leafId: state.center.focusedLeaf, index: -1 });
+    assert.equal(state.side.panels.length, 0);
     assert.equal(locationOf(state, "a")?.region, "leaf");
-    assert.equal(state.pinned.widgets.length, 0);
   });
 
   test("split targetはleafのedge側に新しいleafを作る", () => {
     let state = setup();
     state = movePanel(state, "a", { region: "split", leafId: "leaf-root", edge: "right" });
-    const root = state.workspace.center.root;
+    const root = state.center.root;
     assert.equal(root.kind, "split");
     if (root.kind !== "split") return;
     assert.equal(root.axis, "x");
@@ -208,14 +171,14 @@ describe("move", () => {
       ["a"],
     );
     // 移動先のleafがfocusedLeafになる。
-    assert.equal(state.workspace.center.focusedLeaf, root.second.id);
+    assert.equal(state.center.focusedLeaf, root.second.id);
   });
 
   test("同じinstanceIdをaddすると二重に置かれない", () => {
     let state = setup();
     state = withPanel(state, "a", { region: "dock", dock: "bottom", index: -1 });
-    assert.equal(state.workspace.bottom.panels.length, 1);
-    assert.equal(findLeaf(state.workspace.center.root, "leaf-root")!.panels.length, 2);
+    assert.equal(state.bottom.panels.length, 1);
+    assert.equal(findLeaf(state.center.root, "leaf-root")!.panels.length, 2);
   });
 });
 
@@ -225,87 +188,35 @@ describe("split", () => {
       ["left", "x", "new"], ["right", "x", "leaf-root"],
       ["top", "y", "new"], ["bottom", "y", "leaf-root"],
     ] as const) {
-      let state = emptyLayout();
+      let state = emptyWorkspace();
       state = splitAt(state, "leaf-root", edge);
-      const root = state.workspace.center.root;
+      const root = state.center.root;
       assert.equal(root.kind, "split", edge);
       if (root.kind !== "split") return;
       assert.equal(root.axis, axis, edge);
-      assert.equal(root.first.id, firstId === "new" ? state.workspace.center.focusedLeaf : firstId);
+      assert.equal(root.first.id, firstId === "new" ? state.center.focusedLeaf : firstId);
     }
   });
 
   test("setRatioは0.1〜0.9にclampする", () => {
-    let state = emptyLayout();
+    let state = emptyWorkspace();
     state = splitAt(state, "leaf-root", "right");
-    const root = state.workspace.center.root;
+    const root = state.center.root;
     if (root.kind !== "split") throw new Error("split expected");
     state = setRatio(state, root.id, 0.02);
-    assert.equal((state.workspace.center.root as typeof root).ratio, 0.1);
+    assert.equal((state.center.root as typeof root).ratio, 0.1);
     state = setRatio(state, root.id, 1.5);
-    assert.equal((state.workspace.center.root as typeof root).ratio, 0.9);
+    assert.equal((state.center.root as typeof root).ratio, 0.9);
   });
 
   test("畳まれたleafがfocusを持っていたら兄弟に移る", () => {
-    let state = emptyLayout();
+    let state = emptyWorkspace();
     state = splitAt(state, "leaf-root", "right");
-    const addedId = state.workspace.center.focusedLeaf;
+    const addedId = state.center.focusedLeaf;
     state = withPanel(state, "a", { region: "leaf", leafId: addedId, index: -1 });
     state = closePanel(state, "a");
-    assert.equal(state.workspace.center.focusedLeaf, "leaf-root");
-    assert.equal(state.workspace.center.root.id, "leaf-root");
-  });
-});
-
-describe("pinned", () => {
-  test("pinnedは順序つきのwidget列で、追加したものが選択される", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
-    state = withPanel(state, "b", { region: "pinned", index: -1 });
-    assert.deepEqual(
-      state.pinned.widgets.map((widget) => widget.panel.instanceId),
-      ["a", "b"],
-    );
-    assert.equal(state.pinned.selected, "b");
-    state = closePanel(state, "a");
-    assert.deepEqual(
-      state.pinned.widgets.map((widget) => widget.panel.instanceId),
-      ["b"],
-    );
-    assert.equal(state.pinned.selected, "b");
-  });
-
-  test("selectPinnedはwidgets内のidだけを選択する", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
-    state = withPanel(state, "b", { region: "pinned", index: -1 });
-    state = selectPinned(state, "a");
-    assert.equal(state.pinned.selected, "a");
-    assert.equal(selectPinned(state, "missing"), state);
-  });
-
-  test("pinned内の並べ替えはwidgetを動かすだけ", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
-    state = withPanel(state, "b", { region: "pinned", index: -1 });
-    state = selectPinned(state, "a");
-    // aを末尾へ移動（pinned→pinned）。
-    state = movePanel(state, "a", { region: "pinned", index: -1 });
-    assert.deepEqual(
-      state.pinned.widgets.map((widget) => widget.panel.instanceId),
-      ["b", "a"],
-    );
-  });
-
-  test("選択中のwidgetを閉じると末尾へfallbackする", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
-    state = withPanel(state, "b", { region: "pinned", index: -1 });
-    state = selectPinned(state, "a");
-    state = closePanel(state, "a");
-    assert.equal(state.pinned.selected, "b");
-    state = closePanel(state, "b");
-    assert.equal(state.pinned.selected, null);
+    assert.equal(state.center.focusedLeaf, "leaf-root");
+    assert.equal(state.center.root.id, "leaf-root");
   });
 });
 
@@ -313,8 +224,8 @@ describe("leafのdecodeの厳密さ", () => {
   const raw = (leaf: Record<string, unknown>) => ({
     version: 1,
     left: { panels: [], selected: null },
-    right: { panels: [], selected: null },
     bottom: { panels: [], selected: null },
+    side: { panels: [], selected: null },
     center: { root: leaf, focusedLeaf: "l1" },
   });
   const leaf = { kind: "leaf", id: "l1", panels: [ref("x")], selected: "x" };

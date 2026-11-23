@@ -1,7 +1,7 @@
 // ShellHost の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
 import type {
   CallToolBody, CoreEntry, PanelEntry, ProjectTree,
-  PinnedState, ShellHost, WorkspaceState,
+  ShellHost, WorkspaceState,
 } from "@plugumi/plugin-shell";
 
 async function errorMessage(response: Response): Promise<string> {
@@ -78,18 +78,6 @@ export function httpShellHost(): ShellHost {
     },
     async deleteArea(key: string, project: string, areaPath: string[]): Promise<void> {
       const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}`, { method: "DELETE" });
-      if (!response.ok) throw new Error(await errorMessage(response));
-    },
-    async getPinned(key: string, project: string): Promise<unknown> {
-      const response = await fetch(`${base(key)}/${project}/pinned`);
-      if (!response.ok) throw new Error(`GET pinned: HTTP ${response.status}`);
-      return response.json();
-    },
-    async putPinned(key: string, project: string, pinned: PinnedState): Promise<void> {
-      const response = await fetch(`${base(key)}/${project}/pinned`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pinned),
-      });
       if (!response.ok) throw new Error(await errorMessage(response));
     },
     async getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown> {

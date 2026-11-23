@@ -1,10 +1,10 @@
 // Plugin Shell の画面が外（web pluginのサーバー、Electron main等）と話す口。
 // 画面側はこのinterfaceだけを使い、fetch先やURLの組み立ては宿主が実装する。
-// Workspace/PinnedはShell所有のJSON: getはunknownのまま受け取り、
+// WorkspaceはShell所有のJSON: getはunknownのまま受け取り、
 // Shellがdecodeする。putはShellのstateをそのまま渡す。
 import { createContext, useContext, type ParentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import type { PinnedState, WorkspaceState } from "./layout/model.ts";
+import type { WorkspaceState } from "./layout/model.ts";
 
 // ---- /api/cores 系の型（Go側のJSONフィールド名と一致） ----
 export type CoreSource = "command" | "saved";
@@ -62,8 +62,6 @@ export interface ShellHost {
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
 
   // 未保存・壊れた形はnullかobject以外で返ることがある。decodeはShell側。
-  getPinned(key: string, project: string): Promise<unknown>;
-  putPinned(key: string, project: string, pinned: PinnedState): Promise<void>;
   getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown>;
   putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void>;
 

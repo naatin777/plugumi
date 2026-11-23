@@ -2,7 +2,7 @@
 // uiURLはplugumi-ui://のURLを組み立てるだけなのでここで実装する。
 import type {
   CallToolBody, CoreEntry, PanelEntry, ProjectTree,
-  PinnedState, ShellHost, WorkspaceState,
+  ShellHost, WorkspaceState,
 } from "@plugumi/plugin-shell";
 
 // preloadが出す窓口。ShellHostからuiURLを除いた形。
@@ -18,8 +18,6 @@ interface PlugumiShellBridge {
   deleteProject(key: string, project: string): Promise<void>;
   createArea(key: string, project: string, parent: string[], name: string): Promise<void>;
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
-  getPinned(key: string, project: string): Promise<unknown>;
-  putPinned(key: string, project: string, pinned: PinnedState): Promise<void>;
   getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown>;
   putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void>;
 }
@@ -66,8 +64,6 @@ export function ipcShellHost(): ShellHost {
     createArea: (key, project, parent, name) =>
       wrap(bridge.createArea(key, project, plain(parent), name)),
     deleteArea: (key, project, areaPath) => wrap(bridge.deleteArea(key, project, plain(areaPath))),
-    getPinned: (key, project) => wrap(bridge.getPinned(key, project)),
-    putPinned: (key, project, pinned) => wrap(bridge.putPinned(key, project, plain(pinned))),
     getWorkspace: (key, project, areaPath) => wrap(bridge.getWorkspace(key, project, plain(areaPath))),
     putWorkspace: (key, project, areaPath, workspace) =>
       wrap(bridge.putWorkspace(key, project, plain(areaPath), plain(workspace))),

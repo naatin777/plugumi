@@ -47,14 +47,6 @@ export const IconDockRight = icon(() => <>
   <line x1="11" y1="8" x2="13" y2="8" />
 </>);
 
-export const IconPinned = icon(() => <>
-  <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-  <line x1="10" y1="2.5" x2="10" y2="13.5" />
-  <line x1="11.5" y1="5" x2="13" y2="5" />
-  <line x1="11.5" y1="8" x2="13" y2="8" />
-  <line x1="11.5" y1="11" x2="13" y2="11" />
-</>);
-
 export const IconPlus = icon(() => <>
   <line x1="8" y1="3.5" x2="8" y2="12.5" />
   <line x1="3.5" y1="8" x2="12.5" y2="8" />

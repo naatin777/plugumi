@@ -7,13 +7,11 @@ export type ThemeMode = "system" | "light" | "dark";
 
 export interface ShellPrefs {
   sidebarOpen: boolean;
-  pinnedOpen: boolean;
   dockOpen: Record<DockKind, boolean>;
   // dockの幅/高さ（px）。bottomは高さ。
   dockSize: Record<DockKind, number>;
   sidebarWidth: number;
-  pinnedWidth: number;
-  // 左右のframe領域（sidebar＋pinned）をまとめて畳む。
+  // 左右の端の列（sidebar＋side）をまとめて畳む。
   // 個別の開閉状態は潰さないので、戻すと元の開き方に復帰する。
   sideHidden: boolean;
   theme: ThemeMode;
@@ -25,12 +23,10 @@ const KEY = "plugumi:shell:prefs";
 
 const defaults = (): ShellPrefs => ({
   sidebarOpen: true,
-  pinnedOpen: true,
-  dockOpen: { left: true, bottom: true, right: true },
-  dockSize: { left: 280, bottom: 200, right: 280 },
+  dockOpen: { left: true, bottom: true, side: true },
+  dockSize: { left: 280, bottom: 200, side: 280 },
   // --title-tools-left（260px）以上にしておき、既定のwork面は矩形になる。
   sidebarWidth: 260,
-  pinnedWidth: 280,
   sideHidden: false,
   theme: "system",
   aurora: true,
@@ -63,19 +59,17 @@ export function loadPrefs(): ShellPrefs {
   const theme = saved.theme;
   return {
     sidebarOpen: flag(saved.sidebarOpen, base.sidebarOpen),
-    pinnedOpen: flag(saved.pinnedOpen, base.pinnedOpen),
     dockOpen: {
       left: flag(dockOpen.left, base.dockOpen.left),
       bottom: flag(dockOpen.bottom, base.dockOpen.bottom),
-      right: flag(dockOpen.right, base.dockOpen.right),
+      side: flag(dockOpen.side, base.dockOpen.side),
     },
     dockSize: {
       left: clampWidth(dockSize.left, base.dockSize.left),
       bottom: clampWidth(dockSize.bottom, base.dockSize.bottom),
-      right: clampWidth(dockSize.right, base.dockSize.right),
+      side: clampWidth(dockSize.side, base.dockSize.side),
     },
     sidebarWidth: clampWidth(saved.sidebarWidth, base.sidebarWidth),
-    pinnedWidth: clampWidth(saved.pinnedWidth, base.pinnedWidth),
     sideHidden: flag(saved.sideHidden, base.sideHidden),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
     aurora: flag(saved.aurora, base.aurora),

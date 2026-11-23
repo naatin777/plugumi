@@ -35,10 +35,6 @@ export function registerIpc(backend: Backend): void {
         );
       case "deleteArea":
         return backend.deleteArea(values[0] as string, values[1] as string, values[2] as string[]);
-      case "getPinned":
-        return backend.getPinned(values[0] as string, values[1] as string);
-      case "putPinned":
-        return backend.putPinned(values[0] as string, values[1] as string, values[2]);
       case "getWorkspace":
         return backend.getWorkspace(values[0] as string, values[1] as string, values[2] as string[]);
       case "putWorkspace":

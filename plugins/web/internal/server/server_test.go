@@ -503,15 +503,6 @@ func TestProjectAPIs(t *testing.T) {
 	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/feature-a/workspace", `null`); response.Code != http.StatusNoContent {
 		t.Fatalf("null body: %d", response.Code)
 	}
-	// pinnedのPUT/GET。
-	pinned := `{"version":1,"sections":[{"panel":{"instanceId":"panel-p1","pluginId":"standard","panelId":"files"},"collapsed":false,"grow":1}]}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/pinned", pinned); response.Code != http.StatusNoContent {
-		t.Fatalf("put pinned: %d", response.Code)
-	}
-	response = do(t, fixture.handler, http.MethodGet, base+"/projects/plugumi/pinned", "")
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "panel-p1") {
-		t.Fatalf("get pinned: %d %s", response.Code, response.Body)
-	}
 	// Area削除は子ごと。workspaceも一緒に消える。
 	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/plugumi/areas/main", ""); response.Code != http.StatusNoContent {
 		t.Fatalf("delete area: %d", response.Code)

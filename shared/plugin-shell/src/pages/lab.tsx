@@ -168,7 +168,6 @@ function ActivitySamples(): JSX.Element {
 // work面の形のデモ。本物と同じ変数をスライダーで動かす。
 function ShapeDemo(): JSX.Element {
   const [side, setSide] = createSignal(260);
-  const [pinned, setPinned] = createSignal(280);
   const [toolsLeft, setToolsLeft] = createSignal(260);
   const [toolsRight, setToolsRight] = createSignal(280);
   const [osX, setOsX] = createSignal(80);
@@ -178,7 +177,6 @@ function ShapeDemo(): JSX.Element {
       <h2>work面の形</h2>
       <div class="lab-sliders">
         <Slider label="sidebar幅" value={side} set={setSide} max={400} />
-        <Slider label="pinned幅" value={pinned} set={setPinned} max={400} />
         <Slider label="左tool幅" value={toolsLeft} set={setToolsLeft} max={500} />
         <Slider label="右tool幅" value={toolsRight} set={setToolsRight} max={500} />
         <Slider label="OS領域のX" value={osX} set={setOsX} max={600} />
@@ -189,7 +187,6 @@ function ShapeDemo(): JSX.Element {
         style={{
           "--shell-viewport": "100%",
           "--side-width": `${side()}px`,
-          "--pinned-width": `${pinned()}px`,
           "--title-tools-left": `${toolsLeft()}px`,
           "--title-tools-right": `${toolsRight()}px`,
           "--os-inset-x": `${osX()}px`,
@@ -202,11 +199,10 @@ function ShapeDemo(): JSX.Element {
           titleCenter={<span class="lab-fill">work区間</span>}
           titleRight={<span class="lab-fill">右tool</span>}
           sidebar={<div class="lab-fill">sidebar</div>}
-          pinned={<div class="lab-fill">pinned</div>}
         >
           <div class="lab-fill lab-mat" style={{ "grid-area": "left" }}>left</div>
           <div class="lab-fill lab-mat" style={{ "grid-area": "center" }}>center</div>
-          <div class="lab-fill lab-mat" style={{ "grid-area": "right" }}>right</div>
+          <div class="lab-fill lab-mat" style={{ "grid-area": "side" }}>side</div>
           <div class="lab-fill lab-mat" style={{ "grid-area": "bottom" }}>bottom</div>
         </WorkShape>
       </div>

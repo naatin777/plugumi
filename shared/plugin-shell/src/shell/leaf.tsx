@@ -14,7 +14,7 @@ import { IconPlus } from "../icons.tsx";
 
 export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
   const shell = useShell();
-  const focused = () => shell.layout().workspace.center.focusedLeaf === props.leaf.id;
+  const focused = () => shell.layout().center.focusedLeaf === props.leaf.id;
   let unregister: (() => void) | undefined;
   onCleanup(() => unregister?.());
   const registerBody = (node: HTMLElement) => {

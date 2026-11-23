@@ -60,8 +60,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}", s.removeProject)
 	mux.HandleFunc("POST /api/cores/{key}/projects/{project}/areas", s.addArea)
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}/areas/{rest...}", s.removeArea)
-	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/pinned", s.getPinned)
-	mux.HandleFunc("PUT /api/cores/{key}/projects/{project}/pinned", s.putPinned)
 	// workspaceのパスは{rest...}末尾が"workspace"のときだけ扱う
 	// （muxのワイルドカードは末尾にしか置けないため）。
 	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/areas/{rest...}", s.getWorkspace)
@@ -454,31 +452,6 @@ func (s *Server) removeArea(w http.ResponseWriter, r *http.Request) {
 		if !project.RemoveArea(areaPath) {
 			return errorBody("area not found"), http.StatusNotFound
 		}
-		return nil, http.StatusNoContent
-	})
-}
-
-func (s *Server) getPinned(w http.ResponseWriter, r *http.Request) {
-	s.projectContext(w, r, func(document *projects.Document) (any, int) {
-		project := document.FindProject(r.PathValue("project"))
-		if project == nil {
-			return errorBody("project not found"), http.StatusNotFound
-		}
-		return project.Pinned, http.StatusOK
-	})
-}
-
-func (s *Server) putPinned(w http.ResponseWriter, r *http.Request) {
-	body, ok := readOpaque(w, r)
-	if !ok {
-		return
-	}
-	s.projectContext(w, r, func(document *projects.Document) (any, int) {
-		project := document.FindProject(r.PathValue("project"))
-		if project == nil {
-			return errorBody("project not found"), http.StatusNotFound
-		}
-		project.Pinned = body
 		return nil, http.StatusNoContent
 	})
 }

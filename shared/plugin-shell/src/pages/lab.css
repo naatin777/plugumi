@@ -60,7 +60,7 @@
     height: 320px;
     border: 1px dashed var(--plugumi-colors-border);
     overflow: hidden;
-    /* WorkShape内の .work-body grid には --side-width/--pinned-width が要る。
+    /* WorkShape内の .work-body grid には --side-width が要る。
        ラッパーに書けば継承で届く。 */
   }
   .lab-shape .work-title { position: relative; height: var(--os-inset-height, 40px); }

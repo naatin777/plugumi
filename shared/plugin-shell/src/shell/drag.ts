@@ -6,8 +6,6 @@
 // 使う（登録要素の中でのindex/edgeの計算）。
 import type { MoveTarget } from "../layout/model.ts";
 
-// testerにはdrag中のsessionを渡す。panelとwidgetは別物なので、
-// testerはsession.kindを見て自分の受け付ける種別かを先に判定する。
 export type DropTester = (
   element: HTMLElement, x: number, y: number, session: DragSession,
 ) => MoveTarget | null;
@@ -15,8 +13,6 @@ export type DropTester = (
 export interface DragSession {
   instanceId: string;
   title: string;
-  // panel=workspace内のtab、widget=pinnedの区画。相互変換はない。
-  kind: "panel" | "widget";
 }
 
 export interface StartOptions {
@@ -150,25 +146,18 @@ const insertIndex = (element: HTMLElement, pos: number, axis: "x" | "y"): number
   return index;
 };
 
-// 横strip（dock・leafのtab帯）のdrop判定。panelのtab専用。
+// 横strip（dock・leafのtab帯）のdrop判定。
 export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
-  (element, x, y, session) => {
-    if (session.kind !== "panel" || !inside(element, x, y)) return null;
+  (element, x, y) => {
+    if (!inside(element, x, y)) return null;
     return target(insertIndex(element, x, "x"));
-  };
-
-// 縦積みの列全体のdrop判定。widgetの並べ替え専用。
-export const columnTest = (target: (index: number) => MoveTarget): DropTester =>
-  (element, x, y, session) => {
-    if (session.kind !== "widget" || !inside(element, x, y)) return null;
-    return target(insertIndex(element, y, "y"));
   };
 
 // leaf本体のdrop判定。縁に近ければsplit、中央なら末尾挿入。
 // leafIdはdrop時点の値を読む（leafはloadで差し替わるため値渡しだと腐る）。
 export const leafBodyTest = (leafId: () => string): DropTester =>
-  (element, x, y, session) => {
-    if (session.kind !== "panel" || !inside(element, x, y)) return null;
+  (element, x, y) => {
+    if (!inside(element, x, y)) return null;
     const rect = element.getBoundingClientRect();
     const edgeX = Math.max(EDGE_MIN_PX, rect.width * EDGE_FRACTION);
     const edgeY = Math.max(EDGE_MIN_PX, rect.height * EDGE_FRACTION);
@@ -193,9 +182,9 @@ export const leafBodyTest = (leafId: () => string): DropTester =>
     return { region: "leaf", leafId: id, index: -1 };
   };
 
-// 本体がstripに見えない場合（空dock等）の矩形判定。panel専用。
+// 本体がstripに見えない場合（空dock・navのsection等）の矩形判定。
 export const bodyTest = (target: MoveTarget): DropTester =>
-  (element, x, y, session) => {
-    if (session.kind !== "panel" || !inside(element, x, y)) return null;
+  (element, x, y) => {
+    if (!inside(element, x, y)) return null;
     return target;
   };

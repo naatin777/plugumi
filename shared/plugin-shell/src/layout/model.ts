@@ -1,8 +1,8 @@
-// Workspace・Pinnedの保存モデルと純粋な操作群。
+// Workspaceの保存モデルと純粋な操作群。
 // SolidやDOMには触れない。状態はプレーンなJSONの形だけで持ち、
 // 操作は新しい状態を返す（呼び出し側がstoreに置き直す）。
 // 不変条件（designs/00005「保存の形」）:
-// - 1つのPanel InstanceはWorkspace・Pinnedのどこか1箇所にだけある
+// - 1つのPanel InstanceはWorkspaceのどこか1箇所にだけある
 // - centerのPanelは木のleafにだけ置く
 // - 空のleafはsplitを畳む（rootのleafは空でも残す）
 // - selectedはstring|nullで、panels内のinstanceIdかnull
@@ -13,8 +13,10 @@ export type PanelRef = {
   panelId: string;
 };
 
-export type DockKind = "left" | "right" | "bottom";
-export const dockKinds: DockKind[] = ["left", "bottom", "right"];
+// workspaceの縁領域（位置の契約）。sideは右の列 — SigmaOSのSide相当で、
+// Main（left/center/bottom）の脇に常時置くpanelの置き場。
+export type DockKind = "left" | "bottom" | "side";
+export const dockKinds: DockKind[] = ["left", "bottom", "side"];
 
 export type Stack = {
   panels: PanelRef[];
@@ -39,32 +41,15 @@ export type Split = {
 
 export type Node = Leaf | Split;
 
+// workspace = Main（left・bottom・center）+ Side（右の列）。
+// sideもdockと同じStackで、panelは全領域で共通（widgetのような
+// 別種は存在しない）。
 export type WorkspaceState = {
   version: 1;
   left: Stack;
-  right: Stack;
   bottom: Stack;
+  side: Stack;
   center: { root: Node; focusedLeaf: string };
-};
-
-// pinned: Projectに1つ。Areaをまたいで常時見えるwidgetのリスト。
-// 列は行リスト（side）と選択中のwidgetの中身（main）で構成し、
-// 中身を出すのはselectedの1つだけ。panel↔widgetの変換はない
-// （isCrossingが跨ぎ移動を捨てる）。
-export type PinnedWidget = {
-  panel: PanelRef;
-};
-
-export type PinnedState = {
-  version: 1;
-  widgets: PinnedWidget[];
-  selected: string | null;
-};
-
-// Workspace+Pinnedを1つの状態として扱う（領域をまたぐ移動を1操作にする）。
-export type LayoutState = {
-  workspace: WorkspaceState;
-  pinned: PinnedState;
 };
 
 // 領域をまたぐ移動の向き。
@@ -73,14 +58,12 @@ export type Edge = "left" | "right" | "top" | "bottom";
 // Panelが今いる場所。
 export type PanelLocation =
   | { region: "dock"; dock: DockKind }
-  | { region: "leaf"; leafId: string }
-  | { region: "pinned" };
+  | { region: "leaf"; leafId: string };
 
 // 移動先。indexは挿入位置。splitはleafのedge側に新しいleafを作って入れる。
 export type MoveTarget =
   | { region: "dock"; dock: DockKind; index: number }
   | { region: "leaf"; leafId: string; index: number }
-  | { region: "pinned"; index: number }
   | { region: "split"; leafId: string; edge: Edge };
 
 export const emptyStack = (): Stack => ({ panels: [], selected: null });
@@ -108,18 +91,9 @@ export const rootLeaf = (): Leaf => ({
 export const emptyWorkspace = (): WorkspaceState => ({
   version: 1,
   left: emptyStack(),
-  right: emptyStack(),
   bottom: emptyStack(),
+  side: emptyStack(),
   center: { root: rootLeaf(), focusedLeaf: "leaf-root" },
-});
-
-export const emptyPinned = (): PinnedState => ({ version: 1, widgets: [], selected: null });
-
-const newWidget = (panel: PanelRef): PinnedWidget => ({ panel });
-
-export const emptyLayout = (): LayoutState => ({
-  workspace: emptyWorkspace(),
-  pinned: emptyPinned(),
 });
 
 // ---- 木の走査 ----
@@ -141,30 +115,24 @@ export function leafOf(node: Node, instanceId: string): Leaf | undefined {
   return leafOf(node.first, instanceId) ?? leafOf(node.second, instanceId);
 }
 
-export function locationOf(state: LayoutState, instanceId: string): PanelLocation | null {
-  const { workspace, pinned } = state;
+export function locationOf(state: WorkspaceState, instanceId: string): PanelLocation | null {
   for (const dock of dockKinds) {
-    if (workspace[dock].panels.some((panel) => panel.instanceId === instanceId)) {
+    if (state[dock].panels.some((panel) => panel.instanceId === instanceId)) {
       return { region: "dock", dock };
     }
   }
-  const leaf = leafOf(workspace.center.root, instanceId);
+  const leaf = leafOf(state.center.root, instanceId);
   if (leaf) return { region: "leaf", leafId: leaf.id };
-  if (pinned.widgets.some((widget) => widget.panel.instanceId === instanceId)) {
-    return { region: "pinned" };
-  }
   return null;
 }
 
-export function panelRefOf(state: LayoutState, instanceId: string): PanelRef | undefined {
-  const { workspace, pinned } = state;
+export function panelRefOf(state: WorkspaceState, instanceId: string): PanelRef | undefined {
   for (const dock of dockKinds) {
-    const found = workspace[dock].panels.find((panel) => panel.instanceId === instanceId);
+    const found = state[dock].panels.find((panel) => panel.instanceId === instanceId);
     if (found) return found;
   }
-  const leaf = leafOf(workspace.center.root, instanceId);
-  if (leaf) return leaf.panels.find((panel) => panel.instanceId === instanceId);
-  return pinned.widgets.find((widget) => widget.panel.instanceId === instanceId)?.panel;
+  const leaf = leafOf(state.center.root, instanceId);
+  return leaf?.panels.find((panel) => panel.instanceId === instanceId);
 }
 
 // ---- decode ----
@@ -226,51 +194,23 @@ export function decodeWorkspace(raw: unknown): WorkspaceState {
     return emptyWorkspace();
   }
   const left = decodeStack(raw.left);
-  const right = decodeStack(raw.right);
   const bottom = decodeStack(raw.bottom);
+  const side = decodeStack(raw.side);
   const root = decodeNode(raw.center.root);
-  if (!left || !right || !bottom || !root) return emptyWorkspace();
+  if (!left || !bottom || !side || !root) return emptyWorkspace();
   const focused = raw.center.focusedLeaf;
   const leaves = allLeaves(root);
   const focusedLeaf =
     typeof focused === "string" && leaves.some((leaf) => leaf.id === focused)
       ? focused
       : leaves[0].id;
-  return { version: 1, left, right, bottom, center: { root, focusedLeaf } };
-}
-
-// widgetの形は {panel}。保存は外部境界なので余分なキーは読み捨て、
-// 意味を持つpanelだけを検査する。
-function decodeWidget(value: unknown): PinnedWidget | null {
-  if (!isObject(value)) return null;
-  const panel = decodePanelRef(value.panel);
-  return panel ? { panel } : null;
-}
-
-export function decodePinned(raw: unknown): PinnedState {
-  if (!isObject(raw) || raw.version !== 1 || !Array.isArray(raw.widgets)) {
-    return emptyPinned();
-  }
-  const widgets: PinnedWidget[] = [];
-  for (const item of raw.widgets) {
-    const widget = decodeWidget(item);
-    if (!widget) return emptyPinned();
-    widgets.push(widget);
-  }
-  // selectedはwidgets内のinstanceId。無ければ末尾を選んでおく
-  // （SigmaOS型なので中身が1つは見えている状態が自然）。
-  const selected =
-    typeof raw.selected === "string" &&
-    widgets.some((widget) => widget.panel.instanceId === raw.selected)
-      ? raw.selected
-      : (widgets[widgets.length - 1]?.panel.instanceId ?? null);
-  return { version: 1, widgets, selected };
+  return { version: 1, left, bottom, side, center: { root, focusedLeaf } };
 }
 
 // ---- 操作 ----
 
-const clone = (state: LayoutState): LayoutState =>
-  JSON.parse(JSON.stringify(state)) as LayoutState;
+const clone = (state: WorkspaceState): WorkspaceState =>
+  JSON.parse(JSON.stringify(state)) as WorkspaceState;
 
 // leafIdのleafが空なら、その親splitを兄弟に置き換えて畳む。rootは畳まない。
 // 畳むのは「空になった」leafだけに絞る: splitで作った空leafはdrop先なので、
@@ -312,91 +252,56 @@ function fixSelected(container: Stack | Leaf): void {
 }
 
 // Panelを取り出す。取り出したあとの片付け（split畳み・selected補正）込み。
-// pinnedから取り出したときはwidgetも返す（isCrossingが由来領域を
-// 判定するのに使う）。
-function take(
-  state: LayoutState,
-  instanceId: string,
-): { ref: PanelRef; widget?: PinnedWidget } | undefined {
-  const { workspace, pinned } = state;
-  for (const stack of dockKinds.map((dock) => workspace[dock])) {
+function take(state: WorkspaceState, instanceId: string): PanelRef | undefined {
+  for (const stack of dockKinds.map((dock) => state[dock])) {
     const index = stack.panels.findIndex((panel) => panel.instanceId === instanceId);
     if (index >= 0) {
       const [ref] = stack.panels.splice(index, 1);
       fixSelected(stack);
-      return { ref };
+      return ref;
     }
   }
-  const widgetIndex = pinned.widgets.findIndex(
-    (widget) => widget.panel.instanceId === instanceId,
-  );
-  if (widgetIndex >= 0) {
-    const [widget] = pinned.widgets.splice(widgetIndex, 1);
-    // selectedが消えたら末尾へ（Stackと同じfallback）。
-    if (pinned.selected === instanceId) {
-      pinned.selected =
-        pinned.widgets.length > 0
-          ? pinned.widgets[pinned.widgets.length - 1].panel.instanceId
-          : null;
-    }
-    return { ref: widget.panel, widget };
-  }
-  const leaf = leafOf(workspace.center.root, instanceId);
-  if (leaf) {
-    const index = leaf.panels.findIndex((panel) => panel.instanceId === instanceId);
-    const [ref] = leaf.panels.splice(index, 1);
-    fixSelected(leaf);
-    workspace.center.root = collapseLeaf(workspace.center.root, leaf.id, workspace);
-    return { ref };
-  }
-  return undefined;
+  const leaf = leafOf(state.center.root, instanceId);
+  if (!leaf) return undefined;
+  const index = leaf.panels.findIndex((panel) => panel.instanceId === instanceId);
+  const [ref] = leaf.panels.splice(index, 1);
+  fixSelected(leaf);
+  state.center.root = collapseLeaf(state.center.root, leaf.id, state);
+  return ref;
 }
 
-// panelとwidgetは相互変換しない。既存Instanceがpinned⇔workspaceを
-// またぐtargetは変換を意味するので、操作自体を捨てる。
-const isCrossing = (taken: { widget?: PinnedWidget }, target: MoveTarget): boolean =>
-  (target.region === "pinned") !== (taken.widget !== undefined);
-
-export function addPanel(state: LayoutState, ref: PanelRef, target?: MoveTarget): LayoutState {
+export function addPanel(
+  state: WorkspaceState, ref: PanelRef, target?: MoveTarget,
+): WorkspaceState {
   const next = clone(state);
   const effective: MoveTarget =
-    target ?? { region: "leaf", leafId: next.workspace.center.focusedLeaf, index: -1 };
+    target ?? { region: "leaf", leafId: next.center.focusedLeaf, index: -1 };
   // 既にどこかにある同じinstanceIdは移動として扱う（不変条件を守る）。
-  const taken = take(next, ref.instanceId);
-  if (taken && isCrossing(taken, effective)) return state;
-  insert(next, ref, effective, taken?.widget);
+  take(next, ref.instanceId);
+  insert(next, ref, effective);
   return next;
 }
 
-function insert(
-  state: LayoutState, ref: PanelRef, target: MoveTarget, widget?: PinnedWidget,
-): void {
-  const { workspace, pinned } = state;
+function insert(state: WorkspaceState, ref: PanelRef, target: MoveTarget): void {
   switch (target.region) {
     case "dock": {
-      const stack = workspace[target.dock];
+      const stack = state[target.dock];
       stack.panels.splice(at(stack.panels, target.index), 0, ref);
       stack.selected = ref.instanceId;
       return;
     }
-    case "pinned": {
-      pinned.widgets.splice(at(pinned.widgets, target.index), 0, widget ?? newWidget(ref));
-      pinned.selected = ref.instanceId;
-      return;
-    }
     case "leaf": {
-      const leaf = findLeaf(workspace.center.root, target.leafId);
+      const leaf = findLeaf(state.center.root, target.leafId);
       if (!leaf) return;
       leaf.panels.splice(at(leaf.panels, target.index), 0, ref);
       leaf.selected = ref.instanceId;
-      workspace.center.focusedLeaf = leaf.id;
+      state.center.focusedLeaf = leaf.id;
       return;
     }
-
     case "split": {
-      const leaf = findLeaf(workspace.center.root, target.leafId);
+      const leaf = findLeaf(state.center.root, target.leafId);
       if (!leaf) return;
-      const added = splitLeaf(workspace, leaf, target.edge);
+      const added = splitLeaf(state, leaf, target.edge);
       added.panels.push(ref);
       added.selected = ref.instanceId;
       return;
@@ -420,42 +325,32 @@ function replaceNode(workspace: WorkspaceState, id: string, other: Node): void {
   workspace.center.root = replace(workspace.center.root);
 }
 
-export function closePanel(state: LayoutState, instanceId: string): LayoutState {
+export function closePanel(state: WorkspaceState, instanceId: string): WorkspaceState {
   const next = clone(state);
   take(next, instanceId);
   return next;
 }
 
-export function selectPanel(state: LayoutState, instanceId: string): LayoutState {
+export function selectPanel(state: WorkspaceState, instanceId: string): WorkspaceState {
   const location = locationOf(state, instanceId);
-  // pinnedの選択は別物（mainに出すwidget）なのでselectPinned側が持つ。
-  if (!location || location.region === "pinned") return state;
+  if (!location) return state;
   const next = clone(state);
   if (location.region === "dock") {
-    next.workspace[location.dock].selected = instanceId;
-  } else if (location.region === "leaf") {
-    findLeaf(next.workspace.center.root, location.leafId)!.selected = instanceId;
-    next.workspace.center.focusedLeaf = location.leafId;
+    next[location.dock].selected = instanceId;
+  } else {
+    findLeaf(next.center.root, location.leafId)!.selected = instanceId;
+    next.center.focusedLeaf = location.leafId;
   }
   return next;
 }
 
-export function movePanel(state: LayoutState, instanceId: string, target: MoveTarget): LayoutState {
+export function movePanel(
+  state: WorkspaceState, instanceId: string, target: MoveTarget,
+): WorkspaceState {
   const next = clone(state);
-  const taken = take(next, instanceId);
-  if (!taken || isCrossing(taken, target)) return state;
-  insert(next, taken.ref, target, taken.widget);
-  return next;
-}
-
-// pinnedの中身を出すwidgetを選ぶ。widgetsに無いidは捨てる。
-export function selectPinned(state: LayoutState, instanceId: string): LayoutState {
-  if (!state.pinned.widgets.some((widget) => widget.panel.instanceId === instanceId)) {
-    return state;
-  }
-  if (state.pinned.selected === instanceId) return state;
-  const next = clone(state);
-  next.pinned.selected = instanceId;
+  const ref = take(next, instanceId);
+  if (!ref) return state;
+  insert(next, ref, target);
   return next;
 }
 
@@ -479,15 +374,15 @@ function splitLeaf(workspace: WorkspaceState, leaf: Leaf, edge: Edge): Leaf {
 }
 
 // leafをedge方向に分割する。新しい（空の）leafがedge側に来る。
-export function splitAt(state: LayoutState, leafId: string, edge: Edge): LayoutState {
+export function splitAt(state: WorkspaceState, leafId: string, edge: Edge): WorkspaceState {
   const next = clone(state);
-  const leaf = findLeaf(next.workspace.center.root, leafId);
+  const leaf = findLeaf(next.center.root, leafId);
   if (!leaf) return state;
-  splitLeaf(next.workspace, leaf, edge);
+  splitLeaf(next, leaf, edge);
   return next;
 }
 
-export function setRatio(state: LayoutState, splitId: string, ratio: number): LayoutState {
+export function setRatio(state: WorkspaceState, splitId: string, ratio: number): WorkspaceState {
   const next = clone(state);
   const apply = (node: Node): void => {
     if (node.kind === "split") {
@@ -496,23 +391,21 @@ export function setRatio(state: LayoutState, splitId: string, ratio: number): La
       apply(node.second);
     }
   };
-  apply(next.workspace.center.root);
+  apply(next.center.root);
   return next;
 }
 
-export function focusLeaf(state: LayoutState, leafId: string): LayoutState {
+export function focusLeaf(state: WorkspaceState, leafId: string): WorkspaceState {
   const next = clone(state);
-  if (!findLeaf(next.workspace.center.root, leafId)) return state;
-  next.workspace.center.focusedLeaf = leafId;
+  if (!findLeaf(next.center.root, leafId)) return state;
+  next.center.focusedLeaf = leafId;
   return next;
 }
 
 // 全PanelRefを列挙する（Instanceの生存管理に使う）。
-export function allPanelRefs(state: LayoutState): PanelRef[] {
-  const { workspace, pinned } = state;
+export function allPanelRefs(state: WorkspaceState): PanelRef[] {
   return [
-    ...dockKinds.flatMap((dock) => workspace[dock].panels),
-    ...allLeaves(workspace.center.root).flatMap((leaf) => leaf.panels),
-    ...pinned.widgets.map((widget) => widget.panel),
+    ...dockKinds.flatMap((dock) => state[dock].panels),
+    ...allLeaves(state.center.root).flatMap((leaf) => leaf.panels),
   ];
 }

@@ -2,7 +2,7 @@
 @scope (:root) to ([data-plugumi-plugin]) {
 
   /* ---- tab帯はカードのheader ----
-     dock・centerのleaf・pinnedは、それぞれ「tab帯（header）＋中身」
+     dock・centerのleafは、それぞれ「tab帯（header）＋中身」
      の1枚のカード。stripは輪郭の内側の上端に置き、中身との間はhairline
      （divider面）で区切る。tab自体は面を持たず、selectedはtoneで示す。 */
   .dock-strip, .leaf-strip {

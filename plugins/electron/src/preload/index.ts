@@ -31,8 +31,6 @@ contextBridge.exposeInMainWorld("plugumiShell", {
     invoke("createArea", key, project, parent, name),
   deleteArea: (key: string, project: string, areaPath: string[]) =>
     invoke("deleteArea", key, project, areaPath),
-  getPinned: (key: string, project: string) => invoke("getPinned", key, project),
-  putPinned: (key: string, project: string, pinned: unknown) => invoke("putPinned", key, project, pinned),
   getWorkspace: (key: string, project: string, areaPath: string[]) =>
     invoke("getWorkspace", key, project, areaPath),
   putWorkspace: (key: string, project: string, areaPath: string[], workspace: unknown) =>
