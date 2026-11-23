@@ -27,7 +27,7 @@
   --title-tools-left: 260px;
   --title-tools-right: 280px;
   /* カードのheader帯（tab strip）の高さ */
-  --shell-strip-h: 30px;
+  --shell-strip-h: 36px;
 }
 
 @scope (:root) to ([data-plugumi-plugin]) {
