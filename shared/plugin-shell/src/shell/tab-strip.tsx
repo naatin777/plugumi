@@ -2,7 +2,8 @@
 // tabはclickで選択、×で閉じ、pointerを動かせばdragでregionをまたぐ。
 // click/dragの閾値はdrag controllerが持つ（ここでは閾値を実装しない）。
 // 帯の上の横スワイプ/横wheelは1回で1つ隣のpageへ（designs/00005
-// 「切り替え」）。縦方向のwheelは何もしない。
+// 「切り替え」）。縦方向のwheelは、tabが溢れてstripがclipしている
+// ときだけstrip自体の横scrollに使う（溢れていなければ何もしない）。
 import { For, createEffect, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelRef, MoveTarget } from "../layout/model.ts";
@@ -54,8 +55,15 @@ export function TabStrip(props: TabStripProps): JSX.Element {
     idle = setTimeout(() => { locked = false; accum = 0; }, WHEEL_IDLE_MS);
   };
   const onWheel = (event: WheelEvent) => {
+    if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
+      // 縦ホイールはstrip自体の横scroll（tabが溢れているときだけ）。
+      if (strip.scrollWidth > strip.clientWidth) {
+        event.preventDefault();
+        strip.scrollLeft += event.deltaY;
+      }
+      return;
+    }
     if (!props.onFlip) return;
-    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
     event.preventDefault();
     resetIdle();
     if (locked) return;

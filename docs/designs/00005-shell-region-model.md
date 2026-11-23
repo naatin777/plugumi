@@ -192,7 +192,7 @@ panel.setActivity({
 
 ## 横スワイプの範囲
 
-- **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。
+- **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。tabはタイトルが数文字読める最小幅（`min(6em, 100%)`）までしか縮まず、溢れた分はtab帯自体の横scroll（縦ホイールでもscrollできる）。「×」は選択中のtabだけ常に出し、非選択tabはhover/focus時だけタイトルの上へ重ねて出す。
 - **Panelの中身**: 横スワイプ・横scrollはPanelだけのもので、外側へは伝えない。
 
 ## 用語
