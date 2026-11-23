@@ -9,14 +9,23 @@
     box-sizing: border-box;
     display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
+    /* タイルの見た目（角丸・枠・blur）は.dock-innerが持つ — dock自体は
+       drawer時に「台」になるため、ここでは透明な器に留める。 */
+  }
+  .dock-inner {
+    position: relative;
+    flex: 1; min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
     --tile-border: 1px;
     border: var(--tile-border) solid var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-lg);
     background: transparent;
     backdrop-filter: blur(12px) saturate(1.2);
     overflow: clip;
-    /* resizerの棒が溝の中心まで出られるようclip領域を広げる。 */
-    overflow-clip-margin: 8px;
+    /* 閉じる畳み込みで枠の欠片を残さないようwidthと一緒に畳む。 */
+    transition: border-width var(--work-anim) ease;
+  }
+  .dock {
     /* 開閉はdata-closedで幅・margin・borderを0に畳む。 */
     transition: width var(--work-anim) ease, height var(--work-anim) ease,
       margin var(--work-anim) ease, border-width var(--work-anim) ease,
@@ -41,6 +50,8 @@
     pointer-events: none;
   }
   .dock[data-closed] > .resizer { display: none; }
+  /* 畳み込み中にタイルの枠だけ残らないようinnerの枠も畳む。 */
+  .dock[data-closed] > .dock-inner { border-width: 0; }
   .dock-body { flex: 1; min-height: 0; }
   .dock-empty {
     height: 100%;
@@ -62,6 +73,9 @@
   }
 
   /* ---- drawer: 狭いAreaViewではdockをcenterの上に重ねる。
+     drawerのdockは「台」(sheet)になる — AreaViewの端にぴったり付いた
+     四角い不透明の領域（角丸・影なし、center側の辺だけ1px線）で、
+     その内側に --area-pad の余白を取ってタイル(dock-inner)を載せる。
      gridから外してabsoluteに置き、閉じている間は画面外へ逃がす。
      data-closedの幅/高さ0は使わない（drawerは中身の大きさを保つ）。 ---- */
   .area-view:is([data-size="narrow"], [data-size="compact"])
@@ -73,26 +87,36 @@
     position: absolute;
     z-index: 6;
     margin: 0;
+    /* 台: 端にぴったりの四角い面（paddingはタイルの余白）。 */
+    padding: var(--area-pad);
+    box-sizing: border-box;
+    background: var(--shell-frame-color);
+    backdrop-filter: none;
+    border: none; border-radius: 0;
+    box-shadow: none;
     overflow: hidden;
-    /* 溝の中にあるinlineのdockはbackdropだけだが、drawerは面を張る。 */
-    background: var(--plugumi-colors-background-secondary);
-    backdrop-filter: blur(24px) saturate(1.3);
-    box-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
   }
   .area-view:is([data-size="narrow"], [data-size="compact"])
       .dock:is([data-dock="left"], [data-dock="right"]) {
-    /* inlineのdockの位置（外周--area-padの内側）に合わせる。 */
-    top: var(--area-pad); bottom: var(--area-pad);
-    width: min(var(--dock-size, 0px), 85cqw);
+    top: 0; bottom: 0;
+    /* 台の幅 = dockの幅 + 両側の余白（上限は台に効かせる）。 */
+    width: min(calc(var(--dock-size, 0px) + var(--area-pad) * 2), 85cqw);
   }
   .area-view:is([data-size="narrow"], [data-size="compact"])
-      .dock[data-dock="left"] { left: var(--area-pad); }
+      .dock[data-dock="left"] {
+    left: 0;
+    border-right: 1px solid var(--plugumi-colors-border);
+  }
   .area-view:is([data-size="narrow"], [data-size="compact"])
-      .dock[data-dock="right"] { right: var(--area-pad); }
+      .dock[data-dock="right"] {
+    right: 0;
+    border-left: 1px solid var(--plugumi-colors-border);
+  }
   .area-view[data-size="compact"] .dock[data-dock="bottom"] {
-    left: var(--area-pad); right: var(--area-pad); bottom: var(--area-pad);
+    left: 0; right: 0; bottom: 0;
     width: auto;
-    height: min(var(--dock-size, 0px), 70cqh);
+    height: min(calc(var(--dock-size, 0px) + var(--area-pad) * 2), 70cqh);
+    border-top: 1px solid var(--plugumi-colors-border);
   }
   /* drawerのresizerは出さない — drawerの大きさはdockSizeの値をそのまま使う。 */
   .area-view:is([data-size="narrow"], [data-size="compact"])

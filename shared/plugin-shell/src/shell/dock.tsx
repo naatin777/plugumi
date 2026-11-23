@@ -41,9 +41,6 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
     <section
       class="dock"
       data-dock={props.kind}
-      // カードの枠は選択中のPanelのactivityを写す
-      {...surfaceAttrs(selectedActivity(), "border")}
-      {...busyAttr(selectedActivity())}
       data-closed={props.closed || undefined}
       // drawerの外click判定用。開いているdrawer自身だけを「内側」にする
       // （同じviewのcenterをclickしたら閉じる）。
@@ -55,21 +52,32 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
       ref={register}
       {...pageNavProps(flip)}
     >
-      <div class="dock-strip" {...dividerAttr(selectedActivity())}>
-        <TabStrip
-          refs={stack().panels}
-          selected={stack().selected}
-          target={target}
-          onFlip={flip}
-        />
-      </div>
-      <div class="dock-body">
-        <Show
-          when={stack().panels.length > 0}
-          fallback={<div class="dock-empty">Panel を開くとここに表示されます</div>}
-        >
-          <PagesTrack refs={stack().panels} selected={stack().selected} />
-        </Show>
+      {/* drawer時はdock自体が端にぴったり付く「台」になり、その内側に
+          このタイルを載せる。常設のwrapperにすることでdrawer⇔inlineの
+          切替でPanel Instanceをunmountしない。 */}
+      <div
+        class="dock-inner"
+        // カードの枠は選択中のPanelのactivityを写す（drawer時も台ではなく
+        // タイルに付くようinnerに置く）。
+        {...surfaceAttrs(selectedActivity(), "border")}
+        {...busyAttr(selectedActivity())}
+      >
+        <div class="dock-strip" {...dividerAttr(selectedActivity())}>
+          <TabStrip
+            refs={stack().panels}
+            selected={stack().selected}
+            target={target}
+            onFlip={flip}
+          />
+        </div>
+        <div class="dock-body">
+          <Show
+            when={stack().panels.length > 0}
+            fallback={<div class="dock-empty">Panel を開くとここに表示されます</div>}
+          >
+            <PagesTrack refs={stack().panels} selected={stack().selected} />
+          </Show>
+        </div>
       </div>
       <Resizer
         axis={horizontal() ? "y" : "x"}
