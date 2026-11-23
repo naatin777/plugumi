@@ -70,8 +70,8 @@
       var(--pinned-width, 0px) + var(--work-gap)));
   }
 
-  /* ---- 面と縁: 土台とframe領域はbackground-primary、その上に浮く
-     面はbackground-secondary。title帯ではsegmentだけが浮きバー。 ---- */
+  /* ---- title帯: 左右のtool群（pill）と中央のsegment（bar）は
+     透明ガラスの浮き面。帯自体は透明で床をそのまま見せる。 ---- */
   .work-title {
     position: relative;
     app-region: drag;
@@ -136,10 +136,9 @@
     overflow: hidden;
   }
 
-  /* body側の列。sideとpinnedはframe色、matはcanvas。
-     開いている側の列だけTS側が--body-colsに組む — 0幅の列を残すと
-     gapだけが空きレーンになるため（fallbackはStyle Lab用の3列）。
-     列間のgapと上下のpaddingがタイルの周りの溝になる。 */
+  /* body側の列。開いている側の列だけTS側が--body-colsに組む —
+     0幅の列を残すとgapだけが空きレーンになるため（fallbackは
+     Style Lab用の3列）。列間のgapと上下のpaddingがタイルの周りの溝。 */
   .work-body {
     display: grid;
     grid-template-columns: var(--body-cols, var(--side-width, 0px) 1fr var(--pinned-width, 0px));
@@ -165,8 +164,6 @@
     background: transparent;
     backdrop-filter: blur(32px) saturate(1.4);
   }
-  /* pinnedはframe側の領域なので窓の右端に張り付ける（paddingなし）。
-     上下と左の溝はbodyのpaddingと列間gapが担う。 */
 
   .work-mat {
     min-width: 0; min-height: 0;
@@ -181,16 +178,6 @@
     border-radius: var(--work-radius);
   }
 
-  /* matの内側全面に敷く床。全セルと全gapをまたぐ1枚の面なので、
-     カード間のgapは領域をまたいで貫く連続した溝として見える。
-     区切りは線ではなくこの奥の面の露出で担い、カードはborderを持たない。
-     外周まで届くので角はmatの輪郭と同じ半径。 */
-  .work-bed {
-    grid-column: 1 / -1;
-    grid-row: 1 / -1;
-    border-radius: var(--work-radius);
-    pointer-events: none;
-  }
   .status-bar {
     position: relative;
     display: flex; align-items: center;

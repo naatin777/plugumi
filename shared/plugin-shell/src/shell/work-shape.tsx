@@ -64,7 +64,6 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
           {props.sidebar}
         </aside>
         <div class="work-mat">
-          <div class="work-bed" aria-hidden="true" />
           {props.children}
         </div>
         <aside class="frame-pinned">

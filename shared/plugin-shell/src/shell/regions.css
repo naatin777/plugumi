@@ -176,8 +176,7 @@
     position: relative;
     display: flex; flex-direction: column;
     height: 100%; min-height: 0;
-    /* Panelの面は領域によらずsecondaryで統一する。カードの色は
-       Panelの後ろ側（ヘッダーと周りの縁）にだけ見せる。 */
+    /* Panelの面自体は透明。カードの縁とガラスはタイル側が持つ。 */
     background: transparent;
     overflow: hidden;
   }
@@ -197,7 +196,7 @@
     color: var(--plugumi-colors-text); cursor: pointer; font: inherit;
   }
 
-  /* ---- resizer溝（canvas色の溝として見える） ---- */
+  /* ---- resizer溝 ---- */
   .resizer { flex: none; position: relative; }
   /* 溝の中央に短い棒のハンドルを置く。普段は薄く、hover/ドラッグ中に
      濃くして掴める場所だと分からせる。 */
@@ -265,8 +264,8 @@
     text-align: center;
   }
 
-  /* widgetはカードではなく列の1区画。畳んだ状態はarea rowのような
-     背景同化の1行（indicator）、開くとsecondaryの面が帯状に出る。 */
+  /* widgetはカードではなく列の1区画。畳んだ状態は背景同化の
+     1行（indicator）、開くとwidget-bodyの帯が出る。 */
   .widget {
     position: relative;
     flex: none;
@@ -288,8 +287,8 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* 開いた区画は列の端から端までの帯。タイルではなく列の一部として
-     読めるよう角丸も溝も持たない。面はwidget色（床とPanelの中間）— widgetの中身は
-     Panelのカード（secondary）ではない別のmountなので、色でも区別する。 */
+     読めるよう角丸も溝もborderも持たない（pinnedカードのborderと
+     二重線になるため）。 */
   .widget-body {
     flex: none; min-height: 0;
     background: transparent;
