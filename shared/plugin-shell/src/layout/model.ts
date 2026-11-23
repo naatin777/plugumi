@@ -47,19 +47,18 @@ export type WorkspaceState = {
   center: { root: Node; focusedLeaf: string };
 };
 
-// pinned: Projectに1つ。Areaをまたいで常時見えるwidgetの縦積み。
-// widgetはheaderを持たず中身だけ。collapsedは1行のindicator状態。
-// heightは中身の高さ(px)で、nullは既定値。選択の概念はない。
-// panel↔widgetの変換はない（isCrossingが跨ぎ移動を捨てる）。
+// pinned: Projectに1つ。Areaをまたいで常時見えるwidgetのリスト。
+// 列は行リスト（side）と選択中のwidgetの中身（main）で構成し、
+// 中身を出すのはselectedの1つだけ。panel↔widgetの変換はない
+// （isCrossingが跨ぎ移動を捨てる）。
 export type PinnedWidget = {
   panel: PanelRef;
-  collapsed: boolean;
-  height: number | null;
 };
 
 export type PinnedState = {
   version: 1;
   widgets: PinnedWidget[];
+  selected: string | null;
 };
 
 // Workspace+Pinnedを1つの状態として扱う（領域をまたぐ移動を1操作にする）。
@@ -114,13 +113,9 @@ export const emptyWorkspace = (): WorkspaceState => ({
   center: { root: rootLeaf(), focusedLeaf: "leaf-root" },
 });
 
-export const emptyPinned = (): PinnedState => ({ version: 1, widgets: [] });
+export const emptyPinned = (): PinnedState => ({ version: 1, widgets: [], selected: null });
 
-const newWidget = (panel: PanelRef): PinnedWidget => ({
-  panel,
-  collapsed: false,
-  height: null,
-});
+const newWidget = (panel: PanelRef): PinnedWidget => ({ panel });
 
 export const emptyLayout = (): LayoutState => ({
   workspace: emptyWorkspace(),
@@ -244,23 +239,12 @@ export function decodeWorkspace(raw: unknown): WorkspaceState {
   return { version: 1, left, right, bottom, center: { root, focusedLeaf } };
 }
 
-// widgetの形は {panel,collapsed,height} に限る。余分なキーを持つ入力は
-// leafと同じ方針で拒否する（修復しない）。
-const widgetKeys = ["panel", "collapsed", "height"];
-
+// widgetの形は {panel}。保存は外部境界なので余分なキーは読み捨て、
+// 意味を持つpanelだけを検査する。
 function decodeWidget(value: unknown): PinnedWidget | null {
   if (!isObject(value)) return null;
-  const keys = Object.keys(value);
-  if (keys.length !== widgetKeys.length || !widgetKeys.every((key) => key in value)) {
-    return null;
-  }
   const panel = decodePanelRef(value.panel);
-  if (!panel || typeof value.collapsed !== "boolean") return null;
-  const height = value.height;
-  if (height !== null && (typeof height !== "number" || !Number.isFinite(height))) {
-    return null;
-  }
-  return { panel, collapsed: value.collapsed, height: height as number | null };
+  return panel ? { panel } : null;
 }
 
 export function decodePinned(raw: unknown): PinnedState {
@@ -273,7 +257,14 @@ export function decodePinned(raw: unknown): PinnedState {
     if (!widget) return emptyPinned();
     widgets.push(widget);
   }
-  return { version: 1, widgets };
+  // selectedはwidgets内のinstanceId。無ければ末尾を選んでおく
+  // （SigmaOS型なので中身が1つは見えている状態が自然）。
+  const selected =
+    typeof raw.selected === "string" &&
+    widgets.some((widget) => widget.panel.instanceId === raw.selected)
+      ? raw.selected
+      : (widgets[widgets.length - 1]?.panel.instanceId ?? null);
+  return { version: 1, widgets, selected };
 }
 
 // ---- 操作 ----
@@ -321,8 +312,8 @@ function fixSelected(container: Stack | Leaf): void {
 }
 
 // Panelを取り出す。取り出したあとの片付け（split畳み・selected補正）込み。
-// pinnedから取り出したときはwidgetも返す（pinned内の移動で畳み・高さを
-// 保持するため）。
+// pinnedから取り出したときはwidgetも返す（isCrossingが由来領域を
+// 判定するのに使う）。
 function take(
   state: LayoutState,
   instanceId: string,
@@ -341,6 +332,13 @@ function take(
   );
   if (widgetIndex >= 0) {
     const [widget] = pinned.widgets.splice(widgetIndex, 1);
+    // selectedが消えたら末尾へ（Stackと同じfallback）。
+    if (pinned.selected === instanceId) {
+      pinned.selected =
+        pinned.widgets.length > 0
+          ? pinned.widgets[pinned.widgets.length - 1].panel.instanceId
+          : null;
+    }
     return { ref: widget.panel, widget };
   }
   const leaf = leafOf(workspace.center.root, instanceId);
@@ -383,6 +381,7 @@ function insert(
     }
     case "pinned": {
       pinned.widgets.splice(at(pinned.widgets, target.index), 0, widget ?? newWidget(ref));
+      pinned.selected = ref.instanceId;
       return;
     }
     case "leaf": {
@@ -429,7 +428,7 @@ export function closePanel(state: LayoutState, instanceId: string): LayoutState 
 
 export function selectPanel(state: LayoutState, instanceId: string): LayoutState {
   const location = locationOf(state, instanceId);
-  // pinnedには選択の概念がない。
+  // pinnedの選択は別物（mainに出すwidget）なのでselectPinned側が持つ。
   if (!location || location.region === "pinned") return state;
   const next = clone(state);
   if (location.region === "dock") {
@@ -449,22 +448,14 @@ export function movePanel(state: LayoutState, instanceId: string, target: MoveTa
   return next;
 }
 
-// widgetの表示状態（畳み・高さ）を書き換える。
-export function patchWidget(
-  state: LayoutState,
-  instanceId: string,
-  patch: { collapsed?: boolean; height?: number | null },
-): LayoutState {
-  const widget = state.pinned.widgets.find(
-    (entry) => entry.panel.instanceId === instanceId,
-  );
-  if (!widget) return state;
+// pinnedの中身を出すwidgetを選ぶ。widgetsに無いidは捨てる。
+export function selectPinned(state: LayoutState, instanceId: string): LayoutState {
+  if (!state.pinned.widgets.some((widget) => widget.panel.instanceId === instanceId)) {
+    return state;
+  }
+  if (state.pinned.selected === instanceId) return state;
   const next = clone(state);
-  const target = next.pinned.widgets.find(
-    (entry) => entry.panel.instanceId === instanceId,
-  )!;
-  if (patch.collapsed !== undefined) target.collapsed = patch.collapsed;
-  if (patch.height !== undefined) target.height = patch.height;
+  next.pinned.selected = instanceId;
   return next;
 }
 

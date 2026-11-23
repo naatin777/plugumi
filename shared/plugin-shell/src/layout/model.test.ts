@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import {
   addPanel, allLeaves, closePanel, decodePinned,
   decodeWorkspace, emptyLayout, emptyWorkspace, findLeaf, locationOf,
-  movePanel, patchWidget, selectPanel, setRatio,
+  movePanel, selectPanel, selectPinned, setRatio,
   splitAt, type LayoutState, type PanelRef,
 } from "./model.ts";
 
@@ -64,20 +64,23 @@ describe("decode", () => {
     assert.equal(state.center.focusedLeaf, "l1");
   });
 
-  test("Pinnedのdecodeも同じ方針（形が合わなければ空）", () => {
+  test("Pinnedのdecodeはpanelだけを検査し、selectedを拾う", () => {
     const good = decodePinned({
       version: 1,
-      widgets: [{ panel: ref("a"), collapsed: true, height: 240 }],
+      widgets: [{ panel: ref("a") }, { panel: ref("b") }],
+      selected: "a",
     });
-    assert.equal(good.widgets.length, 1);
+    assert.equal(good.widgets.length, 2);
     assert.equal(good.widgets[0].panel.instanceId, "a");
-    assert.equal(good.widgets[0].collapsed, true);
-    assert.equal(good.widgets[0].height, 240);
+    assert.equal(good.selected, "a");
+    // selectedが壊れていれば末尾へ、widgetsが無ければnull。
+    const fallback = decodePinned({ version: 1, widgets: [{ panel: ref("a") }], selected: "gone" });
+    assert.equal(fallback.selected, "a");
+    assert.equal(decodePinned({ version: 1, widgets: [] }).selected, null);
     for (const raw of [
       null, {}, { version: 2 },
       { version: 1, widgets: [{ panelId: "x" }] },
-      { version: 1, widgets: [{ panel: ref("a"), collapsed: "yes", height: null }] },
-      { version: 1, widgets: [{ panel: ref("a"), collapsed: false, height: null, extra: 1 }] },
+      { version: 1, widgets: [{ panel: { instanceId: "a" } }] },
     ]) {
       const state = decodePinned(raw);
       assert.equal(state.widgets.length, 0, JSON.stringify(raw));
@@ -255,7 +258,7 @@ describe("split", () => {
 });
 
 describe("pinned", () => {
-  test("pinnedは順序つきのwidget列で、選択の概念はない", () => {
+  test("pinnedは順序つきのwidget列で、追加したものが選択される", () => {
     let state = emptyLayout();
     state = withPanel(state, "a", { region: "pinned", index: -1 });
     state = withPanel(state, "b", { region: "pinned", index: -1 });
@@ -263,34 +266,46 @@ describe("pinned", () => {
       state.pinned.widgets.map((widget) => widget.panel.instanceId),
       ["a", "b"],
     );
+    assert.equal(state.pinned.selected, "b");
     state = closePanel(state, "a");
     assert.deepEqual(
       state.pinned.widgets.map((widget) => widget.panel.instanceId),
       ["b"],
     );
+    assert.equal(state.pinned.selected, "b");
   });
 
-  test("widgetの畳みと高さはpatchWidgetで書き換える", () => {
-    let state = emptyLayout();
-    state = withPanel(state, "a", { region: "pinned", index: -1 });
-    state = patchWidget(state, "a", { collapsed: true, height: 320 });
-    assert.equal(state.pinned.widgets[0].collapsed, true);
-    assert.equal(state.pinned.widgets[0].height, 320);
-  });
-
-  test("pinned内の並べ替えでも畳み・高さが保持される", () => {
+  test("selectPinnedはwidgets内のidだけを選択する", () => {
     let state = emptyLayout();
     state = withPanel(state, "a", { region: "pinned", index: -1 });
     state = withPanel(state, "b", { region: "pinned", index: -1 });
-    state = patchWidget(state, "a", { collapsed: true, height: 320 });
+    state = selectPinned(state, "a");
+    assert.equal(state.pinned.selected, "a");
+    assert.equal(selectPinned(state, "missing"), state);
+  });
+
+  test("pinned内の並べ替えはwidgetを動かすだけ", () => {
+    let state = emptyLayout();
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    state = withPanel(state, "b", { region: "pinned", index: -1 });
+    state = selectPinned(state, "a");
     // aを末尾へ移動（pinned→pinned）。
     state = movePanel(state, "a", { region: "pinned", index: -1 });
     assert.deepEqual(
       state.pinned.widgets.map((widget) => widget.panel.instanceId),
       ["b", "a"],
     );
-    assert.equal(state.pinned.widgets[1].collapsed, true);
-    assert.equal(state.pinned.widgets[1].height, 320);
+  });
+
+  test("選択中のwidgetを閉じると末尾へfallbackする", () => {
+    let state = emptyLayout();
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    state = withPanel(state, "b", { region: "pinned", index: -1 });
+    state = selectPinned(state, "a");
+    state = closePanel(state, "a");
+    assert.equal(state.pinned.selected, "b");
+    state = closePanel(state, "b");
+    assert.equal(state.pinned.selected, null);
   });
 });
 
