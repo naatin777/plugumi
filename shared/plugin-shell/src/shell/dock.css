@@ -52,7 +52,7 @@
   .dock[data-closed] > .resizer { display: none; }
   /* 畳み込み中にタイルの枠だけ残らないようinnerの枠も畳む。 */
   .dock[data-closed] > .dock-inner { border-width: 0; }
-  .dock-body { flex: 1; min-height: 0; }
+  .dock-body { flex: 1; min-width: 0; min-height: 0; }
   .dock-empty {
     height: 100%;
     display: flex; align-items: center; justify-content: center;

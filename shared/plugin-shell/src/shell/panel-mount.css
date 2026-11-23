@@ -32,7 +32,9 @@
    scope内のルールは届かない（終端要素はscopeに含まれない）。ここでは
    Shellが作るhost要素自身だけをstyleし、中身のPluginのDOMには触れない。 */
 .instance-host {
-  flex: 1; min-height: 0; overflow: auto;
+  /* 中身のmin-contentが外側の大きさを押し広げないよう両方向0にする
+     （row/columnどちらのflex itemになっても効く）。 */
+  flex: 1; min-width: 0; min-height: 0; overflow: auto;
   /* Panel内の横scrollはPanelのもの。外側（page切替やブラウザの
      戻るスワイプ）へ伝えない（designs/00005「横スワイプの範囲」）。 */
   overscroll-behavior-x: contain;

@@ -52,3 +52,9 @@ PlugumiではAIがコードを書くことも多いので、AIが生成しやす
 - 3実装（Go core・standard・agent）で確定済みの用語対応は [references/vocabulary.md](references/vocabulary.md) を参照。改名する場合は契約書と全実装を同時に更新する
 
 プロトコル由来の値・形にはコメントで出典を添える（例: `{accepted:true}` は contracts/00003 の受理response）。ファイル冒頭にそのファイルがプロトコルのどの部分を担うか一言添える。
+
+## Panel・UIの大きさ
+
+- **Panelの中身に固定の大きさを持たせない。** Panelは利用者がdock・paneを自由にresizeする前提で置かれる。中身が固定幅・固定高さ・最小サイズ（px指定のwidth/height/min-*、`inline-flex`＋`nowrap`で中身の大きさのまま置くなど）を持つと、狭めたときにはみ出すか、外側の大きさを押し広げてresizeを妨げる
+- 中身は置かれた領域いっぱいに追従させ、狭いときは折り返し・縦積み・省略（ellipsis）・Panel内スクロールで収める。切替の基準はviewportではなくcontainer query（Panelの大きさ）にする
+- Shell側も、Panel hostに至る要素の `min-width`/`min-height` を0に保ち、Panelの中身が外側の大きさを決めないようにする
