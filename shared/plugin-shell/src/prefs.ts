@@ -13,7 +13,8 @@ export interface ShellPrefs {
   dockSize: Record<DockKind, number>;
   sidebarWidth: number;
   pinnedWidth: number;
-  // zen: sidebar/pinned/statusとtopbarのframe区間をまとめて引っ込める。
+  // zen: sidebar/pinned/dock/statusとtopbarをまとめて引っ込め、
+  // centerだけを残す。個別の開閉状態は潰さない。
   frameHidden: boolean;
   theme: ThemeMode;
   // 床の虹色もやもや。消すとフラットな暗い床になる。

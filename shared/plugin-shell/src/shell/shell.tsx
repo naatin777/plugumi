@@ -21,6 +21,9 @@ export function ShellFrame(): JSX.Element {
   // work面の形に使う幅。zenでは0を渡す（開閉状態自体は潰さない）。
   const sideWidth = () => (zen() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
   const pinnedWidth = () => (zen() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
+  // dockもzenでは引っ込める — 開閉状態は潰さず表示だけ0にする。
+  const dockShown = (kind: "left" | "bottom" | "right") =>
+    !zen() && prefs().dockOpen[kind];
   // matのgrid template。閉じたdockの分は列/行ごと消す — 0幅のauto列を
   // 残すと列間のgapだけが溝として残って空きレーンになるため。
   // bodyの列も開いている側だけ（aside自体はdata-attrで消す）。
@@ -32,7 +35,7 @@ export function ShellFrame(): JSX.Element {
     return cols.join(" ");
   };
   const matTemplate = () => {
-    const open = prefs().dockOpen;
+    const open = { left: dockShown("left"), right: dockShown("right"), bottom: dockShown("bottom") };
     const areas: string[] = [];
     const sizes: string[] = [];
     if (open.left) { areas.push("left"); sizes.push("auto"); }
@@ -102,10 +105,10 @@ export function ShellFrame(): JSX.Element {
         sidebar={<Show when={prefs().sidebarOpen && !zen()}><SidebarView /></Show>}
         pinned={<Show when={prefs().pinnedOpen && !zen()}><PinnedBoard /></Show>}
       >
-        <Show when={prefs().dockOpen.left}><Dock kind="left" /></Show>
+        <Show when={dockShown("left")}><Dock kind="left" /></Show>
         <CenterView />
-        <Show when={prefs().dockOpen.right}><Dock kind="right" /></Show>
-        <Show when={prefs().dockOpen.bottom}><Dock kind="bottom" /></Show>
+        <Show when={dockShown("right")}><Dock kind="right" /></Show>
+        <Show when={dockShown("bottom")}><Dock kind="bottom" /></Show>
       </WorkShape>
       <StatusBar />
       <DragGhost />
