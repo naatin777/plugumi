@@ -35,7 +35,9 @@
   main.shell {
     position: relative;
     isolation: isolate;
-    overflow: hidden;
+    /* hiddenだとscroll containerになり、画面外のdrawer内へfocusが
+       入るとブラウザがshell全体を横にscrollして中身がずれる。 */
+    overflow: clip;
     display: grid;
     grid-template-rows: calc(var(--titlebar-h) + var(--work-gap)) 1fr 40px;
     /* 登録済み変数の値が変わると補間される。これを参照する列幅・

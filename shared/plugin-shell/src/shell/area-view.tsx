@@ -16,7 +16,7 @@ import { CenterView } from "./center.tsx";
 
 export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.Element {
   const shell = useShell();
-  const display = () => shell.displayOf(props.area.ref(), props.slot);
+  const display = () => shell.displayOf(props.area.ref());
   // dockの開閉はdata-closedで畳む（unmountしない — Panel状態を保つ上に
   // 畳み込みアニメが効く）。display "center" では全dockを畳む。
   // 実効の開閉（prefsかdrawer signalか）はAreaControllerがsizeから決める。

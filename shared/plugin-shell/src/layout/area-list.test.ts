@@ -1,68 +1,76 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
-  addArea, areaKey, decodeAreaList, emptyAreaList, moveArea,
-  removeArea, selectArea, setDisplay,
-  type AreaRef,
+  decodeAreaList, emptyAreaList, flattenAreas, mainAreas, pathKey, pathFromKey,
+  selectSub, setDisplay, subAreas, toMain, toSub,
+  type AreaNode,
 } from "./area-list.ts";
 
-const ref = (project: string, ...path: string[]): AreaRef => ({ project, path });
-const aaa = ref("plugumi", "aaa");
-const bbb = ref("plugumi", "bbb");
+const tree: AreaNode[] = [
+  { name: "main", areas: [
+    { name: "feature-a", areas: [{ name: "jj", areas: [] }] },
+    { name: "feature-b", areas: [] },
+  ] },
+  { name: "other", areas: [] },
+];
 
-describe("areaKey", () => {
-  test("projectとpathから一意な文字列を作る", () => {
-    assert.notEqual(areaKey(aaa), areaKey(bbb));
-    assert.notEqual(areaKey(ref("p", "a/b")), areaKey(ref("p", "a", "b")));
-    assert.equal(areaKey(ref("p")), "p/");
+const paths = (list: { path: string[] }[]) => list.map((item) => pathKey(item.path));
+
+describe("導出", () => {
+  test("全Areaをtree順（親→子）で平坦化する", () => {
+    assert.deepEqual(paths(flattenAreas(tree)), [
+      "main", "main/feature-a", "main/feature-a/jj", "main/feature-b", "other",
+    ]);
+  });
+
+  test("Mainは全Areaからsubを除いたもの、Subはsubの順で実在分だけ", () => {
+    let state = toSub(emptyAreaList(), "other");
+    state = toSub(state, "main/feature-a/jj");
+    state = { ...state, sub: [...state.sub, "gone/x"] };
+    assert.deepEqual(paths(mainAreas(state, tree)), [
+      "main", "main/feature-a", "main/feature-b",
+    ]);
+    // 保存順（other→jj）が保たれ、treeに無いkeyは出ない
+    assert.deepEqual(paths(subAreas(state, tree)), ["other", "main/feature-a/jj"]);
+  });
+
+  test("keyはsegmentごとにencode/decodeする", () => {
+    assert.equal(pathKey(["a/b", "c"]), "a%2Fb/c");
+    assert.deepEqual(pathFromKey("a%2Fb/c"), ["a/b", "c"]);
   });
 });
 
-describe("add", () => {
-  test("mainに追加すると選択される", () => {
-    const state = addArea(emptyAreaList(), "main", aaa);
-    assert.equal(state.main.length, 1);
-    assert.equal(state.main[0].display, "full");
-    assert.equal(state.selected.main, areaKey(aaa));
+describe("操作", () => {
+  test("toSubは末尾に足して選択する（重複は選択だけ）", () => {
+    let state = toSub(emptyAreaList(), "a");
+    state = toSub(state, "b");
+    assert.deepEqual(state.sub, ["a", "b"]);
+    assert.equal(state.selectedSub, "b");
+    state = toSub(state, "a");
+    assert.deepEqual(state.sub, ["a", "b"]);
+    assert.equal(state.selectedSub, "a");
   });
 
-  test("同slotの重複は足されず選択だけになる", () => {
-    let state = addArea(emptyAreaList(), "sub", aaa);
-    state = addArea(state, "sub", bbb);
-    state = selectArea(state, "sub", areaKey(aaa));
-    state = addArea(state, "sub", aaa);
-    assert.equal(state.sub.length, 2);
-    assert.equal(state.selected.sub, areaKey(aaa));
+  test("toMainはsubから外し、選択中なら末尾へfallbackする", () => {
+    let state = toSub(emptyAreaList(), "a");
+    state = toSub(state, "b");
+    assert.deepEqual(toMain(state, "b").selectedSub, "a");
+    state = toMain(toMain(state, "b"), "a");
+    assert.equal(state.selectedSub, null);
+    assert.deepEqual(state.sub, []);
   });
 
-});
-
-describe("remove", () => {
-  test("選択中を外すと末尾へfallbackし、無ければnullになる", () => {
-    let state = addArea(emptyAreaList(), "main", aaa);
-    state = addArea(state, "main", bbb);
-    state = removeArea(state, "main", areaKey(bbb));
-    assert.equal(state.selected.main, areaKey(aaa));
-    state = removeArea(state, "main", areaKey(aaa));
-    assert.equal(state.selected.main, null);
-    assert.equal(state.main.length, 0);
-  });
-});
-
-describe("move", () => {
-  test("displayを保ったまま別slotへ移し、main/subなら選択する", () => {
-    let state = addArea(emptyAreaList(), "main", aaa);
-    state = setDisplay(state, "main", areaKey(aaa), "center");
-    state = moveArea(state, "main", areaKey(aaa), "sub");
-    assert.equal(state.main.length, 0);
-    assert.equal(state.sub.length, 1);
-    assert.equal(state.sub[0].display, "center");
-    assert.equal(state.selected.sub, areaKey(aaa));
+  test("selectSubはsubに無いkeyや現在値では何もしない", () => {
+    const state = toSub(emptyAreaList(), "a");
+    assert.equal(selectSub(state, "z"), state);
+    assert.equal(selectSub(state, "a"), state);
   });
 
-  test("同じslotへの移動は何もしない", () => {
-    const state = addArea(emptyAreaList(), "main", aaa);
-    assert.equal(moveArea(state, "main", areaKey(aaa), "main"), state);
+  test("setDisplayはfullを保存しない（差分だけ）", () => {
+    let state = setDisplay(emptyAreaList(), "a", "center");
+    assert.equal(state.display.a, "center");
+    state = setDisplay(state, "a", "full");
+    assert.equal("a" in state.display, false);
   });
 });
 
@@ -70,29 +78,26 @@ describe("decode", () => {
   test("正しい形をそのまま読める", () => {
     const state = decodeAreaList({
       version: 1,
-      main: [{ area: aaa, display: "center" }],
-      sub: [],
-      selected: { main: areaKey(aaa), sub: null },
+      sub: ["a", "b"],
+      selectedSub: "b",
+      display: { a: "center" },
     });
-    assert.equal(state.main[0].display, "center");
-    assert.equal(state.selected.main, areaKey(aaa));
+    assert.deepEqual(state.sub, ["a", "b"]);
+    assert.equal(state.selectedSub, "b");
   });
 
   test("壊れた形は空になる", () => {
     for (const raw of [null, undefined, {}, "x", [], { version: 2 },
-      { version: 1, main: "no", sub: [] },
-      { version: 1, main: [{ area: { project: 1, path: [] }, display: "full" }], sub: [] }]) {
+      { version: 1, sub: "no", selectedSub: null, display: {} },
+      { version: 1, sub: [], selectedSub: null, display: { a: "bad" } }]) {
       assert.deepEqual(decodeAreaList(raw), emptyAreaList(), JSON.stringify(raw));
     }
   });
 
-  test("listに無いselectedはnullに落とす", () => {
+  test("subに無いselectedSubはnullに落とす", () => {
     const state = decodeAreaList({
-      version: 1,
-      main: [{ area: aaa, display: "full" }],
-      sub: [],
-      selected: { main: "gone", sub: null },
+      version: 1, sub: ["a"], selectedSub: "gone", display: {},
     });
-    assert.equal(state.selected.main, null);
+    assert.equal(state.selectedSub, null);
   });
 });

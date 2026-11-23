@@ -1,6 +1,7 @@
 // Area list（左の列）の保存モデルと純粋な操作群。
-// Main/Subの2リストにAreaへの参照を並べる。SolidやDOMには触れない。
-// プロトタイプの保存先はlocalStorageで、壊れた形は空として扱う（移行しない）。
+// 表示するAreaは常に「今のProjectの全Area」から導出する（隠しAreaは
+// 作らない）。保存するのは差分だけ: Subに移したAreaと表示形式。
+// 保存先はlocalStorageで、壊れた形は空として扱う（移行しない）。
 
 export type AreaRef = {
   project: string;
@@ -9,81 +10,77 @@ export type AreaRef = {
 
 export type AreaDisplay = "full" | "center";
 
-export type AreaEntry = {
-  area: AreaRef;
-  display: AreaDisplay;
-};
-
 export type ListSlot = "main" | "sub";
 
 export type AreaListState = {
   version: 1;
-  main: AreaEntry[];
-  sub: AreaEntry[];
-  // 選択中はslotごとにareaKeyで持つ。
-  selected: { main: string | null; sub: string | null };
+  // SubセクションにいるAreaのpath key（並び順）。
+  sub: string[];
+  // Subに表示中のAreaのpath key。
+  selectedSub: string | null;
+  // Main表示の形式。既定は "full" で保存しない。
+  display: Record<string, AreaDisplay>;
 };
 
-// projectとpathから一意な文字列を作る。区切りはencodeURIComponentで
+// hostのAreaTreeと構造が同じ最小の形（hostへ依存しないようここで宣言）。
+export interface AreaNode {
+  name: string;
+  areas: AreaNode[];
+}
+
+// Area pathから一意な文字列を作る。区切りはencodeURIComponentで
 // 潰れるので、各segmentを個別にencodeして「/」で継ぐ。
+export const pathKey = (path: string[]): string =>
+  path.map(encodeURIComponent).join("/");
+
+export const pathFromKey = (key: string): string[] =>
+  key.split("/").filter(Boolean).map(decodeURIComponent);
+
+// projectまで含めたAreaの同一性比較用（sub/displayのキーはpathKey）。
 export const areaKey = (ref: AreaRef): string =>
-  `${encodeURIComponent(ref.project)}/${ref.path.map(encodeURIComponent).join("/")}`;
+  `${encodeURIComponent(ref.project)}/${pathKey(ref.path)}`;
 
 export const emptyAreaList = (): AreaListState => ({
   version: 1,
-  main: [],
   sub: [],
-  selected: { main: null, sub: null },
+  selectedSub: null,
+  display: {},
 });
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+// ---- 導出（保存しない） ----
 
-function decodeAreaRef(value: unknown): AreaRef | null {
-  if (!isObject(value)) return null;
-  const { project, path } = value;
-  if (typeof project !== "string" || project === "") return null;
-  if (!Array.isArray(path) || path.some((part) => typeof part !== "string")) return null;
-  return { project, path: path as string[] };
-}
+export type FlatArea = {
+  path: string[];
+  depth: number;
+};
 
-function decodeEntry(value: unknown): AreaEntry | null {
-  if (!isObject(value)) return null;
-  const area = decodeAreaRef(value.area);
-  if (!area) return null;
-  const display = value.display === "center" ? "center" : value.display === "full" ? "full" : null;
-  if (!display) return null;
-  return { area, display };
-}
-
-function decodeSlot(value: unknown): AreaEntry[] | null {
-  if (!Array.isArray(value)) return null;
-  const entries: AreaEntry[] = [];
-  for (const item of value) {
-    const entry = decodeEntry(item);
-    if (!entry) return null;
-    entries.push(entry);
-  }
-  return entries;
-}
-
-const keyIn = (entries: AreaEntry[], key: string): boolean =>
-  entries.some((entry) => areaKey(entry.area) === key);
-
-// 形が合わない内容は空として扱う。selectedはlistに無いkeyならnullへ落とす。
-export function decodeAreaList(raw: unknown): AreaListState {
-  if (!isObject(raw) || raw.version !== 1) return emptyAreaList();
-  const main = decodeSlot(raw.main);
-  const sub = decodeSlot(raw.sub);
-  if (!main || !sub) return emptyAreaList();
-  const selected = isObject(raw.selected) ? raw.selected : {};
-  const pick = (entries: AreaEntry[], value: unknown): string | null =>
-    typeof value === "string" && keyIn(entries, value) ? value : null;
-  return {
-    version: 1,
-    main, sub,
-    selected: { main: pick(main, selected.main), sub: pick(sub, selected.sub) },
+// treeをDFSで平坦化する（tree順＝親→子の順）。
+export function flattenAreas(areas: AreaNode[]): FlatArea[] {
+  const out: FlatArea[] = [];
+  const walk = (nodes: AreaNode[], path: string[]) => {
+    for (const node of nodes) {
+      const next = [...path, node.name];
+      out.push({ path: next, depth: path.length });
+      walk(node.areas, next);
+    }
   };
+  walk(areas, []);
+  return out;
+}
+
+// Mainセクション = 全Areaのうちsubに無いもの（tree順）。
+export function mainAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
+  const sub = new Set(state.sub);
+  return flattenAreas(areas).filter((area) => !sub.has(pathKey(area.path)));
+}
+
+// Subセクション = subの順で、treeに実在するものだけ（消えたAreaのkeyは
+// 表示から外すだけ — 保存は掃除しない）。
+export function subAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
+  const exists = new Set(flattenAreas(areas).map((area) => pathKey(area.path)));
+  return state.sub
+    .filter((key) => exists.has(key))
+    .map((key) => ({ path: pathFromKey(key), depth: 0 }));
 }
 
 // ---- 操作 ----
@@ -91,80 +88,87 @@ export function decodeAreaList(raw: unknown): AreaListState {
 const clone = (state: AreaListState): AreaListState =>
   JSON.parse(JSON.stringify(state)) as AreaListState;
 
-// 同slot内の重複は足さず選択だけ行う。main/subへ足したときは選択する。
-export function addArea(state: AreaListState, slot: ListSlot, ref: AreaRef): AreaListState {
-  const key = areaKey(ref);
+// Subへ移す（末尾へ。選択もする）。既にsubにあれば選択だけ行う。
+export function toSub(state: AreaListState, key: string): AreaListState {
   const next = clone(state);
-  if (!keyIn(next[slot], key)) {
-    next[slot].push({ area: ref, display: "full" });
-  }
-  if (slot === "main" || slot === "sub") next.selected[slot] = key;
+  if (!next.sub.includes(key)) next.sub.push(key);
+  next.selectedSub = key;
   return next;
 }
 
-// 選択中を外したら末尾へfallback、無ければnull。
-export function removeArea(state: AreaListState, slot: ListSlot, key: string): AreaListState {
+// Mainへ戻す。選択中なら末尾へfallback、無ければnull。
+export function toMain(state: AreaListState, key: string): AreaListState {
+  if (!state.sub.includes(key)) return state;
   const next = clone(state);
-  next[slot] = next[slot].filter((entry) => areaKey(entry.area) !== key);
-  if (slot === "main" || slot === "sub") {
-    if (next.selected[slot] === key) {
-      const last = next[slot][next[slot].length - 1];
-      next.selected[slot] = last ? areaKey(last.area) : null;
-    }
+  next.sub = next.sub.filter((item) => item !== key);
+  if (next.selectedSub === key) {
+    next.selectedSub = next.sub[next.sub.length - 1] ?? null;
   }
   return next;
 }
 
-// displayを保ったまま別slotへ移す。移動先がmain/subなら選択する。
-export function moveArea(
-  state: AreaListState, from: ListSlot, key: string, to: ListSlot,
-): AreaListState {
-  const entry = state[from].find((item) => areaKey(item.area) === key);
-  if (!entry || from === to) return state;
-  const next = removeArea(state, from, key);
-  if (!keyIn(next[to], key)) {
-    next[to].push({ area: entry.area, display: entry.display });
-  }
-  if (to === "main" || to === "sub") next.selected[to] = key;
-  return next;
-}
-
-export function selectArea(state: AreaListState, slot: ListSlot, key: string): AreaListState {
-  if (slot !== "main" && slot !== "sub") return state;
-  if (!keyIn(state[slot], key)) return state;
-  if (state.selected[slot] === key) return state;
+export function selectSub(state: AreaListState, key: string): AreaListState {
+  if (!state.sub.includes(key) || state.selectedSub === key) return state;
   const next = clone(state);
-  next.selected[slot] = key;
+  next.selectedSub = key;
   return next;
 }
 
+// "full" は既定なのでキーを消す（差分だけ保存する）。
 export function setDisplay(
-  state: AreaListState, slot: ListSlot, key: string, display: AreaDisplay,
+  state: AreaListState, key: string, display: AreaDisplay,
 ): AreaListState {
-  const entry = state[slot].find((item) => areaKey(item.area) === key);
-  if (!entry || entry.display === display) return state;
+  if ((state.display[key] ?? "full") === display) return state;
   const next = clone(state);
-  next[slot].find((item) => areaKey(item.area) === key)!.display = display;
+  if (display === "full") delete next.display[key];
+  else next.display[key] = display;
   return next;
 }
 
 // ---- 保存（localStorage。prefsと同じく読み書きはtry/catchで包む） ----
 
-const KEY = (coreKey: string) => `plugumi:shell:areas:${coreKey}`;
+const KEY = (coreKey: string, project: string) =>
+  `plugumi:shell:area-list:${coreKey}:${project}`;
 
-export function loadAreaList(coreKey: string): AreaListState {
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+// 形が合わない内容は空として扱う。selectedSubはsubに無いkeyならnullへ落とす。
+export function decodeAreaList(raw: unknown): AreaListState {
+  if (!isObject(raw) || raw.version !== 1) return emptyAreaList();
+  if (!Array.isArray(raw.sub) || raw.sub.some((key) => typeof key !== "string")) {
+    return emptyAreaList();
+  }
+  if (!isObject(raw.display)) return emptyAreaList();
+  const display: Record<string, AreaDisplay> = {};
+  for (const [key, value] of Object.entries(raw.display)) {
+    if (value !== "full" && value !== "center") return emptyAreaList();
+    display[key] = value;
+  }
+  const selectedSub = raw.selectedSub;
+  return {
+    version: 1,
+    sub: raw.sub as string[],
+    selectedSub: typeof selectedSub === "string" && (raw.sub as string[]).includes(selectedSub)
+      ? selectedSub
+      : null,
+    display,
+  };
+}
+
+export function loadAreaList(coreKey: string, project: string): AreaListState {
   let raw: unknown = null;
   try {
-    raw = JSON.parse(localStorage.getItem(KEY(coreKey)) ?? "null");
+    raw = JSON.parse(localStorage.getItem(KEY(coreKey, project)) ?? "null");
   } catch {
     return emptyAreaList();
   }
   return decodeAreaList(raw);
 }
 
-export function saveAreaList(coreKey: string, state: AreaListState): void {
+export function saveAreaList(coreKey: string, project: string, state: AreaListState): void {
   try {
-    localStorage.setItem(KEY(coreKey), JSON.stringify(state));
+    localStorage.setItem(KEY(coreKey, project), JSON.stringify(state));
   } catch {
     // 保存できなくても画面は動かす
   }

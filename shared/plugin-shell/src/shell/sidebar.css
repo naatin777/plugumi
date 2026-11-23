@@ -11,6 +11,29 @@
     gap: var(--plugumi-spacing-sm);
     overflow-y: auto;
   }
+  /* ---- 上部のProject切替 ---- */
+  .project-switcher-button {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%;
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text);
+    font: inherit; font-weight: 600;
+    cursor: pointer;
+  }
+  .project-switcher-button:hover { background: var(--plugumi-colors-background-tertiary); }
+  .project-switcher-name {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .project-menu {
+    padding: var(--plugumi-spacing-xs);
+    margin: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-secondary);
+  }
+  .area-child-form { padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm); }
+
   .project-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
   .project-tab {
     display: inline-flex; align-items: center;

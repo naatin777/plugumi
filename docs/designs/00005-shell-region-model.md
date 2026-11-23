@@ -42,7 +42,7 @@ relations:
 
 MainとSubの中身はどちらも同じ**AreaView**である。同じAreaをMainとSubに同時に出してもよい。Areaの中身は従来どおりleft・center（splitの木）・bottom・rightのDock構成で、Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
 
-**Area list**: Projectをまたいで任意のAreaをどのセクションにも入れられる。行のメニューから「Mainへ / Subへ」の移動と表示形式の切替（プロトタイプでは`"full"`=全dockと`"center"`=centerだけの2種）、「リストから外す」を行う。表示形式を切り替えてもPanelの配置は保たれ、見せ方だけが変わる。
+**Area list**: 今のProjectの全AreaをMain・Subの2セクションで一覧する（Areaを隠すことはできない）。行のメニューから「Mainへ / Subへ」の移動と表示形式の切替（Main行のみ。`"full"`=全dockと`"center"`=centerだけの2種）、「子Areaを追加」「Areaを削除」（確認あり）を行う。表示形式を切り替えてもPanelの配置は保たれ、見せ方だけが変わる。
 
 ## 領域のモデル
 
@@ -59,7 +59,7 @@ left・bottom・rightは機能の区切りではなく**位置の契約**であ�
 
 ### スコープはAreaで1段
 
-Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に保存され、切替で入れ替わる（`getWorkspace`/`putWorkspace`）。Project-scopeのPanel置き場は持たない。Main/Subへの割り当てはArea listの状態として端末（localStorage）に保存し、Workspaceとは別に持つ。
+Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に保存され、切替で入れ替わる（`getWorkspace`/`putWorkspace`）。Project-scopeのPanel置き場は持たない。Area listの保存は差分だけ（後述）。
 
 ### 表示モード
 
@@ -73,12 +73,24 @@ Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に�
 
 ### Area list: Main/Subセクション
 
-Area listはAreaを**Main**・**Sub**の2セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。
+Area listは**今のProjectの全Area**を**Main**・**Sub**の2セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。上部にProjectの切替（現在のProject名を押すと一覧popover、ここから「Projectを追加」もできる）。
 
-- **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する。URLのAreaがlistに無ければ追加して選択する（deep link）。
-- **Sub**: 行のclickでそのAreaをSub領域に表示する。Subは開閉でき、閉じるとMainが全幅になる。
+- **表示はProjectのtreeから導出**し、Areaを一覧として保存しない（隠しAreaは存在しない）。保存するのはProjectごとの差分だけである:
+
+  ```ts
+  type AreaListState = {
+    version: 1;
+    sub: string[];                        // SubセクションのAreaのpath key（並び順）
+    selectedSub: string | null;           // Subに表示中
+    display: Record<string, AreaDisplay>; // Main表示の形式（既定"full"は保存しない）
+  };
+  ```
+
+  path keyはpathの各segmentを`encodeURIComponent`して`/`で継いだ文字列。保存先はlocalStorageの`plugumi:shell:area-list:<coreKey>:<project>`（Projectごとに読み替える）。Main = 全Areaのうち`sub`に無いもの（tree順・入れ子はインデント）、Sub = `sub`の順でtreeに実在するものだけ（消えたAreaは表示から外すだけで、保存は掃除しない）。
+- **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する（Mainの選択はURLが正本）。行メニュー: 「Subへ」「子Areaを追加」、表示形式「すべて / centerのみ」、「別windowで開く」（Electronのみ）、「Areaを削除」（確認あり。「<name> とその下のAreaを削除します」）。
+- **Sub**: 行のclickでそのAreaをSub領域に表示する（Subが閉じていれば開く）。Subは開閉でき、閉じるとMainが全幅になる。Subはcenterだけの表示なので表示切替は出さない。行メニュー: 「Mainへ」「子Areaを追加」「別windowで開く」「Areaを削除」。
 - **別windowで開く（detach）**: 行メニューからそのAreaを別windowで開く。Electronのみ（Webは項目自体を出さない）。detached windowはtitle帯最小限＋そのAreaのAreaView1個（Main扱い＝dockあり）だけを描く。
-- **追加は「＋」からpicker**: 各セクションの「＋ Areaを追加」はProject/Areaのツリーから選ぶpopoverを開く。Area・Projectの作成もここで行う。
+- **「＋ Areaを追加」は新規作成**（名前入力。親はProject直下）。Subの「＋」で作ったAreaはそのままSubへ入る。「子Areaを追加」は行メニューから。Areaが0個のProjectでは各セクションに案内文を出す。
 
 ### 列ごとの開閉ボタン
 

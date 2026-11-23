@@ -16,9 +16,9 @@ import {
   allPanelRefs,
   decodeWorkspace, newInstanceId,
 } from "../layout/model.ts";
-import type { AreaRef, AreaListState, ListSlot, AreaDisplay } from "../layout/area-list.ts";
+import type { AreaRef, AreaListState, AreaDisplay } from "../layout/area-list.ts";
 import {
-  addArea, areaKey, emptyAreaList, loadAreaList, saveAreaList, selectArea,
+  areaKey, emptyAreaList, loadAreaList, pathFromKey, pathKey, saveAreaList,
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
 import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
@@ -58,13 +58,14 @@ export interface ShellController {
   prefs(): ShellPrefs;
   updatePrefs(mutate: (prefs: ShellPrefs) => void): void;
 
-  // Area list（左の列）。URLのAreaがMainを指し、main listと同期する。
+  // Area list（左の列）。表示はProjectの全Areaから導出し、保存するのは
+  // Subに移したAreaと表示形式の差分だけ（Projectごとの状態）。
   areaList(): AreaListState;
   applyAreaList(mutate: (state: AreaListState) => AreaListState): void;
-  // Main/Subに表示するArea。MainはURLが正本で、listの無いAreaはdeep linkで追加する。
+  // Main/Subに表示するArea。MainはURLが正本。
   mainRef(): AreaRef | null;
   subRef(): AreaRef | null;
-  displayOf(ref: AreaRef | null, slot: ListSlot): AreaDisplay;
+  displayOf(ref: AreaRef | null): AreaDisplay;
   // ページ送りなど「触っている側」のArea（.area-viewのpointerdownで更新）。
   focusedArea(): AreaController | null;
   setFocusedArea(area: AreaController): void;
@@ -195,16 +196,14 @@ export function createShellController(
     const next = mutate(areaListState());
     if (next === areaListState()) return;
     setAreaList(next);
-    saveAreaList(coreKey(), next);
+    saveAreaList(coreKey(), project(), next);
   };
 
-  // 選択中のAreaRef。MainはURLが正本（listのselectedは行の強調に使う）。
+  // 選択中のAreaRef。MainはURLが正本、SubはselectedSubが正本。
   // 呼ぶたびに新しいobjectを返すとref()===currentの比較が常にfalseになるので、
   // areaKeyが同じなら同一参照（memoのequals）で返す。
   const sameArea = (a: AreaRef | null, b: AreaRef | null) =>
     (a ? areaKey(a) : null) === (b ? areaKey(b) : null);
-  const entryOf = (slot: ListSlot, key: string | null) =>
-    key === null ? undefined : areaListState()[slot].find((entry) => areaKey(entry.area) === key);
   const mainRef = createMemo<AreaRef | null>(
     () => {
       const path = areaPath();
@@ -214,28 +213,15 @@ export function createShellController(
     { equals: (a, b) => sameArea(a, b) },
   );
   const subRef = createMemo<AreaRef | null>(
-    () => entryOf("sub", areaListState().selected.sub)?.area ?? null,
+    () => {
+      const key = areaListState().selectedSub;
+      return key ? { project: project(), path: pathFromKey(key) } : null;
+    },
     { equals: (a, b) => sameArea(a, b) },
   );
-  const displayOf = (ref: AreaRef | null, slot: ListSlot): AreaDisplay => {
-    if (!ref) return "full";
-    // displayはslotごとのentryに付く — 同じAreaが別slotにあっても
-    // 別の表示形式を持てるので自分のslotだけ見る。
-    return entryOf(slot, areaKey(ref))?.display ?? "full";
-  };
-
-  // URLのAreaがmain listに無ければ足して選択する（deep link）。
-  const syncMain = (projectName: string, path: string[]) => {
-    if (path.length === 0 || !projectName) return;
-    const ref: AreaRef = { project: projectName, path };
-    const key = areaKey(ref);
-    const list = areaListState();
-    if (!list.main.some((entry) => areaKey(entry.area) === key)) {
-      applyAreaList((state) => addArea(state, "main", ref));
-    } else if (list.selected.main !== key) {
-      applyAreaList((state) => selectArea(state, "main", key));
-    }
-  };
+  // 表示形式はMain用だけ（Subはcenter固定でdisplayを持たない）。
+  const displayOf = (ref: AreaRef | null): AreaDisplay =>
+    ref ? areaListState().display[pathKey(ref.path)] ?? "full" : "full";
 
   // ---- 触っている側のArea ----
   const [focusedArea, setFocusedArea] = createSignal<AreaController | null>(null);
@@ -316,20 +302,20 @@ export function createShellController(
     createProject, removeProject, createArea, removeArea,
   };
 
-  // effectは2系統だけ: (a) core/areaの変化 → listの読み替え・URLとMainの同期・
+  // effectは2系統だけ: (a) core/project/areaの変化 → listの読み替え・
   // 場所記憶、(b) 何もしない。pollは同一内容を通知しないので巡回だけでは走らない。
-  let loadedCore = "";
+  let loadedScope = "";
   createEffect(
     () => ({ core: coreKey(), project: project(), area: areaPath() }),
     ({ core, project, area }) => {
-      // callbackはowned scope — signalへの書き込み（setAreaList・syncMain内の
-      // applyAreaList）はREACTIVE_WRITE_IN_OWNED_SCOPEになるのでmicrotaskへ。
-      const firstLoad = core !== loadedCore;
-      loadedCore = core;
-      queueMicrotask(() => {
-        if (firstLoad) setAreaList(loadAreaList(core));
-        syncMain(project, area);
-      });
+      // callbackはowned scope — signalへの書き込み（setAreaList）は
+      // REACTIVE_WRITE_IN_OWNED_SCOPEになるのでmicrotaskへ。
+      const scope = `${core}/${project}`;
+      const firstLoad = scope !== loadedScope;
+      loadedScope = scope;
+      if (firstLoad) {
+        queueMicrotask(() => setAreaList(loadAreaList(core, project)));
+      }
       const path = area.length > 0
         ? `/${core}/${project}/${area.map(encodeURIComponent).join("/")}/`
         : `/${core}/${project}/`;
