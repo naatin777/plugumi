@@ -178,7 +178,7 @@
     height: 100%; min-height: 0;
     /* Panelの面は領域によらずsecondaryで統一する。カードの色は
        Panelの後ろ側（ヘッダーと周りの縁）にだけ見せる。 */
-    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 15%, transparent);
+    background: transparent;
     overflow: hidden;
   }
 
@@ -199,14 +199,32 @@
 
   /* ---- resizer溝（canvas色の溝として見える） ---- */
   .resizer { flex: none; position: relative; }
-  .resizer[data-axis="x"] { width: 8px; margin: 0; cursor: col-resize; z-index: 2; }
-  .resizer[data-axis="y"] { height: 8px; margin: 0; cursor: row-resize; z-index: 2; }
-  .dock > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: calc(-1 * var(--work-gap)); }
-  .dock[data-dock="right"] > .resizer[data-axis="x"] { right: auto; left: calc(-1 * var(--work-gap)); }
-  .dock > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; top: calc(-1 * var(--work-gap)); }
-  .frame-pinned > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--work-gap)); }
-  .frame-side > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: calc(-1 * var(--work-gap)); }
-  .widget > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; bottom: calc(-1 * var(--work-gap)); }
+  /* 溝の中央に短い棒のハンドルを置く。普段は薄く、hover/ドラッグ中に
+     濃くして掴める場所だと分からせる。 */
+  .resizer::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: var(--plugumi-colors-text-muted);
+    opacity: 0.25;
+    pointer-events: none;
+  }
+  .resizer[data-axis="x"]::before { width: 3px; height: 28px; }
+  .resizer[data-axis="y"]::before { width: 28px; height: 3px; }
+  .resizer:hover::before, .resizer[data-dragging]::before { opacity: 0.9; }
+  /* resizer(8px)は溝(4px)より太い。溝の中心に置き、両側のタイルに
+     等しく2pxずつ食い込ませる — ハンドルの棒が溝の中央に来る。 */
+  .resizer[data-axis="x"] { width: 8px; margin: 0; cursor: col-resize; z-index: 2; justify-self: center; }
+  .resizer[data-axis="y"] { height: 8px; margin: 0; cursor: row-resize; z-index: 2; align-self: center; }
+  /* 親がborderを持つので、padding edge基準の位置をborder分だけ補正する。 */
+  .dock > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: calc(-1 * (var(--work-gap) + 8px) / 2 - 1px); }
+  .dock[data-dock="right"] > .resizer[data-axis="x"] { right: auto; left: calc(-1 * (var(--work-gap) + 8px) / 2 - 1px); }
+  .dock > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; top: calc(-1 * (var(--work-gap) + 8px) / 2 - 1px); }
+  .frame-pinned > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; left: calc(-1 * (var(--work-gap) + 8px) / 2 - 1px); }
+  .frame-side > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: calc(-1 * (var(--work-gap) + 8px) / 2 - 1px); }
+  .widget > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; bottom: calc(-1 * (var(--work-gap) + 8px) / 2); }
 
   /* ---- dock: 「tab帯＋中身」の1枚のカード ---- */
   .dock {
@@ -216,22 +234,13 @@
     box-sizing: border-box;
     display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
-    /* 区切りはgapに覗く床が担うのでborderは引かない。 */
-    border-radius: var(--plugumi-radii-lg);
-    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 30%, transparent);
-    backdrop-filter: blur(12px) saturate(1.2);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
-    overflow: hidden;
-  }
-  /* 枠線は::afterで最前面に描く。inset shadowだとPanelの面
-     （panel-frame）に覆われて消えるため。 */
-  .dock::after, .leaf::after {
-    content: "";
-    position: absolute; inset: 0;
     border: 1px solid var(--plugumi-colors-border);
-    border-radius: inherit;
-    pointer-events: none;
-    z-index: 5;
+    border-radius: var(--plugumi-radii-lg);
+    background: transparent;
+    backdrop-filter: blur(12px) saturate(1.2);
+    overflow: clip;
+    /* resizerの棒が溝の中心まで出られるようclip領域を広げる。 */
+    overflow-clip-margin: 8px;
   }
   .dock[data-dock="left"] { grid-area: left; }
   .dock[data-dock="right"] { grid-area: right; }
@@ -283,9 +292,8 @@
      Panelのカード（secondary）ではない別のmountなので、色でも区別する。 */
   .widget-body {
     flex: none; min-height: 0;
-    background: color-mix(in srgb, var(--plugumi-colors-background-widget) 25%, transparent);
+    background: transparent;
     backdrop-filter: blur(12px) saturate(1.2);
-    box-shadow: inset 0 0 0 1px var(--plugumi-colors-border);
   }
   /* 開いたwidgetの操作群。headerを持たないので、hoverした時だけ
      中身の右上に浮かせる。畳んだ行には出さない。 */
@@ -339,12 +347,14 @@
      列はその中に並ぶ。 */
   .leaf {
     position: relative;
+    box-sizing: border-box;
     display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
-    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 30%, transparent);
+    border: 1px solid var(--plugumi-colors-border);
+    background: transparent;
     backdrop-filter: blur(12px) saturate(1.2);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
-    overflow: hidden;
+    overflow: clip;
+    overflow-clip-margin: 8px;
   }
   .leaf.focused .tab.selected {
     box-shadow: inset 0 0 0 1px var(--plugumi-colors-border-highlight);

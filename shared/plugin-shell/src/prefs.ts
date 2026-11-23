@@ -16,6 +16,8 @@ export interface ShellPrefs {
   // zen: sidebar/pinned/statusとtopbarのframe区間をまとめて引っ込める。
   frameHidden: boolean;
   theme: ThemeMode;
+  // 床の虹色もやもや。消すとフラットな暗い床になる。
+  aurora: boolean;
 }
 
 const KEY = "plugumi:shell:prefs";
@@ -30,6 +32,7 @@ const defaults = (): ShellPrefs => ({
   pinnedWidth: 280,
   frameHidden: false,
   theme: "system",
+  aurora: true,
 });
 
 const clampWidth = (value: unknown, fallback: number): number =>
@@ -74,6 +77,7 @@ export function loadPrefs(): ShellPrefs {
     pinnedWidth: clampWidth(saved.pinnedWidth, base.pinnedWidth),
     frameHidden: flag(saved.frameHidden, base.frameHidden),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
+    aurora: flag(saved.aurora, base.aurora),
   };
 }
 

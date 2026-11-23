@@ -15,6 +15,8 @@ export interface ResizerProps {
 export function Resizer(props: ResizerProps): JSX.Element {
   const down = (event: PointerEvent) => {
     if (event.button !== 0) return;
+    const el = event.currentTarget as HTMLElement;
+    el.dataset.dragging = "";
     const origin = props.axis === "x" ? event.clientX : event.clientY;
     const start = props.value();
     const move = (next: PointerEvent) => {
@@ -25,6 +27,7 @@ export function Resizer(props: ResizerProps): JSX.Element {
     const up = (done: PointerEvent) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      delete el.dataset.dragging;
       move(done);
     };
     window.addEventListener("pointermove", move);

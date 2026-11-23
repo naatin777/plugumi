@@ -85,7 +85,7 @@ export function ShellFrame(): JSX.Element {
 
   return (
     <main
-      class={{ shell: true, "frame-hidden": zen() }}
+      class={{ shell: true, "frame-hidden": zen(), "no-aurora": !prefs().aurora }}
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
       data-side={sideWidth() > 0 ? "" : undefined}
       data-pinned={pinnedWidth() > 0 ? "" : undefined}

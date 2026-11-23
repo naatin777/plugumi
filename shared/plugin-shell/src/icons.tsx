@@ -128,6 +128,11 @@ export const IconThemeDark = icon(() =>
   <path d="M13 9.5 A5.5 5.5 0 0 1 6.5 3 A5.5 5.5 0 1 0 13 9.5 Z" />
 );
 
+// 床のもやもや（aurora）切替。四つ星のきらめき。
+export const IconAurora = icon(() =>
+  <path d="M8 2 L9.4 6.6 L14 8 L9.4 9.4 L8 14 L6.6 9.4 L2 8 L6.6 6.6 Z" />
+);
+
 // Core一覧やswitcherに使う丸い接続状態はCSSで描くのでアイコンは不要。
 
 export const IconProject = icon(() => <>

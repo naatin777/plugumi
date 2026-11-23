@@ -10,7 +10,7 @@ import {
   IconSidebar, IconPinned, IconZen, IconPlus,
   IconDockLeft, IconDockBottom, IconDockRight,
   IconThemeSystem, IconThemeLight, IconThemeDark,
-  IconSearch, IconSettings,
+  IconSearch, IconSettings, IconAurora,
 } from "../icons.tsx";
 
 // popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
@@ -201,6 +201,14 @@ export function TitleToolsRight(): JSX.Element {
         onClick={() => shell.updatePrefs((prefs) => { prefs.theme = nextTheme(prefs.theme); })}
       >
         {themeIcon()}
+      </button>
+      <button
+        class="icon-button"
+        aria-label="背景のもや"
+        aria-pressed={shell.prefs().aurora ? "true" : "false"}
+        onClick={() => shell.updatePrefs((prefs) => { prefs.aurora = !prefs.aurora; })}
+      >
+        <IconAurora />
       </button>
       <button
         class="icon-button"
