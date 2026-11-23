@@ -13,6 +13,8 @@
 }
 .builtin-theme-seg {
   display: flex; width: 100%;
+  /* 低いPanelでは縮めずPanel内スクロールに任せる。 */
+  flex: none;
   box-sizing: border-box;
   gap: 2px;
   padding: 2px;
@@ -33,6 +35,8 @@
 /* 狭いPanelでは項目を縦積みにしてはみ出さない。 */
 @container (width < 220px) {
   .builtin-theme-seg { flex-direction: column; }
+  /* 縦積みでflex-basis 0のままだと高さが0に潰れる。 */
+  .builtin-theme-item { flex: none; }
 }
 .builtin-theme-item:hover { color: var(--plugumi-colors-text); }
 .builtin-theme-item.selected {
