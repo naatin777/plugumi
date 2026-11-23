@@ -9,6 +9,7 @@ import { useHref } from "@solidjs/router";
 import type { AreaTree } from "../host.tsx";
 import { useShell } from "./controller.tsx";
 import { NameForm, ConfirmButton } from "./inline.tsx";
+import { Resizer } from "./resizer.tsx";
 import { IconChevronRight, IconClose, IconPlus } from "../icons.tsx";
 
 export function SidebarView(): JSX.Element {
@@ -16,7 +17,20 @@ export function SidebarView(): JSX.Element {
   const [addingProject, setAddingProject] = createSignal(false);
   const [addingArea, setAddingArea] = createSignal(false);
   return (
-    <nav class="sidebar">
+    <>
+      {/* 列の幅のresizer（pinnedと同じく溝を掴む）。 */}
+      <Resizer
+        axis="x"
+        direction={1}
+        value={() => shell.prefs().sidebarWidth}
+        apply={(size) => {
+          const clamped = Math.min(640, Math.max(120, size));
+          shell.updatePrefs((prefs) => {
+            prefs.sidebarWidth = clamped;
+          });
+        }}
+      />
+      <nav class="sidebar">
       <div class="project-tabs">
         <For each={shell.projects()}>
           {(tree) => <ProjectTab name={tree.name} />}
@@ -66,6 +80,7 @@ export function SidebarView(): JSX.Element {
         </Show>
       </div>
     </nav>
+    </>
   );
 }
 

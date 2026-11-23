@@ -87,6 +87,42 @@
 
   .title-gap { flex: none; width: var(--plugumi-spacing-sm); }
 
+  /* ---- work帯の中身 ---- */
+  /* 見えない空白。Firefoxのflexible space相当で、両側が同じflexなので
+     中央の要素はbarが伸縮しても真ん中に留まる。 */
+  .bar-flex { flex: 1; }
+  /* ロケーション（project/areaのcrumb）。長い時は左から溢れて隠す。 */
+  .bar-crumb {
+    display: flex; align-items: center;
+    min-width: 0; overflow: hidden;
+    font-size: var(--plugumi-font-size-xs);
+    color: var(--plugumi-colors-text-muted);
+  }
+  .bar-crumb-item {
+    color: inherit; text-decoration: none;
+    padding: 2px var(--plugumi-spacing-xs);
+    border-radius: var(--plugumi-radii-sm);
+    white-space: nowrap;
+  }
+  .bar-crumb-item:hover {
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+  }
+  .bar-crumb-sep { color: var(--plugumi-colors-text-subtle); }
+  /* 検索の仮置き。Command Center的な箱で、中身はまだない。 */
+  .bar-search {
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    flex: none; width: 220px; height: 22px;
+    padding: 0 var(--plugumi-spacing-sm);
+    border: 0; border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text-muted);
+    font: inherit; font-size: var(--plugumi-font-size-xs);
+    cursor: pointer;
+  }
+  .bar-search:hover { color: var(--plugumi-colors-text); }
+  .bar-search-key { margin-left: auto; color: var(--plugumi-colors-text-subtle); }
+
   /* ---- tab帯はカードのheader ----
      dock・centerのleaf・pinnedは、それぞれ「tab帯（header）＋中身」
      の1枚のカード。stripは輪郭の内側の上端に置き、中身との間はhairline
@@ -169,6 +205,7 @@
   .dock[data-dock="right"] > .resizer[data-axis="x"] { right: auto; left: calc(-1 * var(--work-gap)); }
   .dock > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; top: calc(-1 * var(--work-gap)); }
   .frame-pinned > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--work-gap)); }
+  .frame-side > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: calc(-1 * var(--work-gap)); }
   .widget > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; bottom: calc(-1 * var(--work-gap)); }
 
   /* ---- dock: 「tab帯＋中身」の1枚のカード ---- */
@@ -182,7 +219,18 @@
     /* 区切りはgapに覗く床が担うのでborderは引かない。 */
     border-radius: var(--plugumi-radii-lg);
     background: var(--plugumi-colors-background-secondary);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     overflow: hidden;
+  }
+  /* 枠線は::afterで最前面に描く。inset shadowだとPanelの面
+     （panel-frame）に覆われて消えるため。 */
+  .dock::after, .leaf::after {
+    content: "";
+    position: absolute; inset: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 5;
   }
   .dock[data-dock="left"] { grid-area: left; }
   .dock[data-dock="right"] { grid-area: right; }
@@ -288,9 +336,11 @@
   /* leafも「tab帯＋中身」の1枚のカード。scrollのleafも1枚で、
      列はその中に並ぶ。 */
   .leaf {
+    position: relative;
     display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
     background: var(--plugumi-colors-background-secondary);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     overflow: hidden;
   }
   .leaf.focused .tab.selected {

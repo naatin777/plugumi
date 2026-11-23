@@ -10,6 +10,7 @@ import {
   IconSidebar, IconPinned, IconZen, IconPlus,
   IconDockLeft, IconDockBottom, IconDockRight,
   IconThemeSystem, IconThemeLight, IconThemeDark,
+  IconSearch, IconSettings,
 } from "../icons.tsx";
 
 // popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
@@ -83,17 +84,40 @@ function CoreMenuItem(props: { key: string; name: string; status: string }): JSX
   );
 }
 
+// work帯のロケーション。projectとarea階層をcrumbとして出す
+// （coreはchrome帯のswitcherが担うのでここには出さない）。
+function Crumb(props: { label: string; to: string }): JSX.Element {
+  const href = useHref(() => props.to);
+  return <a class="bar-crumb-item" href={href()}>{props.label}</a>;
+}
+
 export function TitleToolsCenter(): JSX.Element {
   const shell = useShell();
   const toggleDock = (kind: "left" | "bottom" | "right") =>
     shell.updatePrefs((prefs) => {
       prefs.dockOpen = { ...prefs.dockOpen, [kind]: !prefs.dockOpen[kind] };
     });
+  const crumbTo = (depth: number) =>
+    `/${shell.coreKey()}/${shell.project()}/${shell.areaPath()
+      .slice(0, depth).map(encodeURIComponent).join("/")}/`;
   return (
     <>
+      <nav class="bar-crumb" aria-label="現在位置">
+        <Crumb label={shell.project()} to={crumbTo(0)} />
+        <For each={shell.areaPath()}>
+          {(name, i) => (
+            <>
+              <span class="bar-crumb-sep">/</span>
+              <Crumb label={name} to={crumbTo(i() + 1)} />
+            </>
+          )}
+        </For>
+      </nav>
       <button
-        class="icon-button" popovertarget="panel-picker" aria-label="Panelを開く"
-        // titleの「+」はfocused leafへ足す（leaf指定をリセットしてから開く）
+        class="icon-button" aria-label="Panelを開く"
+        // titleの「+」はfocused leafへ足す（leaf指定をリセットしてから開く）。
+        // popovertargetを併用するとtoggleとshowPopoverが二重に効いて
+        // 閉じてしまうので、onClickから開く。
         onClick={() => shell.openPicker()}
       >
         <IconPlus />
@@ -116,7 +140,19 @@ export function TitleToolsCenter(): JSX.Element {
           </For>
         </Show>
       </div>
-      <span class="title-gap" />
+      {/* 見えない空白（Firefoxのflexible space相当）。左右の群は
+          barの幅に関係なく端に固定され、中央だけが真ん中に留まる。 */}
+      <span class="bar-flex" />
+      {/* 仮: 中身はまだないので、ひとまずpanel pickerを開くだけ。 */}
+      <button
+        class="bar-search" aria-label="検索"
+        onClick={() => shell.openPicker()}
+      >
+        <IconSearch size={12} />
+        検索
+        <span class="bar-search-key">⌘K</span>
+      </button>
+      <span class="bar-flex" />
       <button
         class="icon-button" aria-label="左の領域"
         aria-pressed={shell.prefs().dockOpen.left ? "true" : "false"}
@@ -173,6 +209,9 @@ export function TitleToolsRight(): JSX.Element {
         onClick={() => shell.updatePrefs((prefs) => { prefs.pinnedOpen = !prefs.pinnedOpen; })}
       >
         <IconPinned />
+      </button>
+      <button class="icon-button" aria-label="設定">
+        <IconSettings />
       </button>
     </>
   );

@@ -60,6 +60,21 @@ export const IconPlus = icon(() => <>
   <line x1="3.5" y1="8" x2="12.5" y2="8" />
 </>);
 
+export const IconSearch = icon(() => <>
+  <circle cx="7" cy="7" r="4.5" />
+  <line x1="10.2" y1="10.2" x2="13.5" y2="13.5" />
+</>);
+
+// 設定はスライダー（歯車はlightの太陽と見紛うので使わない）。
+export const IconSettings = icon(() => <>
+  <line x1="2.5" y1="4.5" x2="13.5" y2="4.5" />
+  <circle cx="5.5" cy="4.5" r="1.8" />
+  <line x1="2.5" y1="8" x2="13.5" y2="8" />
+  <circle cx="10.5" cy="8" r="1.8" />
+  <line x1="2.5" y1="11.5" x2="13.5" y2="11.5" />
+  <circle cx="6.5" cy="11.5" r="1.8" />
+</>);
+
 export const IconClose = icon(() => <>
   <line x1="4.5" y1="4.5" x2="11.5" y2="11.5" />
   <line x1="11.5" y1="4.5" x2="4.5" y2="11.5" />
