@@ -1,13 +1,19 @@
-// @fontsourceのCSSはwoff2とwoffを両方参照する。distはGoバイナリ等に
-// 同梱されるので、対応ブラウザがすべて読めるwoff2だけを残し、woffの参照を
-// 消して出力させない。vite本体は利用側のものを使うため型には依存しない。
+// 利用側のvite.configからimportするbuild設定の断片。
+// Electronでも使うためvite本体への依存は持たせない（構造だけ返す）。
+
+// @fontsourceからwoff2だけを取り込むtransform plugin。
+// format固有の宣言を消してサイズを減らす。
 export function woff2Only() {
   return {
-    name: "plugumi-woff2-only",
+    name: "plugumi-fontsource-woff2-only",
     enforce: "pre" as const,
     transform(code: string, id: string) {
-      if (!id.includes("/@fontsource/") || !id.endsWith(".css")) return null;
-      return code.replace(/,\s*url\([^)]*\.woff\)\s*format\(['"]woff['"]\)/g, "");
+      if (!id.includes("@fontsource") || !id.endsWith(".css")) return null;
+      // woff2以外のsrc行を消す。残した行だけでCSSとして成り立つ。
+      const kept = code
+        .split("\n")
+        .filter((line) => !line.includes(".woff") || line.includes(".woff2"));
+      return { code: kept.join("\n"), map: null };
     },
   };
 }

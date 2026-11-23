@@ -1,14 +1,13 @@
 // Panel宣言のstylesをCore経由で取り、その登録のsubtreeにだけ当たる
-// <style>としてheadへ出す（Shadow DOMは使わず@scopeで隔離する）。
-// 参照カウントで管理し、その登録のInstanceが全て閉じたら外す。
-import type { PanelEntry, ShellHost } from "../host";
+// <style>としてheadへ出す（contracts/00005「CSS」）。
+// Shadow DOMは使わず@scopeで隔離する。参照カウントで管理し、
+// その登録のInstanceが全て閉じたら外す。uiSha256が変われば取り直す。
+import type { PanelEntry, ShellHost } from "../host.tsx";
 
 interface ScopedStyles {
   element: HTMLStyleElement;
   uiSha256: string;
   refs: number;
-  // 同じsha256で取り直した内容。fetchが走るのはinstall/updateのときだけ。
-  text: string;
 }
 
 const installed = new Map<string, ScopedStyles>();
@@ -26,9 +25,7 @@ export function scopeCSS(registrationId: string, text: string): string {
   sheet.replaceSync(text);
   const scoped: string[] = [];
   const outer: string[] = [];
-  // @media/@supports/@layer/@containerなどのグループ規則は中身ごとscopeへ、
-  // @keyframes/@font-faceのように名前で結合する規則は外へそのまま出す。
-  // 定数が無い規則種（@container等）もあるため判定はclass名で行う。
+  // 規則種の定数は全環境で揃っていない（@container等）ため、class名で判定する。
   const inside = new Set([
     "CSSStyleRule", "CSSMediaRule", "CSSSupportsRule",
     "CSSLayerBlockRule", "CSSContainerRule", "CSSScopeRule",
@@ -41,40 +38,44 @@ export function scopeCSS(registrationId: string, text: string): string {
   return outer.join("\n") + (inner ? `\n${prelude} {\n${inner}\n}` : "");
 }
 
-async function buildScoped(host: ShellHost, registrationId: string, coreKey: string, styles: string[], uiSha256: string): Promise<string> {
+async function fetchScoped(
+  host: ShellHost, coreKey: string, panel: PanelEntry,
+): Promise<string> {
   const parts: string[] = [];
-  for (const path of styles) {
+  for (const path of panel.styles) {
     const response = await fetch(
-      host.uiURL(coreKey, registrationId, path, uiSha256),
+      host.uiURL(coreKey, panel.registrationId, path, panel.uiSha256),
     );
     if (!response.ok) throw new Error(`styles ${path}: HTTP ${response.status}`);
     parts.push(await response.text());
   }
-  return scopeCSS(registrationId, parts.join("\n"));
+  return scopeCSS(panel.registrationId, parts.join("\n"));
 }
 
 // その登録のstyleを用意して参照を1つ返す。同じrid+shaは使い回し、
 // shaが変わっていれば中身を取り直して差し替える。
-export async function acquirePanelStyles(host: ShellHost, coreKey: string, panel: PanelEntry): Promise<() => void> {
+export async function acquirePanelStyles(
+  host: ShellHost, coreKey: string, panel: PanelEntry,
+): Promise<() => void> {
   const rid = panel.registrationId;
   const existing = installed.get(rid);
   if (existing) {
     existing.refs++;
     if (existing.uiSha256 !== panel.uiSha256) {
-      existing.text = await buildScoped(host, rid, coreKey, panel.styles, panel.uiSha256);
-      existing.element.textContent = existing.text;
+      const text = await fetchScoped(host, coreKey, panel);
+      existing.element.textContent = text;
       existing.element.dataset.uiSha256 = panel.uiSha256;
       existing.uiSha256 = panel.uiSha256;
     }
     return () => release(rid);
   }
-  const text = await buildScoped(host, rid, coreKey, panel.styles, panel.uiSha256);
+  const text = await fetchScoped(host, coreKey, panel);
   const element = document.createElement("style");
   element.dataset.plugumiStyles = rid;
   element.dataset.uiSha256 = panel.uiSha256;
   element.textContent = text;
   document.head.append(element);
-  installed.set(rid, { element, uiSha256: panel.uiSha256, refs: 1, text });
+  installed.set(rid, { element, uiSha256: panel.uiSha256, refs: 1 });
   return () => release(rid);
 }
 

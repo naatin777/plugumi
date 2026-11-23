@@ -60,8 +60,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}", s.removeProject)
 	mux.HandleFunc("POST /api/cores/{key}/projects/{project}/areas", s.addArea)
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}/areas/{rest...}", s.removeArea)
-	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/shelf", s.getShelf)
-	mux.HandleFunc("PUT /api/cores/{key}/projects/{project}/shelf", s.putShelf)
+	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/pinned", s.getPinned)
+	mux.HandleFunc("PUT /api/cores/{key}/projects/{project}/pinned", s.putPinned)
 	// workspaceのパスは{rest...}末尾が"workspace"のときだけ扱う
 	// （muxのワイルドカードは末尾にしか置けないため）。
 	mux.HandleFunc("GET /api/cores/{key}/projects/{project}/areas/{rest...}", s.getWorkspace)
@@ -458,15 +458,24 @@ func (s *Server) removeArea(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) getShelf(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getPinned(w http.ResponseWriter, r *http.Request) {
 	s.withArea(w, r, false, func(project *projects.Project, _ *projects.Area) (any, int) {
-		return project.Shelf, http.StatusOK
+		return project.Pinned, http.StatusOK
 	})
 }
 
-func (s *Server) putShelf(w http.ResponseWriter, r *http.Request) {
-	s.putDock(w, r, func(project *projects.Project, _ []string, dock projects.Dock) {
-		project.Shelf = dock
+func (s *Server) putPinned(w http.ResponseWriter, r *http.Request) {
+	body, ok := readOpaque(w, r)
+	if !ok {
+		return
+	}
+	s.projectContext(w, r, func(document *projects.Document) (any, int) {
+		project := document.FindProject(r.PathValue("project"))
+		if project == nil {
+			return errorBody("project not found"), http.StatusNotFound
+		}
+		project.Pinned = body
+		return nil, http.StatusNoContent
 	})
 }
 
@@ -475,47 +484,35 @@ func (s *Server) getWorkspace(w http.ResponseWriter, r *http.Request) {
 		if area == nil {
 			return errorBody("area not found"), http.StatusNotFound
 		}
-		return map[string]any{"docks": area.Workspace}, http.StatusOK
+		return area.Workspace, http.StatusOK
 	})
 }
 
 func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Docks map[string]projects.Dock `json:"docks"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON")
+	body, ok := readOpaque(w, r)
+	if !ok {
 		return
-	}
-	if len(body.Docks) != 4 {
-		writeError(w, http.StatusBadRequest, "workspace must contain left/center/right/bottom docks")
-		return
-	}
-	left, okLeft := body.Docks["left"]
-	center, okCenter := body.Docks["center"]
-	right, okRight := body.Docks["right"]
-	bottom, okBottom := body.Docks["bottom"]
-	if !(okLeft && okCenter && okRight && okBottom) {
-		writeError(w, http.StatusBadRequest, "workspace must contain left/center/right/bottom docks")
-		return
-	}
-	workspace := projects.Workspace{Left: left, Center: center, Right: right, Bottom: bottom}
-	for _, dock := range []projects.Dock{left, center, right, bottom} {
-		if err := projects.ValidateDock(dock); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
 	}
 	s.withAreaWrite(w, r, func(project *projects.Project, area *projects.Area) (any, int) {
 		if area == nil {
 			return errorBody("area not found"), http.StatusNotFound
 		}
-		area.Workspace = workspace
+		area.Workspace = body
 		return nil, http.StatusNoContent
 	})
 }
 
-// withArea/putDock/withAreaWrite はパスの{rest...}末尾の"workspace"を切り分け、
+// readOpaque はShell所有のJSONをそのまま読む。objectかnull以外は400。
+func readOpaque(w http.ResponseWriter, r *http.Request) (json.RawMessage, bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil || !projects.ValidOpaque(body) {
+		writeError(w, http.StatusBadRequest, "body must be a JSON object or null")
+		return nil, false
+	}
+	return json.RawMessage(body), true
+}
+
+// withArea/withAreaWrite はパスの{rest...}末尾の"workspace"を切り分け、
 // Project/Areaを引いて変更系なら保存する。
 func (s *Server) withArea(w http.ResponseWriter, r *http.Request, workspace bool, handle func(project *projects.Project, area *projects.Area) (any, int)) {
 	areaPath, isWorkspace := splitWorkspacePath(r.PathValue("rest"))
@@ -537,26 +534,6 @@ func (s *Server) withArea(w http.ResponseWriter, r *http.Request, workspace bool
 
 func (s *Server) withAreaWrite(w http.ResponseWriter, r *http.Request, handle func(project *projects.Project, area *projects.Area) (any, int)) {
 	s.withArea(w, r, true, handle)
-}
-
-func (s *Server) putDock(w http.ResponseWriter, r *http.Request, assign func(project *projects.Project, _ []string, dock projects.Dock)) {
-	var dock projects.Dock
-	if err := json.NewDecoder(r.Body).Decode(&dock); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON")
-		return
-	}
-	if err := projects.ValidateDock(dock); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	s.projectContext(w, r, func(document *projects.Document) (any, int) {
-		project := document.FindProject(r.PathValue("project"))
-		if project == nil {
-			return errorBody("project not found"), http.StatusNotFound
-		}
-		assign(project, nil, dock)
-		return nil, http.StatusNoContent
-	})
 }
 
 // splitAreaPath は"main/feature-a"を["main","feature-a"]へ。

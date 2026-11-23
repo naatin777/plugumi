@@ -1,11 +1,27 @@
-// Panel Instanceの寿命を管理する。Instanceは{pluginId,panelId}と保存上の
-// instanceId（panel-…）を持ち、registrationIdは都度解決する（Plugin再起動で
-// 変わるため保存しない。0件ならmissing、複数ならregistrationId昇順の先頭）。
-// 仕様は docs/contracts/00005-panel-module.md を参照。
+// Panel Instanceの寿命（contracts/00005）。Instanceは{pluginId,panelId}と
+// 保存上のinstanceId（panel-…）を持ち、registrationIdは都度解決する
+// （Plugin再起動で変わるため保存しない。0件ならmissing、複数なら昇順の先頭）。
 import { createSignal } from "solid-js";
-import type { PanelEntry, PanelRef, ShellHost } from "../host";
-import type { PanelActivity, PanelHandle, PanelMount } from "@plugumi/plugin-view";
-import { acquirePanelStyles } from "./styles";
+import type { PanelMount, PanelHandle } from "@plugumi/plugin-view";
+import type { PanelEntry, ShellHost } from "../host.tsx";
+import type { PanelRef } from "../layout/model.ts";
+import { acquirePanelStyles } from "./styles.ts";
+import type { ActivityState } from "../shell/activity.ts";
+import type { PanelActivity } from "@plugumi/plugin-view";
+
+// context.setActivityの入力をShell内部の形へ。effect省略はstatic。
+function normalizeActivity(activity: PanelActivity | null): ActivityState | undefined {
+  if (!activity) return undefined;
+  return {
+    busy: activity.busy ?? false,
+    progress: activity.progress,
+    layers: (activity.layers ?? []).map((layer) => ({
+      surface: layer.surface,
+      tone: layer.tone,
+      effect: layer.effect ?? "static",
+    })),
+  };
+}
 
 export type InstanceState = "mounting" | "mounted" | "missing";
 export type MountErrorKind = "load" | "contract" | "mount";
@@ -19,12 +35,14 @@ interface PanelModule {
   mount: PanelMount;
 }
 
-// resolvePanel はPanelRefが指す宣言を現在のpanels一覧から選ぶ。
+// pluginId+panelIdが同じ宣言を現在のpanels一覧から選ぶ。
 // 0件ならundefined（missing）、複数ならregistrationId昇順の先頭。
-export function resolvePanel(ref: Pick<PanelRef, "pluginId" | "panelId">, panels: PanelEntry[]): PanelEntry | undefined {
+export function resolvePanel(
+  ref: Pick<PanelRef, "pluginId" | "panelId">, panels: PanelEntry[],
+): PanelEntry | undefined {
   const candidates = panels
     .filter((panel) => panel.pluginId === ref.pluginId && panel.panelId === ref.panelId)
-    .sort((first, second) => first.registrationId.localeCompare(second.registrationId));
+    .sort((a, b) => a.registrationId.localeCompare(b.registrationId));
   return candidates[0];
 }
 
@@ -32,46 +50,48 @@ export class PanelInstance {
   readonly id: string;
   readonly pluginId: string;
   readonly panelId: string;
-  title: string;
   readonly host: HTMLDivElement;
   registrationId = "";
   uiSha256 = "";
 
+  readonly title: () => string;
   readonly state: () => InstanceState;
   readonly error: () => MountError | undefined;
-  // PluginがsetActivityで通知した活動状態。Shellが描画する。
-  readonly activity: () => PanelActivity | null;
-  private setActivity: (activity: PanelActivity | null) => void;
+  readonly activity: () => ActivityState | undefined;
+  private setTitle: (title: string) => void;
   private setState: (state: InstanceState) => void;
   private setError: (error: MountError | undefined) => void;
+  private setActivity: (activity: ActivityState | undefined) => void;
 
   private entry = "";
-  private styles: string[] = [];
-  private readonly shellHost: ShellHost;
-  private coreKey: string;
   private destroyPanel: (() => void) | undefined;
   private releaseStyles: (() => void) | undefined;
   private mountToken = 0;
 
-  constructor(shellHost: ShellHost, coreKey: string, ref: PanelRef, title: string) {
-    this.shellHost = shellHost;
+  private readonly shell: ShellHost;
+  private readonly coreKey: string;
+
+  constructor(shell: ShellHost, coreKey: string, ref: PanelRef, title: string) {
+    this.shell = shell;
     this.coreKey = coreKey;
     this.id = ref.instanceId;
     this.pluginId = ref.pluginId;
     this.panelId = ref.panelId;
-    this.title = title;
     this.host = document.createElement("div");
     this.host.className = "instance-host";
     this.host.dataset.plugumiPlugin = "";
+    const [titleSignal, setTitle] = createSignal(title);
     const [state, setState] = createSignal<InstanceState>("mounting");
     const [error, setError] = createSignal<MountError>();
-    const [activity, setActivity] = createSignal<PanelActivity | null>(null);
+    const [activity, setActivity] = createSignal<ActivityState>();
+    this.title = titleSignal;
     this.state = state;
     this.error = error;
     this.activity = activity;
-    this.setActivity = setActivity;
+    this.setTitle = setTitle;
     this.setState = setState;
     this.setError = setError;
+    this.setActivity = setActivity;
   }
 
   ref(): PanelRef {
@@ -84,8 +104,7 @@ export class PanelInstance {
     this.registrationId = panel.registrationId;
     this.uiSha256 = panel.uiSha256;
     this.entry = panel.entry;
-    this.styles = panel.styles;
-    this.title = panel.title;
+    this.setTitle(panel.title);
     this.host.dataset.plugumiPlugin = panel.registrationId;
     const token = ++this.mountToken;
     this.destroyPanel?.();
@@ -95,6 +114,7 @@ export class PanelInstance {
     this.host.replaceChildren();
     this.setState("mounting");
     this.setError(undefined);
+    this.setActivity(undefined);
 
     const fail = (kind: MountErrorKind, cause: unknown) => {
       if (token !== this.mountToken) return;
@@ -104,7 +124,7 @@ export class PanelInstance {
     let release: () => void;
     let module: PanelModule;
     try {
-      release = await acquirePanelStyles(this.shellHost, this.coreKey, this.currentPanel());
+      release = await acquirePanelStyles(this.shell, this.coreKey, panel);
     } catch (cause) {
       fail("load", cause);
       return;
@@ -114,7 +134,7 @@ export class PanelInstance {
       return;
     }
     try {
-      const url = this.shellHost.uiURL(
+      const url = this.shell.uiURL(
         this.coreKey, this.registrationId, this.entry, this.uiSha256,
       );
       module = (await import(/* @vite-ignore */ url)) as PanelModule;
@@ -136,10 +156,11 @@ export class PanelInstance {
     try {
       handle = await module.mount(this.host, {
         callTool: (toolPath, input) =>
-          this.shellHost.callTool(this.coreKey, {
+          this.shell.callTool(this.coreKey, {
             registrationId: this.registrationId, toolPath, input,
           }),
-        setActivity: (activity) => this.setActivity(activity),
+        // Pluginは意味だけ渡す。呼ぶたびに全体を置き換える。
+        setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
       });
     } catch (cause) {
       release();
@@ -160,14 +181,6 @@ export class PanelInstance {
     const panel = resolvePanel(this, panels);
     if (panel) void this.mount(panel);
     else this.setState("missing");
-  }
-
-  private currentPanel(): PanelEntry {
-    return {
-      registrationId: this.registrationId, pluginId: this.pluginId,
-      panelId: this.panelId, title: this.title,
-      entry: this.entry, styles: this.styles, uiSha256: this.uiSha256,
-    };
   }
 
   // panels一覧の更新を追従する。自分のregistrationIdが生きていれば

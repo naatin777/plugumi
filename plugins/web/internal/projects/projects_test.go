@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,16 +76,18 @@ func TestNestedAreas(t *testing.T) {
 	}
 }
 
-func TestValidateDock(t *testing.T) {
-	ref := PanelRef{InstanceID: "panel-1", PluginID: "standard", PanelID: "files"}
-	if err := ValidateDock(Dock{Panels: []PanelRef{ref}, Selected: "panel-1"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := ValidateDock(Dock{Panels: []PanelRef{{InstanceID: "x-1"}}}); err != ErrInvalidDock {
-		t.Fatalf("bad instanceId: %v", err)
-	}
-	if err := ValidateDock(Dock{Panels: []PanelRef{ref}, Selected: "panel-2"}); err != ErrInvalidDock {
-		t.Fatalf("selected not in panels: %v", err)
+func TestValidOpaque(t *testing.T) {
+	for _, ok := range []struct {
+		body  string
+		valid bool
+	}{
+		{`{"version":1}`, true}, {`null`, true}, {` { "a": 1 } `, true},
+		{`[]`, false}, {`[1,2]`, false}, {`"x"`, false}, {`42`, false},
+		{`true`, false}, {`{`, false}, {``, false},
+	} {
+		if ValidOpaque([]byte(ok.body)) != ok.valid {
+			t.Errorf("ValidOpaque(%q) = %v, want %v", ok.body, !ok.valid, ok.valid)
+		}
 	}
 }
 
@@ -106,10 +109,9 @@ func TestSaveLoad(t *testing.T) {
 	if err := project.AddArea(nil, "main"); err != nil {
 		t.Fatal(err)
 	}
-	project.FindArea([]string{"main"}).Workspace.Center = Dock{
-		Panels:   []PanelRef{{InstanceID: "panel-a1", PluginID: "standard", PanelID: "files"}},
-		Selected: "panel-a1",
-	}
+	project.FindArea([]string{"main"}).Workspace =
+		Opaque(`{"version":1,"center":{"focusedLeaf":"leaf-1"}}`)
+	project.Pinned = Opaque(`{"version":1,"sections":[]}`)
 	if err := Save(dir, "local", document); err != nil {
 		t.Fatal(err)
 	}
@@ -122,9 +124,17 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	area := loaded.FindProject("plugumi").FindArea([]string{"main"})
-	if area.Workspace.Center.Selected != "panel-a1" || len(loaded.Trees()) != 1 ||
-		loaded.Trees()[0].Areas[0].Name != "main" {
+	// RawMessageはMarshalIndentで再整形されるため、比較はsemanticに行う。
+	var workspace any
+	if err := json.Unmarshal(area.Workspace, &workspace); err != nil {
+		t.Fatal(err)
+	}
+	if workspace.(map[string]any)["version"].(float64) != 1 ||
+		len(loaded.Trees()) != 1 || loaded.Trees()[0].Areas[0].Name != "main" {
 		t.Fatalf("roundtrip: %+v", loaded.Trees())
+	}
+	if string(loaded.FindProject("plugumi").Pinned) == "" {
+		t.Fatal("pinned not persisted")
 	}
 	if data, _ := os.ReadFile(other); string(data) != "{}" {
 		t.Fatal("other files under ~/.plugumi were touched")

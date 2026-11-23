@@ -1,0 +1,120 @@
+/* Activity表示（designs/00005）。Pluginは意味だけを通知し、
+   色・速度・太さはここのtokenが決める。UIの静止色は白黒に留め、
+   色は状態表示にだけ使う。data-activity-*属性を読んで描く。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* tone → 色の対応。neutralは虹彩（activity1-5）を回す。 */
+  @property --plugumi-activity-hue {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
+  @keyframes plugumi-activity-spin {
+    to { --plugumi-activity-hue: 360deg; }
+  }
+  @keyframes plugumi-activity-flow {
+    to { background-position: 200% 0; }
+  }
+  @keyframes plugumi-activity-glow {
+    50% { opacity: 0.45; }
+  }
+
+  [data-activity-header],
+  [data-activity-border],
+  [data-activity-divider],
+  [data-activity-content] {
+    --activity-color: var(--plugumi-colors-info);
+  }
+  [data-activity-header~="neutral"],
+  [data-activity-border~="neutral"],
+  [data-activity-divider~="neutral"],
+  [data-activity-content~="neutral"] {
+    --activity-color: conic-gradient(from var(--plugumi-activity-hue),
+      var(--plugumi-colors-activity-1), var(--plugumi-colors-activity-2),
+      var(--plugumi-colors-activity-3), var(--plugumi-colors-activity-4),
+      var(--plugumi-colors-activity-5), var(--plugumi-colors-activity-1));
+  }
+  [data-activity-header~="info"], [data-activity-border~="info"],
+  [data-activity-divider~="info"], [data-activity-content~="info"] {
+    --activity-color: var(--plugumi-colors-info);
+  }
+  [data-activity-header~="success"], [data-activity-border~="success"],
+  [data-activity-divider~="success"], [data-activity-content~="success"] {
+    --activity-color: var(--plugumi-colors-success);
+  }
+  [data-activity-header~="warning"], [data-activity-border~="warning"],
+  [data-activity-divider~="warning"], [data-activity-content~="warning"] {
+    --activity-color: var(--plugumi-colors-warning);
+  }
+  [data-activity-header~="danger"], [data-activity-border~="danger"],
+  [data-activity-divider~="danger"], [data-activity-content~="danger"] {
+    --activity-color: var(--plugumi-colors-error);
+  }
+
+  /* header: tabのtint */
+  .tab[data-activity-header],
+  [data-activity-header].activity-header {
+    background: linear-gradient(var(--activity-color), var(--activity-color))
+      0 0 / 100% 2px no-repeat;
+  }
+
+  /* border: Panel外周 */
+  [data-activity-border] { border-color: var(--activity-color) !important; }
+  [data-activity-border~="flow"] {
+    animation: plugumi-activity-flow 1.2s linear infinite;
+    border-image: repeating-linear-gradient(90deg,
+      var(--activity-color) 0 8px, transparent 8px 16px) 1;
+  }
+  [data-activity-border~="glow"] { animation: plugumi-activity-glow 1.6s ease-in-out infinite; }
+  [data-activity-border~="neutral"] {
+    border-image: var(--activity-color) 1;
+    animation: plugumi-activity-spin 2s linear infinite;
+  }
+
+  /* divider: stripと内容の境界線 */
+  [data-activity-divider] { box-shadow: inset 0 -1px 0 var(--activity-color); }
+
+  /* content: 内部mist */
+  [data-activity-content] { position: relative; }
+  [data-activity-content]::after {
+    content: ""; position: absolute; inset: 0;
+    background: var(--activity-color); opacity: 0.08;
+    pointer-events: none;
+  }
+  [data-activity-content~="glow"]::after { animation: plugumi-activity-glow 1.6s ease-in-out infinite; }
+  [data-activity-content~="flow"]::after {
+    background: linear-gradient(90deg, transparent, var(--activity-color), transparent);
+    background-size: 200% 100%;
+    animation: plugumi-activity-flow 1.2s linear infinite;
+  }
+
+  /* progress: Panelのheader/divider面の位置に出す細い帯。
+     色はlayerのtoneから拾い、無ければinfo。 */
+  @keyframes plugumi-activity-indeterminate {
+    0% { left: -40%; }
+    100% { left: 100%; }
+  }
+  .activity-progress {
+    position: absolute;
+    top: 0; left: 0;
+    height: 2px;
+    background: var(--activity-color, var(--plugumi-colors-info));
+    z-index: 3;
+    pointer-events: none;
+  }
+  .activity-progress[data-kind="indeterminate"] {
+    width: 40%;
+    animation: plugumi-activity-indeterminate 1.2s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .activity-progress[data-kind="indeterminate"] { animation: none; }
+    [data-activity-border~="flow"],
+    [data-activity-border~="glow"],
+    [data-activity-border~="neutral"],
+    [data-activity-content~="glow"]::after,
+    [data-activity-content~="flow"]::after {
+      animation: none;
+    }
+  }
+}

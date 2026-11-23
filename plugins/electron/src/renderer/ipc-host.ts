@@ -1,8 +1,8 @@
 // ShellHost のIPC実装。preloadがwindow.plugumiShellに出す窓口を呼び、
 // uiURLはplugumi-ui://のURLを組み立てるだけなのでここで実装する。
 import type {
-  CallToolBody, CoreEntry, Dock, PanelEntry, ProjectTree,
-  ShellHost, Workspace,
+  CallToolBody, CoreEntry, PanelEntry, ProjectTree,
+  PinnedState, ShellHost, WorkspaceState,
 } from "@plugumi/plugin-shell";
 
 // preloadが出す窓口。ShellHostからuiURLを除いた形。
@@ -18,10 +18,10 @@ interface PlugumiShellBridge {
   deleteProject(key: string, project: string): Promise<void>;
   createArea(key: string, project: string, parent: string[], name: string): Promise<void>;
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
-  getShelf(key: string, project: string): Promise<Dock>;
-  putShelf(key: string, project: string, dock: Dock): Promise<void>;
-  getWorkspace(key: string, project: string, areaPath: string[]): Promise<Workspace>;
-  putWorkspace(key: string, project: string, areaPath: string[], workspace: Workspace): Promise<void>;
+  getPinned(key: string, project: string): Promise<unknown>;
+  putPinned(key: string, project: string, pinned: PinnedState): Promise<void>;
+  getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown>;
+  putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void>;
 }
 
 declare global {
@@ -66,8 +66,8 @@ export function ipcShellHost(): ShellHost {
     createArea: (key, project, parent, name) =>
       wrap(bridge.createArea(key, project, plain(parent), name)),
     deleteArea: (key, project, areaPath) => wrap(bridge.deleteArea(key, project, plain(areaPath))),
-    getShelf: (key, project) => wrap(bridge.getShelf(key, project)),
-    putShelf: (key, project, dock) => wrap(bridge.putShelf(key, project, plain(dock))),
+    getPinned: (key, project) => wrap(bridge.getPinned(key, project)),
+    putPinned: (key, project, pinned) => wrap(bridge.putPinned(key, project, plain(pinned))),
     getWorkspace: (key, project, areaPath) => wrap(bridge.getWorkspace(key, project, plain(areaPath))),
     putWorkspace: (key, project, areaPath, workspace) =>
       wrap(bridge.putWorkspace(key, project, plain(areaPath), plain(workspace))),

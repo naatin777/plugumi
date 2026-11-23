@@ -38,12 +38,9 @@
   --plugumi-letter-spacing-normal: 0;
   --plugumi-letter-spacing-wide: 0.02em;
 
-  --plugumi-colors-canvas: #080808;
-  --plugumi-colors-surface: #151515;
-  --plugumi-colors-surface-subtle: #101010;
-  --plugumi-colors-surface-raised: #232323;
-  --plugumi-colors-surface-hover: #303030;
-  --plugumi-colors-surface-active: #3b3b3b;
+  --plugumi-colors-background-primary: #121212;
+  --plugumi-colors-background-secondary: #1E1E22;
+  --plugumi-colors-background-tertiary: #2D2D33;
   --plugumi-colors-text: #e6e6e6;
   --plugumi-colors-text-strong: #fafafa;
   --plugumi-colors-text-muted: #acacac;
@@ -81,12 +78,9 @@
 }
 
 [data-plugumi-theme="light"] {
-  --plugumi-colors-canvas: #f7f7f7;
-  --plugumi-colors-surface: #ffffff;
-  --plugumi-colors-surface-subtle: #f2f2f2;
-  --plugumi-colors-surface-raised: #ffffff;
-  --plugumi-colors-surface-hover: #e8e8e8;
-  --plugumi-colors-surface-active: #d9d9d9;
+  --plugumi-colors-background-primary: #FFFFFF;
+  --plugumi-colors-background-secondary: #F1F3F4;
+  --plugumi-colors-background-tertiary: #E5E7EB;
   --plugumi-colors-text: #1a1a1a;
   --plugumi-colors-text-strong: #000000;
   --plugumi-colors-text-muted: #4f4f4f;
@@ -124,12 +118,9 @@
 }
 
 [data-plugumi-theme="dark"] {
-  --plugumi-colors-canvas: #080808;
-  --plugumi-colors-surface: #151515;
-  --plugumi-colors-surface-subtle: #101010;
-  --plugumi-colors-surface-raised: #232323;
-  --plugumi-colors-surface-hover: #303030;
-  --plugumi-colors-surface-active: #3b3b3b;
+  --plugumi-colors-background-primary: #121212;
+  --plugumi-colors-background-secondary: #1E1E22;
+  --plugumi-colors-background-tertiary: #2D2D33;
   --plugumi-colors-text: #e6e6e6;
   --plugumi-colors-text-strong: #fafafa;
   --plugumi-colors-text-muted: #acacac;

@@ -11,8 +11,9 @@
   },
   "dependencies": {
     "@plugumi/plugin-shell": "workspace:*",
-    "@solidjs/router": "1.0.3",
-    "solid-js": "1.9.19",
+    "@solidjs/router": "2.0.0",
+    "@solidjs/web": "2.0.0",
+    "solid-js": "2.0.0",
     "ws": "^8.23.0"
   },
   "devDependencies": {
@@ -21,6 +22,6 @@
     "electron": "45.3.2",
     "typescript": "7.0.2",
     "vite": "8.3.8",
-    "vite-plugin-solid": "2.11.16"
+    "@solidjs/vite-plugin": "3.0.0"
   }
 }

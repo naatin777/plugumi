@@ -1,55 +1,50 @@
+// /<core>/ の入口。Project一覧の画面は挟まず、次の順でredirectする:
+// 1. この端末で最後に開いた場所（localStorage）
+// 2. 先頭のProject
+// 3. Projectが1つも無ければPlugin Shellの画面そのもの（案内モード）
+import { createSignal, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { useNavigate, useParams } from "@solidjs/router";
-import { createEffect, createResource, createSignal, Show } from "solid-js";
-import { useShellHost, type AreaTree, type ProjectTree } from "../host";
-import { loadLastLocation } from "../storage";
-import ProjectPage from "./project";
+import { useShellHost } from "../host.tsx";
+import { loadLastLocation } from "../storage.ts";
+import { findArea } from "../shell/controller.tsx";
+import ProjectPage from "./project.tsx";
 
-// /:core/ はProject一覧を挟まずPlugin Shell の画面へ直行する。
-// 最後に開いた場所 → 先頭のProject → なければPlugin Shellの画面（案内モード）の順。
-export default function CoreRedirect() {
+export default function CoreRedirect(): JSX.Element {
   const host = useShellHost();
   const params = useParams();
   const navigate = useNavigate();
   const key = () => params.core ?? "";
-  const [projects] = createResource(key, (k) => host.listProjects(k));
-  const [decided, setDecided] = createSignal(false);
+  const [empty, setEmpty] = createSignal(false);
 
-  createEffect(() => {
-    const trees = projects();
-    if (!trees || decided()) return;
-    const saved = loadLastLocation(key());
-    if (saved && usableLocation(saved, trees)) {
-      setDecided(true);
-      navigate(saved, { replace: true });
-      return;
+  const decide = async () => {
+    try {
+      const projects = await host.listProjects(key());
+      const saved = loadLastLocation(key());
+      // 保存されていた場所のProjectとAreaがまだ残っているときだけ戻る
+      if (saved.startsWith(`/${key()}/`)) {
+        const parts = saved.slice(key().length + 2).split("/").filter(Boolean).map(decodeURIComponent);
+        const tree = projects.find((project) => project.name === parts[0]);
+        if (tree && findArea(tree.areas, parts.slice(1))) {
+          navigate(saved, { replace: true });
+          return;
+        }
+      }
+      const first = projects[0];
+      if (first) {
+        navigate(`/${key()}/${first.name}/`, { replace: true });
+        return;
+      }
+      setEmpty(true);
+    } catch {
+      setEmpty(true);
     }
-    if (trees.length > 0) {
-      setDecided(true);
-      navigate(`/${key()}/${trees[0].name}/`, { replace: true });
-      return;
-    }
-    setDecided(true);
-  });
+  };
+  void decide();
 
   return (
-    <Show when={decided()} fallback={<p class="placeholder">…</p>}>
+    <Show when={empty()}>
       <ProjectPage />
     </Show>
   );
-}
-
-// 保存されたパス /<core>/<project>/<area...> の Project/Area が残っているか。
-function usableLocation(location: string, trees: ProjectTree[]): boolean {
-  const parts = location.split("/").filter((part) => part !== "");
-  // parts = [core, project, ...area]
-  if (parts.length < 2) return false;
-  const project = trees.find((tree) => tree.name === parts[1]);
-  if (!project) return false;
-  return areaExists(project.areas, parts.slice(2));
-}
-
-function areaExists(areas: AreaTree[], path: string[]): boolean {
-  if (path.length === 0) return true;
-  const area = areas.find((node) => node.name === path[0]);
-  return area !== undefined && areaExists(area.areas, path.slice(1));
 }

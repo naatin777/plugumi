@@ -484,7 +484,7 @@ func TestProjectAPIs(t *testing.T) {
 		t.Fatalf("dup area: %d", response.Code)
 	}
 	// workspaceのPUT/GET。
-	docks := `{"docks":{"left":{"panels":[],"selected":""},"center":{"panels":[{"instanceId":"panel-a1","pluginId":"standard","panelId":"files"}],"selected":"panel-a1"},"right":{"panels":[],"selected":""},"bottom":{"panels":[],"selected":""}}}`
+	docks := `{"version":1,"center":{"root":{"kind":"leaf","id":"leaf-a","panels":[{"instanceId":"panel-a1","pluginId":"standard","panelId":"files"}],"selected":"panel-a1"}}}`
 	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/feature-a/workspace", docks); response.Code != http.StatusNoContent {
 		t.Fatalf("put workspace: %d %s", response.Code, response.Body)
 	}
@@ -492,23 +492,25 @@ func TestProjectAPIs(t *testing.T) {
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "panel-a1") {
 		t.Fatalf("get workspace: %d %s", response.Code, response.Body)
 	}
-	// 不正なDock。
-	bad := `{"docks":{"left":{"panels":[{"instanceId":"x-1","pluginId":"s","panelId":"p"}],"selected":""},"center":{"panels":[],"selected":""},"right":{"panels":[],"selected":""},"bottom":{"panels":[],"selected":""}}}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", bad); response.Code != http.StatusBadRequest {
-		t.Fatalf("bad dock: %d", response.Code)
+	// objectでもnullでもないJSONは400。中身はserverが解釈しない。
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", `[1,2]`); response.Code != http.StatusBadRequest {
+		t.Fatalf("array body: %d", response.Code)
 	}
-	missing := `{"docks":{"left":{"panels":[],"selected":""}}}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", missing); response.Code != http.StatusBadRequest {
-		t.Fatalf("incomplete docks: %d", response.Code)
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", `"x"`); response.Code != http.StatusBadRequest {
+		t.Fatalf("string body: %d", response.Code)
 	}
-	// shelfのPUT/GET。
-	shelf := `{"panels":[{"instanceId":"panel-p1","pluginId":"standard","panelId":"files"}],"selected":"panel-p1"}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/shelf", shelf); response.Code != http.StatusNoContent {
-		t.Fatalf("put shelf: %d", response.Code)
+	// nullは消去として受け付ける。
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/feature-a/workspace", `null`); response.Code != http.StatusNoContent {
+		t.Fatalf("null body: %d", response.Code)
 	}
-	response = do(t, fixture.handler, http.MethodGet, base+"/projects/plugumi/shelf", "")
+	// pinnedのPUT/GET。
+	pinned := `{"version":1,"sections":[{"panel":{"instanceId":"panel-p1","pluginId":"standard","panelId":"files"},"collapsed":false,"grow":1}]}`
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/pinned", pinned); response.Code != http.StatusNoContent {
+		t.Fatalf("put pinned: %d", response.Code)
+	}
+	response = do(t, fixture.handler, http.MethodGet, base+"/projects/plugumi/pinned", "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "panel-p1") {
-		t.Fatalf("get shelf: %d %s", response.Code, response.Body)
+		t.Fatalf("get pinned: %d %s", response.Code, response.Body)
 	}
 	// Area削除は子ごと。workspaceも一緒に消える。
 	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/plugumi/areas/main", ""); response.Code != http.StatusNoContent {

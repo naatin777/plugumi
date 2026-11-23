@@ -1,15 +1,15 @@
-import { render } from "solid-js/web";
-import { Router } from "@solidjs/router";
-import { ShellHostProvider, ShellRoutes } from "@plugumi/plugin-shell";
+import { render } from "@solidjs/web";
+import { browserHistory, createRouter } from "@solidjs/router";
+import { ShellHostProvider, initTheme, loadPrefs, shellRoutes } from "@plugumi/plugin-shell";
 import { httpShellHost } from "./http-host";
 
 const host = httpShellHost();
+const Router = createRouter({ routes: shellRoutes, history: browserHistory() });
+initTheme(() => loadPrefs().theme);
 render(
   () => (
     <ShellHostProvider value={host}>
-      <Router>
-        <ShellRoutes />
-      </Router>
+      <Router />
     </ShellHostProvider>
   ),
   document.getElementById("root")!,

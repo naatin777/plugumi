@@ -5,7 +5,6 @@ import type { CoreEntry, CoreSource, RegistrySnapshot } from "./cores.js";
 import type { CoreStore } from "./core-store.js";
 import { RpcPool } from "./rpc.js";
 import * as projects from "./projects.js";
-import type { Dock, Workspace } from "./projects.js";
 
 export interface CallToolBody {
   registrationId: string;
@@ -185,30 +184,28 @@ export class Backend {
     });
   }
 
-  getShelf(key: string, projectName: string): Dock {
+  getPinned(key: string, projectName: string): projects.Opaque {
     const project = this.projectByName(key, projectName);
-    return project.shelf;
+    return project.pinned;
   }
 
-  putShelf(key: string, projectName: string, dock: Dock): void {
-    projects.validateDock(dock);
+  putPinned(key: string, projectName: string, pinned: projects.Opaque): void {
+    projects.validateOpaque(pinned);
     this.mutateProject(key, projectName, (project) => {
-      project.shelf = dock;
+      project.pinned = pinned;
     });
   }
 
-  getWorkspace(key: string, projectName: string, areaPath: string[]): { docks: Workspace } {
-    const area = this.areaByPath(key, projectName, areaPath);
-    return { docks: area.workspace };
+  getWorkspace(key: string, projectName: string, areaPath: string[]): projects.Opaque {
+    return this.areaByPath(key, projectName, areaPath).workspace;
   }
 
-  // bodyはShellHostのWorkspace型（{docks:{left,center,right,bottom}}）。
-  putWorkspace(key: string, projectName: string, areaPath: string[], workspace: { docks: Workspace }): void {
-    projects.validateWorkspace(workspace.docks);
+  putWorkspace(key: string, projectName: string, areaPath: string[], workspace: projects.Opaque): void {
+    projects.validateOpaque(workspace);
     this.mutateProject(key, projectName, (project) => {
       const area = projects.findArea(project, areaPath);
       if (!area) throw new Error("area not found");
-      area.workspace = workspace.docks;
+      area.workspace = workspace;
     });
   }
 

@@ -1,0 +1,312 @@
+/* 各領域（sidebar・dock・center・pinned）と共通部品の見た目。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* ---- 共通 ---- */
+  .icon-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px;
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer; padding: 0;
+  }
+  .icon-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+  .icon-button[aria-pressed="true"] {
+    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%);
+    color: var(--plugumi-colors-text);
+  }
+  .icon-button.confirm-armed { color: var(--plugumi-colors-error); }
+  .confirm-text { font-size: var(--plugumi-font-size-2xs); white-space: nowrap; }
+
+  /* inlineの名前入力（promptを使わない） */
+  .name-form { display: flex; flex-wrap: wrap; gap: var(--plugumi-spacing-xs); align-items: center; }
+  .name-form input {
+    flex: 1; min-width: 100px;
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border-strong);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font: inherit; font-size: var(--plugumi-font-size-xs);
+  }
+  .name-form button {
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+  }
+  .name-form-error { flex-basis: 100%; margin: 0; color: var(--plugumi-colors-error); font-size: var(--plugumi-font-size-2xs); }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--plugumi-colors-text-muted);
+    flex: none;
+  }
+  .status-dot[data-status="connected"] { background: var(--plugumi-colors-success); }
+  .status-dot[data-status="connecting"] { background: var(--plugumi-colors-warning); }
+  .status-dot[data-status="error"] { background: var(--plugumi-colors-error); }
+
+  /* Core switcher（左区間は固定幅。名前はellipsisで収める） */
+  .core-switcher { display: flex; min-width: 0; }
+  .core-button {
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    max-width: 180px; height: 26px;
+    padding: 0 var(--plugumi-spacing-sm);
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text);
+    font: inherit; cursor: pointer;
+  }
+  .core-button:hover { background: var(--plugumi-colors-background-tertiary); }
+  .core-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .core-menu, .panel-picker {
+    min-width: 200px; max-width: 280px;
+    padding: var(--plugumi-spacing-xs);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    /* triggerの下へ。anchor対応の無い環境では既定位置に出るだけ。 */
+    inset: auto;
+    top: anchor(bottom, 4px);
+    left: anchor(left);
+  }
+  .core-menu-item, .picker-item {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-sm);
+    width: 100%;
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: inherit;
+    font: inherit; text-align: left; text-decoration: none;
+    cursor: pointer;
+  }
+  .core-menu-item:hover, .picker-item:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
+  .picker-plugin { margin-left: auto; color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-2xs); }
+  .picker-empty { margin: var(--plugumi-spacing-sm); color: var(--plugumi-colors-text-muted); }
+
+  .title-gap { flex: none; width: var(--plugumi-spacing-sm); }
+
+  /* ---- tab帯はカードのheader ----
+     dock・centerのleaf・pinnedは、それぞれ「tab帯（header）＋中身」
+     の1枚のカード。stripは輪郭の内側の上端に置き、中身との間はhairline
+     （divider面）で区切る。tab自体は面を持たず、selectedはtoneで示す。 */
+  .dock-strip, .leaf-strip {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    height: var(--shell-strip-h); box-sizing: border-box;
+    padding: 0 var(--plugumi-spacing-xs);
+    border-bottom: 1px solid var(--plugumi-colors-border);
+    flex: none;
+  }
+  .tab-strip {
+    display: flex; align-items: stretch;
+    flex: 1; min-width: 0;
+    overflow-x: auto;
+    min-height: 0;
+    scrollbar-width: none;
+  }
+  .tab {
+    /* 多いときは最小幅まで縮み、それでも溢れたらstripがclipする
+       （選択tabはscriptで見える位置へ寄せる） */
+    flex: 0 1 auto; min-width: 0;
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    padding: 0 var(--plugumi-spacing-sm);
+    border: none;
+    border-radius: var(--plugumi-radii-sm);
+    background: transparent;
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .tab .tab-title {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tab .tab-close { flex: none; }
+  .tab:hover { background: var(--plugumi-colors-background-tertiary); }
+  .tab.selected {
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+  }
+  .tab-close {
+    display: inline-flex; padding: 1px;
+    border: none; border-radius: var(--plugumi-radii-sm);
+    background: transparent; color: inherit; cursor: pointer;
+  }
+  .tab-close:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
+
+  /* ---- Panelの中身。外枠（border+radius）はカードが持つので
+     ここでは持たない。領域の区切り線は引かない。 ---- */
+  .panel-frame {
+    position: relative;
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0;
+    /* Panelの面は領域によらずsecondaryで統一する。カードの色は
+       Panelの後ろ側（ヘッダーと周りの縁）にだけ見せる。 */
+    background: var(--plugumi-colors-background-secondary);
+    overflow: hidden;
+  }
+  .instance-host {
+    flex: 1; min-height: 0; overflow: auto;
+    /* Panel内の横scrollはPanelのもの。外側（page切替やブラウザの
+       戻るスワイプ）へ伝えない（designs/00005「横スワイプの範囲」）。 */
+    overscroll-behavior-x: contain;
+  }
+  .panel-state {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--plugumi-spacing-sm);
+    color: var(--plugumi-colors-text-muted);
+    background: var(--plugumi-colors-background-secondary);
+  }
+  .panel-state button {
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text); cursor: pointer; font: inherit;
+  }
+
+  /* ---- resizer溝（canvas色の溝として見える） ---- */
+  .resizer { flex: none; position: relative; }
+  .resizer[data-axis="x"] { width: 8px; margin: 0; cursor: col-resize; z-index: 2; }
+  .resizer[data-axis="y"] { height: 8px; margin: 0; cursor: row-resize; z-index: 2; }
+  .dock > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: calc(-1 * var(--work-gap)); }
+  .dock[data-dock="right"] > .resizer[data-axis="x"],
+  .dock[data-dock="pinned"] > .resizer[data-axis="x"] { right: auto; left: calc(-1 * var(--work-gap)); }
+  .dock > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; top: calc(-1 * var(--work-gap)); }
+
+  /* ---- dock: 「tab帯＋中身」の1枚のカード ---- */
+  .dock {
+    position: relative;
+    /* width/height:100%にborderが足されないようborder-box
+       （pinnedのinsetがborder分だけ欠けるのを防ぐ）。 */
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    min-width: 0; min-height: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    background: var(--plugumi-colors-background-secondary);
+    overflow: hidden;
+  }
+  .dock[data-dock="left"] { grid-area: left; }
+  .dock[data-dock="right"] { grid-area: right; }
+  .dock[data-dock="bottom"] { grid-area: bottom; flex-direction: column; }
+  .dock-body { flex: 1; min-height: 0; }
+  .dock-empty {
+    height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+  }
+
+  /* ---- center ---- */
+  .center { grid-area: center; min-width: 0; min-height: 0; display: flex; margin: var(--work-gap); }
+  .center > * { flex: 1; min-width: 0; min-height: 0; }
+  .split { display: grid; min-width: 0; min-height: 0; }
+
+  /* leafも「tab帯＋中身」の1枚のカード。scrollのleafも1枚で、
+     列はその中に並ぶ。 */
+  .leaf {
+    display: flex; flex-direction: column;
+    min-width: 0; min-height: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    background: var(--plugumi-colors-background-secondary);
+    overflow: hidden;
+  }
+  .leaf.focused .tab.selected {
+    box-shadow: inset 0 0 0 1px var(--plugumi-colors-border-highlight);
+  }
+  .leaf-body { flex: 1; min-height: 0; position: relative; }
+  .leaf-empty {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    border: none;
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer;
+  }
+
+  /* pages: 全領域で同じ形。viewportはoverflow:hidden（利用者は
+     自由scrollしない）、trackの平行移動で切替える。 */
+  .pages-viewport { height: 100%; min-height: 0; overflow: hidden; }
+  .pages-track {
+    display: flex; height: 100%;
+    transform: translateX(calc(var(--page-index, 0) * -100%));
+    transition: transform 160ms ease;
+  }
+  .pages-page {
+    flex: none; width: 100%; min-width: 0; min-height: 0;
+    position: relative;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pages-track { transition: none; }
+  }
+
+
+  /* ---- sidebar（frame色の面に直接置く） ---- */
+  .sidebar {
+    display: flex; flex-direction: column;
+    height: 100%;
+    /* 上辺はwork面のカードの上端に揃える（matのpaddingと同じtoken）。 */
+    padding: var(--work-gap) var(--plugumi-spacing-sm)
+      var(--plugumi-spacing-sm);
+    gap: var(--plugumi-spacing-sm);
+    overflow-y: auto;
+  }
+  .project-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
+  .project-tab {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-secondary);
+    font-size: var(--plugumi-font-size-xs);
+  }
+  .project-tab a {
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    color: var(--plugumi-colors-text-muted); text-decoration: none;
+  }
+  .project-tab.selected { border-color: var(--plugumi-colors-border-strong); }
+  .project-tab.selected a { color: var(--plugumi-colors-text); }
+  .project-close {
+    display: inline-flex; padding: 2px; margin-right: 2px;
+    border: none; background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer; border-radius: var(--plugumi-radii-sm);
+  }
+  .project-close:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+  .project-add, .area-add, .area-add-child, .area-remove {
+    display: inline-flex; align-items: center; gap: 2px;
+    border: 1px dashed var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+  }
+  .area-list { list-style: none; margin: 0; padding-left: var(--plugumi-spacing-sm); }
+  .area-tree > .area-list { padding-left: 0; }
+  .area-row {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    padding: 2px var(--plugumi-spacing-xs);
+    border-radius: var(--plugumi-radii-md);
+  }
+  .area-row.selected { background: var(--plugumi-colors-background-tertiary); }
+  .area-row a { color: var(--plugumi-colors-text); text-decoration: none; flex: 1; }
+  .area-add-child, .area-remove { border: none; padding: 2px; visibility: hidden; }
+  .area-row:hover .area-add-child, .area-row:hover .area-remove { visibility: visible; }
+  .area-hint { color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-xs); }
+
+  /* ---- drag ---- */
+  .drag-ghost {
+    position: fixed; z-index: 9999;
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border-strong);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font-size: var(--plugumi-font-size-xs);
+    pointer-events: none;
+  }
+  [data-drop-target] { outline: 2px solid var(--plugumi-colors-border-highlight); outline-offset: -2px; }
+}
+
+  /* pinnedはframe領域のasideの中。高さはasideいっぱい。 */
+  .frame-pinned > .dock { height: 100%; }

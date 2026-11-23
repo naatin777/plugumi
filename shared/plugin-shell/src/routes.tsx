@@ -1,18 +1,17 @@
-// Route定義だけをexportする。<Router> の選択（Router/HashRouter等）は宿主側。
-import { Route } from "@solidjs/router";
-import CoreList from "./pages/core-list";
-import CoreRedirect from "./pages/core-redirect";
-import LabPage from "./pages/lab";
-import ProjectPage from "./pages/project";
+// Route定義。Routerは利用側がhistoryを選んでcreateRouterする
+// （webはbrowserHistory、ElectronはhashHistory）。
+import { defineRoutes } from "@solidjs/router";
+import CoreListPage from "./pages/core-list.tsx";
+import CoreRedirect from "./pages/core-redirect.tsx";
+import ProjectPage from "./pages/project.tsx";
+import LabPage from "./pages/lab.tsx";
 
-export function ShellRoutes() {
-  return (
-    <>
-      <Route path="/" component={CoreList} />
-      <Route path="/lab" component={LabPage} />
-      <Route path="/:core" component={CoreRedirect} />
-      <Route path="/:core/:project" component={ProjectPage} />
-      <Route path="/:core/:project/*areaPath" component={ProjectPage} />
-    </>
-  );
-}
+export const shellRoutes = defineRoutes([
+  { path: "/", component: CoreListPage },
+  { path: "/lab", component: LabPage },
+  // 静的な/lab以下のrouteは/:core/:projectより先に解決される
+  // （routerは静的segmentを動的より優先する）。
+  { path: "/:core", component: CoreRedirect },
+  { path: "/:core/:project", component: ProjectPage },
+  { path: "/:core/:project/*areaPath", component: ProjectPage },
+]);

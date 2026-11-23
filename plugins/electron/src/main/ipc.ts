@@ -3,7 +3,7 @@
 import { ipcMain } from "electron";
 import type { Backend } from "./backend.js";
 import type { CallToolBody } from "./backend.js";
-import type { Dock, Workspace } from "./projects.js";
+
 
 const CHANNEL = "shell";
 
@@ -35,16 +35,16 @@ export function registerIpc(backend: Backend): void {
         );
       case "deleteArea":
         return backend.deleteArea(values[0] as string, values[1] as string, values[2] as string[]);
-      case "getShelf":
-        return backend.getShelf(values[0] as string, values[1] as string);
-      case "putShelf":
-        return backend.putShelf(values[0] as string, values[1] as string, values[2] as Dock);
+      case "getPinned":
+        return backend.getPinned(values[0] as string, values[1] as string);
+      case "putPinned":
+        return backend.putPinned(values[0] as string, values[1] as string, values[2]);
       case "getWorkspace":
         return backend.getWorkspace(values[0] as string, values[1] as string, values[2] as string[]);
       case "putWorkspace":
         return backend.putWorkspace(
           values[0] as string, values[1] as string, values[2] as string[],
-          values[3] as { docks: Workspace },
+          values[3],
         );
       default:
         throw new Error(`unknown method: ${String(method)}`);

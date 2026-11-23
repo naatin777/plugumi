@@ -14,6 +14,7 @@ export type PanelActivityTone = "neutral" | "info" | "success" | "warning" | "da
 export type PanelActivitySurface = "header" | "border" | "divider" | "content";
 export type PanelActivityEffect = "static" | "flow" | "glow";
 
+// determinateのvalueは0〜1の割合。範囲外はShell側で丸める。
 export type PanelActivityProgress =
   | { kind: "determinate"; value: number }
   | { kind: "indeterminate" };
@@ -40,12 +41,9 @@ export type PanelMount = (host: HTMLElement, context: PanelContext) => PanelHand
 // 値はここには持たない。test/tokens.test.mjs が tokens.css と一致を検査する。
 export const tokenNames = {
   colors: {
-    canvas: "--plugumi-colors-canvas",
-    surface: "--plugumi-colors-surface",
-    surfaceSubtle: "--plugumi-colors-surface-subtle",
-    surfaceRaised: "--plugumi-colors-surface-raised",
-    surfaceHover: "--plugumi-colors-surface-hover",
-    surfaceActive: "--plugumi-colors-surface-active",
+    backgroundPrimary: "--plugumi-colors-background-primary",
+    backgroundSecondary: "--plugumi-colors-background-secondary",
+    backgroundTertiary: "--plugumi-colors-background-tertiary",
     text: "--plugumi-colors-text",
     textStrong: "--plugumi-colors-text-strong",
     textMuted: "--plugumi-colors-text-muted",

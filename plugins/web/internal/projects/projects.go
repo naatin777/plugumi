@@ -1,22 +1,22 @@
 // Package projects はCoreごとのProject/Area/Workspaceの木構造を扱う。
 // ファイルI/Oはstore.go。~/.plugumi/web/<Core名>.jsonの形に対応する。
+// WorkspaceとPinnedはShellが所有するJSONで、serverは中身を解釈せず
+// そのまま保存・返却する（designs/00005「保存の形」）。
 package projects
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"regexp"
 	"slices"
-	"strings"
 )
 
 var (
-	ErrInvalidName      = errors.New("invalid name")
-	ErrDuplicateName    = errors.New("name already exists among siblings")
-	ErrProjectNotFound  = errors.New("project not found")
-	ErrAreaNotFound     = errors.New("area not found")
-	ErrInvalidDock      = errors.New("invalid dock layout")
-	ErrInvalidWorkspace = errors.New("workspace must contain left/center/right/bottom docks")
+	ErrInvalidName     = errors.New("invalid name")
+	ErrDuplicateName   = errors.New("name already exists among siblings")
+	ErrProjectNotFound = errors.New("project not found")
+	ErrAreaNotFound    = errors.New("area not found")
 )
 
 // core.nameと同じ形式。名前がそのままURLの識別子になるため。
@@ -27,45 +27,22 @@ func ValidName(name string) bool {
 	return len(name) >= 1 && len(name) <= 63 && namePattern.MatchString(name)
 }
 
-// PanelRef は保存されるPanel Instanceへの参照。registrationIdは
-// Plugin再起動で変わるため持たず、pluginId+panelIdでその時点の登録を探す。
-type PanelRef struct {
-	InstanceID string `json:"instanceId"`
-	PluginID   string `json:"pluginId"`
-	PanelID    string `json:"panelId"`
-}
-
-// Dock は1つのDockの状態。selectedはpanels内のinstanceIdか空。
-// Workspace(center)のみlayoutを持つ。split treeのleafがdisplay（tabs/
-// scroll）を持つClient所有のopaque JSONで、serverは中身を解釈しない。
-type Dock struct {
-	Panels       []PanelRef      `json:"panels"`
-	Selected     string          `json:"selected"`
-	Layout       json.RawMessage `json:"layout,omitempty"`
-	// Shelfのみ: instanceIdごとの積層section状態。Layouts同様Client所有のopaque JSON。
-	ShelfSections json.RawMessage `json:"shelfSections,omitempty"`
-}
-
-// Workspace はAreaが持つ4 Dockの配置。
-type Workspace struct {
-	Left   Dock `json:"left"`
-	Center Dock `json:"center"`
-	Right  Dock `json:"right"`
-	Bottom Dock `json:"bottom"`
-}
+// Opaque はShell所有のJSONをそのまま保持する。未保存はnilで、
+// シリアライズするとnullになる。
+type Opaque = json.RawMessage
 
 // Area は入れ子にできる領域。Workspaceと1対1。
 type Area struct {
-	Name      string    `json:"name"`
-	Workspace Workspace `json:"workspace"`
-	Areas     []Area    `json:"areas"`
+	Name      string `json:"name"`
+	Workspace Opaque `json:"workspace"`
+	Areas     []Area `json:"areas"`
 }
 
-// Project はshelf DockとAreaの木を持つ。
+// Project はpinnedとAreaの木を持つ。
 type Project struct {
-	Name   string `json:"name"`
-	Shelf Dock   `json:"shelf"`
-	Areas  []Area `json:"areas"`
+	Name  string `json:"name"`
+	Pinned Opaque `json:"pinned"`
+	Areas []Area `json:"areas"`
 }
 
 // Document は<Core名>.jsonの全体。
@@ -121,7 +98,7 @@ func (document *Document) AddProject(name string) error {
 		return ErrDuplicateName
 	}
 	document.Projects = append(document.Projects, Project{
-		Name: name, Shelf: Dock{Panels: []PanelRef{}}, Areas: []Area{},
+		Name: name, Areas: []Area{},
 	})
 	return nil
 }
@@ -182,12 +159,7 @@ func (project *Project) AddArea(parent []string, name string) error {
 			return ErrDuplicateName
 		}
 	}
-	*siblings = append(*siblings, Area{
-		Name: name, Workspace: Workspace{
-			Left: Dock{Panels: []PanelRef{}}, Center: Dock{Panels: []PanelRef{}},
-			Right: Dock{Panels: []PanelRef{}}, Bottom: Dock{Panels: []PanelRef{}},
-		}, Areas: []Area{},
-	})
+	*siblings = append(*siblings, Area{Name: name, Areas: []Area{}})
 	return nil
 }
 
@@ -219,25 +191,15 @@ func (project *Project) RemoveArea(path []string) bool {
 	return true
 }
 
-// ValidateDock はPUTの検証。instanceIdは"panel-"始まり、
-// selectedは空かpanels内のinstanceId。
-func ValidateDock(dock Dock) error {
-	for _, panel := range dock.Panels {
-		if !strings.HasPrefix(panel.InstanceID, "panel-") {
-			return ErrInvalidDock
-		}
+// ValidOpaque はPUTで受け付ける形。JSONのobjectかnullだけ。
+// 配列・文字列・数値などは400で拒否する（Shellのstateは常にobject）。
+func ValidOpaque(data []byte) bool {
+	trimmed := bytes.TrimSpace(data)
+	if bytes.Equal(trimmed, []byte("null")) {
+		return true
 	}
-	if dock.Selected != "" {
-		valid := false
-		for _, panel := range dock.Panels {
-			if panel.InstanceID == dock.Selected {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			return ErrInvalidDock
-		}
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return false
 	}
-	return nil
+	return json.Valid(trimmed)
 }

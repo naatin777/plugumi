@@ -3,36 +3,20 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export interface PanelRef {
-  instanceId: string;
-  pluginId: string;
-  panelId: string;
-}
-
-export interface Dock {
-  panels: PanelRef[];
-  selected: string;
-  // Workspace(center)のみ。split treeのleafがdisplay（tabs/scroll）を持つ
-  // Client所有のopaque JSON。
-  layout?: unknown;
-}
-
-export interface Workspace {
-  left: Dock;
-  center: Dock;
-  right: Dock;
-  bottom: Dock;
-}
+// WorkspaceとPinnedはShellが所有するJSON（designs/00005「保存の形」）。
+// mainは中身を解釈せずそのまま保存・返却する。型はunknownで運び、
+// PUTの入力だけJSON objectかnullに絞る（isOpaque）。
+export type Opaque = unknown;
 
 export interface Area {
   name: string;
-  workspace: Workspace;
+  workspace: Opaque;
   areas: Area[];
 }
 
 export interface Project {
   name: string;
-  shelf: Dock;
+  pinned: Opaque;
   areas: Area[];
 }
 
@@ -54,7 +38,7 @@ export interface ProjectTree {
 export class InvalidNameError extends Error {}
 export class DuplicateNameError extends Error {}
 export class AreaNotFoundError extends Error {}
-export class InvalidDockError extends Error {}
+export class InvalidOpaqueError extends Error {}
 
 // core.nameと同じ形式。名前がそのままURLの識別子になるため。
 const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -63,10 +47,10 @@ export function validName(name: string): boolean {
   return name.length >= 1 && name.length <= 63 && NAME_PATTERN.test(name);
 }
 
-const emptyDock = (): Dock => ({ panels: [], selected: "" });
-const emptyWorkspace = (): Workspace => ({
-  left: emptyDock(), center: emptyDock(), right: emptyDock(), bottom: emptyDock(),
-});
+// 未保存はnull。object（Shellのstate）かnullだけを受け付ける。
+export function isOpaque(value: unknown): boolean {
+  return value === null || (typeof value === "object" && !Array.isArray(value));
+}
 
 export function load(directory: string, coreName: string): Document {
   let data: string;
@@ -105,7 +89,7 @@ export function findProject(document: Document, name: string): Project | undefin
 export function addProject(document: Document, name: string): void {
   if (!validName(name)) throw new InvalidNameError("invalid name");
   if (findProject(document, name)) throw new DuplicateNameError("name already exists");
-  document.projects.push({ name, shelf: emptyDock(), areas: [] });
+  document.projects.push({ name, pinned: null, areas: [] });
 }
 
 export function removeProject(document: Document, name: string): boolean {
@@ -140,7 +124,7 @@ export function addArea(project: Project, parent: string[], name: string): void 
   if (siblings.some((area) => area.name === name)) {
     throw new DuplicateNameError("name already exists");
   }
-  siblings.push({ name, workspace: emptyWorkspace(), areas: [] });
+  siblings.push({ name, workspace: null, areas: [] });
 }
 
 // removeArea はpathのAreaを子ごと削除する。
@@ -156,22 +140,7 @@ export function removeArea(project: Project, path: string[]): boolean {
   return true;
 }
 
-// validateDock はPUTの検証。instanceIdは"panel-"始まり、
-// selectedは空かpanels内のinstanceId。
-export function validateDock(dock: Dock): void {
-  for (const panel of dock.panels) {
-    if (!panel.instanceId.startsWith("panel-")) {
-      throw new InvalidDockError("invalid dock layout");
-    }
-  }
-  if (dock.selected !== "" && !dock.panels.some((panel) => panel.instanceId === dock.selected)) {
-    throw new InvalidDockError("invalid dock layout");
-  }
-}
-
-export function validateWorkspace(workspace: Workspace): void {
-  for (const dock of [workspace.left, workspace.center, workspace.right, workspace.bottom]) {
-    if (!dock) throw new InvalidDockError("workspace must contain left/center/right/bottom docks");
-    validateDock(dock);
-  }
+// validateOpaque はPUTの検証。objectかnullだけを受け付ける。
+export function validateOpaque(value: unknown): void {
+  if (!isOpaque(value)) throw new InvalidOpaqueError("body must be an object or null");
 }

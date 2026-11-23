@@ -33,8 +33,7 @@ flowchart LR
 
 - Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
 - WorkspaceはAreaと1対1に対応する。Workspaceは、left・center・right・bottomの4つのDockを持ち、各DockにPanelのタブを並べる。
-- center Dockは2つの表示モードを持つ。**tabs**モードではPanelをタブスタックとして表示し、タブをAreaの四辺にドラッグ&ドロップするとその方向に分割できる（分割は`axis`と`ratio`を持つ再帰ツリー、どちらの向きにも割れる）。**scroll**モードでは全Panelを横に並べた列として表示し、列へのドロップは分割ではなく挿入（並び替え）を意味する。scrollモードでも分割はできるが縦方向のみで、横並びの行が縦に積まれる。
-- モード切替は表示の切り替えだけでPanelを失わない。center Dockは`tabsLayout`と`scrollLayout`の2本のツリーを保持し、両ツリーは常に同じPanel集合を記述する。Panelの追加・削除・移動は両ツリーに反映される。空になったAreaはツリーから畳まれ、最後の1枚は残る。
+- center Dockは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分ける。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式（pages）と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
 - Panelのタブはregionをまたいでドラッグできる。center↔left/right/bottom、dock↔dock、center/dock↔pinnedの相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。
 - PinnedのDockはProjectに属し、Areaを切り替えても閉じない。Areaの形が固まったら、Pinnedの扱いは見直す可能性がある。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
@@ -43,7 +42,7 @@ flowchart LR
 
 Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
-- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉、Core switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、右端に検索・メニュー・設定の置き場所、テーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）、Pinned列の開閉を持つ。検索・メニュー・設定の中身は未実装。
+- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）、left/bottom/rightの開閉、zen、右端にテーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）とPinned列の開閉を持つ。
 - **本体**: 左のサイドバー（ProjectタブとAreaツリー）、中央のWorkspaceの4 Dock、右のPinned Dock。
 - **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
 
@@ -55,6 +54,7 @@ Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `
 
 - Core名をキーにする。`coreId` はCoreの再起動で変わるので、Core名のないCoreではProjectを作れない。
 - PanelはPanel InstanceのIDと、Pluginの識別子（`pluginId`）と `panelId` で保存する。登録の識別子（`registrationId`）はPluginの再起動で変わるので保存しない。表示するときに、同じPluginの同じPanelを提供している登録を探す。
+- WorkspaceとPinnedの中身はPlugin Shellが所有するJSONで、Web Pluginのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
 - 同じWorkspaceを複数のタブで同時に編集した場合は、後から保存した内容が残る。
 - `~/.plugumi/` には旧リポジトリのファイルが残っている場合がある。Web Pluginは `~/.plugumi/web/` の下だけを使い、それ以外には触れない。
 

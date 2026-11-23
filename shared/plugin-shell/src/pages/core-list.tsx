@@ -1,80 +1,115 @@
-import { A } from "@solidjs/router";
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import { useShellHost, type CoreEntry } from "../host";
+// Core一覧（/）。追加と削除もここで行う。予約名（api/assets/ui）と
+// 起動指定（command）のCoreはリンクしない。
+import { For, Show, createSignal, onSettled } from "solid-js";
+import type { JSX } from "@solidjs/web";
+import { useHref } from "@solidjs/router";
 
-export default function CoreList() {
+import { useShellHost, type CoreEntry } from "../host.tsx";
+import { ConfirmButton } from "../shell/inline.tsx";
+
+const statusText = (entry: CoreEntry): string => {
+  switch (entry.status) {
+    case "connected": return "接続中";
+    case "connecting": return "接続しています";
+    case "rejected": return entry.error ? `拒否: ${entry.error}` : "拒否されました";
+    case "unreachable": return "接続できません";
+    default: return "";
+  }
+};
+
+export default function CoreListPage(): JSX.Element {
   const host = useShellHost();
-  const [cores, setCores] = createSignal<CoreEntry[]>([]);
-  const [url, setUrl] = createSignal("");
+  const [cores, setCores] = createSignal<CoreEntry[] | undefined>();
+  const [adding, setAdding] = createSignal(false);
   const [error, setError] = createSignal("");
-  const refresh = () => host.listCores().then(setCores).catch((e) => setError(String(e)));
-  onMount(() => {
-    refresh();
+  const [url, setUrl] = createSignal("");
+
+  const refresh = async () => {
+    try {
+      setCores(await host.listCores());
+    } catch {
+      // 一覧が取れなくても追加フォームは出す
+    }
+  };
+  onSettled(() => {
+    void refresh();
     const timer = setInterval(refresh, 3000);
-    onCleanup(() => clearInterval(timer));
+    return () => clearInterval(timer);
   });
+
   const submit = async (event: Event) => {
     event.preventDefault();
     setError("");
     try {
       await host.addCore(url());
       setUrl("");
+      setAdding(false);
       await refresh();
-    } catch (e) {
-      setError(String(e));
+    } catch (cause) {
+      setError(String(cause instanceof Error ? cause.message : cause));
     }
   };
-  const remove = async (entry: CoreEntry) => {
-    setError("");
-    try {
-      await host.removeCore(entry.url);
-      await refresh();
-    } catch (e) {
-      setError(String(e));
-    }
-  };
+
   return (
-    <main>
+    <div class="core-list-page">
       <h1>Plugumi</h1>
-      <form class="add-core" onSubmit={submit}>
-        <input
-          type="text"
-          placeholder="http://127.0.0.1:7700"
-          value={url()}
-          onInput={(e) => setUrl(e.currentTarget.value)}
-        />
-        <button type="submit">追加</button>
-      </form>
-      <Show when={error()}>
-        <p class="error">{error()}</p>
+      <ul class="core-list">
+        <For each={cores()}>
+          {(entry) => <CoreRow entry={entry} refresh={refresh} />}
+        </For>
+      </ul>
+      <Show
+        when={adding()}
+        fallback={
+          <button class="core-add" onClick={() => setAdding(true)}>Core を追加</button>
+        }
+      >
+        <form class="core-add-form" onSubmit={submit}>
+          <input
+            value={url()}
+            onInput={(event) => setUrl(event.currentTarget.value)}
+            placeholder="http://127.0.0.1:7700"
+          />
+          <button type="submit">追加</button>
+          <button type="button" onClick={() => setAdding(false)}>やめる</button>
+        </form>
       </Show>
-      <table>
-        <thead>
-          <tr><th>Name</th><th>URL</th><th>状態</th><th>source</th><th></th></tr>
-        </thead>
-        <tbody>
-          <For each={cores()}>
-            {(entry) => (
-              <tr>
-                <td>
-                  <Show when={entry.key !== ""} fallback={entry.name || "-"}>
-                    <A href={`/${entry.key}/`}>{entry.name || entry.key}</A>
-                  </Show>
-                </td>
-                <td>{entry.url}</td>
-                <td class={`status-${entry.status}`}>{entry.status}{entry.error ? ` (${entry.error})` : ""}</td>
-                <td>{entry.source}</td>
-                <td>
-                  <Show when={entry.source === "saved"}>
-                    <button onClick={() => remove(entry)}>削除</button>
-                  </Show>
-                </td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
-      <p class="core-meta"><A href="/lab">Style Lab</A></p>
-    </main>
+      <Show when={error()}><p class="core-error">{error()}</p></Show>
+    </div>
+  );
+}
+
+function CoreRow(props: { entry: CoreEntry; refresh: () => Promise<void> }): JSX.Element {
+  const host = useShellHost();
+  const href = useHref(() => `/${props.entry.key}/`);
+  return (
+    <li>
+      <Show
+        when={props.entry.source !== "command" && props.entry.name}
+        fallback={
+          <span class="core-entry">
+            <span class="status-dot" data-status={props.entry.status === "connected" ? "connected" : "error"} />
+            {props.entry.name || props.entry.url}
+            <small>{statusText(props.entry)}</small>
+          </span>
+        }
+      >
+        <a class="core-entry" href={href()}>
+          <span class="status-dot" data-status={props.entry.status === "connected" ? "connected" : props.entry.status === "connecting" ? "connecting" : "error"} />
+          {props.entry.name}
+          <small>{statusText(props.entry)}</small>
+        </a>
+        <Show when={props.entry.source !== "command"}>
+          <ConfirmButton
+            label="削除"
+            confirmLabel="削除する？"
+            confirm={async () => {
+              await host.removeCore(props.entry.url);
+              await props.refresh();
+            }}
+          >×</ConfirmButton>
+        </Show>
+      </Show>
+    </li>
   );
 }

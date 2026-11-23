@@ -1,7 +1,7 @@
 // ShellHost の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
 import type {
-  CallToolBody, CoreEntry, Dock, PanelEntry, ProjectTree,
-  ShellHost, Workspace,
+  CallToolBody, CoreEntry, PanelEntry, ProjectTree,
+  PinnedState, ShellHost, WorkspaceState,
 } from "@plugumi/plugin-shell";
 
 async function errorMessage(response: Response): Promise<string> {
@@ -80,24 +80,24 @@ export function httpShellHost(): ShellHost {
       const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}`, { method: "DELETE" });
       if (!response.ok) throw new Error(await errorMessage(response));
     },
-    async getShelf(key: string, project: string): Promise<Dock> {
-      const response = await fetch(`${base(key)}/${project}/shelf`);
-      if (!response.ok) throw new Error(`GET shelf: HTTP ${response.status}`);
+    async getPinned(key: string, project: string): Promise<unknown> {
+      const response = await fetch(`${base(key)}/${project}/pinned`);
+      if (!response.ok) throw new Error(`GET pinned: HTTP ${response.status}`);
       return response.json();
     },
-    async putShelf(key: string, project: string, dock: Dock): Promise<void> {
-      const response = await fetch(`${base(key)}/${project}/shelf`, {
+    async putPinned(key: string, project: string, pinned: PinnedState): Promise<void> {
+      const response = await fetch(`${base(key)}/${project}/pinned`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dock),
+        body: JSON.stringify(pinned),
       });
       if (!response.ok) throw new Error(await errorMessage(response));
     },
-    async getWorkspace(key: string, project: string, areaPath: string[]): Promise<Workspace> {
+    async getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown> {
       const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}/workspace`);
       if (!response.ok) throw new Error(`GET workspace: HTTP ${response.status}`);
       return response.json();
     },
-    async putWorkspace(key: string, project: string, areaPath: string[], workspace: Workspace): Promise<void> {
+    async putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void> {
       const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}/workspace`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(workspace),

@@ -72,11 +72,13 @@ Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照�
 
 | 種別 | 名前の例 |
 |---|---|
-| 色 | `--plugumi-colors-canvas`、`--plugumi-colors-surface`、`--plugumi-colors-text`、`--plugumi-colors-text-muted`、`--plugumi-colors-border`、`--plugumi-colors-accent`、`--plugumi-colors-error` |
+| 色 | `--plugumi-colors-background-primary`、`--plugumi-colors-background-secondary`、`--plugumi-colors-background-tertiary`、`--plugumi-colors-text`、`--plugumi-colors-text-muted`、`--plugumi-colors-border`、`--plugumi-colors-accent`、`--plugumi-colors-error` |
 | 文字 | `--plugumi-font-family-sans`、`--plugumi-font-family-mono`、`--plugumi-font-size-md`、`--plugumi-font-weight-semibold`、`--plugumi-line-height-md` |
 | 余白・角丸 | `--plugumi-spacing-xs` 〜 `--plugumi-spacing-xl`、`--plugumi-radii-sm` 〜 `--plugumi-radii-lg` |
 
 Tokenの名前は `@plugumi/plugin-view` の `tokenNames` でも参照できる。値の正本は、Plugin Shellの `shared/plugin-shell/src/styles/tokens.css` とする。
+
+Panelの最背面は透明にする。Panelの面はShellが領域によらず `--plugumi-colors-background-secondary` で敷く（Design 00005「面と縁」）。Panelが自分で最背面を塗る必要はなく、Tokenで面の色を塗るのはPanel内部で面を分けたい要素に限る。
 
 ## 未決定
 
