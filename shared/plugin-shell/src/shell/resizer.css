@@ -33,5 +33,15 @@
   .dock > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: var(--resizer-out); }
   .dock[data-dock="right"] > .resizer[data-axis="x"] { right: auto; left: var(--resizer-out); }
   .dock > .resizer[data-axis="y"] { position: absolute; left: 0; right: 0; top: var(--resizer-out); }
-  .frame-side > .resizer[data-axis="x"] { position: absolute; top: 0; bottom: 0; right: var(--resizer-out); }
+  /* 列の境界線に乗るresizer。帯を線の中心に掛け、hover/ドラッグで
+     線を強調する（普段は境界線だけが見える）。 */
+  .frame-side > .resizer[data-axis="x"] {
+    position: absolute; top: 0; bottom: 0;
+    right: calc(-1 * var(--resizer-size) / 2);
+  }
+  .frame-side > .resizer[data-axis="x"]::before,
+  .work-mat > .resizer[data-axis="x"]::before {
+    width: 2px; height: 100%;
+    opacity: 0;
+  }
 }

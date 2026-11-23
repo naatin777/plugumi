@@ -1,5 +1,5 @@
 // Area list（左の列）の保存モデルと純粋な操作群。
-// Main/Sub/Floatingの3リストにAreaへの参照を並べる。SolidやDOMには触れない。
+// Main/Subの2リストにAreaへの参照を並べる。SolidやDOMには触れない。
 // プロトタイプの保存先はlocalStorageで、壊れた形は空として扱う（移行しない）。
 
 export type AreaRef = {
@@ -14,13 +14,12 @@ export type AreaEntry = {
   display: AreaDisplay;
 };
 
-export type ListSlot = "main" | "sub" | "floating";
+export type ListSlot = "main" | "sub";
 
 export type AreaListState = {
   version: 1;
   main: AreaEntry[];
   sub: AreaEntry[];
-  floating: AreaEntry[];
   // 選択中はslotごとにareaKeyで持つ。
   selected: { main: string | null; sub: string | null };
 };
@@ -34,7 +33,6 @@ export const emptyAreaList = (): AreaListState => ({
   version: 1,
   main: [],
   sub: [],
-  floating: [],
   selected: { main: null, sub: null },
 });
 
@@ -77,14 +75,13 @@ export function decodeAreaList(raw: unknown): AreaListState {
   if (!isObject(raw) || raw.version !== 1) return emptyAreaList();
   const main = decodeSlot(raw.main);
   const sub = decodeSlot(raw.sub);
-  const floating = decodeSlot(raw.floating);
-  if (!main || !sub || !floating) return emptyAreaList();
+  if (!main || !sub) return emptyAreaList();
   const selected = isObject(raw.selected) ? raw.selected : {};
   const pick = (entries: AreaEntry[], value: unknown): string | null =>
     typeof value === "string" && keyIn(entries, value) ? value : null;
   return {
     version: 1,
-    main, sub, floating,
+    main, sub,
     selected: { main: pick(main, selected.main), sub: pick(sub, selected.sub) },
   };
 }

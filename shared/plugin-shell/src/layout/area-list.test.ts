@@ -9,7 +9,6 @@ import {
 const ref = (project: string, ...path: string[]): AreaRef => ({ project, path });
 const aaa = ref("plugumi", "aaa");
 const bbb = ref("plugumi", "bbb");
-const other = ref("other", "x", "y");
 
 describe("areaKey", () => {
   test("projectとpathから一意な文字列を作る", () => {
@@ -36,12 +35,6 @@ describe("add", () => {
     assert.equal(state.selected.sub, areaKey(aaa));
   });
 
-  test("floatingへ足しても選択状態には触れない", () => {
-    const state = addArea(emptyAreaList(), "floating", aaa);
-    assert.equal(state.floating.length, 1);
-    assert.equal(state.selected.main, null);
-    assert.equal(state.selected.sub, null);
-  });
 });
 
 describe("remove", () => {
@@ -79,7 +72,6 @@ describe("decode", () => {
       version: 1,
       main: [{ area: aaa, display: "center" }],
       sub: [],
-      floating: [{ area: other, display: "full" }],
       selected: { main: areaKey(aaa), sub: null },
     });
     assert.equal(state.main[0].display, "center");
@@ -88,8 +80,8 @@ describe("decode", () => {
 
   test("壊れた形は空になる", () => {
     for (const raw of [null, undefined, {}, "x", [], { version: 2 },
-      { version: 1, main: "no", sub: [], floating: [] },
-      { version: 1, main: [{ area: { project: 1, path: [] }, display: "full" }], sub: [], floating: [] }]) {
+      { version: 1, main: "no", sub: [] },
+      { version: 1, main: [{ area: { project: 1, path: [] }, display: "full" }], sub: [] }]) {
       assert.deepEqual(decodeAreaList(raw), emptyAreaList(), JSON.stringify(raw));
     }
   });
@@ -98,7 +90,7 @@ describe("decode", () => {
     const state = decodeAreaList({
       version: 1,
       main: [{ area: aaa, display: "full" }],
-      sub: [], floating: [],
+      sub: [],
       selected: { main: "gone", sub: null },
     });
     assert.equal(state.selected.main, null);

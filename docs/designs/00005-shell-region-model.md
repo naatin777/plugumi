@@ -25,7 +25,7 @@ relations:
 │ ────────── │  ┌────┬──────────┬────┐  │ AreaView │
 │ Main       │  │left│  center  │right│ │          │
 │ Sub        │  ├────┴──────────┴────┤  │          │
-│ Floating   │  │       bottom       │  │          │
+│            │  │       bottom       │  │          │
 └────────────┴──└────────────────────┘──┴──────────┘
    （topbarは上、statusbarは下の横帯）
 ```
@@ -34,7 +34,7 @@ relations:
 
 | 領域 | 役割 | スコープ |
 |---|---|---|
-| Area list | Shellのナビ中枢。AreaをMain・Sub・Floatingの3セクションに並べる（SigmaOSと同じ形）。行をPanelではなくAreaが占める | shell固有（Panelではない） |
+| Area list | Shellのナビ中枢。AreaをMain・Subの2セクションに並べる（SigmaOSと同じ形）。行をPanelではなくAreaが占める | shell固有（Panelではない） |
 | Main | Main listで選択中のAreaを表示する。URLの`/<core>/<project>/<area>/…`が正本で、Main行のclickはそのURLへの移動になる | shell |
 | Sub | Sub listで選択中のAreaを右に表示する。開閉でき、閉じるとMainが全幅になる（幅はResizerで調整） | shell |
 | left / bottom / right | Areaの中のWorkspaceの縁領域。位置が契約（left=一覧系、bottom=terminal系の横広、right=右の列でMainの脇に置く補助）。開閉できる | Area |
@@ -42,9 +42,7 @@ relations:
 
 MainとSubの中身はどちらも同じ**AreaView**である。同じAreaをMainとSubに同時に出してもよい。Areaの中身は従来どおりleft・center（splitの木）・bottom・rightのDock構成で、Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
 
-**Area list**: Projectをまたいで任意のAreaをどのセクションにも入れられる。行のメニューから「Mainへ / Subへ / Floatingへ」の移動と表示形式の切替（プロトタイプでは`"full"`=全dockと`"center"`=centerだけの2種）、「リストから外す」を行う。表示形式を切り替えてもPanelの配置は保たれ、見せ方だけが変わる。
-
-**Floating**: 行のclickでそのAreaを別windowで開く。Webは別URL（`?window=floating`付きの新タブ）、Electronは新しいBrowserWindow。Floating windowはArea list・Subなしで、そのAreaView1個だけを全面に描く。
+**Area list**: Projectをまたいで任意のAreaをどのセクションにも入れられる。行のメニューから「Mainへ / Subへ」の移動と表示形式の切替（プロトタイプでは`"full"`=全dockと`"center"`=centerだけの2種）、「リストから外す」を行う。表示形式を切り替えてもPanelの配置は保たれ、見せ方だけが変わる。
 
 ## 領域のモデル
 
@@ -61,7 +59,7 @@ left・bottom・rightは機能の区切りではなく**位置の契約**であ�
 
 ### スコープはAreaで1段
 
-Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に保存され、切替で入れ替わる（`getWorkspace`/`putWorkspace`）。Project-scopeのPanel置き場は持たない。Main/Sub/Floatingへの割り当てはArea listの状態として端末（localStorage）に保存し、Workspaceとは別に持つ。
+Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に保存され、切替で入れ替わる（`getWorkspace`/`putWorkspace`）。Project-scopeのPanel置き場は持たない。Main/Subへの割り当てはArea listの状態として端末（localStorage）に保存し、Workspaceとは別に持つ。
 
 ### 表示モード
 
@@ -73,21 +71,21 @@ Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に�
 
 選択中（active）のPanelは各dock・leafの`selected`だけで決まる。
 
-### Area list: Main/Sub/Floatingセクション
+### Area list: Main/Subセクション
 
-Area listはAreaを**Main**・**Sub**・**Floating**の3セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。
+Area listはAreaを**Main**・**Sub**の2セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。
 
 - **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する。URLのAreaがlistに無ければ追加して選択する（deep link）。
 - **Sub**: 行のclickでそのAreaをSub領域に表示する。Subは開閉でき、閉じるとMainが全幅になる。
-- **Floating**: 行のclickでそのAreaを別windowで開く。
+- Floatingはpanel単位・Electronのみ（設計中）。
 - **追加は「＋」からpicker**: 各セクションの「＋ Areaを追加」はProject/Areaのツリーから選ぶpopoverを開く。Area・Projectの作成もここで行う。
 
 ### 列ごとの開閉ボタン
 
-title barのwork区間（segment）はMainとSubで2つに分かれ、各segmentがその列の真上に浮く。どの列のボタンかは位置で分かるようにする。
+title barのwork区間はMainとSubで2つに分かれ、それぞれの列の真上にボタン群が並ぶ。どの列のボタンかは位置と境界線で分かるようにする。
 
 - **Mainのsegment**: MainのAreaのcrumb・「+」・検索・`[左][下][右]`のdock開閉。
-- **Subのsegment**: SubのAreaのcrumb（clickでMainへ移動）・「+」・Sub用の`[左][下][右]`。Subが閉じている・drawerのときはsegment自体を出さない（幅0に畳まれる）。Subの開閉ボタンは右pillの先頭に固定で置き、drawer時はSub drawerを開閉する。
+- **Sub側**: SubのAreaのcrumb（clickでMainへ移動）・「+」・Sub用の`[左][下][右]`。Subが閉じている・drawerのときはこの区画自体を出さない（幅0に畳まれる）。Subの開閉ボタンはtitle右端の操作群の先頭に固定で置き、drawer時はSub drawerを開閉する。
 - dockの開閉状態はslot（Main/Sub）ごとに独立して持つ（`dockOpen[slot][kind]`）。⌥⌘2〜4は「触っている側」のAreaのdockを開閉する。
 - dockの幅・高さ（`dockSize`）は両slotで共通。
 
@@ -106,29 +104,29 @@ title barのwork区間（segment）はMainとSubで2つに分かれ、各segment
 
 - **drawerの開閉は一時的**: drawer化した領域はprefsではなくAreaView/Shellごとのsignalで開閉し、初期は閉。狭くなった瞬間に保存済みの「開」がcenterを覆わないため。同じボタン・ショートカットがdrawerのときはこのsignalを切り替える。同時に開くdock drawerはAreaViewごとに1つ。
 - **閉じ方**: drawerの外をpointerdownするかEscape。drawerでもPanelはunmountしない（`data-closed`で畳む、transformで画面外へ逃がす）。
-- Subがdrawerのとき、Subのsegmentは開閉ボタンだけの小さい形のまま。
+- Subがdrawerのとき、Sub側の区画は出さず、開閉はtitle右端のSub開閉ボタンがdrawerを切り替える。
 
 ## 面と縁
 
-Shellは「土台の上にタイルを並べる」だけで描く。領域同士の区切りは線ではなく、タイル同士の間に覗く土台色の溝（gap）である。
+Shellは「土台の上にタイルを並べる」だけで描く。外側のframe領域（Area list・title帯・status帯）は枠・角丸・溝の無い平らな面で、列の区切りは境界線だけが担う。
 
-1. **土台（primary）**: ページ全体と、sidebar・topbar両端・statusbarのframe領域、そしてmatの内側全面に敷く床（work-bed）。カード間のgapは全部この床が覗くので、溝は領域をまたいで連続して貫く。
-2. **タイル（secondary）**: dock（left・bottom・right）・leaf（centerの区画）の各カードと、topbar中央の浮きバー（segment）。全て同じ色・同じ角丸で、borderは持たない。
+1. **土台（primary）**: ページ全体と、Area list・title帯・status帯のframe領域、そしてmatの内側全面に敷く床（work-bed）。カード間のgapは全部この床が覗くので、溝は領域をまたいで連続して貫く。
+2. **タイル（secondary）**: dock（left・bottom・right）・leaf（centerの区画）の各カード。全て同じ色・同じ角丸で、borderは持たない。
 3. **操作系（tertiary）**: 入力欄、popover・メニュー、hover、選択中のtab・navの行、実行中の強調。タイルの内側にだけ使う。
 
 | token | 使う場所 | Dark | Light |
 |---|---|---|---|
 | `--plugumi-colors-background-primary` | 土台・frame・床（溝） | #121212 | #FFFFFF |
-| `--plugumi-colors-background-secondary` | タイル（dock・leaf・segmentバー）、Panelの面 | #1E1E1E | #F1F1F1 |
+| `--plugumi-colors-background-secondary` | タイル（dock・leaf）、Panelの面 | #1E1E1E | #F1F1F1 |
 | `--plugumi-colors-background-tertiary` | 入力欄・popover・hover・選択中のtab・navの行 | #2D2D2D | #E5E5E5 |
 
-- **区切りは溝が担う**: カードはborderを引かない。隣り合うカードの間は溝1つだけで、「border｜溝｜border」の二重区切りにしない。溝の幅は`--work-gap`（4px）で、カードの四方は必ず溝に面する。
+- **frameの区切りは境界線が担う**: frame領域（Area list・title帯・status帯）は平らな面で、列の間は「Area list｜Main」と「Main｜Sub」の縦1px線（`--plugumi-colors-border`）2本だけがtitle帯上端からstatus帯の上まで通る。Subが閉・drawerならMain｜Subの線は出さず、Area listが閉・drawerならArea list｜Mainの線も出さない。Area listとSubの幅のResizerはこの線の上に置く（掴む範囲は線の左右数px、hoverで線を強調）。タイル同士の区切りは従来どおり溝（`--work-gap`）が担い、カードはborderを引かない。
 - **tab帯はカードのheader**: dock・leafは「tab帯（header）＋中身」の1枚のカード。tab帯と中身の間はhairline（divider面）で区切る。
 - Panelの面は領域によらずsecondaryで統一し、Shellが敷く。Panelの最背面は透明にして、Shellが敷いた面の色をそのまま使う。
 
 ### タイルの輪郭
 
-- **浮きバー**: topbarではwork区間のsegment（Main・Subの2つ）だけが浮きバーになる。左右のtool群（sidebar開閉などframeの操作）はframeに直置きし、バーには含めない。バーは四辺ともgapで離す。Mainのsegmentの左端はsidebar列の端に揃え、SubのsegmentはSub列の真上に置く。
+- **title帯は平ら**: title帯に枠・溝は無く、ボタン群は境界線で分かれた区画にただ並ぶ。Main区画の左端はsidebar列の端に揃え、Sub区画はSub列の真上に置く。右端の操作群（Sub開閉・両サイド・テーマ・もや・設定）はtitle帯の右端に並べる。
 - **splitはsegment方式**: centerをsplitすると、分割したleaf同士は溝で離れるが、regionの外縁の角だけが丸い。splitの内側の辺は直角にして溝を真っ直ぐに通し、外からは1枚のカードの輪郭に見える（Googleのlist viewのsegment方式）。leafの各辺が外縁かどうかはsplit木で伝播する（`Edges`）。
 - dockカードは領域全体で1枚なので全角丸い。
 
@@ -188,10 +186,9 @@ panel.setActivity({
 | 用語 | 意味 |
 |---|---|
 | Region | Panelの配置先（left/bottom/right/centerのleaf）。位置の契約 |
-| Area list | 左の列。AreaをMain・Sub・Floatingの3セクションに並べる |
+| Area list | 左の列。AreaをMain・Subの2セクションに並べる |
 | Main | 本体の広い領域。Main listの選択中Areaを表示する（URLが正本） |
 | Sub | 本体の右の領域。Sub listの選択中Areaを表示し、開閉できる |
-| Floating | Areaを別windowで開く表示形式。AreaView1個だけを描く |
 | 表示モード | Region内のPanelの出し方。全領域でpagesの1つだけ |
 | 表示形式 | Areaの見せ方。`"full"`（全dock）と`"center"`（centerだけ） |
 | Panel Frame | Panelの枠（radius）。Regionに依らず同じ輪郭 |

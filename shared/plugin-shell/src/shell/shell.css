@@ -39,14 +39,12 @@
        別途transitionを無効化する。 */
     transition: --side-width var(--work-anim) ease,
       --sub-width var(--work-anim) ease;
-    /* Subのsegmentの最小幅（開閉ボタンだけの小さい形）。開いているときは
-       Sub列の幅（--sub-width）と揃え、閉じると最小幅に畳まれる。 */
-    /* Subのsegmentは「Sub列の左端〜右pillの左端−溝」の区間に置く。
-       Sub閉時（--sub-width:0）・drawer時は幅0に畳まれる — 開閉ボタンは
-       右pillに置くのでsegment自体は出さない。 */
+    /* Subのsegmentは「Main|Subの境界線〜右pillの左端」の区間に置く。
+       閉時・drawer時は0に畳まれる（--sub-widthのtransitionに乗る）。 */
     --sub-seg-w: max(
       0px,
-      calc(var(--sub-width, 0px) - var(--title-tools-right)));
+      calc(var(--sub-width, 0px) + var(--work-gap)
+        - var(--title-tools-right)));
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);
@@ -96,8 +94,8 @@
       var(--titlebar-inset-right) + var(--title-tools-right));
   }
 
-  /* ---- title帯: 左右のtool群（pill）と中央のsegment（bar）は
-     透明ガラスの浮き面。帯自体は透明で床をそのまま見せる。 ---- */
+  /* ---- title帯: 枠・溝の無い平らな面。tool群とsegmentは位置決めの
+     ための見えない区画で、列の区切りは境界線（.col-divider）だけ。 ---- */
   .work-title {
     position: relative;
     app-region: drag;
@@ -114,11 +112,8 @@
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
     /* footprintを--title-tools-*と一致させるため外寸をwidthで指定する
-       （content-boxだとpadding分だけピルがはみ出して揃えが狂う）。 */
+       （content-boxだとpadding分だけはみ出して揃えが狂う）。 */
     box-sizing: border-box;
-    border-radius: var(--work-radius);
-    border: 1px solid var(--plugumi-colors-border);
-    background: transparent;
     overflow: hidden;
   }
   /* tool群は内側をbarの端（=--title-left/right）まで伸ばすが、
@@ -144,7 +139,7 @@
     min-width: 0;
   }
 
-  /* segmentはtool群の間に浮くbar。下はbodyのpaddingが溝になるので
+  /* segmentはtool群の間の見えない区画。下はbodyのpaddingが溝になるので
      行の下端まで伸ばす。 */
   .work-segment {
     position: absolute;
@@ -154,33 +149,47 @@
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
     box-sizing: border-box;
-    background: transparent;
-    border: 1px solid var(--plugumi-colors-border);
-    border-radius: var(--work-radius);
     overflow: hidden;
   }
-  /* MainのsegmentはSubのsegmentの手前まで（溝--work-gap分あける）。 */
+  /* Mainのsegmentは境界線1からSub列の境界線（無ければ右pill）の手前
+     まで。 */
   .work-segment[data-slot="main"] {
-    left: calc(var(--title-left) + var(--work-gap));
-    right: calc(var(--title-right) + var(--work-gap)
-      + var(--sub-seg-w) + var(--work-gap));
+    left: calc(var(--title-left));
+    right: max(
+      calc(var(--work-gap) + var(--sub-width, 0px)),
+      var(--title-right));
     min-width: 0;
   }
-  /* SubのsegmentはSub列の左端に揃え、右端は右pillの手前。
-     Subが閉じている・drawerのときは幅0（畳み込みは--sub-widthの
-     transitionに乗る）。 */
+  /* SubのsegmentはSub列の区間に置き、右端は右pillの手前。
+     Subが閉じている・drawerのときは幅0。 */
   .work-segment[data-slot="sub"] {
-    right: calc(var(--title-right) + var(--work-gap));
+    right: calc(var(--title-right));
     width: var(--sub-seg-w);
   }
-  /* 畳んだsegmentはborderも消す（幅0でも2pxの枠が残るので）。 */
   main.shell:not([data-sub]) .work-segment[data-slot="sub"] {
-    border-width: 0;
     padding: 0;
   }
-  /* Floating windowはAreaView1個だけ — Subのsegmentは出さない。 */
-  main.shell.floating { --sub-seg-w: 0px; }
-  main.shell.floating .work-segment[data-slot="sub"] { display: none; }
+
+  /* 列の境界線。Area list|MainとMain|Subの2本だけ、title帯の上端から
+     status帯の上まで通す。閉じた側・drawerの側は出さない。 */
+  .col-divider {
+    position: absolute;
+    top: 0;
+    bottom: 40px;
+    width: 1px;
+    background: var(--plugumi-colors-border);
+    pointer-events: none;
+    display: none;
+    z-index: 3;
+  }
+  main.shell[data-side] .col-divider[data-divider="side"] {
+    display: block;
+    left: var(--title-left);
+  }
+  main.shell[data-sub] .col-divider[data-divider="sub"] {
+    display: block;
+    right: calc(var(--work-gap) + var(--sub-width));
+  }
 
   /* body側の列。sidebar列は常時存在し、閉じると中身（aside）が
      幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは
@@ -197,25 +206,17 @@
     min-height: 0;
     background: transparent;
   }
-  /* 列自体はasideの幅に追従。閉じると--side-widthが0になり、
-     marginとborderも畳まれて跡形もなく消える。 */
+  /* 列自体はasideの幅に追従。閉じると--side-widthが0になって消える。
+     面は枠・溝の無い平らなframe色で、区切りは境界線だけ。 */
   .frame-side {
     position: relative;
     box-sizing: border-box;
     min-width: 0;
     overflow: clip;
-    /* resizerの棒が溝の中心まで出られるようclip領域を広げる。 */
+    /* resizerの帯が境界線をまたげるようclip領域を広げる。 */
     overflow-clip-margin: 8px;
-    --tile-border: 1px;
-    border: var(--tile-border) solid var(--plugumi-colors-border);
-    border-radius: var(--work-radius);
-    background: transparent;
-    backdrop-filter: blur(32px) saturate(1.4);
-    transition: margin var(--work-anim) ease, border-width var(--work-anim) ease;
+    width: var(--side-width);
   }
-  .frame-side { width: var(--side-width); margin-right: var(--work-gap); }
-  /* compactではframe-sideはdrawer — 閉じていてもborderは残す。 */
-  main.shell:not([data-size="compact"]):not([data-side]) .frame-side { margin-right: 0; border-width: 0; }
   main.shell:not([data-side]) .frame-side > .resizer { display: none; }
   /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
      アニメがポインタに遅れて追従してしまう。 */
@@ -225,14 +226,15 @@
     min-width: 0; min-height: 0;
     /* [AreaView(main) flex:1 | Resizer | sub-pane(--sub-width)]。 */
     display: flex;
-    border-radius: var(--work-radius);
     overflow: hidden;
   }
   .work-mat > .area-view { flex: 1; min-width: 0; }
-  /* resizerは溝の幅（--work-gap）に置き、ハンドルははみ出して中央に掛ける。 */
+  /* resizerは境界線の上に置く — 幅8pxを負marginで相殺し、線の左右
+     数pxを掴めるようにする。 */
   .work-mat > .resizer[data-axis="x"] {
     flex: none;
-    width: var(--work-gap);
+    width: 8px;
+    margin: 0 -4px;
     position: relative;
     z-index: 2;
   }
@@ -307,9 +309,11 @@
   main.shell[data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
   main.shell[data-size="compact"] .frame-side {
     position: absolute;
+    box-shadow: 8px 0 28px rgb(0 0 0 / 0.4);
+    background: var(--plugumi-colors-background-primary);
     left: var(--work-gap);
     top: calc(var(--titlebar-h) + var(--work-gap));
-    bottom: calc(40px + var(--work-gap));
+    bottom: 40px;
     width: min(var(--sidebar-raw-width, 260px), 85%);
     z-index: 8;
     visibility: visible;
@@ -335,25 +339,11 @@
     display: none;
   }
 
-  /* Floating window: AreaView1個だけを全面に出す。 */
-  main.shell.floating {
-    grid-template-rows: calc(var(--titlebar-h) + var(--work-gap)) minmax(0, 1fr);
-  }
-  main.shell.floating > .area-view {
-    margin: 0 var(--work-gap) var(--work-gap);
-  }
-
   .status-bar {
     position: relative;
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-sm);
-    margin: 0 var(--work-gap) var(--work-gap);
     padding: 0 var(--plugumi-spacing-md);
-    box-sizing: border-box;
-    border: 1px solid var(--plugumi-colors-border);
-    border-radius: var(--work-radius);
-    background: transparent;
-    backdrop-filter: blur(30px) saturate(1.4);
     font-size: var(--plugumi-font-size-xs);
     color: var(--plugumi-colors-text-muted);
     overflow: hidden;

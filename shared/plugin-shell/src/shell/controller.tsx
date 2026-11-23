@@ -108,7 +108,7 @@ export type AreaSize = "wide" | "narrow" | "compact";
 // 1つのAreaViewが持つ状態。layout・Panel Instance・dragは全部Area単位。
 export interface AreaController {
   shell: ShellController;
-  // dockOpen prefsのスロット（floatingはmainを使う）。
+  // dockOpen prefsのスロット。
   slot: DockSlot;
   ref(): AreaRef | null;
 

@@ -52,7 +52,7 @@
   .area-row:hover .area-add-child, .area-row:hover .area-remove { visibility: visible; }
   .area-hint { color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-xs); }
 
-  /* ---- Main/Sub/Floatingセクション（Areaの一覧） ---- */
+  /* ---- Main/Subセクション（Areaの一覧） ---- */
   .area-slot {
     display: flex; flex-direction: column;
     gap: 1px;

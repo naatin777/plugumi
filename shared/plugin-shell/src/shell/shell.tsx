@@ -129,6 +129,10 @@ export function ShellFrame(): JSX.Element {
         "--sub-raw-width": `${prefs().subWidth}px`,
       }}
     >
+      {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/
+          data-subで切り替える。 */}
+      <div class="col-divider" data-divider="side" />
+      <div class="col-divider" data-divider="sub" />
       <WorkShape
         titleLeft={<TitleToolsLeft />}
         titleMain={<TitleSegmentMain area={mainArea} />}

@@ -20,7 +20,6 @@ interface PlugumiShellBridge {
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
   getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown>;
   putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void>;
-  openWindow(path: string): void;
 }
 
 declare global {
@@ -73,6 +72,5 @@ export function ipcShellHost(): ShellHost {
     uiURL: (coreKey, registrationId, path, uiSha256) =>
       `plugumi-ui://${encodeURIComponent(coreKey)}/${encodeURIComponent(registrationId)}` +
       `/${path}?v=${uiSha256}`,
-    openWindow: (path) => bridge.openWindow(path),
   };
 }

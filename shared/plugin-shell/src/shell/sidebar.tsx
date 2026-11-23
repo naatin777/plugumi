@@ -1,6 +1,6 @@
 // sidebar（Shell固有のナビ領域。Panelではない）= Area list。
-// Main/Sub/Floatingの3セクションにAreaへの参照を並べる（SigmaOSの
-// sidebarと同じ形）。行のclickでMainはURL切替、Subは選択、Floatingは別window。
+// Main/Subの2セクションにAreaへの参照を並べる（SigmaOSの
+// sidebarと同じ形）。行のclickでMainはURL切替、Subは選択する。
 // 「＋ Areaを追加」はProject/Areaのツリーから選ぶpopover。
 // prompt/confirmはElectronで使えないため、作成はinline入力、
 // 削除は2段階のinline確認にする。
@@ -43,7 +43,6 @@ export function SidebarView(): JSX.Element {
       <nav class="sidebar">
         <AreaSlot slot="main" label="Main" />
         <AreaSlot slot="sub" label="Sub" />
-        <AreaSlot slot="floating" label="Floating" />
       </nav>
     </>
   );
@@ -70,7 +69,7 @@ function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
 const sameArea = (a: AreaRef | null, b: AreaRef | null) =>
   (a ? areaKey(a) : null) === (b ? areaKey(b) : null);
 
-// Area1行。clickでMainはURL移動・Subは選択・Floatingは別window。
+// Area1行。clickでMainはURL移動・Subは選択。
 // prop名はrefにしない — refはJSXの予約属性で、転送の対象になる。
 function AreaRow(props: { slot: ListSlot; entry: AreaEntry }): JSX.Element {
   const shell = useShell();
@@ -101,7 +100,6 @@ function AreaRow(props: { slot: ListSlot; entry: AreaEntry }): JSX.Element {
       shell.updatePrefs((prefs) => { prefs.subOpen = true; });
       return;
     }
-    shell.host.openWindow(`${href()}?window=floating`);
   };
 
   const move = (to: ListSlot) => (event: MouseEvent) => {
@@ -134,7 +132,6 @@ function AreaRow(props: { slot: ListSlot; entry: AreaEntry }): JSX.Element {
     [
       { to: "main", label: "Mainへ" },
       { to: "sub", label: "Subへ" },
-      { to: "floating", label: "Floatingへ" },
     ] as { to: ListSlot; label: string }[]
   ).filter((item) => item.to !== props.slot);
 
