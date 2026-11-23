@@ -1,5 +1,5 @@
 /* Panelの中身の枠と状態表示。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- Panelの中身。外枠（border+radius）はカードが持つので
      ここでは持たない。領域の区切り線は引かない。 ---- */
@@ -28,9 +28,9 @@
   }
 }
 
-/* .instance-hostは@scopeの終端（[data-plugumi-plugin]）そのものなので、
-   scope内のルールは届かない（終端要素はscopeに含まれない）。ここでは
-   Shellが作るhost要素自身だけをstyleし、中身のPluginのDOMには触れない。 */
+/* .instance-hostはPluginのShadowRootを抱えるhost要素。中身はshadowの
+   内側なのでdocument側の規則は届かない — ここではShellが作るhost要素
+   自身だけをstyleし、中身のPluginのDOMには触れない。 */
 .instance-host {
   /* 中身のmin-contentが外側の大きさを押し広げないよう両方向0にする
      （row/columnどちらのflex itemになっても効く）。 */

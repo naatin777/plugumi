@@ -1,6 +1,6 @@
 /* pages — 全領域で同じ形。viewportはoverflow:hidden（利用者は
    自由scrollしない）、trackの平行移動で切替える。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* pages: 全領域で同じ形。viewportはoverflow:hidden（利用者は
      自由scrollしない）、trackの平行移動で切替える。 */

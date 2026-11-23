@@ -1,5 +1,5 @@
 /* Shell共通の部品（icon-button・状態dot・名前入力・drag表示）。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- 共通 ---- */
   .icon-button {

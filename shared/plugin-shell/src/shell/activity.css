@@ -1,7 +1,7 @@
 /* Activity表示（designs/00005）。Pluginは意味だけを通知し、
    色・速度・太さはここのtokenが決める。UIの静止色は白黒に留め、
    色は状態表示にだけ使う。data-activity-*属性を読んで描く。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* tone → 色の対応。neutralは虹彩（activity1-5）を回す。 */
   @property --plugumi-activity-hue {

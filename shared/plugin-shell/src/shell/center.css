@@ -1,5 +1,5 @@
 /* center — splitのgridと、そのleafカード。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- center ---- */
   .center { grid-area: center; min-width: 0; min-height: 0; display: flex; }

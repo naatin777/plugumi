@@ -1,5 +1,5 @@
 /* Style Labの見本レイアウト。Token/componentの確認用。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
   .lab {
     padding: var(--plugumi-spacing-lg);
     display: flex; flex-direction: column;

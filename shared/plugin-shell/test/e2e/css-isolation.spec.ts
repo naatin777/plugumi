@@ -1,6 +1,6 @@
 // CSS分離テスト。hostile/victim fixture Panelを使い、Plugin CSSが
-// Shell・他Panelへ漏れないことを確認する。今の@scope方式で落ちる
-// 検査はtodo扱い（Shadow DOM化で解消する予定）。
+// Shell・他Panelへ漏れないことを確認する。PanelはShadow DOMへ描かれ、
+// 宣言のstylesはそのshadowにだけ入る（@font-faceだけdocumentへ出る）。
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ab, abEval, acquireBrowser, openPage, releaseBrowser, reloadPage, startServer } from "./browser.ts";
@@ -32,7 +32,7 @@ const VICTIM = `
 (() => {
   const host = [...document.querySelectorAll('[data-part="panel-host"]')]
     .find((el) => el.dataset.plugumiPlugin === 'victim');
-  const cs = (sel) => getComputedStyle(host.querySelector(sel));
+  const cs = (sel) => getComputedStyle(host.shadowRoot.querySelector(sel));
   return {
     text: { color: cs('.victim-text').color, fontFamily: cs('.victim-text').fontFamily },
     button: { borderTopWidth: cs('.victim-button').borderTopWidth,
@@ -83,7 +83,6 @@ test("css isolation", { timeout: 600000 }, async (t) => {
     opened = true;
 
     await t.test("1: Shell要素のcomputed styleはhostileを開く前と一致",
-      { todo: "Shadow DOM化で解消（Panel注入のhead <style>がShellへ効く）" },
       async () => {
         const after = await abEval<Snap>(SHELL_PROPS);
         const problems = snapDiff(before, after);
@@ -105,29 +104,43 @@ test("css isolation", { timeout: 600000 }, async (t) => {
     });
 
     await t.test("3: hostileのpopoverにはhostile自身のCSSが当たる",
-      { todo: "Shadow DOM化で解消（scopeされたCSSはbody直下のpopoverに届かない）" },
       async () => {
-        const pos = await abEval<string>(
-          `getComputedStyle(document.querySelector('[data-part="hostile-pop"]')).position`);
+        // popoverはcontext.root（hostile自身のShadowRoot）へ出すので、
+        // shadow内のstylesが届く。
+        const pos = await abEval<string>(`
+          (() => {
+            const host = [...document.querySelectorAll('[data-part="panel-host"]')]
+              .find((el) => el.dataset.plugumiPlugin === 'hostile');
+            const pop = host.shadowRoot.querySelector('[data-part="hostile-pop"]');
+            return getComputedStyle(pop).position;
+          })()`);
         assert.equal(pos, "fixed");
       });
 
     await t.test("4: Shellのkeyframesはhostileの同名keyframesに置き換わらない",
-      { todo: "Shadow DOM化で解消（pluginのkeyframesは今outerへ出る）" },
       async () => {
-        const leaked = await abEval<number>(`
+        // document側のstylesheetを再帰的に数える。同名のkeyframesが
+        // Shellの定義1つだけなら、hostileのものはshadow内に閉じている。
+        const counts = await abEval<Record<string, number>>(`
           (() => {
-            let count = 0;
-            for (const style of document.querySelectorAll('style')) {
-              if (!style.dataset.plugumiStyles?.includes('hostile')) continue;
-              for (const rule of style.sheet.cssRules) {
+            const names = ['shell-aurora', 'plugumi-activity-spin'];
+            const counts = {};
+            const walk = (rules) => {
+              for (const rule of rules) {
                 if (rule.constructor.name === 'CSSKeyframesRule' &&
-                    ['shell-aurora', 'plugumi-activity-spin'].includes(rule.name)) count++;
+                    names.includes(rule.name)) {
+                  counts[rule.name] = (counts[rule.name] ?? 0) + 1;
+                }
+                if (rule.cssRules) walk(rule.cssRules);
               }
+            };
+            for (const sheet of document.styleSheets) {
+              try { walk(sheet.cssRules); } catch { /* 読めないsheetは飛ばす */ }
             }
-            return count;
+            return counts;
           })()`);
-        assert.equal(leaked, 0, "hostileのkeyframesがouterに出ている");
+        assert.equal(counts["shell-aurora"], 1, "shell-auroraが上書き・複製されている");
+        assert.equal(counts["plugumi-activity-spin"], 1, "plugumi-activity-spinが上書き・複製されている");
       });
 
     await t.test("5: Token値をhostileが画面全体で上書きできない", async () => {

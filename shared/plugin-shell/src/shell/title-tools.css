@@ -1,5 +1,5 @@
 /* work帯（title）の中身 — Core switcher・picker・検索仮置き。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* 見えない空白。Firefoxのflexible space相当で、両側が同じflexなので
      中央の要素はbarが伸縮しても真ん中に留まる。 */

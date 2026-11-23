@@ -1,6 +1,6 @@
-/* Shellの骨格とwork面（designs/00005）。ShellのCSSは
-   @scope (:root) to ([data-plugumi-plugin]) の中にだけ書く。
-   Panelの入れ物の手前で止まり、PanelにはTokenと継承値だけが届く。 */
+/* Shellの骨格とwork面（designs/00005）。Panelの中身はShadow DOMで
+   隔てられているので、ここの規則はPanelへ届かず、Panelへ届くのは
+   Tokenと継承値だけである。 */
 /* 変数の既定値。@scopeの中の:rootはscopeの起点自身には当たらないため、
    既定値はscopeの外で:rootに書く（tokens.cssと同じ置き方）。 */
 /* 開閉アニメ用に登録する長さ変数。@propertyは@scopeの外に置く
@@ -30,7 +30,7 @@
   --shell-strip-h: 36px;
 }
 
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   main.shell {
     position: relative;

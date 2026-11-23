@@ -3,6 +3,11 @@
 
 // Panel の mount に渡される宿主コンテキスト。
 export interface PanelContext {
+  // このPanelのShadowRoot（mountに渡すhostと同じもの）。
+  // popover・tooltip・dialogなど、Panelの見た目の一部だがPanelの
+  // 並びの外に置きたい要素はここへappendする — documentやbody直下へ
+  // 出すとPanel自身のCSSが届かない。
+  root: ShadowRoot;
   callTool(toolPath: string, input: unknown): Promise<unknown>;
   // Panelの活動状態をShellへ通知する。Pluginは意味だけ渡し、
   // 色・速度・太さなどの表現はShell側のtokenが決める。
@@ -35,7 +40,8 @@ export interface PanelHandle {
   destroy(): void;
 }
 
-export type PanelMount = (host: HTMLElement, context: PanelContext) => PanelHandle | Promise<PanelHandle>;
+// hostはそのPanel Instance専用のShadowRoot。Panelはこの中だけにDOMを作る。
+export type PanelMount = (host: ShadowRoot, context: PanelContext) => PanelHandle | Promise<PanelHandle>;
 
 // plugin-shell の styles/tokens.css が定義するCSS変数名の正本。
 // 値はここには持たない。test/tokens.test.mjs が tokens.css と一致を検査する。

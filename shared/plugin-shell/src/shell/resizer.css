@@ -1,5 +1,5 @@
 /* resizer — 溝の中央に置く短い棒ハンドルと、領域ごとの帯の配置。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- resizer溝 ---- */
   .resizer {

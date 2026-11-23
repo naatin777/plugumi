@@ -17,24 +17,27 @@ relations:
 - **Panelのモジュール**: Pluginが提供するUI Bundleのentry。ESMのJavaScriptファイル。
 - **Web Plugin**: entryを読み込み、画面に表示する。
 
-Panelのモジュールは、Web Pluginと同じOriginで、Shadow DOMを使わずに動く（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）。entryのファイルと宣言の受け渡しは[Contract 00004](00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」に従う。
+Panelのモジュールは、Web Pluginと同じOriginで動き、Panel InstanceごとのShadowRootの中にDOMを作る（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）。Shadow DOMは見た目を分けるためのもので、信頼の境界ではない。entryのファイルと宣言の受け渡しは[Contract 00004](00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」に従う。
 
 ## entryがexportするもの
 
 ```ts
-export function mount(host: HTMLElement, context: PanelContext): PanelHandle | Promise<PanelHandle>;
+export function mount(host: ShadowRoot, context: PanelContext): PanelHandle | Promise<PanelHandle>;
 
 interface PanelHandle {
   destroy(): void;
 }
 
 interface PanelContext {
+  // このPanelのShadowRoot。mountに渡すhostと同じもの。
+  root: ShadowRoot;
   // このPanelを提供した登録のToolを呼ぶ。現在はsyncのToolだけに対応する。
   callTool(toolPath: string, input: unknown): Promise<unknown>;
 }
 ```
 
-- Web Pluginは `host` を作って渡す。Panelは `host` の中だけにDOMを作る。`host` には `data-plugumi-plugin="<registrationId>"` が付いている。
+- `host` は、そのPanel Instance専用のShadowRootである。Panelは `host` の中だけにDOMを作る。ShadowRootを持つhost要素には `data-plugumi-plugin="<registrationId>"` が付いている。
+- popover・tooltip・dialogなど、Panelの並びの外に置きたい要素は `context.root`（`host`と同じShadowRoot）へappendする。documentやbody直下へ出すと、Panel自身のCSSがその要素に届かない。
 - `callTool` は、Toolの結果を返す。Toolがエラーを返したときは、Promiseを拒否する。
 - Panelは特定のフレームワークに依存しなくてよい。フレームワークのランタイムはPanelのBundleに含める。
 - TypeScriptの型（`PanelContext`・`PanelHandle`）は、配布用のパッケージ `@plugumi/plugin-view` から使える。
@@ -63,10 +66,10 @@ Web Pluginは、表示に失敗した理由を次の3つに分けて示し、同
 
 ## CSS
 
-Shadow DOMを使わないので、CSSは画面全体で共有される。Web Pluginは、CSSが意図せず他へ当たらないように、次の範囲を設ける。この範囲は見た目のためのもので、セキュリティの境界ではない。
+Panelは専用のShadowRootの中に描かれるので、CSSはShadow DOMの境界で分かれる。この分離は見た目のためのもので、セキュリティの境界ではない — PanelのJSはdocumentを直接触れる。
 
-- **Web Plugin自身のCSS**: `@scope (:root) to ([data-plugumi-plugin])` の中に書き、Panelの入れ物の手前で止める。Panelに届くのは、Token（CSS変数）と、文字色やフォントなどの継承される値だけである。
-- **PanelのCSS**: Panelの宣言の `styles` に、UI BundleのCSSファイルを書く。Web Pluginはそれを `@scope ([data-plugumi-plugin="<registrationId>"]) to ([data-plugumi-plugin])` で包んで読み込む。Panelの中に別のPluginのUIが入った場合、包んだCSSはそこで止まる。`@keyframes` と `@font-face` は `@scope` の中に置けないので、範囲を絞らずにそのまま読み込む。`@import` は使えない。
+- **Web Plugin自身のCSS**: document側のCSSとして書く。Shadow DOMを越えないのでPanelには届かず、Panelに届くのはToken（CSS変数）と、文字色やフォントなどの継承される値だけである。
+- **PanelのCSS**: Panelの宣言の `styles` に、UI BundleのCSSファイルを書く。Web PluginはそれをそのPanelのShadowRootにだけ適用する（`adoptedStyleSheets`）。`@keyframes` もshadow内で閉じるため、他のPanelやWeb Pluginと名前が衝突しない。`@font-face` はshadow内では登録できないため、Web Pluginがdocument側へ出す — 画面全体で共有され、名前の衝突はPanel側が避ける。`@import` は使えない。
 
 Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照できる。値はWeb Pluginが決め、Dark/Lightは `:root` の `data-plugumi-theme` で切り替わる。
 

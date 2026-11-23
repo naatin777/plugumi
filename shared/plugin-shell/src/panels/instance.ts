@@ -70,6 +70,10 @@ export class PanelInstance {
   private entry = "";
   private destroyPanel: (() => void) | undefined;
   private releaseStyles: (() => void) | undefined;
+  // Plugin PanelはShadowRootへ描いてCSSを隔てる。builtinはdocument側の
+  // CSSを使うので、shadowを作るのはpluginのmountに限る — hostに
+  // shadowがあるとlight DOMの中身は描画されなくなる。
+  private shadow: ShadowRoot | undefined;
   private mountToken = 0;
 
   private kind: "plugin" | "builtin" = "plugin";
@@ -118,6 +122,12 @@ export class PanelInstance {
     this.destroyPanel = undefined;
     this.releaseStyles?.();
     this.releaseStyles = undefined;
+    if (this.shadow) {
+      // shadowの中身とadoptしたstyleはPanelのもの。Instanceをまたいで
+      // 残さない（Panel自身のdestroyが掃除しない分もここで落とす）。
+      this.shadow.adoptedStyleSheets = [];
+      this.shadow.replaceChildren();
+    }
   }
 
   async mount(panel: PanelEntry): Promise<void> {
@@ -152,11 +162,16 @@ export class PanelInstance {
     this.uiSha256 = panel.uiSha256;
     this.entry = panel.entry;
     this.host.dataset.plugumiPlugin = panel.registrationId;
+    const root = this.shadow ?? this.host.attachShadow({ mode: "open" });
+    this.shadow = root;
 
     let release: () => void;
+    let sheet: CSSStyleSheet;
     let module: PanelModule;
     try {
-      release = await acquirePanelStyles(this.shell, this.coreKey, panel);
+      const styles = await acquirePanelStyles(this.shell, this.coreKey, panel);
+      release = styles.release;
+      sheet = styles.sheet;
     } catch (cause) {
       fail("load", cause);
       return;
@@ -165,6 +180,7 @@ export class PanelInstance {
       release();
       return;
     }
+    root.adoptedStyleSheets = [sheet];
     try {
       const url = this.shell.uiURL(
         this.coreKey, this.registrationId, this.entry, this.uiSha256,
@@ -186,7 +202,8 @@ export class PanelInstance {
     }
     let handle: PanelHandle;
     try {
-      handle = await module.mount(this.host, {
+      handle = await module.mount(root, {
+        root,
         callTool: (toolPath, input) =>
           this.shell.callTool(this.coreKey, {
             registrationId: this.registrationId, toolPath, input,

@@ -1,5 +1,5 @@
 /* dock — 「tab帯＋中身」の1枚のカード（left/bottom/rightのpanel置き場）。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- dock: 「tab帯＋中身」の1枚のカード ---- */
   .dock {

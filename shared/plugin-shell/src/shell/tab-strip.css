@@ -1,5 +1,5 @@
 /* tab帯（カードのheader）とtab。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- tab帯はカードのheader ----
      dock・centerのleafは、それぞれ「tab帯（header）＋中身」

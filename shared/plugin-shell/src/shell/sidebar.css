@@ -1,5 +1,5 @@
 /* sidebar — project/areaツリー。frame色の面に直接置く。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
 
   /* ---- sidebar（frame色の面に直接置く） ---- */
   .sidebar {

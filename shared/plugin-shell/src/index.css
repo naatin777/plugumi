@@ -1,5 +1,5 @@
 /* 画面全体の土台。ページbodyはframe色。 */
-@scope (:root) to ([data-plugumi-plugin]) {
+@scope (:root) {
   :root {
     color-scheme: dark;
   }

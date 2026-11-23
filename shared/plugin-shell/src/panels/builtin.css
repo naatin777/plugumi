@@ -1,6 +1,6 @@
-/* builtin Panel（Shell組み込み）。Panel hostの内側に描くので、
-   shellの@scope境界（to [data-plugumi-plugin]）の外にある — ここは
-   素のselectorで書き、名前はbuiltin-で衝突を避ける。 */
+/* builtin Panel（Shell組み込み）。Plugin Panelと違ってShadow DOMを
+   使わず、host要素のlight DOMへ直接描くのでdocument側の規則が届く。
+   名前はbuiltin-で衝突を避ける。 */
 .builtin-theme {
   /* Panel hostに追従 — 固定の大きさは持たない。 */
   width: 100%; height: 100%;
