@@ -53,7 +53,7 @@ function CoreSwitcher(): JSX.Element {
         />
         <span class="core-name">{shell.core()?.name || shell.core()?.key || "Core"}</span>
       </button>
-      <div class="core-menu" id="core-menu" popover="auto" ref={setMenu}>
+      <div class="core-menu" id="core-menu" data-part="popover" popover="auto" ref={setMenu}>
         <For each={shell.cores()}>
           {(entry) => <CoreMenuItem key={entry.key} name={entry.name} status={statusOf(entry.status)} />}
         </For>
@@ -129,7 +129,7 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
       >
         <IconPlus />
       </ToolButton>
-      <div class="panel-picker" id="panel-picker" popover="auto" ref={shell.bindPicker}>
+      <div class="panel-picker" id="panel-picker" data-part="picker" popover="auto" ref={shell.bindPicker}>
         <Show when={shell.panels().length > 0} fallback={<p class="picker-empty">開けるPanelがありません</p>}>
           <For each={shell.panels()}>
             {(entry) => (

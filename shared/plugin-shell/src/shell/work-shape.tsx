@@ -61,7 +61,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
 
   return (
     <>
-      <header class="work-title">
+      <header class="work-title" data-part="titlebar">
         <div class="title-tools left">
           <div class="tools-inner" ref={leftInner}>{props.titleLeft}</div>
         </div>
@@ -75,9 +75,10 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         {/* Sub・Area listのdrawerが開いている間、台のすぐ下・作業域全体に
             敷く薄い暗幕（app bar・status barは暗くしない）。col-dividerは
             DOM順でこの下になるので線は一緒に暗くなる。pointerは通す。 */}
-        <div class="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
+        <div class="shell-scrim" data-part="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
         <aside
           class="frame-side"
+          data-part="area-list"
           data-drawer={props.sidebarDrawer ? "" : undefined}
           data-closed={props.sidebarClosed ? "" : undefined}
           // drawerの外click判定で「内側」扱いにする（drawerのときだけ —
@@ -86,7 +87,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         >
           {props.sidebar}
         </aside>
-        <div class="work-mat">
+        <div class="work-mat" data-part="main-slot">
           {props.children}
         </div>
       </div>

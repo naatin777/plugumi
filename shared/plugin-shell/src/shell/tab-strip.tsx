@@ -102,6 +102,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
           return (
             <div
               class={{ tab: true, selected: props.selected === ref.instanceId }}
+              data-part="tab"
               data-selected={props.selected === ref.instanceId || undefined}
               role="tab"
               aria-selected={props.selected === ref.instanceId ? "true" : "false"}
@@ -112,6 +113,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
               <span class="tab-title">{inst().title()}</span>
               <button
                 class="tab-close"
+                data-part="tab-close"
                 aria-label="閉じる"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {

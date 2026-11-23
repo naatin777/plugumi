@@ -38,6 +38,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
   return (
     <section
       class={{ leaf: true, focused: focused() }}
+      data-part="leaf"
       style={{
         // splitの内側の辺は直角にし、外縁の角だけを丸める
         "border-top-left-radius": props.edges.top && props.edges.left ? "var(--plugumi-radii-lg)" : "0",
@@ -50,7 +51,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
       {...surfaceAttrs(selectedInstance()?.activity(), "border")}
       {...busyAttr(selectedInstance()?.activity())}
     >
-      <header class="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
+      <header class="leaf-strip" data-part="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
         <TabStrip
           refs={props.leaf.panels}
           selected={props.leaf.selected}

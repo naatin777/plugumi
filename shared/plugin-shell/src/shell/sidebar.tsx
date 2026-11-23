@@ -39,7 +39,7 @@ export function SidebarView(): JSX.Element {
           });
         }}
       />
-      <nav class="sidebar">
+      <nav class="sidebar" data-part="sidebar">
         <ProjectSwitcher />
         <AreaSlot slot="main" label="Main" />
         <AreaSlot slot="sub" label="Sub" />
@@ -66,7 +66,7 @@ function ProjectSwitcher(): JSX.Element {
         <span class="project-switcher-name">{shell.project()}</span>
         <IconChevronRight size={12} />
       </button>
-      <div class="project-menu" popover="auto" ref={menu}>
+      <div class="project-menu" data-part="popover" popover="auto" ref={menu}>
         <For each={shell.projects()}>
           {(item) => (
             <button
@@ -188,6 +188,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
     <>
       <div
         class={{ "area-row": true, selected: selected() }}
+          data-part="area-list-row"
         style={{ "padding-left": `${props.area.depth * 12}px` }}
       >
         <a href={href()} onClick={open}>{name()}</a>
@@ -201,7 +202,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
         >
           …
         </button>
-        <div class="area-menu" popover="auto" ref={menu}>
+        <div class="area-menu" data-part="popover" popover="auto" ref={menu}>
           <button class="area-menu-item" onClick={move}>
             {props.slot === "main" ? "Subへ" : "Mainへ"}
           </button>

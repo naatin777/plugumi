@@ -105,6 +105,7 @@ export function ShellFrame(): JSX.Element {
     <main
       ref={observe}
       class={{ shell: true, "no-aurora": !prefs().aurora }}
+      data-part="shell"
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
       data-size={shell.shellSize()}
       data-side={sideWidth() > 0 ? "" : undefined}
@@ -120,8 +121,8 @@ export function ShellFrame(): JSX.Element {
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/
           data-subで切り替える。 */}
-      <div class="col-divider" data-divider="side" />
-      <div class="col-divider" data-divider="sub" />
+      <div class="col-divider" data-part="col-divider" data-divider="side" />
+      <div class="col-divider" data-part="col-divider" data-divider="sub" />
       <WorkShape
         titleLeft={<TitleToolsLeft />}
         titleMain={<TitleSegmentMain area={mainArea} />}
@@ -161,6 +162,7 @@ export function ShellFrame(): JSX.Element {
         </Show>
         <div
           class="sub-pane"
+          data-part="sub-slot"
           data-closed={!shell.subShown() || undefined}
           // drawerのSubの中へのclickは「外」にしない。
           data-drawer-keep={shell.subDrawerMode() ? "" : undefined}

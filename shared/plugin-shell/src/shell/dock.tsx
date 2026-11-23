@@ -42,6 +42,7 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
   return (
     <section
       class="dock"
+      data-part="dock"
       data-dock={props.kind}
       data-closed={props.closed || undefined}
       // drawerの外click判定用。開いているdrawer自身だけを「内側」にする
@@ -59,12 +60,13 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
           切替でPanel Instanceをunmountしない。 */}
       <div
         class="dock-inner"
+        data-part="dock-inner"
         // カードの枠は選択中のPanelのactivityを写す（drawer時も台ではなく
         // タイルに付くようinnerに置く）。
         {...surfaceAttrs(selectedActivity(), "border")}
         {...busyAttr(selectedActivity())}
       >
-        <div class="dock-strip" {...dividerAttr(selectedActivity())}>
+        <div class="dock-strip" data-part="dock-strip" {...dividerAttr(selectedActivity())}>
           <TabStrip
             refs={stack().panels}
             selected={stack().selected}

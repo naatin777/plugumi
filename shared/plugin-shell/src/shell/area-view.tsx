@@ -42,6 +42,7 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
     <AreaContext value={props.area}>
       <div
         class="area-view"
+        data-part="area-view"
         ref={observe}
         data-size={props.area.size()}
         data-display={display()}
@@ -51,7 +52,7 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
           {/* drawerの台のすぐ下・centerの上に敷く薄い暗幕。
               AreaView内だけを暗くする。pointerは通す（閉じるのは
               今の外click判定のまま）。 */}
-          <div class="dock-scrim" data-closed={props.area.drawer() === null ? "" : undefined} />
+          <div class="dock-scrim" data-part="dock-scrim" data-closed={props.area.drawer() === null ? "" : undefined} />
           <Dock kind="left" closed={dockClosed("left")} drawer={props.area.dockIsDrawer("left")} />
         </Show>
         <CenterView />

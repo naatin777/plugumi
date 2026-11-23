@@ -526,20 +526,13 @@ export function createAreaController(
       shell.panels();
       return allPanelRefs(layoutState).map((panelRef) => panelRef.instanceId);
     },
-    (alive) => {
+    () => {
       // update/disposeはInstanceのsignalを書く — owned scope(effect)内では
-      // 書けないのでmicrotaskへ逃がす。
-      const keys = new Set(alive);
-      queueMicrotask(() => {
-        const list = shell.panels();
-        for (const found of instances.values()) found.update(list);
-        for (const [id, found] of instances) {
-          if (!keys.has(id)) {
-            found.dispose();
-            instances.delete(id);
-          }
-        }
-      });
+      // 書けないのでmicrotaskへ逃がす。dispose対象はcompute時の一覧では
+      // なく実行時のlayoutStateから取る — panels一覧とworkspaceの非同期
+      // 解決順でcomputeが空を返した直後にInstanceが生えると、古い一覧で
+      // 生きたInstanceを捨ててしまう。
+      queueMicrotask(syncInstances);
     },
   );
 

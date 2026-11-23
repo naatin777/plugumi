@@ -15,7 +15,7 @@ const statusText = (status: string | undefined, error?: string): string => {
 export function StatusBar(): JSX.Element {
   const shell = useShell();
   return (
-    <footer class="status-bar">
+    <footer class="status-bar" data-part="statusbar">
       <span class="status-text">{statusText(shell.core()?.status, shell.core()?.error)}</span>
       <span class="status-indicator" aria-hidden="true" />
     </footer>

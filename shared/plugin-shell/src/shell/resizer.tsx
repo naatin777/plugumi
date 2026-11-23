@@ -39,6 +39,7 @@ export function Resizer(props: ResizerProps): JSX.Element {
   return (
     <div
       class="resizer"
+      data-part="resizer"
       data-axis={props.axis}
       data-drawer-keep={props.drawerKeep ? "" : undefined}
       onPointerDown={down}

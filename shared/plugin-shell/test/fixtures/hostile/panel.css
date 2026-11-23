@@ -1,0 +1,30 @@
+/* 敵対規則。@scopeの内側に置かれても外へ出るもの・selectorが広いものを混ぜる。 */
+* { color: rgb(255, 0, 0) !important; box-sizing: content-box; }
+body { background: rgb(255, 0, 0); }
+button { border: 3px solid rgb(255, 0, 0); }
+
+/* Shellと同名のkeyframes（定義はshell.css側で別名に見える場合がある。
+   差し替えが効くかどうかはスコープ処理次第）。 */
+@keyframes shell-aurora { from { transform: translateX(0); } to { transform: translateX(50%); } }
+@keyframes plugumi-activity-spin { from { transform: rotate(90deg); } to { transform: rotate(90deg); } }
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: local("Courier");
+}
+
+/* Shellのクラス名への規則。 */
+.dock { background: rgb(255, 0, 0); }
+.tab { color: rgb(255, 0, 0); }
+.area-view { background: rgb(255, 0, 0); }
+.leaf { border-color: rgb(255, 0, 0); }
+
+/* Tokenの上書きを試みる。 */
+:root { --plugumi-colors-text: rgb(255, 0, 0); }
+
+/* 自分自身への規則（当たるべきもの）。 */
+.hostile-inner { color: rgb(255, 0, 0); }
+.hostile-pop {
+  position: fixed; right: 8px; bottom: 8px; z-index: 99;
+  background: rgb(255, 0, 0); color: rgb(255, 255, 255); padding: 8px;
+}

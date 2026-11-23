@@ -1,0 +1,5 @@
+/* victim自身の最小規則。識別用に1つだけ。 */
+.victim-text { text-decoration: underline; }
+/* button/inputはUA stylesheetがfont-familyを決めるので継承を見られない。
+   自分の規則が上書きされず効くことを確かめるため、固有のfontを持たせる。 */
+.victim-button, .victim-input { font-family: ui-monospace, monospace; }

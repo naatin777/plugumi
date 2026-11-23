@@ -82,12 +82,12 @@ export interface ShellHost {
   getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown>;
   putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void>;
 
-  // Panel の entry/styles を取るURL。web は /ui/<key>/<rid>/<path>?v=<sha>、
-  // Electron は plugumi-ui://… を返す。
+  // Panel の entry/styles を取るURL。web は /ui/<key>/<rid>/<path>?v=<sha>
+  // を返す（ElectronはそのURLをwindowで開くだけのviewer）。
   uiURL(coreKey: string, registrationId: string, path: string, uiSha256: string): string;
 
-  // Areaを別windowに出す（detach）。Electronだけが実装し、Webはnull
-  // （「別windowで開く」の項目自体を出さない）。pathはrouteのpath+query。
+  // Areaを別windowに出す（detach）。Electronのpreloadが注入するbridge
+  // があれば有効。ブラウザではnull（項目自体を出さない）。pathはrouteのpath+query。
   windows: { open(path: string): void } | null;
 }
 
