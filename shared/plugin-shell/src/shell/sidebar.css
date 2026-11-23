@@ -1,0 +1,54 @@
+/* sidebar — project/areaツリー。frame色の面に直接置く。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* ---- sidebar（frame色の面に直接置く） ---- */
+  .sidebar {
+    display: flex; flex-direction: column;
+    height: 100%;
+    /* 上辺はwork面のカードの上端に揃える（matのpaddingと同じtoken）。 */
+    padding: var(--work-gap) var(--plugumi-spacing-sm)
+      var(--plugumi-spacing-sm);
+    gap: var(--plugumi-spacing-sm);
+    overflow-y: auto;
+  }
+  .project-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
+  .project-tab {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-secondary);
+    font-size: var(--plugumi-font-size-xs);
+  }
+  .project-tab a {
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    color: var(--plugumi-colors-text-muted); text-decoration: none;
+  }
+  .project-tab.selected { border-color: var(--plugumi-colors-border-strong); }
+  .project-tab.selected a { color: var(--plugumi-colors-text); }
+  .project-close {
+    display: inline-flex; padding: 2px; margin-right: 2px;
+    border: none; background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer; border-radius: var(--plugumi-radii-sm);
+  }
+  .project-close:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+  .project-add, .area-add, .area-add-child, .area-remove {
+    display: inline-flex; align-items: center; gap: 2px;
+    border: 1px dashed var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+  }
+  .area-list { list-style: none; margin: 0; padding-left: var(--plugumi-spacing-sm); }
+  .area-tree > .area-list { padding-left: 0; }
+  .area-row {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    padding: 2px var(--plugumi-spacing-xs);
+    border-radius: var(--plugumi-radii-md);
+  }
+  .area-row.selected { background: var(--plugumi-colors-background-tertiary); }
+  .area-row a { color: var(--plugumi-colors-text); text-decoration: none; flex: 1; }
+  .area-add-child, .area-remove { border: none; padding: 2px; visibility: hidden; }
+  .area-row:hover .area-add-child, .area-row:hover .area-remove { visibility: visible; }
+  .area-hint { color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-xs); }
+}

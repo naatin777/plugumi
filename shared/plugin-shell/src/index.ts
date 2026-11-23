@@ -13,7 +13,16 @@ import "@fontsource/m-plus-1-code/japanese-700.css";
 import "./styles/tokens.css";
 import "./index.css";
 import "./shell/shell.css";
-import "./shell/regions.css";
+import "./shell/controls.css";
+import "./shell/title-tools.css";
+import "./shell/tab-strip.css";
+import "./shell/panel-mount.css";
+import "./shell/resizer.css";
+import "./shell/dock.css";
+import "./shell/pinned.css";
+import "./shell/center.css";
+import "./shell/pages.css";
+import "./shell/sidebar.css";
 import "./shell/activity.css";
 import "./pages/lab.css";
 

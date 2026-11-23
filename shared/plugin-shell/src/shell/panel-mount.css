@@ -1,0 +1,39 @@
+/* Panelの中身の枠と状態表示。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* ---- Panelの中身。外枠（border+radius）はカードが持つので
+     ここでは持たない。領域の区切り線は引かない。 ---- */
+  .panel-frame {
+    position: relative;
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0;
+    /* Panelの面自体は透明。カードの縁とガラスはタイル側が持つ。 */
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .panel-state {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--plugumi-spacing-sm);
+    color: var(--plugumi-colors-text-muted);
+    background: var(--plugumi-colors-background-secondary);
+  }
+  .panel-state button {
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text); cursor: pointer; font: inherit;
+  }
+}
+
+/* .instance-hostは@scopeの終端（[data-plugumi-plugin]）そのものなので、
+   scope内のルールは届かない（終端要素はscopeに含まれない）。ここでは
+   Shellが作るhost要素自身だけをstyleし、中身のPluginのDOMには触れない。 */
+.instance-host {
+  flex: 1; min-height: 0; overflow: auto;
+  /* Panel内の横scrollはPanelのもの。外側（page切替やブラウザの
+     戻るスワイプ）へ伝えない（designs/00005「横スワイプの範囲」）。 */
+  overscroll-behavior-x: contain;
+}

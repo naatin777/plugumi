@@ -1,0 +1,50 @@
+/* tab帯（カードのheader）とtab。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* ---- tab帯はカードのheader ----
+     dock・centerのleaf・pinnedは、それぞれ「tab帯（header）＋中身」
+     の1枚のカード。stripは輪郭の内側の上端に置き、中身との間はhairline
+     （divider面）で区切る。tab自体は面を持たず、selectedはtoneで示す。 */
+  .dock-strip, .leaf-strip {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    height: var(--shell-strip-h); box-sizing: border-box;
+    padding: 0 var(--plugumi-spacing-xs);
+    border-bottom: 1px solid var(--plugumi-colors-border);
+    flex: none;
+  }
+  .tab-strip {
+    display: flex; align-items: stretch;
+    flex: 1; min-width: 0;
+    overflow-x: auto;
+    min-height: 0;
+    scrollbar-width: none;
+  }
+  .tab {
+    /* 多いときは最小幅まで縮み、それでも溢れたらstripがclipする
+       （選択tabはscriptで見える位置へ寄せる） */
+    flex: 0 1 auto; min-width: 0;
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    padding: 0 var(--plugumi-spacing-sm);
+    border: none;
+    border-radius: var(--plugumi-radii-sm);
+    background: transparent;
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .tab .tab-title {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tab .tab-close { flex: none; }
+  .tab:hover { background: var(--plugumi-colors-background-tertiary); }
+  .tab.selected {
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+  }
+  .tab-close {
+    display: inline-flex; padding: 1px;
+    border: none; border-radius: var(--plugumi-radii-sm);
+    background: transparent; color: inherit; cursor: pointer;
+  }
+  .tab-close:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
+}

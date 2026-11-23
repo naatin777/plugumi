@@ -1,0 +1,30 @@
+/* dock — 「tab帯＋中身」の1枚のカード（left/right/bottomのpanel置き場）。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* ---- dock: 「tab帯＋中身」の1枚のカード ---- */
+  .dock {
+    position: relative;
+    /* width/height:100%にborderが足されないようborder-box
+       （pinnedのinsetがborder分だけ欠けるのを防ぐ）。 */
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    min-width: 0; min-height: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    background: transparent;
+    backdrop-filter: blur(12px) saturate(1.2);
+    overflow: clip;
+    /* resizerの棒が溝の中心まで出られるようclip領域を広げる。 */
+    overflow-clip-margin: 8px;
+  }
+  .dock[data-dock="left"] { grid-area: left; }
+  .dock[data-dock="right"] { grid-area: right; }
+  .dock[data-dock="bottom"] { grid-area: bottom; flex-direction: column; }
+  .dock-body { flex: 1; min-height: 0; }
+  .dock-empty {
+    height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+  }
+}

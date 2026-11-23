@@ -1,0 +1,33 @@
+/* center — splitのgridと、そのleafカード。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+  /* ---- center ---- */
+  .center { grid-area: center; min-width: 0; min-height: 0; display: flex; }
+  .center > * { flex: 1; min-width: 0; min-height: 0; }
+  .split { display: grid; min-width: 0; min-height: 0; }
+
+  /* leafも「tab帯＋中身」の1枚のカード。scrollのleafも1枚で、
+     列はその中に並ぶ。 */
+  .leaf {
+    position: relative;
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    min-width: 0; min-height: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    background: transparent;
+    backdrop-filter: blur(12px) saturate(1.2);
+    overflow: clip;
+    overflow-clip-margin: 8px;
+  }
+  .leaf.focused .tab.selected {
+    box-shadow: inset 0 0 0 1px var(--plugumi-colors-border-highlight);
+  }
+  .leaf-body { flex: 1; min-height: 0; position: relative; }
+  .leaf-empty {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    border: none;
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer;
+  }
+}

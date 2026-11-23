@@ -12,7 +12,7 @@ import { useShell } from "./controller.tsx";
 import { PanelMount } from "./panel-mount.tsx";
 import { surfaceAttrs } from "./activity.ts";
 
-// slideの長さ。regions.cssの--pages-slideと揃える。
+// slideの長さ。pages.cssの--pages-slideと揃える。
 const SLIDE_MS = 160;
 
 // 選択中から±1へ。端で止める（回らない）。移動したかを返す。

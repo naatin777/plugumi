@@ -1,0 +1,99 @@
+/* pinned — widgetの縦積み掲示板（designs/00005「pinned」）。
+   dockと同じpagesの1枚カードではなく、小さいwidgetカードが全部
+   見える掲示板。溢れたら列内でscrollする。 */
+@scope (:root) to ([data-plugumi-plugin]) {
+
+/* ---- pinned: widgetの縦積み（designs/00005「pinned」） ----
+     dockと同じpagesの1枚カードではなく、小さいwidgetカードが全部
+     見える掲示板。溢れたら列内でscrollする。 */
+  .pinned-board {
+    display: flex; flex-direction: column;
+    gap: var(--work-gap);
+    height: 100%;
+    min-height: 0;
+    /* sidebarと同じ余白。区画はこの内側に並ぶ。 */
+    padding: 0 var(--plugumi-spacing-sm);
+    overflow-y: auto;
+  }
+  .pinned-add {
+    display: inline-flex; align-items: center; gap: 2px;
+    border: 1px dashed var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+  }
+  .pinned-empty {
+    margin: auto;
+    padding: var(--plugumi-spacing-md);
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+    text-align: center;
+  }
+
+  /* widgetはカードではなく列の1区画。畳んだ状態は背景同化の
+     1行（indicator）、開くとwidget-bodyの帯が出る。 */
+  .widget {
+    position: relative;
+    flex: none;
+    min-width: 0;
+  }
+  .widget-head {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    height: 26px; box-sizing: border-box;
+    padding: 0 var(--plugumi-spacing-xs);
+    border-radius: var(--plugumi-radii-md);
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+    cursor: pointer; user-select: none;
+  }
+  .widget-head:hover { background: var(--plugumi-colors-background-tertiary); }
+  .widget-fold { display: inline-flex; flex: none; }
+  .widget-title {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* 開いた区画は列の端から端までの帯。タイルではなく列の一部として
+     読めるよう角丸も溝もborderも持たない（pinnedカードのborderと
+     二重線になるため）。 */
+  .widget-body {
+    flex: none; min-height: 0;
+    background: transparent;
+    backdrop-filter: blur(12px) saturate(1.2);
+  }
+  /* 開いたwidgetの操作群。headerを持たないので、hoverした時だけ
+     中身の右上に浮かせる。畳んだ行には出さない。 */
+  .widget-ops {
+    position: absolute; top: var(--plugumi-spacing-xs); right: var(--plugumi-spacing-xs);
+    display: flex; gap: 2px;
+    padding: 2px;
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-widget);
+    box-shadow: inset 0 0 0 1px var(--plugumi-colors-border);
+    opacity: 0;
+    z-index: 3;
+  }
+  .widget:hover .widget-ops, .widget-ops:focus-within { opacity: 1; }
+  .widget-op {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px;
+    padding: 0;
+    border: 0; border-radius: var(--plugumi-radii-sm);
+    background: none;
+    color: var(--plugumi-colors-text-muted);
+    cursor: pointer;
+  }
+  .widget-op:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+  .widget-op[aria-label="移動"] { cursor: grab; }
+  /* widgetの中身のmount枠。panel-frameと違い自分で面を敷かない
+     （面はwidget-bodyのもの）。状態表示の絶対配置の基準と、
+     hostを伸ばすための縦flexだけを担う。 */
+  .widget-mount {
+    position: relative;
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0;
+    overflow: hidden;
+  }
+  /* 状態表示の全面面もwidgetの面に合わせる。 */
+  .widget-mount .panel-state { background: var(--plugumi-colors-background-widget); }
+}

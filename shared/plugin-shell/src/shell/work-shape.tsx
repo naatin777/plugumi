@@ -1,5 +1,6 @@
-// work面の形（designs/00005「work面の形」）。浮いたtitle帯のbarと、
-// body側のmatタイル、その内側の床（溝の奥の面）からなる。
+// work面の形（designs/00005「work面の形」）。浮いたtitle帯のbarと
+// body側のmatタイルからなる。溝の奥には床要素は敷かず、shellの背景が
+// そのまま見える。
 // 使う変数（親要素のinline styleやCSSで供給）:
 //   --side-width / --pinned-width … 開いていなければ0
 //   --title-tools-left / --title-tools-right … tool群の実測footprint
@@ -31,20 +32,20 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
       if (!(shell instanceof HTMLElement)) return;
       const pill = leftInner.parentElement;
       if (!pill) return;
-    const cs = getComputedStyle(pill);
-    const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-    const gap = parseFloat(getComputedStyle(shell).getPropertyValue("--work-gap")) || 0;
-    const write = (inner: HTMLDivElement | undefined, name: string) => {
-      const w = inner?.offsetWidth ?? 0;
-      shell.style.setProperty(name, w === 0 ? "0px" : `${w + padX + gap}px`);
-    };
-    const ro = new ResizeObserver(() => {
-      write(leftInner, "--title-tools-left");
-      write(rightInner, "--title-tools-right");
-    });
-    ro.observe(leftInner);
-    ro.observe(rightInner);
-    onCleanup(() => ro.disconnect());
+      const cs = getComputedStyle(pill);
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const gap = parseFloat(getComputedStyle(shell).getPropertyValue("--work-gap")) || 0;
+      const write = (inner: HTMLDivElement | undefined, name: string) => {
+        const w = inner?.offsetWidth ?? 0;
+        shell.style.setProperty(name, w === 0 ? "0px" : `${w + padX + gap}px`);
+      };
+      const ro = new ResizeObserver(() => {
+        write(leftInner, "--title-tools-left");
+        write(rightInner, "--title-tools-right");
+      });
+      ro.observe(leftInner);
+      ro.observe(rightInner);
+      onCleanup(() => ro.disconnect());
     },
   );
 
