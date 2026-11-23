@@ -30,7 +30,10 @@ export function SidebarView(): JSX.Element {
         direction={1}
         value={() => shell.prefs().sidebarWidth}
         apply={(size) => {
-          const clamped = Math.min(640, Math.max(120, size));
+          // drawerでも同じsidebarWidthを共有する。上限はdrawerの上限
+          // （画面幅の85%）でclampし、越えた値は保存しない。
+          const max = shell.sideDrawerMode() ? 0.85 * innerWidth : 640;
+          const clamped = Math.min(max, Math.max(120, size));
           shell.updatePrefs((prefs) => {
             prefs.sidebarWidth = clamped;
           });

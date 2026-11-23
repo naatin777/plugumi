@@ -138,13 +138,19 @@ export function ShellFrame(): JSX.Element {
         <Show when={shell.mainRef()} fallback={<AreaEmpty />}>
           <AreaView area={mainArea} slot="main" />
         </Show>
-        <Show when={subInline()}>
+        <Show when={subInline() || shell.subDrawerMode()}>
           <Resizer
             axis="x"
             direction={-1}
+            drawerKeep={shell.subDrawerMode()}
             value={() => prefs().subWidth}
             apply={(size) => {
-              const clamped = Math.min(960, Math.max(240, size));
+              // drawerでも同じsubWidthを共有する。上限はdrawerの上限
+              // （work-mat幅の90%）でclampし、越えた値は保存しない。
+              const max = shell.subDrawerMode()
+                ? 0.9 * (document.querySelector(".work-mat")?.clientWidth ?? innerWidth)
+                : 960;
+              const clamped = Math.min(max, Math.max(240, size));
               shell.updatePrefs((prefs) => { prefs.subWidth = clamped; });
             }}
           />

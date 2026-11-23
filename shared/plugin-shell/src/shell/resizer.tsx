@@ -4,6 +4,8 @@ import type { JSX } from "@solidjs/web";
 
 export interface ResizerProps {
   axis: "x" | "y";
+  // drawerの外click判定で「内側」扱いにする（drawer上に乗るresizer用）。
+  drawerKeep?: boolean;
   // ポインタを進めた向きに値が増えるなら1、逆向きなら-1。
   direction: 1 | -1;
   value: () => number;
@@ -35,6 +37,12 @@ export function Resizer(props: ResizerProps): JSX.Element {
     event.preventDefault();
   };
   return (
-    <div class="resizer" data-axis={props.axis} onPointerDown={down} aria-hidden="true" />
+    <div
+      class="resizer"
+      data-axis={props.axis}
+      data-drawer-keep={props.drawerKeep ? "" : undefined}
+      onPointerDown={down}
+      aria-hidden="true"
+    />
   );
 }

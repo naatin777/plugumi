@@ -232,6 +232,10 @@
   /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
      アニメがポインタに遅れて追従してしまう。 */
   main.shell:has(.resizer[data-dragging]) { transition: none; }
+  .frame-side:has(> .resizer[data-dragging]),
+  .work-mat:has(> .resizer[data-dragging]) > .sub-pane {
+    transition: none;
+  }
 
   .work-mat {
     min-width: 0; min-height: 0;
@@ -302,8 +306,12 @@
     right: 0; top: 0; bottom: 0;
     width: min(var(--sub-raw-width, 480px), 90%);
     z-index: 7;
-    box-shadow: -8px 0 28px rgb(0 0 0 / 0.4);
-    background: var(--plugumi-colors-background-primary);
+    box-sizing: border-box;
+    /* dockのdrawerと同じ「台」— 端にぴったりの四角い不透明の面で、
+       center側の辺にだけ1px線。影・角丸・blurは付けない。 */
+    box-shadow: none;
+    background: var(--shell-frame-color);
+    border-left: 1px solid var(--plugumi-colors-border);
   }
   main.shell:is([data-size="medium"], [data-size="compact"])
       .sub-pane[data-closed] {
@@ -313,9 +321,19 @@
     transition: transform var(--work-anim) ease,
       visibility 0s var(--work-anim);
   }
-  /* drawerのSub列のresizerは出さない。 */
+  /* drawerのSub列のresizerは台の左辺（境界線）をまたぐ位置に置く。
+     Sub drawerの中身に当たらない側（work-mat直下）にあるため、
+     Subが閉じている間は出さない。 */
   main.shell:is([data-size="medium"], [data-size="compact"])
       .work-mat > .resizer[data-axis="x"] {
+    position: absolute;
+    top: 0; bottom: 0;
+    right: calc(min(var(--sub-raw-width, 480px), 90%) - var(--resizer-size) / 2);
+    margin: 0;
+    z-index: 8;
+  }
+  main.shell:is([data-size="medium"], [data-size="compact"])
+      .work-mat:has(> .sub-pane[data-closed]) > .resizer[data-axis="x"] {
     display: none;
   }
 
@@ -325,9 +343,13 @@
   main.shell[data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
   main.shell[data-size="compact"] .frame-side {
     position: absolute;
-    box-shadow: 8px 0 28px rgb(0 0 0 / 0.4);
-    background: var(--plugumi-colors-background-primary);
-    left: var(--work-gap);
+    /* dockのdrawerと同じ「台」— 画面左端にぴったりの四角い不透明の面。
+       上下はapp bar下の線〜status帯上の線、右辺にだけ1px線。 */
+    box-shadow: none;
+    background: var(--shell-frame-color);
+    border-right: 1px solid var(--plugumi-colors-border);
+    box-sizing: border-box;
+    left: 0;
     top: calc(var(--titlebar-h) + var(--work-gap));
     bottom: 40px;
     width: min(var(--sidebar-raw-width, 260px), 85%);
@@ -335,6 +357,10 @@
     visibility: visible;
     transition: transform var(--work-anim) ease, visibility 0s;
   }
+  /* drawerが開いている間は台の右辺のresizerを出す
+     （inlineの列線resizerと同じ見た目・同じ値）。 */
+  main.shell[data-size="compact"] .frame-side:not([data-closed])
+      > .resizer { display: block; }
   main.shell[data-size="compact"] .frame-side[data-closed] {
     transform: translateX(calc(-100% - 16px));
     visibility: hidden;
