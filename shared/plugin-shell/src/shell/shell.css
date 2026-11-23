@@ -187,7 +187,9 @@
     background: var(--plugumi-colors-border);
     pointer-events: none;
     display: none;
-    z-index: 3;
+    /* AreaView内のdock drawer（台, z 6）は境界線に接して開くので、
+       線は台より上に描く。 */
+    z-index: 7;
   }
   main.shell[data-side] .col-divider[data-divider="side"] {
     display: block;
