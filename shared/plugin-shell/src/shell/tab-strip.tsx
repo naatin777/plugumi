@@ -80,7 +80,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   const press = (ref: PanelRef, instance: PanelInstance, event: PointerEvent) => {
     if (event.button !== 0) return;
     shell.drag.start(
-      { instanceId: ref.instanceId, title: instance.title() },
+      { instanceId: ref.instanceId, title: instance.title(), kind: "panel" },
       event,
       { onClick: () => (props.onSelect ?? ops.select)(ref.instanceId) },
     );

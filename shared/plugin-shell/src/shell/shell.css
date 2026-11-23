@@ -99,11 +99,8 @@
     overflow: hidden;
     background: var(--shell-frame-color);
   }
-  /* pinnedカードの溝: 左はbodyの列間gap、上下はbodyのpaddingが
-     担うので、ここでは窓の右端ぶんだけ取る。 */
-  .frame-pinned {
-    padding: 0 var(--work-gap) 0 0;
-  }
+  /* pinnedはframe側の領域なので窓の右端に張り付ける（paddingなし）。
+     上下と左の溝はbodyのpaddingと列間gapが担う。 */
 
   .work-mat {
     min-width: 0; min-height: 0;

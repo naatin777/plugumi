@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import {
   addPanel, allLeaves, closePanel, decodePinned,
   decodeWorkspace, emptyLayout, emptyWorkspace, findLeaf, locationOf,
-  movePanel, selectPanel, setRatio,
+  movePanel, patchWidget, selectPanel, setRatio,
   splitAt, type LayoutState, type PanelRef,
 } from "./model.ts";
 
@@ -67,15 +67,20 @@ describe("decode", () => {
   test("Pinnedのdecodeも同じ方針（形が合わなければ空）", () => {
     const good = decodePinned({
       version: 1,
-      panels: [ref("a")],
-      selected: "a",
+      widgets: [{ panel: ref("a"), collapsed: true, height: 240 }],
     });
-    assert.equal(good.panels.length, 1);
-    assert.equal(good.selected, "a");
-    for (const raw of [null, {}, { version: 2 }, { version: 1, panels: [{ panelId: "x" }] }]) {
+    assert.equal(good.widgets.length, 1);
+    assert.equal(good.widgets[0].panel.instanceId, "a");
+    assert.equal(good.widgets[0].collapsed, true);
+    assert.equal(good.widgets[0].height, 240);
+    for (const raw of [
+      null, {}, { version: 2 },
+      { version: 1, widgets: [{ panelId: "x" }] },
+      { version: 1, widgets: [{ panel: ref("a"), collapsed: "yes", height: null }] },
+      { version: 1, widgets: [{ panel: ref("a"), collapsed: false, height: null, extra: 1 }] },
+    ]) {
       const state = decodePinned(raw);
-      assert.equal(state.panels.length, 0);
-      assert.equal(state.selected, null);
+      assert.equal(state.widgets.length, 0, JSON.stringify(raw));
     }
   });
 });
@@ -145,40 +150,46 @@ describe("move", () => {
     assert.equal(findLeaf(state.workspace.center.root, "leaf-root")!.panels.length, 1);
   });
 
-  test("leaf→pinnedの移動", () => {
+  // panelとwidgetは別物。pinned⇔workspaceをまたぐ移動は変換になるので
+  // 操作ごと捨てる（UI側もdrop testerがkindで弾いている）。
+  test("leaf→pinnedは変換なので移動しない", () => {
     let state = setup();
     state = movePanel(state, "a", { region: "pinned", index: -1 });
-    assert.equal(state.pinned.panels.length, 1);
-    assert.equal(state.pinned.panels[0].instanceId, "a");
-    assert.equal(state.pinned.selected, "a");
-    assert.equal(locationOf(state, "a")?.region, "pinned");
-  });
-
-  test("pinned→focused leafへの移動", () => {
-    let state = setup();
-    state = movePanel(state, "a", { region: "pinned", index: -1 });
-    state = movePanel(state, "a",
-      { region: "leaf", leafId: state.workspace.center.focusedLeaf, index: -1 });
-    assert.equal(state.pinned.panels.length, 0);
+    assert.equal(state.pinned.widgets.length, 0);
     assert.equal(locationOf(state, "a")?.region, "leaf");
   });
 
-  test("pinned→dockの移動", () => {
-    let state = setup();
-    state = movePanel(state, "a", { region: "pinned", index: -1 });
-    state = movePanel(state, "a", { region: "dock", dock: "left", index: -1 });
-    assert.equal(state.pinned.panels.length, 0);
-    assert.equal(state.workspace.left.panels.length, 1);
-    assert.equal(locationOf(state, "a")?.region, "dock");
+  test("pinned→leafは変換なので移動しない", () => {
+    let state = emptyLayout();
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    state = movePanel(state, "a",
+      { region: "leaf", leafId: state.workspace.center.focusedLeaf, index: -1 });
+    assert.equal(state.pinned.widgets.length, 1);
+    assert.equal(locationOf(state, "a")?.region, "pinned");
   });
 
-  test("dock→pinnedの移動", () => {
+  test("pinned→dockは変換なので移動しない", () => {
+    let state = emptyLayout();
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    state = movePanel(state, "a", { region: "dock", dock: "left", index: -1 });
+    assert.equal(state.pinned.widgets.length, 1);
+    assert.equal(state.workspace.left.panels.length, 0);
+  });
+
+  test("dock→pinnedは変換なので移動しない", () => {
     let state = setup();
     state = movePanel(state, "a", { region: "dock", dock: "left", index: -1 });
     state = movePanel(state, "a", { region: "pinned", index: 0 });
-    assert.equal(state.workspace.left.panels.length, 0);
-    assert.equal(state.pinned.panels.length, 1);
-    assert.equal(state.pinned.selected, "a");
+    assert.equal(state.workspace.left.panels.length, 1);
+    assert.equal(state.pinned.widgets.length, 0);
+  });
+
+  test("同じinstanceIdのaddでも種別は跨げない", () => {
+    let state = setup();
+    // leafにある"a"をpinnedへaddしても変換にならない。
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    assert.equal(locationOf(state, "a")?.region, "leaf");
+    assert.equal(state.pinned.widgets.length, 0);
   });
 
   test("split targetはleafのedge側に新しいleafを作る", () => {
@@ -244,15 +255,42 @@ describe("split", () => {
 });
 
 describe("pinned", () => {
-  test("pinned内の選択と削除はStackと同じ挙動", () => {
+  test("pinnedは順序つきのwidget列で、選択の概念はない", () => {
     let state = emptyLayout();
     state = withPanel(state, "a", { region: "pinned", index: -1 });
     state = withPanel(state, "b", { region: "pinned", index: -1 });
-    assert.equal(state.pinned.selected, "b");
-    state = selectPanel(state, "a");
-    assert.equal(state.pinned.selected, "a");
+    assert.deepEqual(
+      state.pinned.widgets.map((widget) => widget.panel.instanceId),
+      ["a", "b"],
+    );
     state = closePanel(state, "a");
-    assert.equal(state.pinned.selected, "b");
+    assert.deepEqual(
+      state.pinned.widgets.map((widget) => widget.panel.instanceId),
+      ["b"],
+    );
+  });
+
+  test("widgetの畳みと高さはpatchWidgetで書き換える", () => {
+    let state = emptyLayout();
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    state = patchWidget(state, "a", { collapsed: true, height: 320 });
+    assert.equal(state.pinned.widgets[0].collapsed, true);
+    assert.equal(state.pinned.widgets[0].height, 320);
+  });
+
+  test("pinned内の並べ替えでも畳み・高さが保持される", () => {
+    let state = emptyLayout();
+    state = withPanel(state, "a", { region: "pinned", index: -1 });
+    state = withPanel(state, "b", { region: "pinned", index: -1 });
+    state = patchWidget(state, "a", { collapsed: true, height: 320 });
+    // aを末尾へ移動（pinned→pinned）。
+    state = movePanel(state, "a", { region: "pinned", index: -1 });
+    assert.deepEqual(
+      state.pinned.widgets.map((widget) => widget.panel.instanceId),
+      ["b", "a"],
+    );
+    assert.equal(state.pinned.widgets[1].collapsed, true);
+    assert.equal(state.pinned.widgets[1].height, 320);
   });
 });
 

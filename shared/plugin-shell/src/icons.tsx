@@ -73,6 +73,16 @@ export const IconChevronDown = icon(() =>
   <polyline points="3.5,6 8,10.5 12.5,6" />
 );
 
+// dragの掴み場。6つの点。
+export const IconGrip = icon(() => <>
+  <circle cx="5.5" cy="3.5" r="0.8" fill="currentColor" stroke="none" />
+  <circle cx="10.5" cy="3.5" r="0.8" fill="currentColor" stroke="none" />
+  <circle cx="5.5" cy="8" r="0.8" fill="currentColor" stroke="none" />
+  <circle cx="10.5" cy="8" r="0.8" fill="currentColor" stroke="none" />
+  <circle cx="5.5" cy="12.5" r="0.8" fill="currentColor" stroke="none" />
+  <circle cx="10.5" cy="12.5" r="0.8" fill="currentColor" stroke="none" />
+</>);
+
 // zen: 枠が引っ込んで中央だけ残るイメージ。
 export const IconZen = icon(() => <>
   <polyline points="6,2.5 2.5,2.5 2.5,6" />

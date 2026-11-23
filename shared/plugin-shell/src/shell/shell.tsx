@@ -10,6 +10,7 @@ import { StatusBar } from "./status-bar.tsx";
 import { TitleToolsLeft, TitleToolsCenter, TitleToolsRight } from "./title-tools.tsx";
 import { SidebarView } from "./sidebar.tsx";
 import { Dock } from "./dock.tsx";
+import { PinnedBoard } from "./pinned.tsx";
 import { CenterView } from "./center.tsx";
 
 export function ShellFrame(): JSX.Element {
@@ -74,7 +75,7 @@ export function ShellFrame(): JSX.Element {
         titleCenter={<TitleToolsCenter />}
         titleRight={<TitleToolsRight />}
         sidebar={<Show when={prefs().sidebarOpen && !zen()}><SidebarView /></Show>}
-        pinned={<Show when={prefs().pinnedOpen && !zen()}><Dock kind="pinned" /></Show>}
+        pinned={<Show when={prefs().pinnedOpen && !zen()}><PinnedBoard /></Show>}
       >
         <Show when={prefs().dockOpen.left}><Dock kind="left" /></Show>
         <CenterView />

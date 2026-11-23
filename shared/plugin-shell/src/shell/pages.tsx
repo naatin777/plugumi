@@ -9,7 +9,7 @@ import { For, createEffect, createSignal, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelRef } from "../layout/model.ts";
 import { useShell } from "./controller.tsx";
-import { PanelMount } from "./dock.tsx";
+import { PanelMount } from "./panel-mount.tsx";
 import { surfaceAttrs } from "./activity.ts";
 
 // slideの長さ。regions.cssの--pages-slideと揃える。

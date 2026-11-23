@@ -51,22 +51,30 @@
     --activity-color: var(--plugumi-colors-error);
   }
 
-  /* header: tabのtint */
+  /* header: tab・widgetのheaderのtint */
   .tab[data-activity-header],
+  .widget-head[data-activity-header],
   [data-activity-header].activity-header {
     background: linear-gradient(var(--activity-color), var(--activity-color))
       0 0 / 100% 2px no-repeat;
   }
 
-  /* border: Panel外周 */
-  [data-activity-border] { border-color: var(--activity-color) !important; }
-  [data-activity-border~="flow"] {
+  /* border: Panel外周。カードはborderを持たないので、::afterのリングで
+     描く（要素そのもののborderを使うとレイアウトがずれる）。 */
+  [data-activity-border] { position: relative; }
+  [data-activity-border]::after {
+    content: ""; position: absolute; inset: 0; z-index: 3;
+    border: 1px solid var(--activity-color);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  [data-activity-border~="flow"]::after {
     animation: plugumi-activity-flow 1.2s linear infinite;
     border-image: repeating-linear-gradient(90deg,
       var(--activity-color) 0 8px, transparent 8px 16px) 1;
   }
-  [data-activity-border~="glow"] { animation: plugumi-activity-glow 1.6s ease-in-out infinite; }
-  [data-activity-border~="neutral"] {
+  [data-activity-border~="glow"]::after { animation: plugumi-activity-glow 1.6s ease-in-out infinite; }
+  [data-activity-border~="neutral"]::after {
     border-image: var(--activity-color) 1;
     animation: plugumi-activity-spin 2s linear infinite;
   }

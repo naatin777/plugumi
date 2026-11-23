@@ -106,7 +106,7 @@ export function TitleToolsCenter(): JSX.Element {
                 class="picker-item"
                 onClick={(event) => {
                   closePopover(event);
-                  shell.openPanel(entry.pluginId, entry.panelId, shell.pickerLeaf() ?? undefined);
+                  shell.openPanel(entry.pluginId, entry.panelId, shell.pickerTarget() ?? undefined);
                 }}
               >
                 {entry.title}

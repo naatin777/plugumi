@@ -39,6 +39,7 @@
   --plugumi-letter-spacing-wide: 0.02em;
 
   --plugumi-colors-background-primary: #121212;
+  --plugumi-colors-background-widget: #181818;
   --plugumi-colors-background-secondary: #1E1E1E;
   --plugumi-colors-background-tertiary: #2D2D2D;
   --plugumi-colors-text: #e6e6e6;
@@ -79,6 +80,7 @@
 
 [data-plugumi-theme="light"] {
   --plugumi-colors-background-primary: #FFFFFF;
+  --plugumi-colors-background-widget: #F8F8F8;
   --plugumi-colors-background-secondary: #F1F1F1;
   --plugumi-colors-background-tertiary: #E5E5E5;
   --plugumi-colors-text: #1a1a1a;
@@ -119,6 +121,7 @@
 
 [data-plugumi-theme="dark"] {
   --plugumi-colors-background-primary: #121212;
+  --plugumi-colors-background-widget: #181818;
   --plugumi-colors-background-secondary: #1E1E1E;
   --plugumi-colors-background-tertiary: #2D2D2D;
   --plugumi-colors-text: #e6e6e6;

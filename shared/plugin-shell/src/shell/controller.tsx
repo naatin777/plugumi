@@ -57,11 +57,12 @@ export interface ShellController {
   applyLayout(mutate: (state: LayoutState) => LayoutState): void;
 
   instance(ref: PanelRef): PanelInstance;
-  openPanel(pluginId: string, panelId: string, leafId?: string): void;
+  openPanel(pluginId: string, panelId: string, target?: MoveTarget): void;
 
-  // 「+」のpanel picker。空leafの「+」も同じpickerを開き、足し先を指定する。
-  pickerLeaf(): string | null;
-  openPicker(leafId?: string): void;
+  // 「+」のpanel picker。空leafの「+」やpinnedの追加も同じpickerを開き、
+  // 足し先をMoveTargetで指定する（未指定はfocusedLeaf）。
+  pickerTarget(): MoveTarget | null;
+  openPicker(target?: MoveTarget): void;
   bindPicker(element: HTMLElement): void;
 
   drag: DragController;
@@ -229,24 +230,21 @@ export function createShellController(
     }
   };
 
-  const openPanel = (pluginId: string, panelId: string, leafId?: string) => {
+  const openPanel = (pluginId: string, panelId: string, target?: MoveTarget) => {
     const declaration = panels().find(
       (entry) => entry.pluginId === pluginId && entry.panelId === panelId,
     );
     if (!declaration) return;
     const ref: PanelRef = { instanceId: newInstanceId(), pluginId, panelId };
     instance(ref); // mountを始めてからlayoutに入れる
-    const target: MoveTarget | undefined = leafId
-      ? { region: "leaf", leafId, index: -1 }
-      : undefined;
     applyLayout((state) => addPanel(state, ref, target));
   };
 
-  // ---- panel picker（「+」はtitleと空leafの両方から開く） ----
+  // ---- panel picker（「+」はtitle・空leaf・pinnedの追加のどれからでも開く） ----
   const [picker, setPicker] = createSignal<HTMLElement>();
-  const [pickerLeaf, setPickerLeaf] = createSignal<string | null>(null);
-  const openPicker = (leafId?: string) => {
-    setPickerLeaf(leafId ?? null);
+  const [pickerTarget, setPickerTarget] = createSignal<MoveTarget | null>(null);
+  const openPicker = (target?: MoveTarget) => {
+    setPickerTarget(target ?? null);
     picker()?.showPopover();
   };
 
@@ -298,7 +296,7 @@ export function createShellController(
     prefs, updatePrefs,
     layout, applyLayout,
     instance, openPanel,
-    pickerLeaf, openPicker, bindPicker: setPicker,
+    pickerTarget, openPicker, bindPicker: setPicker,
     drag, ghost, dropElement,
     createProject, removeProject, createArea, removeArea,
   };

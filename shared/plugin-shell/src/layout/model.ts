@@ -47,8 +47,20 @@ export type WorkspaceState = {
   center: { root: Node; focusedLeaf: string };
 };
 
-// pinned: Projectに1つ。left・right・bottomと同じtab切替の1列。
-export type PinnedState = { version: 1 } & Stack;
+// pinned: Projectに1つ。Areaをまたいで常時見えるwidgetの縦積み。
+// widgetはheaderを持たず中身だけ。collapsedは1行のindicator状態。
+// heightは中身の高さ(px)で、nullは既定値。選択の概念はない。
+// panel↔widgetの変換はない（isCrossingが跨ぎ移動を捨てる）。
+export type PinnedWidget = {
+  panel: PanelRef;
+  collapsed: boolean;
+  height: number | null;
+};
+
+export type PinnedState = {
+  version: 1;
+  widgets: PinnedWidget[];
+};
 
 // Workspace+Pinnedを1つの状態として扱う（領域をまたぐ移動を1操作にする）。
 export type LayoutState = {
@@ -102,7 +114,13 @@ export const emptyWorkspace = (): WorkspaceState => ({
   center: { root: rootLeaf(), focusedLeaf: "leaf-root" },
 });
 
-export const emptyPinned = (): PinnedState => ({ version: 1, ...emptyStack() });
+export const emptyPinned = (): PinnedState => ({ version: 1, widgets: [] });
+
+const newWidget = (panel: PanelRef): PinnedWidget => ({
+  panel,
+  collapsed: false,
+  height: null,
+});
 
 export const emptyLayout = (): LayoutState => ({
   workspace: emptyWorkspace(),
@@ -137,7 +155,7 @@ export function locationOf(state: LayoutState, instanceId: string): PanelLocatio
   }
   const leaf = leafOf(workspace.center.root, instanceId);
   if (leaf) return { region: "leaf", leafId: leaf.id };
-  if (pinned.panels.some((panel) => panel.instanceId === instanceId)) {
+  if (pinned.widgets.some((widget) => widget.panel.instanceId === instanceId)) {
     return { region: "pinned" };
   }
   return null;
@@ -151,7 +169,7 @@ export function panelRefOf(state: LayoutState, instanceId: string): PanelRef | u
   }
   const leaf = leafOf(workspace.center.root, instanceId);
   if (leaf) return leaf.panels.find((panel) => panel.instanceId === instanceId);
-  return pinned.panels.find((panel) => panel.instanceId === instanceId);
+  return pinned.widgets.find((widget) => widget.panel.instanceId === instanceId)?.panel;
 }
 
 // ---- decode ----
@@ -226,11 +244,36 @@ export function decodeWorkspace(raw: unknown): WorkspaceState {
   return { version: 1, left, right, bottom, center: { root, focusedLeaf } };
 }
 
+// widgetの形は {panel,collapsed,height} に限る。余分なキーを持つ入力は
+// leafと同じ方針で拒否する（修復しない）。
+const widgetKeys = ["panel", "collapsed", "height"];
+
+function decodeWidget(value: unknown): PinnedWidget | null {
+  if (!isObject(value)) return null;
+  const keys = Object.keys(value);
+  if (keys.length !== widgetKeys.length || !widgetKeys.every((key) => key in value)) {
+    return null;
+  }
+  const panel = decodePanelRef(value.panel);
+  if (!panel || typeof value.collapsed !== "boolean") return null;
+  const height = value.height;
+  if (height !== null && (typeof height !== "number" || !Number.isFinite(height))) {
+    return null;
+  }
+  return { panel, collapsed: value.collapsed, height: height as number | null };
+}
+
 export function decodePinned(raw: unknown): PinnedState {
-  if (!isObject(raw) || raw.version !== 1) return emptyPinned();
-  const stack = decodeStack({ panels: raw.panels, selected: raw.selected });
-  if (!stack) return emptyPinned();
-  return { version: 1, ...stack };
+  if (!isObject(raw) || raw.version !== 1 || !Array.isArray(raw.widgets)) {
+    return emptyPinned();
+  }
+  const widgets: PinnedWidget[] = [];
+  for (const item of raw.widgets) {
+    const widget = decodeWidget(item);
+    if (!widget) return emptyPinned();
+    widgets.push(widget);
+  }
+  return { version: 1, widgets };
 }
 
 // ---- 操作 ----
@@ -278,15 +321,27 @@ function fixSelected(container: Stack | Leaf): void {
 }
 
 // Panelを取り出す。取り出したあとの片付け（split畳み・selected補正）込み。
-function take(state: LayoutState, instanceId: string): PanelRef | undefined {
+// pinnedから取り出したときはwidgetも返す（pinned内の移動で畳み・高さを
+// 保持するため）。
+function take(
+  state: LayoutState,
+  instanceId: string,
+): { ref: PanelRef; widget?: PinnedWidget } | undefined {
   const { workspace, pinned } = state;
-  for (const stack of [...dockKinds.map((dock) => workspace[dock]), pinned]) {
+  for (const stack of dockKinds.map((dock) => workspace[dock])) {
     const index = stack.panels.findIndex((panel) => panel.instanceId === instanceId);
     if (index >= 0) {
       const [ref] = stack.panels.splice(index, 1);
       fixSelected(stack);
-      return ref;
+      return { ref };
     }
+  }
+  const widgetIndex = pinned.widgets.findIndex(
+    (widget) => widget.panel.instanceId === instanceId,
+  );
+  if (widgetIndex >= 0) {
+    const [widget] = pinned.widgets.splice(widgetIndex, 1);
+    return { ref: widget.panel, widget };
   }
   const leaf = leafOf(workspace.center.root, instanceId);
   if (leaf) {
@@ -294,27 +349,40 @@ function take(state: LayoutState, instanceId: string): PanelRef | undefined {
     const [ref] = leaf.panels.splice(index, 1);
     fixSelected(leaf);
     workspace.center.root = collapseLeaf(workspace.center.root, leaf.id, workspace);
-    return ref;
+    return { ref };
   }
   return undefined;
 }
 
+// panelとwidgetは相互変換しない。既存Instanceがpinned⇔workspaceを
+// またぐtargetは変換を意味するので、操作自体を捨てる。
+const isCrossing = (taken: { widget?: PinnedWidget }, target: MoveTarget): boolean =>
+  (target.region === "pinned") !== (taken.widget !== undefined);
+
 export function addPanel(state: LayoutState, ref: PanelRef, target?: MoveTarget): LayoutState {
   const next = clone(state);
+  const effective: MoveTarget =
+    target ?? { region: "leaf", leafId: next.workspace.center.focusedLeaf, index: -1 };
   // 既にどこかにある同じinstanceIdは移動として扱う（不変条件を守る）。
-  take(next, ref.instanceId);
-  insert(next, ref, target ?? { region: "leaf", leafId: next.workspace.center.focusedLeaf, index: -1 });
+  const taken = take(next, ref.instanceId);
+  if (taken && isCrossing(taken, effective)) return state;
+  insert(next, ref, effective, taken?.widget);
   return next;
 }
 
-function insert(state: LayoutState, ref: PanelRef, target: MoveTarget): void {
+function insert(
+  state: LayoutState, ref: PanelRef, target: MoveTarget, widget?: PinnedWidget,
+): void {
   const { workspace, pinned } = state;
   switch (target.region) {
-    case "dock":
-    case "pinned": {
-      const stack = target.region === "pinned" ? pinned : workspace[target.dock];
+    case "dock": {
+      const stack = workspace[target.dock];
       stack.panels.splice(at(stack.panels, target.index), 0, ref);
       stack.selected = ref.instanceId;
+      return;
+    }
+    case "pinned": {
+      pinned.widgets.splice(at(pinned.widgets, target.index), 0, widget ?? newWidget(ref));
       return;
     }
     case "leaf": {
@@ -372,13 +440,12 @@ export function closePanel(state: LayoutState, instanceId: string): LayoutState 
 }
 
 export function selectPanel(state: LayoutState, instanceId: string): LayoutState {
+  const location = locationOf(state, instanceId);
+  // pinnedには選択の概念がない。
+  if (!location || location.region === "pinned") return state;
   const next = clone(state);
-  const location = locationOf(next, instanceId);
-  if (!location) return state;
   if (location.region === "dock") {
     next.workspace[location.dock].selected = instanceId;
-  } else if (location.region === "pinned") {
-    next.pinned.selected = instanceId;
   } else if (location.region === "leaf") {
     findLeaf(next.workspace.center.root, location.leafId)!.selected = instanceId;
     next.workspace.center.focusedLeaf = location.leafId;
@@ -388,9 +455,28 @@ export function selectPanel(state: LayoutState, instanceId: string): LayoutState
 
 export function movePanel(state: LayoutState, instanceId: string, target: MoveTarget): LayoutState {
   const next = clone(state);
-  const ref = take(next, instanceId);
-  if (!ref) return state;
-  insert(next, ref, target);
+  const taken = take(next, instanceId);
+  if (!taken || isCrossing(taken, target)) return state;
+  insert(next, taken.ref, target, taken.widget);
+  return next;
+}
+
+// widgetの表示状態（畳み・高さ）を書き換える。
+export function patchWidget(
+  state: LayoutState,
+  instanceId: string,
+  patch: { collapsed?: boolean; height?: number | null },
+): LayoutState {
+  const widget = state.pinned.widgets.find(
+    (entry) => entry.panel.instanceId === instanceId,
+  );
+  if (!widget) return state;
+  const next = clone(state);
+  const target = next.pinned.widgets.find(
+    (entry) => entry.panel.instanceId === instanceId,
+  )!;
+  if (patch.collapsed !== undefined) target.collapsed = patch.collapsed;
+  if (patch.height !== undefined) target.height = patch.height;
   return next;
 }
 
@@ -442,6 +528,6 @@ export function allPanelRefs(state: LayoutState): PanelRef[] {
   return [
     ...dockKinds.flatMap((dock) => workspace[dock].panels),
     ...allLeaves(workspace.center.root).flatMap((leaf) => leaf.panels),
-    ...pinned.panels,
+    ...pinned.widgets.map((widget) => widget.panel),
   ];
 }

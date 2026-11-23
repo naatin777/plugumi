@@ -36,7 +36,7 @@ relations:
 | sidebar | Shellのナビ中枢。Space=Project、Tab=Area。Projects切替とArea一覧を持つ常設領域 | shell固有（Panelではない） |
 | left / right / bottom | Area-scopeの縁領域。位置が契約（left=一覧系、bottom=terminal系の横広、right=補助）。開閉できる | Area |
 | workspace | 作業面。splitの木で区画に分けてパネルを配置する | Area |
-| pinned | Project-scopeの縦領域。Areaをまたいで常時見える面（外部サービスの状態・モニター等） | Project |
+| pinned | Project-scopeの縦領域。Areaをまたいで常時見えるwidgetの掲示板（外部サービスの状態・モニター等） | Project |
 
 ## 領域のモデル
 
@@ -62,37 +62,50 @@ Panelの置き場所がそのままスコープになる。「pin」という概
 
 ### 表示モード
 
-表示方式はpagesの1つだけである。left・right・bottom・pinned・centerの各leafは、どれも同じpagesで中身を見せる。centerはsplitの木で区画に分け、並べて見たいPanelはsplitで並べる。
+表示方式は、workspace側の全領域で共通のpagesと、pinned専用のwidget列の2つである。centerはsplitの木で区画に分け、並べて見たいPanelはsplitで並べる。
 
-- **pages**: tab帯に全Panelのtabを並べ、中身は1つのPanelだけを見せる。Panelは画面外にも本来の大きさのまま横に並んでおり、切り替えると横にスライドする。見えていないPanelは大きさを保ったまま描画だけを止める（`content-visibility: hidden`）。
+- **pages**（left・right・bottom・centerのleaf）: tab帯に全Panelのtabを並べ、中身は1つのPanelだけを見せる。Panelは画面外にも本来の大きさのまま横に並んでおり、切り替えると横にスライドする。見えていないPanelは大きさを保ったまま描画だけを止める（`content-visibility: hidden`）。
 - **切り替え**: tabの選択、tab帯の上での横スワイプ（1回で1つ隣へ）、前後のキー、マウスの戻る・進むボタンで行う。
 - **自由な横scrollはしない**: 中身（Panelの上）での横スワイプ・横scrollはPanelのものとし、外側へ伝えない（`overscroll-behavior-x: contain`）。中身の横scrollでpageが変わる、斜めの縦scrollでpageが動く、ブラウザの「戻る」が発動する、を避けるためである。
+- **widget列**（pinned）: 置かれたwidgetを全員縦に積んで同時に見せる。監視・状態確認は「全部ぱっと見たい」が本質で、tabで裏に隠れるpagesとは相性が悪いため、pinnedだけ別の表示方式を持つ。widgetはPanelとは別物で、相互変換（領域をまたぐdragでの移動）はない。widgetの追加は列末尾の「＋」からpickerで選んで新規に作り、並べ替えはpinned列の中だけで行う。
 
-選択中（active）のPanelは各dock・leafの`selected`だけで決まる。
+選択中（active）のPanelは各dock・leafの`selected`だけで決まる（pinnedには選択の概念がない）。
+
+### pinned: widgetとindicator
+
+pinnedに置くものは全部同じwidget — headerを持たず中身だけの区画が縦に積まれる。
+
+- **畳むとindicatorになる**: 畳んだwidgetは1行（chevron＋タイトル＋閉じる）だけになり、activityのtone表示がそのままstatus表示として働く。行のclickで展開する。「indicator級の小さいもの」と「モニター級の大きいもの」は別の契約ではなく、同じwidgetの2状態である。
+- **開いたwidgetの操作はhoverで浮かせる**: 常設のheaderは持たず、畳み・閉じる・dragの掴み場（grip）はhoverした時だけ中身の右上に出る。
+- **高さはwidgetごと**: 中身の高さはwidget同士の境目のdragで変えられる（既定値あり）。畳み状態と高さはPinnedの保存内容に含まれる。
+- 溢れたらpinned列の中でscrollする。Panelの中身のscrollはPanelのもの（pagesと同じ）。
 
 ## 面と縁
 
 Shellは「土台の上にタイルを並べる」だけで描く。領域同士の区切りは線ではなく、タイル同士の間に覗く土台色の溝（gap）である。
 
 1. **土台（primary）**: ページ全体と、sidebar・pinned・topbar両端・statusbarのframe領域、そしてmatの内側全面に敷く床（work-bed）。カード間のgapは全部この床が覗くので、溝は領域をまたいで連続して貫く。
-2. **タイル（secondary）**: dock（left・right・bottom）・leaf（centerの区画）・pinnedの各カードと、topbar中央の浮きバー（segment）。全て同じ色・同じ角丸で、borderは持たない。
-3. **操作系（tertiary）**: 入力欄、popover・メニュー、hover、選択中のtab、実行中の強調。タイルの内側にだけ使う。
+2. **widgetの面（widget色）**: pinnedの開いたwidget区画。床とタイルの中間で、「床より一段浮いた掲示板の帯」という階層。Panelの面（secondary）とは色でも区別する。
+3. **タイル（secondary）**: dock（left・right・bottom）・leaf（centerの区画）の各カードと、topbar中央の浮きバー（segment）。全て同じ色・同じ角丸で、borderは持たない。
+4. **操作系（tertiary）**: 入力欄、popover・メニュー、hover、選択中のtab、実行中の強調。タイルの内側にだけ使う。
 
 | token | 使う場所 | Dark | Light |
 |---|---|---|---|
 | `--plugumi-colors-background-primary` | 土台・frame・床（溝） | #121212 | #FFFFFF |
-| `--plugumi-colors-background-secondary` | タイル（dock・leaf・pinned・segmentバー）、Panelの面 | #1E1E1E | #F1F1F1 |
+| `--plugumi-colors-background-widget` | widget区画の帯（開いたwidgetの面） | #181818 | #F8F8F8 |
+| `--plugumi-colors-background-secondary` | タイル（dock・leaf・segmentバー）、Panelの面 | #1E1E1E | #F1F1F1 |
 | `--plugumi-colors-background-tertiary` | 入力欄・popover・hover・選択中のtab | #2D2D2D | #E5E5E5 |
 
 - **区切りは溝が担う**: カードはborderを引かない。隣り合うカードの間は溝1つだけで、「border｜溝｜border」の二重区切りにしない。溝の幅は`--work-gap`（4px）で、カードの四方は必ず溝に面する。
+- **例外: widget区画の枠線**: 開いたwidgetの帯だけはinsetの1px枠（`--plugumi-colors-border`）を持つ。カード同士の区切りには線を使わない方針だが、widgetは背景が床に近く区画の輪郭が読めないため、帯の境界だけ線で示す。畳んだ行（indicator）は枠を持たない。
 - **tab帯はカードのheader**: dock・leafは「tab帯（header）＋中身」の1枚のカード。tab帯と中身の間はhairline（divider面）で区切る。
-- Panelの面は領域によらずsecondaryで統一し、Shellが敷く。Panelの最背面は透明にして、Shellが敷いた面の色をそのまま使う。
+- Panelの面は領域によらずsecondaryで統一し、Shellが敷く。Panelの最背面は透明にして、Shellが敷いた面の色をそのまま使う。widgetはPanelではなく別のmount（WidgetMount）なので、widgetの面はsecondaryではなくwidget色になる。
 
 ### タイルの輪郭
 
 - **浮きバー**: topbarでは中央のwork区間（segment）だけが浮きバーになる。左右のtool群（sidebar・pinnedの開閉などframeの操作）はframeに直置きし、バーには含めない。バーは四辺ともgapで離す。
 - **splitはsegment方式**: centerをsplitすると、分割したleaf同士は溝で離れるが、regionの外縁の角だけが丸い。splitの内側の辺は直角にして溝を真っ直ぐに通し、外からは1枚のカードの輪郭に見える（Googleのlist viewのsegment方式）。leafの各辺が外縁かどうかはsplit木で伝播する（`Edges`）。
-- dockカード・pinnedカードは領域全体で1枚なので全角丸い。
+- dockカードは領域全体で1枚なので全角丸い。pinned列はframe領域なのでタイルを持たず、widgetは列の中の「帯」として並ぶ（角丸・溝を持たない区画）。
 
 ## 保存の形
 
@@ -115,11 +128,13 @@ type WorkspaceState = {
   center: { root: Node; focusedLeaf: string };
 };
 
-// pinned: Projectに1つ。left・rightと同じtab切替の1列
-type PinnedState = { version: 1 } & Stack;
+// pinned: Projectに1つ。widgetの順序つきリスト（選択はない）
+type PinnedWidget = { panel: PanelRef; collapsed: boolean; height: number | null };
+type PinnedState = { version: 1; widgets: PinnedWidget[] };
 ```
 
 - 1つのPanel Instanceは、Workspace・Pinnedのどこか1箇所にだけ置かれる。
+- Panel（workspace側のtab）とwidget（pinnedの区画）は別物で、相互変換はない。既存Instanceがpinned⇔workspaceをまたぐ移動は操作自体を捨てる。widgetの追加はpinned列の「＋」からpickerで新規に作る。
 - centerのPanelは木のleafにだけ置く。木とは別のPanel一覧は持たない。
 - leafが空になったら、そのsplitを畳んで兄弟を昇格させる。最後の1枚のleafは空でも残す。
 - 開閉・幅・テーマなど端末ごとの表示設定は、Workspaceには入れずブラウザのlocalStorageに保存する。
@@ -152,7 +167,7 @@ panel.setActivity({
 | 用語 | 意味 |
 |---|---|
 | Region | Panelの配置先（left/right/bottom/workspace/pinned）。位置の契約 |
-| pinned | Project-scopeのRegion。Areaをまたぐ。中身はleft・rightと同じtab切替 |
+| pinned | Project-scopeのRegion。Areaをまたぐ。中身はwidgetの縦積み（畳んだ状態がindicator） |
 | 表示モード | Region内のPanelの出し方。全領域でpagesの1つだけ |
 | Panel Frame | Panelの枠（radius）。Regionに依らず同じ輪郭 |
 | frame | Shell固有の帯（topbar/statusbar/sidebar）。不透明slab面 |
