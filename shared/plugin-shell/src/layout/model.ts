@@ -397,21 +397,9 @@ function insert(
     case "split": {
       const leaf = findLeaf(workspace.center.root, target.leafId);
       if (!leaf) return;
-      const added = emptyLeaf();
+      const added = splitLeaf(workspace, leaf, target.edge);
       added.panels.push(ref);
       added.selected = ref.instanceId;
-      const axis = target.edge === "left" || target.edge === "right" ? "x" : "y";
-      const after = target.edge === "right" || target.edge === "bottom";
-      const split: Split = {
-        kind: "split",
-        id: newId("split"),
-        axis,
-        ratio: 0.5,
-        first: after ? leaf : added,
-        second: after ? added : leaf,
-      };
-      replaceNode(workspace, leaf.id, split);
-      workspace.center.focusedLeaf = added.id;
       return;
     }
   }
@@ -480,12 +468,9 @@ export function patchWidget(
   return next;
 }
 
-// leafをedge方向に分割する。新しい（空の）leafがedge側に来る。
-// 新しいleafのidを返す。
-export function splitAt(state: LayoutState, leafId: string, edge: Edge): LayoutState {
-  const next = clone(state);
-  const leaf = findLeaf(next.workspace.center.root, leafId);
-  if (!leaf) return state;
+// leafをedge方向に分割し、新しい（空の）leafをedge側に作って返す。
+// 焦点は新しいleafへ移す。
+function splitLeaf(workspace: WorkspaceState, leaf: Leaf, edge: Edge): Leaf {
   const added = emptyLeaf();
   const axis = edge === "left" || edge === "right" ? "x" : "y";
   const after = edge === "right" || edge === "bottom";
@@ -497,8 +482,17 @@ export function splitAt(state: LayoutState, leafId: string, edge: Edge): LayoutS
     first: after ? leaf : added,
     second: after ? added : leaf,
   };
-  replaceNode(next.workspace, leafId, split);
-  next.workspace.center.focusedLeaf = added.id;
+  replaceNode(workspace, leaf.id, split);
+  workspace.center.focusedLeaf = added.id;
+  return added;
+}
+
+// leafをedge方向に分割する。新しい（空の）leafがedge側に来る。
+export function splitAt(state: LayoutState, leafId: string, edge: Edge): LayoutState {
+  const next = clone(state);
+  const leaf = findLeaf(next.workspace.center.root, leafId);
+  if (!leaf) return state;
+  splitLeaf(next.workspace, leaf, edge);
   return next;
 }
 

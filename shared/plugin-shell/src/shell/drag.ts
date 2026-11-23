@@ -133,12 +133,19 @@ export function createDragController(
   };
 }
 
-// strip上の挿入indexを計算する。子要素の中心を越えた分だけ進める。
-export const stripIndex = (element: HTMLElement, x: number): number => {
+// ポインタが要素の矩形内にあるか。
+const inside = (element: HTMLElement, x: number, y: number): boolean => {
+  const rect = element.getBoundingClientRect();
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+};
+
+// 挿入indexを計算する。子要素の中心を越えた分だけ進める。
+const insertIndex = (element: HTMLElement, pos: number, axis: "x" | "y"): number => {
   let index = 0;
   for (const child of element.children) {
     const rect = child.getBoundingClientRect();
-    if (x >= rect.left + rect.width / 2) index++;
+    const center = axis === "x" ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
+    if (pos >= center) index++;
   }
   return index;
 };
@@ -146,38 +153,23 @@ export const stripIndex = (element: HTMLElement, x: number): number => {
 // 横strip（dock・leafのtab帯）のdrop判定。panelのtab専用。
 export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
   (element, x, y, session) => {
-    if (session.kind !== "panel") return null;
-    const rect = element.getBoundingClientRect();
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
-    return target(stripIndex(element, x));
+    if (session.kind !== "panel" || !inside(element, x, y)) return null;
+    return target(insertIndex(element, x, "x"));
   };
-
-// 縦積み（pinnedのwidget列）の挿入index。子要素の中心を越えた分だけ進める。
-export const columnIndex = (element: HTMLElement, y: number): number => {
-  let index = 0;
-  for (const child of element.children) {
-    const rect = child.getBoundingClientRect();
-    if (y >= rect.top + rect.height / 2) index++;
-  }
-  return index;
-};
 
 // 縦積みの列全体のdrop判定。widgetの並べ替え専用。
 export const columnTest = (target: (index: number) => MoveTarget): DropTester =>
   (element, x, y, session) => {
-    if (session.kind !== "widget") return null;
-    const rect = element.getBoundingClientRect();
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
-    return target(columnIndex(element, y));
+    if (session.kind !== "widget" || !inside(element, x, y)) return null;
+    return target(insertIndex(element, y, "y"));
   };
 
 // leaf本体のdrop判定。縁に近ければsplit、中央なら末尾挿入。
 // leafIdはdrop時点の値を読む（leafはloadで差し替わるため値渡しだと腐る）。
 export const leafBodyTest = (leafId: () => string): DropTester =>
   (element, x, y, session) => {
-    if (session.kind !== "panel") return null;
+    if (session.kind !== "panel" || !inside(element, x, y)) return null;
     const rect = element.getBoundingClientRect();
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
     const edgeX = Math.max(EDGE_MIN_PX, rect.width * EDGE_FRACTION);
     const edgeY = Math.max(EDGE_MIN_PX, rect.height * EDGE_FRACTION);
     const nearLeft = x - rect.left < edgeX;
@@ -204,8 +196,6 @@ export const leafBodyTest = (leafId: () => string): DropTester =>
 // 本体がstripに見えない場合（空dock等）の矩形判定。panel専用。
 export const bodyTest = (target: MoveTarget): DropTester =>
   (element, x, y, session) => {
-    if (session.kind !== "panel") return null;
-    const rect = element.getBoundingClientRect();
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+    if (session.kind !== "panel" || !inside(element, x, y)) return null;
     return target;
   };

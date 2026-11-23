@@ -89,6 +89,9 @@ async function start(): Promise<void> {
     },
   });
   ipcMain.on("plugumi:theme", (_event, theme: unknown) => {
+    // setTitleBarOverlayはWindows/Linux専用。macOSにはメソッド自体が
+    // 存在しないので呼ぶと例外になる（hiddenInsetで十分なため不要）。
+    if (typeof window.setTitleBarOverlay !== "function") return;
     const colors = TITLEBAR_COLORS[String(theme)] ?? TITLEBAR_COLORS.dark;
     window.setTitleBarOverlay({ ...colors, height: TITLEBAR_HEIGHT });
   });

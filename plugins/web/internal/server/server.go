@@ -83,7 +83,7 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]any{"error": map[string]string{"message": message}})
+	writeJSON(w, status, errorBody(message))
 }
 
 func (s *Server) listCores(w http.ResponseWriter, _ *http.Request) {
@@ -365,7 +365,7 @@ func (s *Server) projectContext(w http.ResponseWriter, r *http.Request, mutate f
 		return
 	}
 	body, status := mutate(document)
-	if status >= 400 || mutate == nil || !isWriteMethod(r.Method) {
+	if status >= 400 || !isWriteMethod(r.Method) {
 		writeJSON(w, status, body)
 		return
 	}
@@ -459,7 +459,11 @@ func (s *Server) removeArea(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getPinned(w http.ResponseWriter, r *http.Request) {
-	s.withArea(w, r, false, func(project *projects.Project, _ *projects.Area) (any, int) {
+	s.projectContext(w, r, func(document *projects.Document) (any, int) {
+		project := document.FindProject(r.PathValue("project"))
+		if project == nil {
+			return errorBody("project not found"), http.StatusNotFound
+		}
 		return project.Pinned, http.StatusOK
 	})
 }
@@ -480,7 +484,7 @@ func (s *Server) putPinned(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getWorkspace(w http.ResponseWriter, r *http.Request) {
-	s.withArea(w, r, true, func(_ *projects.Project, area *projects.Area) (any, int) {
+	s.withWorkspace(w, r, func(_ *projects.Project, area *projects.Area) (any, int) {
 		if area == nil {
 			return errorBody("area not found"), http.StatusNotFound
 		}
@@ -493,7 +497,7 @@ func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.withAreaWrite(w, r, func(project *projects.Project, area *projects.Area) (any, int) {
+	s.withWorkspace(w, r, func(_ *projects.Project, area *projects.Area) (any, int) {
 		if area == nil {
 			return errorBody("area not found"), http.StatusNotFound
 		}
@@ -512,11 +516,11 @@ func readOpaque(w http.ResponseWriter, r *http.Request) (json.RawMessage, bool) 
 	return json.RawMessage(body), true
 }
 
-// withArea/withAreaWrite はパスの{rest...}末尾の"workspace"を切り分け、
-// Project/Areaを引いて変更系なら保存する。
-func (s *Server) withArea(w http.ResponseWriter, r *http.Request, workspace bool, handle func(project *projects.Project, area *projects.Area) (any, int)) {
+// withWorkspace はパスの{rest...}末尾の"workspace"を切り分け、
+// Project/Areaを引いてhandleへ渡す（変更系ならprojectContextが保存する）。
+func (s *Server) withWorkspace(w http.ResponseWriter, r *http.Request, handle func(project *projects.Project, area *projects.Area) (any, int)) {
 	areaPath, isWorkspace := splitWorkspacePath(r.PathValue("rest"))
-	if isWorkspace != workspace {
+	if !isWorkspace {
 		writeError(w, http.StatusNotFound, "unknown endpoint")
 		return
 	}
@@ -525,15 +529,8 @@ func (s *Server) withArea(w http.ResponseWriter, r *http.Request, workspace bool
 		if project == nil {
 			return errorBody("project not found"), http.StatusNotFound
 		}
-		if !workspace {
-			return handle(project, nil)
-		}
 		return handle(project, project.FindArea(areaPath))
 	})
-}
-
-func (s *Server) withAreaWrite(w http.ResponseWriter, r *http.Request, handle func(project *projects.Project, area *projects.Area) (any, int)) {
-	s.withArea(w, r, true, handle)
 }
 
 // splitAreaPath は"main/feature-a"を["main","feature-a"]へ。

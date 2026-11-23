@@ -100,17 +100,23 @@ export class PanelInstance {
 
   // mountを（再）実行する。失敗してもInstanceは残り、「再試行」で同じ
   // Instanceのまま呼び直せる。tokenで古い非同期結果を捨てる。
+  // 進行中の非同期を無効化し、mount済みのPanelとstyleを外す。
+  private teardown(): void {
+    this.mountToken++;
+    this.destroyPanel?.();
+    this.destroyPanel = undefined;
+    this.releaseStyles?.();
+    this.releaseStyles = undefined;
+  }
+
   async mount(panel: PanelEntry): Promise<void> {
     this.registrationId = panel.registrationId;
     this.uiSha256 = panel.uiSha256;
     this.entry = panel.entry;
     this.setTitle(panel.title);
     this.host.dataset.plugumiPlugin = panel.registrationId;
-    const token = ++this.mountToken;
-    this.destroyPanel?.();
-    this.destroyPanel = undefined;
-    this.releaseStyles?.();
-    this.releaseStyles = undefined;
+    this.teardown();
+    const token = this.mountToken;
     this.host.replaceChildren();
     this.setState("mounting");
     this.setError(undefined);
@@ -200,21 +206,13 @@ export class PanelInstance {
       void this.mount(replacement);
       return;
     }
-    this.mountToken++;
-    this.destroyPanel?.();
-    this.destroyPanel = undefined;
-    this.releaseStyles?.();
-    this.releaseStyles = undefined;
+    this.teardown();
     this.host.replaceChildren();
     this.setState("missing");
   }
 
   dispose(): void {
-    this.mountToken++;
-    this.destroyPanel?.();
-    this.destroyPanel = undefined;
-    this.releaseStyles?.();
-    this.releaseStyles = undefined;
+    this.teardown();
     this.host.remove();
   }
 }
