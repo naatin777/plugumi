@@ -38,7 +38,7 @@ function FloatingArea(): JSX.Element {
   const area = createAreaController(shell, () => {
     const path = shell.areaPath();
     return path.length > 0 ? { project: params.project ?? "", path } : null;
-  });
+  }, "main");
   return (
     <main class={{ shell: true, floating: true, "no-aurora": !shell.prefs().aurora }}>
       {/* 最低限のtitle帯（窓のdrag領域）だけ残す。 */}

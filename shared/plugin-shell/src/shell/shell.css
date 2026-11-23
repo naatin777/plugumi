@@ -7,6 +7,7 @@
    （scope内では受理されない）。登録するとtransitionで値が補間され、
    これを参照する幅・margin・barの端が一斉に滑る。 */
 @property --side-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --sub-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
 
 :root {
   --work-radius: 10px;
@@ -36,7 +37,17 @@
     /* 登録済み変数の値が変わると補間される。これを参照する列幅・
        margin・title barの端がまとめて滑る。drag中は遅延になるので
        別途transitionを無効化する。 */
-    transition: --side-width var(--work-anim) ease;
+    transition: --side-width var(--work-anim) ease,
+      --sub-width var(--work-anim) ease;
+    /* Subのsegmentの最小幅（開閉ボタンだけの小さい形）。開いているときは
+       Sub列の幅（--sub-width）と揃え、閉じると最小幅に畳まれる。 */
+    --sub-seg-min: 44px;
+    /* Subのsegmentは「Sub列の左端〜右pillの左端−溝」の区間に置く。
+       幅は sub-width − tools-right。Sub列がpillより狭いときは最小幅を
+       確保し、足りない分は左（Sub列より手前）へ伸びる。 */
+    --sub-seg-w: max(
+      var(--sub-seg-min),
+      calc(var(--sub-width, 0px) - var(--title-tools-right)));
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);
@@ -139,8 +150,6 @@
   .work-segment {
     position: absolute;
     top: var(--work-gap); bottom: 0;
-    left: calc(var(--title-left) + var(--work-gap));
-    right: calc(var(--title-right) + var(--work-gap));
     display: flex; align-items: center;
     justify-content: flex-end;
     gap: var(--plugumi-spacing-xs);
@@ -151,6 +160,28 @@
     border-radius: var(--work-radius);
     overflow: hidden;
   }
+  /* MainのsegmentはSubのsegmentの手前まで（溝--work-gap分あける）。 */
+  .work-segment[data-slot="main"] {
+    left: calc(var(--title-left) + var(--work-gap));
+    right: calc(var(--title-right) + var(--work-gap)
+      + var(--sub-seg-w) + var(--work-gap));
+    min-width: 0;
+  }
+  /* SubのsegmentはSub列の左端に揃え、右端は右pillの手前。 */
+  .work-segment[data-slot="sub"] {
+    right: calc(var(--title-right) + var(--work-gap));
+    width: var(--sub-seg-w);
+    /* 狭いとき中身（LBR＋開閉）が潰れないよう自然幅を下限にする。
+       開いているSub列がpillより狭い場合は左へ伸びる。 */
+    min-width: var(--sub-seg-min);
+  }
+  /* Subがdrawerのときは開閉ボタンだけの小さい形。 */
+  main.shell:is([data-size="medium"], [data-size="compact"]) {
+    --sub-seg-w: var(--sub-seg-min);
+  }
+  /* Floating windowはAreaView1個だけ — Subのsegmentは出さない。 */
+  main.shell.floating { --sub-seg-w: 0px; }
+  main.shell.floating .work-segment[data-slot="sub"] { display: none; }
 
   /* body側の列。sidebar列は常時存在し、閉じると中身（aside）が
      幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは
@@ -184,7 +215,8 @@
     transition: margin var(--work-anim) ease, border-width var(--work-anim) ease;
   }
   .frame-side { width: var(--side-width); margin-right: var(--work-gap); }
-  main.shell:not([data-side]) .frame-side { margin-right: 0; border-width: 0; }
+  /* compactではframe-sideはdrawer — 閉じていてもborderは残す。 */
+  main.shell:not([data-size="compact"]):not([data-side]) .frame-side { margin-right: 0; border-width: 0; }
   main.shell:not([data-side]) .frame-side > .resizer { display: none; }
   /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
      アニメがポインタに遅れて追従してしまう。 */
@@ -209,6 +241,7 @@
   /* 1つのAreaの表示。dock構成（left/center/bottom/right）のgridは
      AreaView単位で持つ（Subにも同じ形を使う）。 */
   .area-view {
+    position: relative;
     min-width: 0; min-height: 0;
     overflow: hidden;
     /* dock幅のcqw上限の基準（40cqw = この幅の40%） */
@@ -230,18 +263,78 @@
     font-size: var(--plugumi-font-size-xs);
   }
 
-  /* Sub列。開閉は幅0への畳み込み（unmountしない）。 */
+  /* Sub列。inlineのときは幅0への畳み込み（unmountしない）。 */
   .sub-pane {
     flex: none;
     display: flex;
     width: var(--sub-width, 0px);
     min-width: 0;
     overflow: clip;
-    transition: width var(--work-anim) ease;
+    transition: width var(--work-anim) ease,
+      transform var(--work-anim) ease;
   }
   .sub-pane[data-closed] { width: 0; pointer-events: none; }
   .sub-pane > .area-view { flex: 1; min-width: 0; }
   .sub-pane > .area-view-empty { flex: 1; min-width: 0; }
+
+  .work-mat { position: relative; }
+  /* <1100px: Subはdrawer — work-matの右端からMainの上に重ねる。
+     中身はunmountしないままtransformで画面外へ逃がす。 */
+  main.shell:is([data-size="medium"], [data-size="compact"]) .sub-pane {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: min(var(--sub-raw-width, 480px), 90%);
+    z-index: 7;
+    box-shadow: -8px 0 28px rgb(0 0 0 / 0.4);
+    background: var(--plugumi-colors-background-primary);
+  }
+  main.shell:is([data-size="medium"], [data-size="compact"])
+      .sub-pane[data-closed] {
+    width: min(var(--sub-raw-width, 480px), 90%);
+    transform: translateX(calc(100% + 16px));
+    visibility: hidden;
+    transition: transform var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+  }
+  /* drawerのSub列のresizerは出さない。 */
+  main.shell:is([data-size="medium"], [data-size="compact"])
+      .work-mat > .resizer[data-axis="x"] {
+    display: none;
+  }
+
+  /* <800px: Area listもdrawer — title barの下からstatus帯の上まで、
+     左から重ねる。abs-posでもauto-placementの枠を消費するので、
+     matは明示的に全列を使う（frame-side側のauto列は0になる）。 */
+  main.shell[data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
+  main.shell[data-size="compact"] .frame-side {
+    position: absolute;
+    left: var(--work-gap);
+    top: calc(var(--titlebar-h) + var(--work-gap));
+    bottom: calc(40px + var(--work-gap));
+    width: min(var(--sidebar-raw-width, 260px), 85%);
+    z-index: 8;
+    visibility: visible;
+    transition: transform var(--work-anim) ease, visibility 0s;
+  }
+  main.shell[data-size="compact"] .frame-side[data-closed] {
+    transform: translateX(calc(-100% - 16px));
+    visibility: hidden;
+    transition: transform var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+  }
+
+  /* 狭いときは検索の文字を隠してアイコンだけにする。compactでは
+     segmentに収まらないので検索自体を畳み、core名もアイコンだけにする。 */
+  main.shell:is([data-size="medium"], [data-size="compact"]) .bar-search-text,
+  main.shell:is([data-size="medium"], [data-size="compact"]) .bar-search-key {
+    display: none;
+  }
+  main.shell[data-size="compact"] .work-segment[data-slot="main"] .bar-search {
+    display: none;
+  }
+  main.shell[data-size="compact"] .title-tools.left .core-name {
+    display: none;
+  }
 
   /* Floating window: AreaView1個だけを全面に出す。 */
   main.shell.floating {

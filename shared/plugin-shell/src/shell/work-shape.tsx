@@ -10,9 +10,15 @@ import { createEffect, onCleanup, type ParentProps } from "solid-js";
 
 export interface WorkShapeProps {
   titleLeft?: JSX.Element;
-  titleCenter?: JSX.Element;
+  // 列ごとの開閉ボタンを持つのでsegmentは2つ — Main列の真上とSub列の真上。
+  titleMain?: JSX.Element;
+  titleSub?: JSX.Element;
   titleRight?: JSX.Element;
   sidebar?: JSX.Element;
+  // 幅が足りないときsidebar列はdrawerになる（main.shell[data-size]で切替）。
+  // drawerのときは列自体は畳み、閉じると画面外へ逃がす。
+  sidebarDrawer?: boolean;
+  sidebarClosed?: boolean;
 }
 
 export function WorkShape(props: ParentProps<WorkShapeProps>) {
@@ -57,13 +63,21 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         <div class="title-tools left">
           <div class="tools-inner" ref={leftInner}>{props.titleLeft}</div>
         </div>
-        <div class="work-segment">{props.titleCenter}</div>
+        <div class="work-segment" data-slot="main">{props.titleMain}</div>
+        <div class="work-segment" data-slot="sub">{props.titleSub}</div>
         <div class="title-tools right">
           <div class="tools-inner" ref={rightInner}>{props.titleRight}</div>
         </div>
       </header>
       <div class="work-body">
-        <aside class="frame-side">
+        <aside
+          class="frame-side"
+          data-drawer={props.sidebarDrawer ? "" : undefined}
+          data-closed={props.sidebarClosed ? "" : undefined}
+          // drawerの外click判定で「内側」扱いにする（drawerのときだけ —
+          // inlineの列は「外」であってよい）。
+          data-drawer-keep={props.sidebarDrawer ? "" : undefined}
+        >
           {props.sidebar}
         </aside>
         <div class="work-mat">

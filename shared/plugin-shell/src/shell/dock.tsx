@@ -11,7 +11,7 @@ import { Resizer } from "./resizer.tsx";
 import { bodyTest } from "./drag.ts";
 import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
 
-export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
+export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean }): JSX.Element {
   const area = useArea();
   const shell = area.shell;
   const stack = () => area.layout()[props.kind];
@@ -45,15 +45,13 @@ export function Dock(props: { kind: DockKind; closed?: boolean }): JSX.Element {
       {...surfaceAttrs(selectedActivity(), "border")}
       {...busyAttr(selectedActivity())}
       data-closed={props.closed || undefined}
-      style={horizontal()
-        ? { height: props.closed ? "0px" : `${shell.prefs().dockSize.bottom}px` }
-        : {
-            // 両側が開くと left+right がcenterを潰すので、実効幅はAreaView幅の
-            // 40%までに抑える（cqwは.area-viewのcontainer query単位）。
-            width: props.closed
-              ? "0px"
-              : `min(${shell.prefs().dockSize[props.kind]}px, 40cqw)`,
-          }}
+      // drawerの外click判定用。開いているdrawer自身だけを「内側」にする
+      // （同じviewのcenterをclickしたら閉じる）。
+      data-drawer-keep={props.drawer && !props.closed ? "" : undefined}
+      // 実効の幅/高さはCSSが --dock-size から決める（drawer時は85cqw等に
+      // 切り替わる）。閉じる畳み込みはdata-closed側が受け持つので、
+      // ここは常に設定値を渡す（drawerはtransformだけで画面外へ逃がす）。
+      style={{ "--dock-size": `${shell.prefs().dockSize[props.kind]}px` }}
       ref={register}
       {...pageNavProps(flip)}
     >

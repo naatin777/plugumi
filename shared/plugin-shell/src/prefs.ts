@@ -4,13 +4,15 @@
 import type { DockKind } from "./layout/model.ts";
 
 export type ThemeMode = "system" | "light" | "dark";
+// dockの開閉はMain/Subそれぞれの列で独立（title barのボタンも列ごと）。
+export type DockSlot = "main" | "sub";
 
 export interface ShellPrefs {
   // Area list（左の列）の開閉と幅。
   sidebarOpen: boolean;
   sidebarWidth: number;
-  // Area内のdockの開閉と幅/高さ（px）。bottomは高さ。
-  dockOpen: Record<DockKind, boolean>;
+  // Area内のdockの開閉（slotごと）と幅/高さ（px、共通）。bottomは高さ。
+  dockOpen: Record<DockSlot, Record<DockKind, boolean>>;
   dockSize: Record<DockKind, number>;
   // Sub列（右のAreaView）の開閉と幅。
   subOpen: boolean;
@@ -28,7 +30,10 @@ const KEY = "plugumi:shell:prefs";
 const defaults = (): ShellPrefs => ({
   sidebarOpen: true,
   sidebarWidth: 260,
-  dockOpen: { left: true, bottom: true, right: true },
+  dockOpen: {
+    main: { left: true, bottom: true, right: true },
+    sub: { left: true, bottom: true, right: true },
+  },
   dockSize: { left: 280, bottom: 200, right: 280 },
   subOpen: false,
   subWidth: 480,
@@ -58,6 +63,18 @@ export function loadPrefs(): ShellPrefs {
   const dockOpen = typeof saved.dockOpen === "object" && saved.dockOpen !== null
     ? saved.dockOpen as Record<string, unknown>
     : {};
+  // slotごとのRecordをdecode。旧い平たい形（{left,bottom,right}）は
+  // slotキーを持たないのでそのまま既定に落ちる（移行しない）。
+  const dockSlot = (slot: DockSlot): Record<DockKind, boolean> => {
+    const saved_ = typeof dockOpen[slot] === "object" && dockOpen[slot] !== null
+      ? dockOpen[slot] as Record<string, unknown>
+      : {};
+    return {
+      left: flag(saved_.left, base.dockOpen[slot].left),
+      bottom: flag(saved_.bottom, base.dockOpen[slot].bottom),
+      right: flag(saved_.right, base.dockOpen[slot].right),
+    };
+  };
   const dockSize = typeof saved.dockSize === "object" && saved.dockSize !== null
     ? saved.dockSize as Record<string, unknown>
     : {};
@@ -65,11 +82,7 @@ export function loadPrefs(): ShellPrefs {
   return {
     sidebarOpen: flag(saved.sidebarOpen, base.sidebarOpen),
     sidebarWidth: clampWidth(saved.sidebarWidth, base.sidebarWidth),
-    dockOpen: {
-      left: flag(dockOpen.left, base.dockOpen.left),
-      bottom: flag(dockOpen.bottom, base.dockOpen.bottom),
-      right: flag(dockOpen.right, base.dockOpen.right),
-    },
+    dockOpen: { main: dockSlot("main"), sub: dockSlot("sub") },
     dockSize: {
       left: clampWidth(dockSize.left, base.dockSize.left),
       bottom: clampWidth(dockSize.bottom, base.dockSize.bottom),

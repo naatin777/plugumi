@@ -22,10 +22,13 @@
     color: var(--plugumi-colors-text-muted);
   }
   .bar-crumb-item {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: inherit; text-decoration: none;
     padding: 2px var(--plugumi-spacing-xs);
     border-radius: var(--plugumi-radii-sm);
-    white-space: nowrap;
   }
   .bar-crumb-item:hover {
     background: var(--plugumi-colors-background-tertiary);
@@ -45,4 +48,18 @@
   }
   .bar-search:hover { color: var(--plugumi-colors-text); }
   .bar-search-key { margin-left: auto; color: var(--plugumi-colors-text-subtle); }
+  /* compactの「…」メニュー（両サイド・テーマ・もやをまとめたpopover）。
+     popoverのUA非表示規則にauthorのdisplayが勝って閉じても見えるので、
+     :popover-openのときだけflexにする。位置は「…」の真下・右揃え。 */
+  .misc-menu:popover-open {
+    display: flex; align-items: center;
+    gap: var(--plugumi-spacing-xs);
+    padding: var(--plugumi-spacing-xs);
+    margin: 0;
+    /* top/rightは開くときに「…」のrectからinlineで書く。 */
+    inset: auto;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--work-radius);
+    background: var(--plugumi-colors-background-tertiary);
+  }
 }

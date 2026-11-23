@@ -196,7 +196,7 @@ function ShapeDemo(): JSX.Element {
       >
         <WorkShape
           titleLeft={<span class="lab-fill">左tool</span>}
-          titleCenter={<span class="lab-fill">work区間</span>}
+          titleMain={<span class="lab-fill">work区間</span>}
           titleRight={<span class="lab-fill">右tool</span>}
           sidebar={<div class="lab-fill">sidebar</div>}
         >

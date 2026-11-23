@@ -82,6 +82,32 @@ Area listはAreaを**Main**・**Sub**・**Floating**の3セクションで一覧
 - **Floating**: 行のclickでそのAreaを別windowで開く。
 - **追加は「＋」からpicker**: 各セクションの「＋ Areaを追加」はProject/Areaのツリーから選ぶpopoverを開く。Area・Projectの作成もここで行う。
 
+### 列ごとの開閉ボタン
+
+title barのwork区間（segment）はMainとSubで2つに分かれ、各segmentがその列の真上に浮く。どの列のボタンかは位置で分かるようにする。
+
+- **Mainのsegment**: MainのAreaのcrumb・「+」・検索・`[左][下][右]`のdock開閉。
+- **Subのsegment**: SubのAreaのcrumb（clickでMainへ移動）・「+」・Sub用の`[左][下][右]`・右端のSub開閉ボタン。Subが閉じているときは開閉ボタンだけの小さいsegmentに畳まれ、Subを開くとその真下からSub列が出る。
+- dockの開閉状態はslot（Main/Sub）ごとに独立して持つ（`dockOpen[slot][kind]`）。⌥⌘2〜4は「触っている側」のAreaのdockを開閉する。
+- dockの幅・高さ（`dockSize`）は両slotで共通。
+
+### 幅に応じたdrawer化
+
+幅判定はResizeObserverで行い、計測値は信号（`shellSize`/`size`）と`data-size`属性の両方に反映する。drawerの開閉はJS側でも扱うのでcontainer queryだけにはしない。
+
+| 範囲 | 判定 | 通常 | drawer |
+|---|---|---|---|
+| AreaView（`.area-view`の幅） | ≥1000px `wide` | dockはinline | — |
+| | 600–999px `narrow` | bottomはinline | left・rightがcenterの上に重なるdrawer |
+| | <600px `compact` | — | left・right・bottom全部drawer |
+| Shell（`main.shell`の幅） | ≥1100px `wide` | Subはinlineの列 | — |
+| | 800–1099px `medium` | Area listはinline | Subが右からdrawer（`min(subWidth, 90%)`） |
+| | <800px `compact` | — | Area listも左からdrawer（`min(sidebarWidth, 85%)`） |
+
+- **drawerの開閉は一時的**: drawer化した領域はprefsではなくAreaView/Shellごとのsignalで開閉し、初期は閉。狭くなった瞬間に保存済みの「開」がcenterを覆わないため。同じボタン・ショートカットがdrawerのときはこのsignalを切り替える。同時に開くdock drawerはAreaViewごとに1つ。
+- **閉じ方**: drawerの外をpointerdownするかEscape。drawerでもPanelはunmountしない（`data-closed`で畳む、transformで画面外へ逃がす）。
+- Subがdrawerのとき、Subのsegmentは開閉ボタンだけの小さい形のまま。
+
 ## 面と縁
 
 Shellは「土台の上にタイルを並べる」だけで描く。領域同士の区切りは線ではなく、タイル同士の間に覗く土台色の溝（gap）である。
@@ -102,7 +128,7 @@ Shellは「土台の上にタイルを並べる」だけで描く。領域同士
 
 ### タイルの輪郭
 
-- **浮きバー**: topbarでは中央のwork区間（segment）だけが浮きバーになる。左右のtool群（sidebar開閉などframeの操作）はframeに直置きし、バーには含めない。バーは四辺ともgapで離す。左端はsidebar列の端に揃え、右端は窓の端まで伸ばす（右の列はmatの内側のdockなので揃える対象はtool群だけ）。
+- **浮きバー**: topbarではwork区間のsegment（Main・Subの2つ）だけが浮きバーになる。左右のtool群（sidebar開閉などframeの操作）はframeに直置きし、バーには含めない。バーは四辺ともgapで離す。Mainのsegmentの左端はsidebar列の端に揃え、SubのsegmentはSub列の真上に置く。
 - **splitはsegment方式**: centerをsplitすると、分割したleaf同士は溝で離れるが、regionの外縁の角だけが丸い。splitの内側の辺は直角にして溝を真っ直ぐに通し、外からは1枚のカードの輪郭に見える（Googleのlist viewのsegment方式）。leafの各辺が外縁かどうかはsplit木で伝播する（`Edges`）。
 - dockカードは領域全体で1枚なので全角丸い。
 

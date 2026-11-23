@@ -9,7 +9,7 @@ import {
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
-import type { WorkspaceState, PanelRef, MoveTarget } from "../layout/model.ts";
+import type { WorkspaceState, PanelRef, MoveTarget, DockKind } from "../layout/model.ts";
 import {
   emptyWorkspace, addPanel, closePanel, selectPanel, movePanel,
   splitAt, setRatio,
@@ -21,7 +21,7 @@ import {
   addArea, areaKey, emptyAreaList, loadAreaList, saveAreaList, selectArea,
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
-import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
+import { loadPrefs, savePrefs, type DockSlot, type ShellPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
 import { saveLastLocation } from "../storage.ts";
 import { createDragController, type DragController } from "./drag.ts";
@@ -69,6 +69,26 @@ export interface ShellController {
   focusedArea(): AreaController | null;
   setFocusedArea(area: AreaController): void;
 
+  // Shellの横幅に応じた段階（ResizeObserverがセット）。
+  // <1100pxでSubがdrawer、<800pxでArea listもdrawerになる。
+  shellSize(): ShellSize;
+  setShellSize(size: ShellSize): void;
+  // drawer化した領域の一時的な開閉。prefsの開閉とは別signal — 狭くなった
+  // 瞬間に保存済みの「開」がcenterを覆わないよう、初期は閉。
+  subDrawer(): boolean;
+  setSubDrawer(open: boolean): void;
+  sideDrawer(): boolean;
+  setSideDrawer(open: boolean): void;
+  // drawerかどうかを含む実効の表示状態・切替。
+  subDrawerMode(): boolean;
+  sideDrawerMode(): boolean;
+  subShown(): boolean;
+  sideShown(): boolean;
+  toggleSub(): void;
+  toggleSide(): void;
+  // 外pointerdownやEscapeで一時drawerを全部畳む。
+  closeDrawers(): void;
+
   // 「+」のpanel pickerはshellに1個。開くとき対象のAreaControllerを指定する。
   pickerArea(): AreaController | null;
   pickerTarget(): MoveTarget | null;
@@ -82,10 +102,27 @@ export interface ShellController {
   removeArea(project: string, path: string[]): Promise<void>;
 }
 
+export type ShellSize = "wide" | "medium" | "compact";
+export type AreaSize = "wide" | "narrow" | "compact";
+
 // 1つのAreaViewが持つ状態。layout・Panel Instance・dragは全部Area単位。
 export interface AreaController {
   shell: ShellController;
+  // dockOpen prefsのスロット（floatingはmainを使う）。
+  slot: DockSlot;
   ref(): AreaRef | null;
+
+  // AreaViewの実測幅に応じた段階（ResizeObserverがセット）。
+  // narrowでleft/right、compactでbottomもdrawerになる。
+  size(): AreaSize;
+  setSize(size: AreaSize): void;
+  // drawer化したdockの一時的な開閉（同時に開くのは1つ）。
+  drawer(): DockKind | null;
+  setDrawer(kind: DockKind | null): void;
+  dockIsDrawer(kind: DockKind): boolean;
+  // 実効の開閉（drawerならsignal、inlineならprefs）。
+  dockShown(kind: DockKind): boolean;
+  toggleDock(kind: DockKind): void;
 
   layout(): WorkspaceState;
   applyLayout(mutate: (state: WorkspaceState) => WorkspaceState): void;
@@ -205,6 +242,31 @@ export function createShellController(
   // ---- 触っている側のArea ----
   const [focusedArea, setFocusedArea] = createSignal<AreaController | null>(null);
 
+  // ---- 幅に応じたdrawer化 ----
+  // drawerの開閉はsignal（prefsではない）— 狭くなった瞬間にcenterが
+  // 覆われないよう初期は閉。AreaViewのdock drawerは各controllerが持つ。
+  const [shellSize, setShellSize] = createSignal<ShellSize>("wide");
+  const [subDrawer, setSubDrawer] = createSignal(false);
+  const [sideDrawer, setSideDrawer] = createSignal(false);
+  const subDrawerMode = () => shellSize() !== "wide";
+  const sideDrawerMode = () => shellSize() === "compact";
+  const subShown = () =>
+    subDrawerMode() ? subDrawer() : prefs().subOpen && !prefs().sideHidden;
+  const sideShown = () =>
+    sideDrawerMode() ? sideDrawer() : prefs().sidebarOpen && !prefs().sideHidden;
+  const toggleSub = () => {
+    if (subDrawerMode()) setSubDrawer(!subDrawer());
+    else updatePrefs((prefs) => { prefs.subOpen = !prefs.subOpen; });
+  };
+  const toggleSide = () => {
+    if (sideDrawerMode()) setSideDrawer(!sideDrawer());
+    else updatePrefs((prefs) => { prefs.sidebarOpen = !prefs.sidebarOpen; });
+  };
+  const closeDrawers = () => {
+    setSubDrawer(false);
+    setSideDrawer(false);
+  };
+
   // ---- panel picker（shellに1個。開くとき対象のAreaControllerを取る） ----
   const [picker, setPicker] = createSignal<HTMLElement>();
   const [pickerArea, setPickerArea] = createSignal<AreaController | null>(null);
@@ -246,6 +308,12 @@ export function createShellController(
     areaList, applyAreaList,
     mainRef, subRef, displayOf,
     focusedArea, setFocusedArea,
+    shellSize, setShellSize,
+    subDrawer, setSubDrawer,
+    sideDrawer, setSideDrawer,
+    subDrawerMode, sideDrawerMode,
+    subShown, sideShown,
+    toggleSub, toggleSide, closeDrawers,
     pickerArea, pickerTarget, openPicker, bindPicker: setPicker, pickPanel,
     createProject, removeProject, createArea, removeArea,
   };
@@ -278,8 +346,29 @@ export function createShellController(
 export function createAreaController(
   shell: ShellController,
   ref: () => AreaRef | null,
+  slot: DockSlot,
 ): AreaController {
   const host = shell.host;
+
+  // ---- 幅に応じたdrawer化（このAreaView単位） ----
+  const [size, setSize] = createSignal<AreaSize>("wide");
+  const [drawer, setDrawer] = createSignal<DockKind | null>(null);
+  const dockIsDrawer = (kind: DockKind) =>
+    size() === "compact" || (size() === "narrow" && kind !== "bottom");
+  const dockShown = (kind: DockKind) =>
+    dockIsDrawer(kind) ? drawer() === kind : shell.prefs().dockOpen[slot][kind];
+  const toggleDock = (kind: DockKind) => {
+    if (dockIsDrawer(kind)) setDrawer(drawer() === kind ? null : kind);
+    else {
+      shell.updatePrefs((prefs) => {
+        const slotOpen = prefs.dockOpen[slot];
+        prefs.dockOpen = {
+          ...prefs.dockOpen,
+          [slot]: { ...slotOpen, [kind]: !slotOpen[kind] },
+        };
+      });
+    }
+  };
 
   // ---- layout（workspaceを1つの状態に持つ） ----
   // store+reconcileで、変わらないleaf/PanelRefのproxyを保つ。
@@ -395,7 +484,8 @@ export function createAreaController(
   });
 
   const controller: AreaController = {
-    shell, ref,
+    shell, slot, ref,
+    size, setSize, drawer, setDrawer, dockIsDrawer, dockShown, toggleDock,
     layout, applyLayout,
     instance, openPanel,
     drag, ghost, dropElement,

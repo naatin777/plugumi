@@ -1,34 +1,53 @@
 // 1つのAreaの表示（designs/00005「Areaの中身」）。左の列で選ばれたAreaの
 // workspaceを、dock構成（left / center / bottom / right）で描く。
 // 表示形式 "center" はdockをdata-closedで畳むだけ — Panelの配置は保つ。
-import { Show } from "solid-js";
+// 幅に応じてdata-sizeを立て、狭いときはdockがdrawerになる（dock.css）。
+import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { AreaController } from "./controller.tsx";
 import type { ListSlot } from "../layout/area-list.ts";
+import type { DockKind } from "../layout/model.ts";
 import { AreaContext, useShell } from "./controller.tsx";
 import { Dock } from "./dock.tsx";
 import { CenterView } from "./center.tsx";
 
 export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.Element {
   const shell = useShell();
-  const prefs = () => shell.prefs();
   const display = () => shell.displayOf(props.area.ref(), props.slot);
-  // dockの開閉はdata-closedで幅0に畳む（unmountしない — Panel状態を保つ上に
+  // dockの開閉はdata-closedで畳む（unmountしない — Panel状態を保つ上に
   // 畳み込みアニメが効く）。display "center" では全dockを畳む。
-  const dockShown = (kind: "left" | "bottom" | "right") =>
-    display() !== "center" && prefs().dockOpen[kind];
+  // 実効の開閉（prefsかdrawer signalか）はAreaControllerがsizeから決める。
+  const dockClosed = (kind: DockKind) =>
+    display() === "center" || !props.area.dockShown(kind);
+
+  // 幅はResizeObserverで測りdata-sizeへ。JSでもdrawer状態を扱うので
+  // container queryだけにはしない。callback内でoffsetWidth等は読まない
+  // （entryの測定値をそのまま使う — work-shape.tsxと同じ注意）。
+  let ro: ResizeObserver | undefined;
+  onCleanup(() => ro?.disconnect());
+  const observe = (node: HTMLElement) => {
+    ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+        props.area.setSize(w >= 1000 ? "wide" : w >= 600 ? "narrow" : "compact");
+      }
+    });
+    ro.observe(node);
+  };
 
   return (
     <AreaContext value={props.area}>
       <div
         class="area-view"
+        ref={observe}
+        data-size={props.area.size()}
         data-display={display()}
         onPointerDown={() => shell.setFocusedArea(props.area)}
       >
-        <Dock kind="left" closed={!dockShown("left")} />
+        <Dock kind="left" closed={dockClosed("left")} drawer={props.area.dockIsDrawer("left")} />
         <CenterView />
-        <Dock kind="right" closed={!dockShown("right")} />
-        <Dock kind="bottom" closed={!dockShown("bottom")} />
+        <Dock kind="right" closed={dockClosed("right")} drawer={props.area.dockIsDrawer("right")} />
+        <Dock kind="bottom" closed={dockClosed("bottom")} drawer={props.area.dockIsDrawer("bottom")} />
       </div>
     </AreaContext>
   );

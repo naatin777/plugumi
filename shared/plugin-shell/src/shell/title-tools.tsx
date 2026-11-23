@@ -25,9 +25,9 @@ export function TitleToolsLeft(): JSX.Element {
   return (
     <>
       <ToolButton
-        label="Area list"
-        pressed={shell.prefs().sidebarOpen}
-        onClick={() => shell.updatePrefs((prefs) => { prefs.sidebarOpen = !prefs.sidebarOpen; })}
+        label="Area list" keep
+        pressed={shell.sideShown()}
+        onClick={() => shell.toggleSide()}
       >
         <IconSidebar />
       </ToolButton>
@@ -91,12 +91,36 @@ function Crumb(props: { label: string; to: string }): JSX.Element {
   return <a class="bar-crumb-item" href={href()}>{props.label}</a>;
 }
 
-export function TitleToolsCenter(props: { area: AreaController }): JSX.Element {
+// 列ごとの開閉ボタンを持たせるため、work区間はMain/Subで別segment。
+// dockボタンはそのsegmentの列（slot）にだけ効く。実効の開閉は
+// AreaControllerが幅（inline/drawer）に応じて返す。
+function DockButtons(props: { area: AreaController }): JSX.Element {
+  return (
+    <>
+      <ToolButton
+        label="左の領域" keep pressed={props.area.dockShown("left")}
+        onClick={() => props.area.toggleDock("left")}
+      >
+        <IconDockLeft />
+      </ToolButton>
+      <ToolButton
+        label="下の領域" keep pressed={props.area.dockShown("bottom")}
+        onClick={() => props.area.toggleDock("bottom")}
+      >
+        <IconDockBottom />
+      </ToolButton>
+      <ToolButton
+        label="右の領域" keep pressed={props.area.dockShown("right")}
+        onClick={() => props.area.toggleDock("right")}
+      >
+        <IconDockRight />
+      </ToolButton>
+    </>
+  );
+}
+
+export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
   const shell = useShell();
-  const toggleDock = (kind: "left" | "bottom" | "right") =>
-    shell.updatePrefs((prefs) => {
-      prefs.dockOpen = { ...prefs.dockOpen, [kind]: !prefs.dockOpen[kind] };
-    });
   // crumbはMainに表示中のArea（URLのpath）。
   const mainPath = () => shell.mainRef()?.path ?? [];
   const crumbTo = (depth: number) =>
@@ -105,15 +129,28 @@ export function TitleToolsCenter(props: { area: AreaController }): JSX.Element {
   return (
     <>
       <nav class="bar-crumb" aria-label="現在位置">
-        <Crumb label={shell.project()} to={crumbTo(0)} />
-        <For each={mainPath()}>
-          {(name, i) => (
+        <Show
+          when={shell.shellSize() === "compact"}
+          fallback={
             <>
-              <span class="bar-crumb-sep">/</span>
-              <Crumb label={name} to={crumbTo(i() + 1)} />
+              <Crumb label={shell.project()} to={crumbTo(0)} />
+              <For each={mainPath()}>
+                {(name, i) => (
+                  <>
+                    <span class="bar-crumb-sep">/</span>
+                    <Crumb label={name} to={crumbTo(i() + 1)} />
+                  </>
+                )}
+              </For>
             </>
-          )}
-        </For>
+          }
+        >
+          {/* 狭いときは末尾のArea名だけ出す（階層は省く）。 */}
+          <Crumb
+            label={mainPath()[mainPath().length - 1] ?? shell.project()}
+            to={crumbTo(mainPath().length)}
+          />
+        </Show>
       </nav>
       <ToolButton
         label="Panelを開く"
@@ -151,31 +188,53 @@ export function TitleToolsCenter(props: { area: AreaController }): JSX.Element {
         onClick={() => shell.openPicker(props.area)}
       >
         <IconSearch size={12} />
-        検索
+        <span class="bar-search-text">検索</span>
         <span class="bar-search-key">⌘K</span>
       </button>
       <span class="bar-flex" />
+      <DockButtons area={props.area} />
+    </>
+  );
+}
+
+// Sub列のsegment。SubのArea crumb・「+」・Sub用のdock開閉・右端のSub開閉。
+// Subが閉じている（またはSub自体がdrawerの）ときは開閉ボタンだけの
+// 小さなsegmentになる。
+export function TitleSegmentSub(props: { area: AreaController }): JSX.Element {
+  const shell = useShell();
+  const navigate = useNavigate();
+  // drawer化している間はcrumbやdockボタンを出さない（開閉ボタンだけの形）。
+  // Area未選択でも開いていればdockボタンは出し、crumbは「Sub」だけにする。
+  const detailed = () => !shell.subDrawerMode() && shell.subShown();
+  const crumb = () => {
+    const ref = shell.subRef();
+    return ref ? `${ref.project} / ${ref.path.join("/")}` : "Sub";
+  };
+  const goMain = (event: MouseEvent) => {
+    event.preventDefault();
+    const ref = shell.subRef();
+    if (!ref) return;
+    navigate(`/${shell.coreKey()}/${ref.project}/` +
+      `${ref.path.map(encodeURIComponent).join("/")}/`);
+  };
+  return (
+    <>
+      <Show when={detailed()}>
+        <a class="bar-crumb-item" href="#" onClick={goMain}>
+          {crumb()}
+        </a>
+        <ToolButton
+          label="Panelを開く"
+          onClick={() => shell.openPicker(props.area)}
+        >
+          <IconPlus />
+        </ToolButton>
+        <span class="bar-flex" />
+        <DockButtons area={props.area} />
+      </Show>
       <ToolButton
-        label="左の領域" pressed={shell.prefs().dockOpen.left}
-        onClick={() => toggleDock("left")}
-      >
-        <IconDockLeft />
-      </ToolButton>
-      <ToolButton
-        label="下の領域" pressed={shell.prefs().dockOpen.bottom}
-        onClick={() => toggleDock("bottom")}
-      >
-        <IconDockBottom />
-      </ToolButton>
-      <ToolButton
-        label="右の領域" pressed={shell.prefs().dockOpen.right}
-        onClick={() => toggleDock("right")}
-      >
-        <IconDockRight />
-      </ToolButton>
-      <ToolButton
-        label="Sub" pressed={shell.prefs().subOpen}
-        onClick={() => shell.updatePrefs((prefs) => { prefs.subOpen = !prefs.subOpen; })}
+        label="Sub" keep pressed={shell.subShown()}
+        onClick={() => shell.toggleSub()}
       >
         <IconSidebar />
       </ToolButton>
@@ -183,7 +242,9 @@ export function TitleToolsCenter(props: { area: AreaController }): JSX.Element {
   );
 }
 
-export function TitleToolsRight(): JSX.Element {
+// 両サイド・テーマ・背景の3操作。compactでは重なりを避けるため
+// 「…」メニューに畳む。
+function MiscButtons(): JSX.Element {
   const shell = useShell();
   const themeIcon = () => {
     const mode = shell.prefs().theme;
@@ -194,7 +255,11 @@ export function TitleToolsRight(): JSX.Element {
       {/* 両端の列（Area list＋Sub）をまとめて畳む。 */}
       <ToolButton
         label="両サイド" pressed={shell.prefs().sideHidden}
-        onClick={() => shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; })}
+        // 一時drawerもまとめて畳む。
+        onClick={() => {
+          shell.closeDrawers();
+          shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; });
+        }}
       >
         <IconSides />
       </ToolButton>
@@ -211,6 +276,39 @@ export function TitleToolsRight(): JSX.Element {
       >
         <IconAurora />
       </ToolButton>
+    </>
+  );
+}
+
+export function TitleToolsRight(): JSX.Element {
+  const shell = useShell();
+  let menu!: HTMLDivElement;
+  return (
+    <>
+      <Show
+        when={shell.shellSize() === "compact"}
+        fallback={<MiscButtons />}
+      >
+        {/* compactでは両サイド・テーマ・もやを「…」にまとめる。
+            anchor()はこの環境ではimplicit anchorが解決しないので、
+            開くときにボタンのrectからfixedで「真下・右揃え」に置く。 */}
+        <button
+          class="icon-button" aria-label="その他" popovertarget="misc-menu"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            menu.style.top = `${rect.bottom + 4}px`;
+            menu.style.right = `${window.innerWidth - rect.right}px`;
+          }}
+        >
+          …
+        </button>
+        <div
+          class="misc-menu" id="misc-menu" popover="auto" ref={menu}
+          onClick={(event) => event.currentTarget.hidePopover()}
+        >
+          <MiscButtons />
+        </div>
+      </Show>
       <ToolButton label="設定">
         <IconSettings />
       </ToolButton>

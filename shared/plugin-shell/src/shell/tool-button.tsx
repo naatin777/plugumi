@@ -6,6 +6,8 @@ export function ToolButton(props: {
   label: string;
   class?: string;
   pressed?: boolean;
+  // drawerを開くボタンは外click判定の「内側」にする。
+  keep?: boolean;
   onClick?: (event: MouseEvent) => void;
   onPointerDown?: (event: PointerEvent) => void;
   children: JSX.Element;
@@ -19,6 +21,7 @@ export function ToolButton(props: {
         : props.pressed ? "true" : "false"}
       onClick={props.onClick}
       onPointerDown={props.onPointerDown}
+      data-drawer-keep={props.keep ? "" : undefined}
     >
       {props.children}
     </button>
