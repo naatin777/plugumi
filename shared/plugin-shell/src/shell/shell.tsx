@@ -20,6 +20,27 @@ export function ShellFrame(): JSX.Element {
   // work面の形に使う幅。zenでは0を渡す（開閉状態自体は潰さない）。
   const sideWidth = () => (zen() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
   const pinnedWidth = () => (zen() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
+  // matのgrid template。閉じたdockの分は列/行ごと消す — 0幅のauto列を
+  // 残すと列間のgapだけが溝として残って空きレーンになるため。
+  // bodyの列も開いている側だけ（aside自体はdata-attrで消す）。
+  const bodyCols = () => {
+    const cols: string[] = [];
+    if (sideWidth() > 0) cols.push("var(--side-width)");
+    cols.push("minmax(0, 1fr)");
+    if (pinnedWidth() > 0) cols.push("var(--pinned-width)");
+    return cols.join(" ");
+  };
+  const matTemplate = () => {
+    const open = prefs().dockOpen;
+    const areas: string[] = [];
+    const sizes: string[] = [];
+    if (open.left) { areas.push("left"); sizes.push("auto"); }
+    areas.push("center"); sizes.push("minmax(0, 1fr)");
+    if (open.right) { areas.push("right"); sizes.push("auto"); }
+    const rows = [`"${areas.join(" ")}" minmax(0, 1fr)`];
+    if (open.bottom) rows.push(`"${" bottom".repeat(areas.length).trimStart()}" auto`);
+    return `${rows.join(" ")} / ${sizes.join(" ")}`;
+  };
 
   const keydown = (event: KeyboardEvent) => {
     if (!event.metaKey && !event.ctrlKey) return;
@@ -65,9 +86,14 @@ export function ShellFrame(): JSX.Element {
   return (
     <main
       class={{ shell: true, "frame-hidden": zen() }}
+      // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
+      data-side={sideWidth() > 0 ? "" : undefined}
+      data-pinned={pinnedWidth() > 0 ? "" : undefined}
       style={{
         "--side-width": `${sideWidth()}px`,
         "--pinned-width": `${pinnedWidth()}px`,
+        "--body-cols": bodyCols(),
+        "--mat-template": matTemplate(),
       }}
     >
       <WorkShape

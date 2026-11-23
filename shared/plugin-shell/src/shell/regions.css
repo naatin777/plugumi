@@ -178,7 +178,7 @@
     height: 100%; min-height: 0;
     /* Panelの面は領域によらずsecondaryで統一する。カードの色は
        Panelの後ろ側（ヘッダーと周りの縁）にだけ見せる。 */
-    background: var(--plugumi-colors-background-secondary);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 15%, transparent);
     overflow: hidden;
   }
 
@@ -218,7 +218,8 @@
     min-width: 0; min-height: 0;
     /* 区切りはgapに覗く床が担うのでborderは引かない。 */
     border-radius: var(--plugumi-radii-lg);
-    background: var(--plugumi-colors-background-secondary);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 30%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     overflow: hidden;
   }
@@ -282,7 +283,8 @@
      Panelのカード（secondary）ではない別のmountなので、色でも区別する。 */
   .widget-body {
     flex: none; min-height: 0;
-    background: var(--plugumi-colors-background-widget);
+    background: color-mix(in srgb, var(--plugumi-colors-background-widget) 25%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
     box-shadow: inset 0 0 0 1px var(--plugumi-colors-border);
   }
   /* 開いたwidgetの操作群。headerを持たないので、hoverした時だけ
@@ -339,7 +341,8 @@
     position: relative;
     display: flex; flex-direction: column;
     min-width: 0; min-height: 0;
-    background: var(--plugumi-colors-background-secondary);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 30%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     overflow: hidden;
   }

@@ -21,6 +21,9 @@
 @scope (:root) to ([data-plugumi-plugin]) {
 
   main.shell {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     display: grid;
     grid-template-rows: calc(env(titlebar-area-height, var(--os-inset-height, 40px)) + var(--work-gap)) 1fr 40px;
     height: 100vh;
@@ -29,31 +32,53 @@
     font-family: var(--plugumi-font-family-sans);
     font-size: var(--plugumi-font-size-sm);
   }
+  /* 床の虹色もやもや。はみ出す分をblurで滲ませ、ゆっくり漂わせる。 */
+  main.shell::before {
+    content: "";
+    position: absolute; inset: -20%;
+    z-index: -1;
+    background:
+      radial-gradient(45% 60% at 15% 20%, rgb(255 90 140 / 0.5), transparent 70%),
+      radial-gradient(50% 55% at 85% 15%, rgb(80 130 255 / 0.45), transparent 70%),
+      radial-gradient(45% 55% at 75% 85%, rgb(110 255 170 / 0.35), transparent 70%),
+      radial-gradient(50% 50% at 25% 90%, rgb(190 90 255 / 0.45), transparent 70%),
+      radial-gradient(40% 40% at 55% 50%, rgb(255 200 80 / 0.3), transparent 70%);
+    filter: blur(80px) saturate(1.3);
+    animation: shell-aurora 40s ease-in-out infinite alternate;
+  }
+  @keyframes shell-aurora {
+    from { transform: translate3d(-3%, -2%, 0) scale(1); }
+    to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
+  }
 
   /* title帯の中でsegment（浮きバー）の端を決める変数。barの端は極力
      work面の端（=sidebar/pinned列の端、下のタイルの外縁）に揃える。
      列がtool群の設計幅より狭い時だけtool群が優先される（tool群は
      frameに直置きで、barには含めない）。 */
   main.shell, .lab-shape {
+    /* 列の端 = bodyの外周padding + 列幅。列が窓端からgap分内側に
+       入るので、揃える側も同じ分だけ足す。 */
     --title-left: calc(max(
       env(titlebar-area-x, var(--os-inset-x, 0px)) + var(--title-tools-left),
-      var(--side-width, 0px)));
+      var(--side-width, 0px) + var(--work-gap)));
     --title-right: calc(max(
       var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px))
         - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)))
         + var(--title-tools-right),
-      var(--pinned-width, 0px)));
+      var(--pinned-width, 0px) + var(--work-gap)));
   }
 
   /* ---- 面と縁: 土台とframe領域はbackground-primary、その上に浮く
      面はbackground-secondary。title帯ではsegmentだけが浮きバー。 ---- */
   .work-title {
     position: relative;
-    background: var(--shell-frame-color);
+    background: color-mix(in srgb, var(--plugumi-colors-background-primary) 35%, transparent);
+    backdrop-filter: blur(30px) saturate(1.4);
     app-region: drag;
     -webkit-app-region: drag;
   }
-  .work-title .title-tools,
+  .work-title .title-tools { app-region: drag; -webkit-app-region: drag; }
+  .work-title .title-tools :is(button, a, input, [popovertarget]) { app-region: no-drag; -webkit-app-region: no-drag; }
   .work-title .work-segment { app-region: no-drag; -webkit-app-region: no-drag; }
 
   .title-tools {
@@ -62,15 +87,25 @@
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
+    /* footprintを--title-tools-*と一致させるため外寸をwidthで指定する
+       （content-boxだとpadding分だけピルがはみ出して揃えが狂う）。 */
+    box-sizing: border-box;
+    border-radius: var(--work-radius);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 40%, transparent);
+    box-shadow: inset 0 0 0 1px var(--plugumi-colors-border),
+      0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     overflow: hidden;
   }
+  /* tool群は内側をbarの端（=--title-left/right）まで伸ばして、
+     pillとbarでtitle行を敷き詰める。列がtool群より広くてbarが
+     押し出された分もpillが追従して隙間を残さない。 */
   .title-tools.left {
     left: env(titlebar-area-x, var(--os-inset-x, 0px));
-    width: var(--title-tools-left);
+    width: calc(var(--title-left) - env(titlebar-area-x, var(--os-inset-x, 0px)));
   }
   .title-tools.right {
     right: calc(var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px)) - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw))));
-    width: var(--title-tools-right);
+    width: calc(var(--title-right) - (var(--shell-viewport, 100vw) - env(titlebar-area-x, var(--os-inset-x, 0px)) - env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)))));
     justify-content: flex-end;
   }
 
@@ -85,28 +120,44 @@
     justify-content: flex-end;
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
-    background: var(--plugumi-colors-background-secondary);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 40%, transparent);
     border-radius: var(--work-radius);
     box-shadow: inset 0 0 0 1px var(--plugumi-colors-border),
       0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     overflow: hidden;
   }
 
-  /* body側の3列。sideとpinnedはframe色、matはcanvas。
+  /* body側の列。sideとpinnedはframe色、matはcanvas。
+     開いている側の列だけTS側が--body-colsに組む — 0幅の列を残すと
+     gapだけが空きレーンになるため（fallbackはStyle Lab用の3列）。
      列間のgapと上下のpaddingがタイルの周りの溝になる。 */
   .work-body {
     display: grid;
-    grid-template-columns: var(--side-width, 0px) 1fr var(--pinned-width, 0px);
+    grid-template-columns: var(--body-cols, var(--side-width, 0px) 1fr var(--pinned-width, 0px));
     gap: var(--work-gap);
-    padding: var(--work-gap) 0;
+    padding: var(--work-gap);
     min-height: 0;
-    background: var(--shell-frame-color);
+    background: transparent;
   }
+  main.shell:not([data-side]) .frame-side { display: none; }
+  main.shell:not([data-pinned]) .frame-pinned { display: none; }
   .frame-side, .frame-pinned {
     position: relative;
     min-width: 0;
     overflow: hidden;
-    background: var(--shell-frame-color);
+    border-radius: var(--work-radius);
+    background: color-mix(in srgb, var(--plugumi-colors-background-primary) 40%, transparent);
+    backdrop-filter: blur(32px) saturate(1.4);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
+  }
+  /* 中身が全面を覆うことがあるので、枠線は::afterで最前面に描く。 */
+  .frame-side::after, .frame-pinned::after {
+    content: "";
+    position: absolute; inset: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 5;
   }
   /* pinnedはframe側の領域なので窓の右端に張り付ける（paddingなし）。
      上下と左の溝はbodyのpaddingと列間gapが担う。 */
@@ -114,12 +165,14 @@
   .work-mat {
     min-width: 0; min-height: 0;
     display: grid;
-    grid-template:
+    /* 開いているdock分の列/行だけをTS側が--mat-templateに組む。
+       fallbackはStyle Lab用の全領域template。 */
+    grid-template: var(--mat-template,
       "left center right" minmax(0, 1fr)
       "left bottom right" auto
-      / auto minmax(0, 1fr) auto;
+      / auto minmax(0, 1fr) auto);
     gap: var(--work-gap);
-    background: var(--plugumi-colors-background-secondary);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 20%, transparent);
     border-radius: var(--work-radius);
   }
 
@@ -130,15 +183,21 @@
   .work-bed {
     grid-column: 1 / -1;
     grid-row: 1 / -1;
-    background: var(--plugumi-colors-background-primary);
+    background: color-mix(in srgb, var(--plugumi-colors-background-primary) 25%, transparent);
     border-radius: var(--work-radius);
     pointer-events: none;
   }
   .status-bar {
+    position: relative;
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-sm);
+    margin: 0 var(--work-gap) var(--work-gap);
     padding: 0 var(--plugumi-spacing-md);
-    background: var(--shell-frame-color);
+    border-radius: var(--work-radius);
+    background: color-mix(in srgb, var(--plugumi-colors-background-secondary) 40%, transparent);
+    backdrop-filter: blur(30px) saturate(1.4);
+    box-shadow: inset 0 0 0 1px var(--plugumi-colors-border),
+      0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.2);
     font-size: var(--plugumi-font-size-xs);
     color: var(--plugumi-colors-text-muted);
     overflow: hidden;
