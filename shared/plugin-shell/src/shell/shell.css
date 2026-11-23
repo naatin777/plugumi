@@ -96,10 +96,13 @@
 
   /* ---- title帯: 枠・溝の無い平らな面。tool群とsegmentは位置決めの
      ための見えない区画で、列の区切りは境界線（.col-divider）だけ。 ---- */
+  /* title帯の下端は全幅の横線。縦の境界線はこの線とstatus帯上の線の
+     間だけを通る。 */
   .work-title {
     position: relative;
     app-region: drag;
     -webkit-app-region: drag;
+    border-bottom: 1px solid var(--plugumi-colors-border);
   }
   .work-title .title-tools { app-region: drag; -webkit-app-region: drag; }
   .work-title .title-tools :is(button, a, input, [popovertarget]) { app-region: no-drag; -webkit-app-region: no-drag; }
@@ -174,7 +177,8 @@
      status帯の上まで通す。閉じた側・drawerの側は出さない。 */
   .col-divider {
     position: absolute;
-    top: 0;
+    /* title帯下の線からstatus帯上の線まで。 */
+    top: calc(var(--titlebar-h) + var(--work-gap));
     bottom: 40px;
     width: 1px;
     background: var(--plugumi-colors-border);
@@ -347,8 +351,10 @@
     margin: 0 var(--work-gap) var(--work-gap);
   }
 
+  /* status帯の上端は全幅の横線。 */
   .status-bar {
     position: relative;
+    border-top: 1px solid var(--plugumi-colors-border);
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-sm);
     padding: 0 var(--plugumi-spacing-md);

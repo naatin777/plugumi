@@ -21,10 +21,22 @@ const icon = (paths: () => JSX.Element) => (props: IconProps) => (
   </svg>
 );
 
-// 枠+内部の線で領域を表すアイコン群。
-export const IconSidebar = icon(() => <>
+// 枠+内部の線で領域を表すアイコン群。外側の列（Area list・Sub）は
+// 列を塗りつぶしてArea内のdock（線だけ）と描き分ける。
+export const IconAreaList = icon(() => <>
   <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-  <line x1="6" y1="2.5" x2="6" y2="13.5" />
+  <path
+    d="M6 3.25 H3.5 a1.25 1.25 0 0 0 -1.25 1.25 v7 a1.25 1.25 0 0 0 1.25 1.25 H6 Z"
+    fill="currentColor" stroke="none"
+  />
+</>);
+
+export const IconSub = icon(() => <>
+  <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+  <path
+    d="M10 3.25 h2.5 a1.25 1.25 0 0 1 1.25 1.25 v7 a1.25 1.25 0 0 1 -1.25 1.25 H10 Z"
+    fill="currentColor" stroke="none"
+  />
 </>);
 
 export const IconDockLeft = icon(() => <>

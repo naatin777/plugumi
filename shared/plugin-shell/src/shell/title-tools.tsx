@@ -8,7 +8,7 @@ import { useShell, type AreaController } from "./controller.tsx";
 import { ToolButton } from "./tool-button.tsx";
 import { nextTheme } from "../theme.ts";
 import {
-  IconSidebar, IconSides, IconPlus,
+  IconAreaList, IconSub, IconSides, IconPlus,
   IconDockLeft, IconDockBottom, IconDockRight,
   IconThemeSystem, IconThemeLight, IconThemeDark,
   IconSearch, IconSettings, IconAurora,
@@ -29,7 +29,7 @@ export function TitleToolsLeft(): JSX.Element {
         pressed={shell.sideShown()}
         onClick={() => shell.toggleSide()}
       >
-        <IconSidebar />
+        <IconAreaList />
       </ToolButton>
       <CoreSwitcher />
     </>
@@ -283,7 +283,7 @@ export function TitleToolsRight(): JSX.Element {
         label="Sub" keep pressed={shell.subShown()}
         onClick={() => shell.toggleSub()}
       >
-        <IconSidebar />
+        <IconSub />
       </ToolButton>
       <span class="tool-sep" />
       <Show

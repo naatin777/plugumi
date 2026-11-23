@@ -120,7 +120,7 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 | `--plugumi-colors-background-secondary` | タイル（dock・leaf）、Panelの面 | #1E1E1E | #F1F1F1 |
 | `--plugumi-colors-background-tertiary` | 入力欄・popover・hover・選択中のtab・navの行 | #2D2D2D | #E5E5E5 |
 
-- **frameの区切りは境界線が担う**: frame領域（Area list・title帯・status帯）は平らな面で、列の間は「Area list｜Main」と「Main｜Sub」の縦1px線（`--plugumi-colors-border`）2本だけがtitle帯上端からstatus帯の上まで通る。Subが閉・drawerならMain｜Subの線は出さず、Area listが閉・drawerならArea list｜Mainの線も出さない。Area listとSubの幅のResizerはこの線の上に置く（掴む範囲は線の左右数px、hoverで線を強調）。タイル同士の区切りは従来どおり溝（`--work-gap`）が担い、カードはborderを引かない。
+- **frameの区切りは境界線が担う**: frame領域（Area list・title帯・status帯）は平らな面で、区切りは`--plugumi-colors-border`の1px線が担う。**横線2本**（app barの下端とstatus barの上端）は全幅で常に通し、**縦線2本**（Area list｜MainとMain｜Sub）はその2本の横線の間だけを通る。Subが閉・drawerならMain｜Subの線は出さず、Area listが閉・drawerならArea list｜Mainの線も出さない。Area listとSubの幅のResizerは縦線の上に置く（掴む範囲は線の左右数px、hoverで線を強調）。タイル同士の区切りは従来どおり溝（`--work-gap`）が担い、カードはborderを引かない。
 - **tab帯はカードのheader**: dock・leafは「tab帯（header）＋中身」の1枚のカード。tab帯と中身の間はhairline（divider面）で区切る。
 - Panelの面は領域によらずsecondaryで統一し、Shellが敷く。Panelの最背面は透明にして、Shellが敷いた面の色をそのまま使う。
 
