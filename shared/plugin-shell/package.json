@@ -19,6 +19,6 @@
     "solid-js": "2.0.0"
   },
   "scripts": {
-    "test": "node --test src/layout/*.test.ts"
+    "test": "node --test src/layout/*.test.ts src/panels/*.test.ts"
   }
 }

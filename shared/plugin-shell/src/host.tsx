@@ -5,6 +5,7 @@
 import { createContext, useContext, type ParentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { WorkspaceState } from "./layout/model.ts";
+import type { ShellController } from "./shell/controller.tsx";
 
 // ---- /api/cores 系の型（Go側のJSONフィールド名と一致） ----
 export type CoreSource = "command" | "saved";
@@ -20,7 +21,13 @@ export interface CoreEntry {
   error?: string;
 }
 
-export interface PanelEntry {
+// Shell組み込みPanel。Coreを経由せずShellが直接mountする
+// （Plugin PanelのPanelContextにShell内部を漏らさないため、
+// mountはShellControllerを受け取る）。
+export type BuiltinPanelMount = (host: HTMLElement, shell: ShellController) => () => void;
+
+export interface PluginPanelEntry {
+  kind: "plugin";
   registrationId: string;
   pluginId: string;
   panelId: string;
@@ -29,6 +36,16 @@ export interface PanelEntry {
   styles: string[];
   uiSha256: string;
 }
+
+export interface BuiltinPanelEntry {
+  kind: "builtin";
+  pluginId: "shell";
+  panelId: string;
+  title: string;
+  mount: BuiltinPanelMount;
+}
+
+export type PanelEntry = PluginPanelEntry | BuiltinPanelEntry;
 
 export interface AreaTree {
   name: string;
@@ -52,7 +69,7 @@ export interface ShellHost {
   addCore(url: string): Promise<void>;
   removeCore(url: string): Promise<void>;
 
-  listPanels(key: string): Promise<PanelEntry[]>;
+  listPanels(key: string): Promise<PluginPanelEntry[]>;
   callTool(key: string, body: CallToolBody): Promise<unknown>;
 
   listProjects(key: string): Promise<ProjectTree[]>;

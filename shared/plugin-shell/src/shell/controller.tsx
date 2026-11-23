@@ -22,6 +22,7 @@ import {
   areaKey, emptyAreaList, loadAreaList, pathFromKey, pathKey, saveAreaList,
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
+import { builtinPanels } from "../panels/builtin.tsx";
 import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
 import { saveLastLocation } from "../storage.ts";
@@ -176,7 +177,8 @@ export function createShellController(
   const panelsList = poll(() => host.listPanels(coreKey()), 3000);
   const projectsList = poll(() => host.listProjects(coreKey()), 3000);
   const cores = () => coresList() ?? [];
-  const panels = () => panelsList() ?? [];
+  // 組み込みPanelはCoreに関係なく常に一覧の先頭に出る。
+  const panels = () => [...builtinPanels, ...(panelsList() ?? [])];
   const projects = () => projectsList() ?? [];
   const core = () => coresList()?.find((entry) => entry.key === coreKey());
   const projectTree = () => projectsList()?.find((tree) => tree.name === project());
@@ -389,7 +391,8 @@ export function createAreaController(
     let found = instances.get(panelRef.instanceId);
     if (!found) {
       const declaration = resolvePanel(panelRef, shell.panels());
-      found = new PanelInstance(host, shell.coreKey(), panelRef, declaration?.title ?? panelRef.panelId);
+      found = new PanelInstance(host, shell.coreKey(), panelRef,
+        declaration?.title ?? panelRef.panelId, shell);
       instances.set(panelRef.instanceId, found);
       // instance()は描画中（spread・memo内）にも呼ばれる。mountのsignal書き込みを
       // その場で走らせるとowned scopeへの書き込みでREACTIVITY_HALTEDするので、

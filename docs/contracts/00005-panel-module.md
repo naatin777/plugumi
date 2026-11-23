@@ -80,6 +80,10 @@ Tokenの名前は `@plugumi/plugin-view` の `tokenNames` でも参照できる�
 
 Panelの最背面は透明にする。Panelの面はShellが領域によらず `--plugumi-colors-background-secondary` で敷く（Design 00005「面と縁」）。Panelが自分で最背面を塗る必要はなく、Tokenで面の色を塗るのはPanel内部で面を分けたい要素に限る。
 
+## Shell組み込みPanel
+
+Plugin経由ではなくShellが直接mountするPanel（`kind: "builtin"`、`pluginId`は`"shell"`）もある。Coreのpanels一覧とは別にShell側の一覧に加わり、picker・workspace保存・復元では同じPanelとして扱われる。組み込みは本contractの `mount(host, context)` ではなくShell内部の `BuiltinPanelMount`（`mount(host, shell)`）で呼ばれ、styles・uiSha256・registrationIdは持たない（更新追従・再mountも行わない）。最初の組み込みはテーマ切替Panel（`panelId: "theme"`）。
+
 ## 未決定
 
 - `async` のToolの途中出力と取消

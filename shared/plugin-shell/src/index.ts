@@ -23,10 +23,12 @@ import "./shell/center.css";
 import "./shell/pages.css";
 import "./shell/sidebar.css";
 import "./shell/activity.css";
+import "./panels/builtin.css";
 import "./pages/lab.css";
 
 export type {
-  ShellHost, CoreEntry, PanelEntry, AreaTree, ProjectTree, CallToolBody,
+  ShellHost, CoreEntry, PanelEntry, PluginPanelEntry, BuiltinPanelEntry,
+  AreaTree, ProjectTree, CallToolBody,
 } from "./host.tsx";
 export { ShellHostContext, ShellHostProvider, useShellHost } from "./host.tsx";
 export { shellRoutes } from "./routes.tsx";

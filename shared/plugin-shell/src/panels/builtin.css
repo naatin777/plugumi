@@ -1,0 +1,36 @@
+/* builtin Panel（Shell組み込み）。Panel hostの内側に描くので、
+   shellの@scope境界（to [data-plugumi-plugin]）の外にある — ここは
+   素のselectorで書き、名前はbuiltin-で衝突を避ける。 */
+.builtin-theme {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
+  align-items: center; justify-content: center;
+  padding: var(--plugumi-spacing-sm);
+}
+.builtin-theme-seg {
+  display: inline-flex; gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-background-secondary);
+}
+.builtin-theme-item {
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+  border: none; border-radius: var(--plugumi-radii-sm);
+  background: transparent;
+  color: var(--plugumi-colors-text-muted);
+  font: inherit; font-size: var(--plugumi-font-size-xs);
+  cursor: pointer;
+}
+.builtin-theme-item:hover { color: var(--plugumi-colors-text); }
+.builtin-theme-item.selected {
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+  font-weight: 600;
+}
+.builtin-theme-note {
+  margin: 0;
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-2xs);
+}

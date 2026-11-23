@@ -1,6 +1,6 @@
 // ShellHost の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
 import type {
-  CallToolBody, CoreEntry, PanelEntry, ProjectTree,
+  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree,
   ShellHost, WorkspaceState,
 } from "@plugumi/plugin-shell";
 
@@ -39,10 +39,12 @@ export function httpShellHost(): ShellHost {
       const response = await fetch(`/api/cores?url=${encodeURIComponent(url)}`, { method: "DELETE" });
       if (!response.ok) throw new Error(await errorMessage(response));
     },
-    async listPanels(key: string): Promise<PanelEntry[]> {
+    async listPanels(key: string): Promise<PluginPanelEntry[]> {
       const response = await fetch(`/api/cores/${encodeURIComponent(key)}/panels`);
       if (!response.ok) throw new Error(`GET panels: HTTP ${response.status}`);
-      return response.json();
+      // Coreが返すのはPlugin Panelだけ — kindを付けてdecodeする。
+      const entries = (await response.json()) as Omit<PluginPanelEntry, "kind">[];
+      return entries.map((entry) => ({ ...entry, kind: "plugin" as const }));
     },
     async callTool(key: string, body: CallToolBody): Promise<unknown> {
       const response = await fetch(`/api/cores/${encodeURIComponent(key)}/call`, {

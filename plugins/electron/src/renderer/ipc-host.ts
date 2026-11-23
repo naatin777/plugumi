@@ -1,7 +1,7 @@
 // ShellHost のIPC実装。preloadがwindow.plugumiShellに出す窓口を呼び、
 // uiURLはplugumi-ui://のURLを組み立てるだけなのでここで実装する。
 import type {
-  CallToolBody, CoreEntry, PanelEntry, ProjectTree,
+  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree,
   ShellHost, WorkspaceState,
 } from "@plugumi/plugin-shell";
 
@@ -11,7 +11,7 @@ interface PlugumiShellBridge {
   getCore(key: string): Promise<CoreEntry>;
   addCore(url: string): Promise<void>;
   removeCore(url: string): Promise<void>;
-  listPanels(key: string): Promise<PanelEntry[]>;
+  listPanels(key: string): Promise<PluginPanelEntry[]>;
   callTool(key: string, body: CallToolBody): Promise<unknown>;
   listProjects(key: string): Promise<ProjectTree[]>;
   createProject(key: string, name: string): Promise<void>;
@@ -57,7 +57,10 @@ export function ipcShellHost(): ShellHost {
     getCore: (key) => wrap(bridge.getCore(key)),
     addCore: (url) => wrap(bridge.addCore(url)),
     removeCore: (url) => wrap(bridge.removeCore(url)),
-    listPanels: (key) => wrap(bridge.listPanels(key)),
+    listPanels: async (key) =>
+      // Coreが返すのはPlugin Panelだけ — kindを付けてdecodeする。
+      (await wrap(bridge.listPanels(key)))
+        .map((entry) => ({ ...entry, kind: "plugin" as const })),
     callTool: (key, body) => wrap(bridge.callTool(key, plain(body))),
     listProjects: (key) => wrap(bridge.listProjects(key)),
     createProject: (key, name) => wrap(bridge.createProject(key, name)),

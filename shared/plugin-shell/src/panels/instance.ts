@@ -3,7 +3,8 @@
 // （Plugin再起動で変わるため保存しない。0件ならmissing、複数なら昇順の先頭）。
 import { createSignal } from "solid-js";
 import type { PanelMount, PanelHandle } from "@plugumi/plugin-view";
-import type { PanelEntry, ShellHost } from "../host.tsx";
+import type { PanelEntry, PluginPanelEntry, ShellHost } from "../host.tsx";
+import type { ShellController } from "../shell/controller.tsx";
 import type { PanelRef } from "../layout/model.ts";
 import { acquirePanelStyles } from "./styles.ts";
 import type { ActivityState } from "../shell/activity.ts";
@@ -42,7 +43,10 @@ export function resolvePanel(
 ): PanelEntry | undefined {
   const candidates = panels
     .filter((panel) => panel.pluginId === ref.pluginId && panel.panelId === ref.panelId)
-    .sort((a, b) => a.registrationId.localeCompare(b.registrationId));
+    // registrationIdで昇順にするのはPlugin Panelだけ（builtinは持たない）。
+    .sort((a, b) => a.kind === "plugin" && b.kind === "plugin"
+      ? a.registrationId.localeCompare(b.registrationId)
+      : 0);
   return candidates[0];
 }
 
@@ -68,11 +72,17 @@ export class PanelInstance {
   private releaseStyles: (() => void) | undefined;
   private mountToken = 0;
 
+  private kind: "plugin" | "builtin" = "plugin";
   private readonly shell: ShellHost;
+  private readonly controller: ShellController;
   private readonly coreKey: string;
 
-  constructor(shell: ShellHost, coreKey: string, ref: PanelRef, title: string) {
+  constructor(
+    shell: ShellHost, coreKey: string, ref: PanelRef, title: string,
+    controller: ShellController,
+  ) {
     this.shell = shell;
+    this.controller = controller;
     this.coreKey = coreKey;
     this.id = ref.instanceId;
     this.pluginId = ref.pluginId;
@@ -110,11 +120,7 @@ export class PanelInstance {
   }
 
   async mount(panel: PanelEntry): Promise<void> {
-    this.registrationId = panel.registrationId;
-    this.uiSha256 = panel.uiSha256;
-    this.entry = panel.entry;
     this.setTitle(panel.title);
-    this.host.dataset.plugumiPlugin = panel.registrationId;
     this.teardown();
     const token = this.mountToken;
     this.host.replaceChildren();
@@ -126,6 +132,25 @@ export class PanelInstance {
       if (token !== this.mountToken) return;
       this.setError({ kind, message: String(cause) });
     };
+
+    if (panel.kind === "builtin") {
+      // 組み込みはCoreを経由しない — styles取得・import・callToolなしで
+      // Shellが直接mountする。
+      this.kind = "builtin";
+      this.host.dataset.plugumiPlugin = "shell";
+      try {
+        this.destroyPanel = panel.mount(this.host, this.controller);
+        this.setState("mounted");
+      } catch (cause) {
+        fail("mount", cause);
+      }
+      return;
+    }
+    this.kind = "plugin";
+    this.registrationId = panel.registrationId;
+    this.uiSha256 = panel.uiSha256;
+    this.entry = panel.entry;
+    this.host.dataset.plugumiPlugin = panel.registrationId;
 
     let release: () => void;
     let module: PanelModule;
@@ -192,8 +217,11 @@ export class PanelInstance {
   // panels一覧の更新を追従する。自分のregistrationIdが生きていれば
   // uiSha256の変化だけ見る。無ければpluginId+panelIdで解決し直す。
   update(panels: PanelEntry[]): void {
-    const same = panels.find(
-      (panel) => panel.registrationId === this.registrationId && panel.panelId === this.panelId,
+    // builtinは一覧から消えずUIの更新も無いので、一度mountしたら追わない。
+    if (this.kind === "builtin") return;
+    const same = panels.find((panel): panel is PluginPanelEntry =>
+      panel.kind === "plugin" &&
+      panel.registrationId === this.registrationId && panel.panelId === this.panelId,
     );
     if (same) {
       if (this.state() === "missing" || same.uiSha256 !== this.uiSha256) {

@@ -40,7 +40,7 @@ relations:
 | left / bottom / right | Areaの中のWorkspaceの縁領域。位置が契約（left=一覧系、bottom=terminal系の横広、right=右の列でMainの脇に置く補助）。開閉できる | Area |
 | center | 作業面。splitの木で区画に分けてパネルを配置する | Area |
 
-MainとSubの中身はどちらも同じ**AreaView**である。同じAreaをMainとSubに同時に出してもよい。Areaの中身は従来どおりleft・center（splitの木）・bottom・rightのDock構成で、Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
+MainとSubの中身はどちらも同じ**AreaView**である。PanelにはCore経由のPlugin Panelのほか、Shell組み込みPanel（`pluginId` `"shell"`）がある — Coreを経由せずShellが直接mountし、picker・配置・workspace保存は同じ扱い（テーマ切替Panelなど）。同じAreaをMainとSubに同時に出してもよい。Areaの中身は従来どおりleft・center（splitの木）・bottom・rightのDock構成で、Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
 
 **Area list**: 今のProjectの全AreaをMain・Subの2セクションで一覧する（Areaを隠すことはできない）。行のメニューから「Mainへ / Subへ」の移動と表示形式の切替（Main行のみ。`"full"`=全dockと`"center"`=centerだけの2種）、「子Areaを追加」「Areaを削除」（確認あり）を行う。表示形式を切り替えてもPanelの配置は保たれ、見せ方だけが変わる。
 

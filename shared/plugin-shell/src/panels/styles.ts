@@ -2,7 +2,7 @@
 // <style>としてheadへ出す（contracts/00005「CSS」）。
 // Shadow DOMは使わず@scopeで隔離する。参照カウントで管理し、
 // その登録のInstanceが全て閉じたら外す。uiSha256が変われば取り直す。
-import type { PanelEntry, ShellHost } from "../host.tsx";
+import type { PluginPanelEntry, ShellHost } from "../host.tsx";
 
 interface ScopedStyles {
   element: HTMLStyleElement;
@@ -39,7 +39,7 @@ export function scopeCSS(registrationId: string, text: string): string {
 }
 
 async function fetchScoped(
-  host: ShellHost, coreKey: string, panel: PanelEntry,
+  host: ShellHost, coreKey: string, panel: PluginPanelEntry,
 ): Promise<string> {
   const parts: string[] = [];
   for (const path of panel.styles) {
@@ -55,7 +55,7 @@ async function fetchScoped(
 // その登録のstyleを用意して参照を1つ返す。同じrid+shaは使い回し、
 // shaが変わっていれば中身を取り直して差し替える。
 export async function acquirePanelStyles(
-  host: ShellHost, coreKey: string, panel: PanelEntry,
+  host: ShellHost, coreKey: string, panel: PluginPanelEntry,
 ): Promise<() => void> {
   const rid = panel.registrationId;
   const existing = installed.get(rid);
