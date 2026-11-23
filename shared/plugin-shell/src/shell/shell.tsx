@@ -1,6 +1,6 @@
 // Project画面の外枠。main.shellに既知の幅をCSS変数として供給し、
-// work面の形はCSSだけで決まる。focusは個別の開閉を潰さずframeをまとめて
-// 引っ込める。キーはe.codeで見る（⌥⌘1-5, ⌥⌘Z）。
+// work面の形はCSSだけで決まる。sideHiddenは個別の開閉を潰さず左右の
+// frame領域をまとめて畳む。キーはe.codeで見る（⌥⌘1-5, ⌥⌘Z）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useShell } from "./controller.tsx";
@@ -17,12 +17,11 @@ import { CenterView } from "./center.tsx";
 export function ShellFrame(): JSX.Element {
   const shell = useShell();
   const prefs = () => shell.prefs();
-  const focus = () => prefs().focusMode;
-  // work面の形に使う幅。focusでは0を渡す（開閉状態自体は潰さない）。
-  const sideWidth = () => (focus() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
-  const pinnedWidth = () => (focus() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
-  // dockはwork帯（作業領域）の一部なので、focusでも引っ込めない。
-  // 開閉はdata-closedで幅0に畳む（unmountしない — Panel状態を保つ上に
+  const sideHidden = () => prefs().sideHidden;
+  // work面の形に使う幅。sideHiddenでは0を渡す（開閉状態自体は潰さない）。
+  const sideWidth = () => (sideHidden() || !prefs().sidebarOpen ? 0 : prefs().sidebarWidth);
+  const pinnedWidth = () => (sideHidden() || !prefs().pinnedOpen ? 0 : prefs().pinnedWidth);
+  // dockの開閉はdata-closedで幅0に畳む（unmountしない — Panel状態を保つ上に
   // 畳み込みアニメが効く）。
   const dockShown = (kind: "left" | "bottom" | "right") => prefs().dockOpen[kind];
 
@@ -46,7 +45,7 @@ export function ShellFrame(): JSX.Element {
       return;
     }
     if (event.code === "KeyZ") {
-      shell.updatePrefs((prefs) => { prefs.focusMode = !prefs.focusMode; });
+      shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; });
       event.preventDefault();
       return;
     }
@@ -67,7 +66,7 @@ export function ShellFrame(): JSX.Element {
 
   return (
     <main
-      class={{ shell: true, "focus": focus(), "no-aurora": !prefs().aurora }}
+      class={{ shell: true, "no-aurora": !prefs().aurora }}
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
       data-side={sideWidth() > 0 ? "" : undefined}
       data-pinned={pinnedWidth() > 0 ? "" : undefined}
@@ -80,8 +79,8 @@ export function ShellFrame(): JSX.Element {
         titleLeft={<TitleToolsLeft />}
         titleCenter={<TitleToolsCenter />}
         titleRight={<TitleToolsRight />}
-        sidebar={<Show when={prefs().sidebarOpen && !focus()}><SidebarView /></Show>}
-        pinned={<Show when={prefs().pinnedOpen && !focus()}><PinnedBoard /></Show>}
+        sidebar={<Show when={prefs().sidebarOpen && !sideHidden()}><SidebarView /></Show>}
+        pinned={<Show when={prefs().pinnedOpen && !sideHidden()}><PinnedBoard /></Show>}
       >
         <Dock kind="left" closed={!dockShown("left")} />
         <CenterView />

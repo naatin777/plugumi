@@ -8,7 +8,7 @@ import { useShell } from "./controller.tsx";
 import { ToolButton } from "./tool-button.tsx";
 import { nextTheme } from "../theme.ts";
 import {
-  IconSidebar, IconPinned, IconFocus, IconPlus,
+  IconSidebar, IconPinned, IconSides, IconPlus,
   IconDockLeft, IconDockBottom, IconDockRight,
   IconThemeSystem, IconThemeLight, IconThemeDark,
   IconSearch, IconSettings, IconAurora,
@@ -171,13 +171,6 @@ export function TitleToolsCenter(): JSX.Element {
       >
         <IconDockRight />
       </ToolButton>
-      <span class="title-gap" />
-      <ToolButton
-        label="フォーカス" pressed={shell.prefs().focusMode}
-        onClick={() => shell.updatePrefs((prefs) => { prefs.focusMode = !prefs.focusMode; })}
-      >
-        <IconFocus />
-      </ToolButton>
     </>
   );
 }
@@ -190,6 +183,14 @@ export function TitleToolsRight(): JSX.Element {
   };
   return (
     <>
+      {/* 左右のframe領域（sidebar＋pinned）をまとめて畳む。 */}
+      <ToolButton
+        label="両サイド" pressed={shell.prefs().sideHidden}
+        onClick={() => shell.updatePrefs((prefs) => { prefs.sideHidden = !prefs.sideHidden; })}
+      >
+        <IconSides />
+      </ToolButton>
+      <span class="tool-sep" />
       <ToolButton
         label="テーマ"
         onClick={() => shell.updatePrefs((prefs) => { prefs.theme = nextTheme(prefs.theme); })}

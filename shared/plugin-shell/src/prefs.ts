@@ -13,9 +13,9 @@ export interface ShellPrefs {
   dockSize: Record<DockKind, number>;
   sidebarWidth: number;
   pinnedWidth: number;
-  // focus: sidebar/pinned/statusとtopbarのframe区間をまとめて引っ込め、
-  // 作業領域（center＋dock）だけを残す。個別の開閉状態は潰さない。
-  focusMode: boolean;
+  // 左右のframe領域（sidebar＋pinned）をまとめて畳む。
+  // 個別の開閉状態は潰さないので、戻すと元の開き方に復帰する。
+  sideHidden: boolean;
   theme: ThemeMode;
   // 床の虹色もやもや。消すとフラットな暗い床になる。
   aurora: boolean;
@@ -31,7 +31,7 @@ const defaults = (): ShellPrefs => ({
   // --title-tools-left（260px）以上にしておき、既定のwork面は矩形になる。
   sidebarWidth: 260,
   pinnedWidth: 280,
-  focusMode: false,
+  sideHidden: false,
   theme: "system",
   aurora: true,
 });
@@ -76,7 +76,7 @@ export function loadPrefs(): ShellPrefs {
     },
     sidebarWidth: clampWidth(saved.sidebarWidth, base.sidebarWidth),
     pinnedWidth: clampWidth(saved.pinnedWidth, base.pinnedWidth),
-    focusMode: flag(saved.focusMode, base.focusMode),
+    sideHidden: flag(saved.sideHidden, base.sideHidden),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
     aurora: flag(saved.aurora, base.aurora),
   };

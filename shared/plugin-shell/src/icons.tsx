@@ -99,7 +99,7 @@ export const IconGrip = icon(() => <>
 </>);
 
 // focus: 枠が引っ込んで中央の作業領域だけ残るイメージ。
-export const IconFocus = icon(() => <>
+export const IconSides = icon(() => <>
   <polyline points="6,2.5 2.5,2.5 2.5,6" />
   <polyline points="10,2.5 13.5,2.5 13.5,6" />
   <polyline points="6,13.5 2.5,13.5 2.5,10" />
