@@ -5,6 +5,7 @@ import { For, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
 import { useShell } from "./controller.tsx";
+import { ToolButton } from "./tool-button.tsx";
 import { nextTheme } from "../theme.ts";
 import {
   IconSidebar, IconPinned, IconZen, IconPlus,
@@ -23,14 +24,13 @@ export function TitleToolsLeft(): JSX.Element {
   const shell = useShell();
   return (
     <>
-      <button
-        class="icon-button"
-        aria-label="サイドバー"
-        aria-pressed={shell.prefs().sidebarOpen ? "true" : "false"}
+      <ToolButton
+        label="サイドバー"
+        pressed={shell.prefs().sidebarOpen}
         onClick={() => shell.updatePrefs((prefs) => { prefs.sidebarOpen = !prefs.sidebarOpen; })}
       >
         <IconSidebar />
-      </button>
+      </ToolButton>
       <CoreSwitcher />
     </>
   );
@@ -113,15 +113,15 @@ export function TitleToolsCenter(): JSX.Element {
           )}
         </For>
       </nav>
-      <button
-        class="icon-button" aria-label="Panelを開く"
+      <ToolButton
+        label="Panelを開く"
         // titleの「+」はfocused leafへ足す（leaf指定をリセットしてから開く）。
         // popovertargetを併用するとtoggleとshowPopoverが二重に効いて
         // 閉じてしまうので、onClickから開く。
         onClick={() => shell.openPicker()}
       >
         <IconPlus />
-      </button>
+      </ToolButton>
       <div class="panel-picker" id="panel-picker" popover="auto" ref={shell.bindPicker}>
         <Show when={shell.panels().length > 0} fallback={<p class="picker-empty">開けるPanelがありません</p>}>
           <For each={shell.panels()}>
@@ -153,36 +153,31 @@ export function TitleToolsCenter(): JSX.Element {
         <span class="bar-search-key">⌘K</span>
       </button>
       <span class="bar-flex" />
-      <button
-        class="icon-button" aria-label="左の領域"
-        aria-pressed={shell.prefs().dockOpen.left ? "true" : "false"}
+      <ToolButton
+        label="左の領域" pressed={shell.prefs().dockOpen.left}
         onClick={() => toggleDock("left")}
       >
         <IconDockLeft />
-      </button>
-      <button
-        class="icon-button" aria-label="下の領域"
-        aria-pressed={shell.prefs().dockOpen.bottom ? "true" : "false"}
+      </ToolButton>
+      <ToolButton
+        label="下の領域" pressed={shell.prefs().dockOpen.bottom}
         onClick={() => toggleDock("bottom")}
       >
         <IconDockBottom />
-      </button>
-      <button
-        class="icon-button" aria-label="右の領域"
-        aria-pressed={shell.prefs().dockOpen.right ? "true" : "false"}
+      </ToolButton>
+      <ToolButton
+        label="右の領域" pressed={shell.prefs().dockOpen.right}
         onClick={() => toggleDock("right")}
       >
         <IconDockRight />
-      </button>
+      </ToolButton>
       <span class="title-gap" />
-      <button
-        class="icon-button"
-        aria-label="zen"
-        aria-pressed={shell.prefs().frameHidden ? "true" : "false"}
+      <ToolButton
+        label="zen" pressed={shell.prefs().frameHidden}
         onClick={() => shell.updatePrefs((prefs) => { prefs.frameHidden = !prefs.frameHidden; })}
       >
         <IconZen />
-      </button>
+      </ToolButton>
     </>
   );
 }
@@ -195,32 +190,27 @@ export function TitleToolsRight(): JSX.Element {
   };
   return (
     <>
-      <button
-        class="icon-button"
-        aria-label="テーマ"
+      <ToolButton
+        label="テーマ"
         onClick={() => shell.updatePrefs((prefs) => { prefs.theme = nextTheme(prefs.theme); })}
       >
         {themeIcon()}
-      </button>
-      <button
-        class="icon-button"
-        aria-label="背景のもや"
-        aria-pressed={shell.prefs().aurora ? "true" : "false"}
+      </ToolButton>
+      <ToolButton
+        label="背景のもや" pressed={shell.prefs().aurora}
         onClick={() => shell.updatePrefs((prefs) => { prefs.aurora = !prefs.aurora; })}
       >
         <IconAurora />
-      </button>
-      <button
-        class="icon-button"
-        aria-label="pinned"
-        aria-pressed={shell.prefs().pinnedOpen ? "true" : "false"}
+      </ToolButton>
+      <ToolButton
+        label="pinned" pressed={shell.prefs().pinnedOpen}
         onClick={() => shell.updatePrefs((prefs) => { prefs.pinnedOpen = !prefs.pinnedOpen; })}
       >
         <IconPinned />
-      </button>
-      <button class="icon-button" aria-label="設定">
+      </ToolButton>
+      <ToolButton label="設定">
         <IconSettings />
-      </button>
+      </ToolButton>
     </>
   );
 }

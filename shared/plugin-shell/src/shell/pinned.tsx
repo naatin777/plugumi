@@ -13,6 +13,7 @@ import { ActivityProgress, PanelState } from "./panel-mount.tsx";
 import { Resizer } from "./resizer.tsx";
 import { columnTest } from "./drag.ts";
 import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
+import { ToolButton } from "./tool-button.tsx";
 import { IconClose, IconChevronDown, IconChevronRight, IconGrip, IconPlus } from "../icons.tsx";
 
 // 未指定時の中身の高さ（px）。変更はwidgetごとのresizerで行う。
@@ -108,9 +109,8 @@ function WidgetCard(props: { widget: PinnedWidget }): JSX.Element {
             </div>
             <div class="widget-ops">
               {/* gripはdrag専用（clickでは何もしない）。 */}
-              <button
-                class="widget-op"
-                aria-label="移動"
+              <ToolButton
+                class="widget-op" label="移動"
                 onPointerDown={(event) => {
                   if (event.button !== 0) return;
                   shell.drag.start(
@@ -124,21 +124,19 @@ function WidgetCard(props: { widget: PinnedWidget }): JSX.Element {
                 }}
               >
                 <IconGrip size={12} />
-              </button>
-              <button
-                class="widget-op"
-                aria-label="畳む"
+              </ToolButton>
+              <ToolButton
+                class="widget-op" label="畳む"
                 onClick={() => patch({ collapsed: true })}
               >
                 <IconChevronDown size={12} />
-              </button>
-              <button
-                class="widget-op"
-                aria-label="閉じる"
+              </ToolButton>
+              <ToolButton
+                class="widget-op" label="閉じる"
                 onClick={() => ops.close(props.widget.panel.instanceId)}
               >
                 <IconClose size={12} />
-              </button>
+              </ToolButton>
             </div>
             <Resizer
               axis="y"
