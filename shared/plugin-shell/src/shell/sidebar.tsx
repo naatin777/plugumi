@@ -9,6 +9,7 @@ import { useHref, useNavigate } from "@solidjs/router";
 import type { AreaDisplay, ListSlot, FlatArea } from "../layout/area-list.ts";
 import { mainAreas, pathKey, selectSub, setDisplay, subAreas, toMain, toSub } from "../layout/area-list.ts";
 import { useShell } from "./controller.tsx";
+import { openPopover } from "./popover.ts";
 import { NameForm, ConfirmButton } from "./inline.tsx";
 import { Resizer } from "./resizer.tsx";
 import { IconChevronRight, IconPlus } from "../icons.tsx";
@@ -54,9 +55,9 @@ function ProjectSwitcher(): JSX.Element {
     <div class="project-switcher">
       <button
         class="project-switcher-button"
-        onClick={() => {
+        onClick={(event) => {
           setAdding(false);
-          menu.showPopover();
+          openPopover(menu, event.currentTarget);
         }}
       >
         <span class="project-switcher-name">{shell.project()}</span>
@@ -192,7 +193,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           aria-label="Areaのメニュー"
           onClick={(event) => {
             event.stopPropagation();
-            menu.showPopover();
+            openPopover(menu, event.currentTarget, "end");
           }}
         >
           …

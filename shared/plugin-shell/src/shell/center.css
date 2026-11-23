@@ -29,5 +29,7 @@
     border: none;
     background: transparent; color: var(--plugumi-colors-text-muted);
     cursor: pointer;
+    /* 狭い葉で折り返して変な位置に出ないようにする。 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 }

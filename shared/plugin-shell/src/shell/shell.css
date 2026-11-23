@@ -275,6 +275,7 @@
     margin: 0;
     color: var(--plugumi-colors-text-muted);
     font-size: var(--plugumi-font-size-xs);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   /* Sub列。inlineのときは幅0への畳み込み（unmountしない）。 */

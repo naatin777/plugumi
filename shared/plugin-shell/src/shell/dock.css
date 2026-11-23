@@ -47,6 +47,18 @@
     display: flex; align-items: center; justify-content: center;
     color: var(--plugumi-colors-text-muted);
     font-size: var(--plugumi-font-size-xs);
+    /* 幅が縮む途中で折り返して見えるのを防ぐ。 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 閉じる幅/高さの畳み込みと同じ時間で中身をフェードし、閉じ終わったら
+     不可視にする（strip・bodyが欠片となって残るのを防ぐ）。 */
+  .dock-strip, .dock-body { transition: opacity var(--work-anim) ease; }
+  .dock[data-closed] :is(.dock-strip, .dock-body) { opacity: 0; }
+  .dock[data-closed] { transition: width var(--work-anim) ease,
+      height var(--work-anim) ease, margin var(--work-anim) ease,
+      border-width var(--work-anim) ease, transform var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+    visibility: hidden;
   }
 
   /* ---- drawer: 狭いAreaViewではdockをcenterの上に重ねる。

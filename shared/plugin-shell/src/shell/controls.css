@@ -67,10 +67,8 @@
     border-radius: var(--plugumi-radii-lg);
     background: var(--plugumi-colors-background-tertiary);
     color: var(--plugumi-colors-text);
-    /* triggerの下へ。anchor対応の無い環境では既定位置に出るだけ。 */
-    inset: auto;
-    top: anchor(bottom, 4px);
-    left: anchor(left);
+    /* 位置はopenPopoverがanchorのrectからfixedで置く。 */
+    margin: 0; inset: auto;
   }
   .core-menu-item, .picker-item {
     display: flex; align-items: center; gap: var(--plugumi-spacing-sm);

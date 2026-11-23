@@ -1,10 +1,11 @@
 // titleのtool群。左: Area list開閉 + Core switcher、
 // 中央（work区間）: 「+」・検索・dock開閉、
 // 右: Sub開閉だけ（先頭＝Sub列寄りに固定）。pillの下限は中身の実測幅。
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
 import { useShell, type AreaController } from "./controller.tsx";
+import { openPopover } from "./popover.ts";
 import { ToolButton } from "./tool-button.tsx";
 import {
   IconAreaList, IconSub, IconPlus,
@@ -36,11 +37,15 @@ export function TitleToolsLeft(): JSX.Element {
 
 function CoreSwitcher(): JSX.Element {
   const shell = useShell();
+  const [menu, setMenu] = createSignal<HTMLElement>(null!);
   const statusOf = (status: string | undefined) =>
     status === "connected" ? "connected" : status === "connecting" ? "connecting" : "error";
   return (
     <div class="core-switcher">
-      <button class="core-button" popovertarget="core-menu">
+      <button
+        class="core-button"
+        onClick={(event) => openPopover(menu(), event.currentTarget)}
+      >
         <span
           class="status-dot"
           data-status={statusOf(shell.core()?.status)}
@@ -48,7 +53,7 @@ function CoreSwitcher(): JSX.Element {
         />
         <span class="core-name">{shell.core()?.name || shell.core()?.key || "Core"}</span>
       </button>
-      <div class="core-menu" id="core-menu" popover="auto">
+      <div class="core-menu" id="core-menu" popover="auto" ref={setMenu}>
         <For each={shell.cores()}>
           {(entry) => <CoreMenuItem key={entry.key} name={entry.name} status={statusOf(entry.status)} />}
         </For>
@@ -120,7 +125,7 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
         // titleの「+」はMainのAreaへ足す（leaf指定をリセットしてから開く）。
         // popovertargetを併用するとtoggleとshowPopoverが二重に効いて
         // 閉じてしまうので、onClickから開く。
-        onClick={() => shell.openPicker(props.area)}
+        onClick={(event) => shell.openPicker(props.area, undefined, event.currentTarget as HTMLElement)}
       >
         <IconPlus />
       </ToolButton>
@@ -148,7 +153,8 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
       {/* 仮: 中身はまだないので、ひとまずpanel pickerを開くだけ。 */}
       <button
         class="bar-search" aria-label="検索"
-        onClick={() => shell.openPicker(props.area)}
+        onClick={(event) =>
+          shell.openPicker(props.area, undefined, event.currentTarget, "center")}
       >
         <IconSearch size={12} />
         <span class="bar-search-text">検索</span>
@@ -170,7 +176,7 @@ export function TitleSegmentSub(props: { area: AreaController }): JSX.Element {
     <Show when={detailed()}>
       <ToolButton
         label="Panelを開く"
-        onClick={() => shell.openPicker(props.area)}
+        onClick={(event) => shell.openPicker(props.area, undefined, event.currentTarget as HTMLElement)}
       >
         <IconPlus />
       </ToolButton>

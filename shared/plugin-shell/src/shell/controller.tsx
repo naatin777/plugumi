@@ -3,6 +3,7 @@
 // が持つ状態（workspaceのlayout・Panel Instance・drag）を持つ。
 // 同じAreaをMainとSubに同時に出した場合は別々のAreaControllerになり、
 // 読み書きはlast-write-wins — プロトタイプの既知の制約。
+import { placePopover, type PopoverAlign } from "./popover.ts";
 import {
   createContext, createEffect, createMemo, createSignal, createStore,
   flush, onCleanup, reconcile, useContext,
@@ -93,7 +94,8 @@ export interface ShellController {
   // 「+」のpanel pickerはshellに1個。開くとき対象のAreaControllerを指定する。
   pickerArea(): AreaController | null;
   pickerTarget(): MoveTarget | null;
-  openPicker(area: AreaController, target?: MoveTarget): void;
+  openPicker(area: AreaController, target?: MoveTarget,
+    anchor?: HTMLElement, align?: PopoverAlign): void;
   bindPicker(element: HTMLElement): void;
   pickPanel(entry: PanelEntry): void;
 
@@ -255,10 +257,14 @@ export function createShellController(
   const [picker, setPicker] = createSignal<HTMLElement>();
   const [pickerArea, setPickerArea] = createSignal<AreaController | null>(null);
   const [pickerTarget, setPickerTarget] = createSignal<MoveTarget | null>(null);
-  const openPicker = (area: AreaController, target?: MoveTarget) => {
+  const openPicker = (area: AreaController, target?: MoveTarget,
+    anchor?: HTMLElement, align?: PopoverAlign) => {
     setPickerArea(area);
     setPickerTarget(target ?? null);
-    picker()?.showPopover();
+    const el = picker();
+    if (!el) return;
+    el.showPopover();
+    if (anchor) placePopover(el, anchor, align);
   };
   const pickPanel = (entry: PanelEntry) => {
     pickerArea()?.openPanel(entry.pluginId, entry.panelId, pickerTarget() ?? undefined);
