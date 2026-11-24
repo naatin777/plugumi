@@ -52,12 +52,16 @@
   }
   .tab:not(.selected):hover .tab-close,
   .tab:not(.selected) .tab-close:focus-visible {
+    /* 非選択tabの「×」はtabのhover面と同じ塗りでタイトル末尾を隠す
+       （tabのfillより濃いと幕が見える）。 */
     opacity: 1; pointer-events: auto;
-    background: var(--plugumi-colors-fill);
+    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) 30%, transparent);
   }
-  .tab:hover { background: var(--plugumi-colors-fill); }
+  /* tabの面はかなり透かす — カードのblurとauroraの上で、選択は面より
+     文字の濃さで読ませる。 */
+  .tab:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) 30%, transparent); }
   .tab.selected {
-    background: var(--plugumi-colors-fill-strong);
+    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) 50%, transparent);
     color: var(--plugumi-colors-text);
   }
   /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と
