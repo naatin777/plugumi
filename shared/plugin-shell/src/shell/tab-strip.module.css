@@ -19,18 +19,14 @@
     align-self: stretch; box-sizing: border-box;
     padding: var(--plugumi-spacing-xs) 0;
     flex: 1; min-width: 0;
-    /* tabの最小幅をstripの幅に対して決めるためのcontainer
-       （scrollの内側の幅ではなく見えている幅）。 */
-    container-type: inline-size;
     overflow-x: auto;
     min-height: 0;
     scrollbar-width: none;
   }
   .tab {
-    /* 多いときはタイトルが数文字読める最小幅まで縮み、それでも溢れたら
-       stripが横scrollする（選択tabはscriptで見える位置へ寄せる）。
-       pane自体が最小幅より狭いときはstrip幅まで縮んでよい。 */
-    flex: 0 1 auto; min-width: 6em;
+    /* tabはタイトル幅に合わせる（固定幅にしない）。溢れたらstripが
+       横scrollする（選択tabはscriptで見える位置へ寄せる）。 */
+    flex: none;
     position: relative;
     display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
@@ -43,11 +39,6 @@
   }
   .tab .tab-title {
     min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  }
-  /* pane自体がtabの最小幅より狭いときは、最小値を外してstrip幅まで
-     縮める（この幅でもflex itemはmin-widthを下まで縮む）。 */
-  @container (width < 6em) {
-    .tab { min-width: 0; }
   }
   .tab .tab-close { flex: none; }
   /* 「×」は選択中のtabだけ幅に入れて常に表示。非選択tabでは幅を取らず、
