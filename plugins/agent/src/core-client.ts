@@ -1,239 +1,32 @@
-// AgentからCoreへ登録・購読・RPC接続する（contracts/00004）。
-import { setTimeout as delay } from "node:timers/promises";
-import WebSocket from "ws";
-import { Connection } from "./rpc.js";
-import { logDiagnostic } from "./log.js";
-import { dispatchCall, toolDeclarations } from "./tools.js";
+// agentのCore接続。登録・Tool宣言・RPC・Registry購読の機構は
+// plugumi-plugin-clientのPluginClientに任せ、agent固有の設定だけを束ねる。
 import {
-  METHOD_CALL,
   METHOD_CALL_CHUNK,
   METHOD_CALL_CLOSE,
   METHOD_CALL_RESULT,
-  registrationLeaseSchema,
-  registrySnapshotSchema,
-} from "./wire.js";
-import type { ForwardCallParams, ListedTool } from "./wire.js";
+  PluginClient,
+} from "plugumi-plugin-client";
+import { agentTools } from "./tools.js";
+import { logDiagnostic } from "./log.js";
 
-const API = "/v1";
+export { coreURL } from "plugumi-plugin-client";
 
-class CoreHTTPError extends Error {
-  constructor(readonly status: number, method: string, path: string) {
-    super(`${method} ${path}: HTTP ${status}`);
-  }
-}
-
-export function coreURL(value: string): URL {
-  const url = new URL(value);
-  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
-      url.pathname !== "/" || url.search || url.hash) {
-    throw new Error("Core URL must be an HTTP(S) origin");
-  }
-  return url;
-}
-
-export class CoreClient {
-  connection?: Connection;
-  catalog: ListedTool[] = [];
-  private registrationId?: string;
-  private readonly headers: Record<string, string>;
-
-  constructor(readonly url: URL, private readonly pluginInstanceId: string, token?: string) {
-    this.headers = token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
-  private async request(method: string, path: string, signal: AbortSignal, body?: object): Promise<Response> {
-    const response = await fetch(new URL(API + path, this.url), {
-      method, signal, redirect: "error",
-      headers: body === undefined ? this.headers : { ...this.headers, "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
+export class CoreClient extends PluginClient {
+  constructor(url: URL, pluginInstanceId: string, token?: string) {
+    super({
+      url,
+      pluginId: "agent",
+      pluginInstanceId,
+      token,
+      tools: agentTools,
+      // agentは呼び出し側にもなるのでRegistryを購読する。
+      catalog: true,
+      log: (message) => logDiagnostic(`[agent] ${message}`),
+      onNotification: (message) => {
+        if ([METHOD_CALL_CHUNK, METHOD_CALL_RESULT, METHOD_CALL_CLOSE].includes(message.method ?? "")) {
+          console.log(`\n[out ${message.method}] ${JSON.stringify(message.params)}`);
+        }
+      },
     });
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new CoreHTTPError(response.status, method, path);
-    }
-    return response;
-  }
-
-  async run(signal: AbortSignal): Promise<"stopped" | "rejected"> {
-    let backoff = 250;
-    try {
-      while (!signal.aborted) {
-        try {
-          await this.runSession(signal);
-          backoff = 250;
-        } catch (error) {
-          if (signal.aborted) break;
-          logDiagnostic(`[agent] ${this.url.origin}: ${error}`);
-          if (error instanceof CoreHTTPError && [401, 403, 426].includes(error.status)) return "rejected";
-        }
-        if (!signal.aborted) {
-          await delay(backoff + Math.random() * backoff / 4, undefined, { signal }).catch(() => {});
-          backoff = Math.min(backoff * 2, 5_000);
-        }
-      }
-    } finally {
-      if (signal.aborted && this.registrationId) {
-        await this.request("DELETE", `/registrations/${encodeURIComponent(this.registrationId)}`,
-          AbortSignal.timeout(1500)).catch(() => {});
-      }
-    }
-    return "stopped";
-  }
-
-  private async runSession(stop: AbortSignal): Promise<void> {
-    const session = new AbortController();
-    const signal = AbortSignal.any([stop, session.signal]);
-    const requestSignal = () => AbortSignal.any([signal, AbortSignal.timeout(5_000)]);
-    const registration = await this.request("POST", "/registrations", requestSignal(), {
-      pluginId: "agent", pluginInstanceId: this.pluginInstanceId,
-    });
-    const lease = registrationLeaseSchema.parse(await registration.json());
-    this.registrationId = lease.registrationId;
-    const path = `/registrations/${encodeURIComponent(lease.registrationId)}`;
-    await this.request("PUT", `${path}/tools`, requestSignal(), { tools: toolDeclarations() });
-
-    const { connection, closed } = await this.connect(lease.registrationId, signal);
-    this.connection = connection;
-    logDiagnostic(`[agent] connected to ${this.url.origin} (${lease.registrationId})`);
-    const subscription = this.watchRegistry(signal);
-    const renew = (async () => {
-      while (!signal.aborted) {
-        await delay(lease.leaseSeconds * 500, undefined, { signal });
-        await (await this.request("POST", `${path}/renew`, requestSignal())).json();
-      }
-    })();
-    try {
-      await Promise.race([closed, renew]);
-    } finally {
-      session.abort();
-      this.connection = undefined;
-      this.catalog = [];
-      await Promise.allSettled([closed, renew, subscription]);
-    }
-  }
-
-  private connect(registrationId: string, signal: AbortSignal): Promise<{ connection: Connection; closed: Promise<void> }> {
-    const url = new URL(`${API}/rpc`, this.url);
-    url.protocol = this.url.protocol === "https:" ? "wss:" : "ws:";
-    url.searchParams.set("registrationId", registrationId);
-    return new Promise((resolve, reject) => {
-      const raw = new WebSocket(url, {
-        headers: this.headers, followRedirects: false,
-        handshakeTimeout: 5000, maxPayload: 1 << 20,
-      });
-      const abort = () => raw.terminate();
-      raw.on("error", reject);
-      raw.once("unexpected-response", (_request, response) => {
-        reject(new CoreHTTPError(response.statusCode ?? 0, "GET", url.pathname));
-        response.destroy();
-        raw.terminate();
-      });
-      raw.once("close", () => {
-        signal.removeEventListener("abort", abort);
-        reject(new Error("RPC closed before upgrade"));
-      });
-      raw.once("open", () => {
-        const connection = Connection.attach({
-          send: (data) => {
-            if (raw.readyState !== WebSocket.OPEN) throw new Error("RPC connection closed");
-            raw.send(data);
-          },
-          close: () => raw.close(),
-          onMessage: (listener) => raw.on("message", (data, isBinary) => {
-            if (!isBinary) listener(String(data));
-          }),
-          onClose: (listener) => raw.once("close", listener),
-        });
-        connection.onRequest = async (message) => message.method === METHOD_CALL
-          ? dispatchCall(connection, message.id, message.params as ForwardCallParams)
-          : { error: { code: -32601, message: "method not found" } };
-        connection.onNotification = (message) => {
-          if ([METHOD_CALL_CHUNK, METHOD_CALL_RESULT, METHOD_CALL_CLOSE].includes(message.method ?? "")) {
-            console.log(`\n[out ${message.method}] ${JSON.stringify(message.params)}`);
-          }
-        };
-        const closed = new Promise<void>((resolve) => { connection.onClose = resolve; });
-        resolve({ connection, closed });
-      });
-      signal.addEventListener("abort", abort, { once: true });
-      if (signal.aborted) abort();
-    });
-  }
-
-  private async watchRegistry(signal: AbortSignal): Promise<void> {
-    while (!signal.aborted) {
-      try {
-        await this.subscribeRegistry(signal);
-      } catch (error) {
-        if (!signal.aborted) logDiagnostic(`[agent] ${this.url.origin} registry: ${error}`);
-      }
-      this.catalog = [];
-      if (!signal.aborted) await delay(500, undefined, { signal }).catch(() => {});
-    }
-  }
-
-  private async subscribeRegistry(session: AbortSignal): Promise<void> {
-    const subscription = new AbortController();
-    const signal = AbortSignal.any([session, subscription.signal]);
-    let refresh: Promise<void> | undefined;
-    let refreshRequested = false;
-
-    // 通知は差分ではないため、取得中に届いた分は次の1回にまとめる（contracts/00004）。
-    const refreshCatalog = async () => {
-      try {
-        while (refreshRequested && !signal.aborted) {
-          refreshRequested = false;
-          const snapshot = await this.request("GET", "/registry", AbortSignal.any([signal, AbortSignal.timeout(5000)]));
-          const registry = registrySnapshotSchema.parse(await snapshot.json());
-          signal.throwIfAborted();
-          this.catalog = registry.registrations.filter((entry) => entry.rpcAvailable).flatMap((entry) =>
-            entry.tools.map((tool) => ({ ...tool, registrationId: entry.registrationId, pluginId: entry.pluginId })));
-        }
-      } catch (error) {
-        if (!signal.aborted) subscription.abort(error);
-      } finally {
-        refresh = undefined;
-      }
-    };
-
-    try {
-      const response = await this.request("GET", "/events", signal);
-      if (!response.body) throw new Error("missing SSE stream");
-      await readRegistryChanges(response.body, () => {
-        if (signal.aborted) return;
-        refreshRequested = true;
-        refresh ??= refreshCatalog();
-      });
-      subscription.signal.throwIfAborted();
-    } finally {
-      // 古い購読で始めた取得結果を、次の購読に持ち越さない。
-      subscription.abort();
-      await refresh;
-    }
-  }
-}
-
-async function readRegistryChanges(stream: NonNullable<Response["body"]>, onChange: () => void): Promise<void> {
-  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
-  try {
-    let buffer = "";
-    let hasEvent = false;
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) return;
-      const lines = (buffer + value).split("\n");
-      buffer = lines.pop() ?? "";
-      if (buffer.length > 8192) throw new Error("SSE line too large");
-      for (const line of lines) {
-        if (line.length > 8192) throw new Error("SSE line too large");
-        if (line.startsWith("event:")) hasEvent = true;
-        if ((line === "" || line === "\r") && hasEvent) {
-          hasEvent = false;
-          onChange();
-        }
-      }
-    }
-  } finally {
-    await reader.cancel().catch(() => {});
   }
 }

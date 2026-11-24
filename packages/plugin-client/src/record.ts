@@ -1,5 +1,6 @@
-// 接続と独立したローカル実行記録。待受を必要としないよう時刻を更新する。
-// 登録先はOSユーザーのキャッシュディレクトリで、特定のCoreとは無関係。
+// 接続と独立したローカル実行記録。Coreのpsやhost発見が読む。
+// 記録先はOSユーザーのキャッシュディレクトリで、特定のCoreとは無関係
+// （<cache>/plugumi/plugins/<id>.json。Go側のplugininstancesと同じ形）。
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -21,6 +22,11 @@ export function cacheDirectory(): string {
   return process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache");
 }
 
+// 実行記録の置き場。plugininstances（Go）と同じ。
+export function recordsDirectory(): string {
+  return join(cacheDirectory(), "plugumi", "plugins");
+}
+
 export interface PluginRegistration {
   name: string;
   id: string;
@@ -28,26 +34,38 @@ export interface PluginRegistration {
   pid: number;
   // 1プロセスが複数Coreに繋がるため、logはCoreではなくPluginの記録に持つ。
   log?: string;
+  // 待受を立てるPlugin（web等）は疎通確認用のURLを載せる。
+  url?: string;
 }
 
 // 登録に成功したら解除関数を返す。registryが使えない環境でもPlugin自体は動かす。
 export function registerPlugin(registration: PluginRegistration): (() => void) | undefined {
   try {
-    const directory = join(cacheDirectory(), "plugumi", "plugins");
-    mkdirSync(directory, { recursive: true });
+    const directory = recordsDirectory();
+    mkdirSync(directory, { recursive: true, mode: 0o700 });
     const path = join(directory, registration.id + ".json");
     // 読みかけの不完全ファイルを見せないよう、別名で書いてからrenameする。
-    const temp = join(directory, `.${process.pid}`);
+    const temporary = join(directory, `.${process.pid}`);
     const heartbeat = () => {
-      writeFileSync(temp, JSON.stringify({ ...registration, heartbeatUnixSeconds: Math.floor(Date.now() / 1000) }));
-      renameSync(temp, path);
+      writeFileSync(
+        temporary,
+        JSON.stringify({ ...registration, heartbeatUnixSeconds: Math.floor(Date.now() / 1000) }),
+        { mode: 0o600 },
+      );
+      renameSync(temporary, path);
     };
     heartbeat();
-    const timer = setInterval(() => { try { heartbeat(); } catch {} }, 5000);
+    const timer = setInterval(() => {
+      try {
+        heartbeat();
+      } catch {}
+    }, 5000);
     timer.unref();
     return () => {
       clearInterval(timer);
-      try { rmSync(path, { force: true }); } catch {}
+      try {
+        rmSync(path, { force: true });
+      } catch {}
     };
   } catch {
     return undefined;

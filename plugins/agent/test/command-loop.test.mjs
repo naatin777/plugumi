@@ -3,7 +3,7 @@ import { PassThrough } from "node:stream";
 import { test } from "node:test";
 import { setImmediate } from "node:timers/promises";
 import { startCommandLoop } from "../dist/command-loop.js";
-import { Connection } from "../dist/rpc.js";
+import { Connection } from "plugumi-plugin-client";
 
 function fakeCore(port) {
   const sent = [];

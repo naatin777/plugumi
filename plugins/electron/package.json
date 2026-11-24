@@ -13,5 +13,8 @@
     "@types/node": "24.19.2",
     "electron": "45.3.2",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "plugumi-plugin-client": "workspace:*"
   }
 }

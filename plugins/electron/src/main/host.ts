@@ -3,26 +3,11 @@
 // 再利用し、無ければplugumi-webを子プロセスとして起動する。
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { cacheDirectory, recordsDirectory } from "plugumi-plugin-client";
 
 const execFileAsync = promisify(execFile);
-
-// os.UserCacheDirに相当する場所（macOSは~/Library/Caches、LinuxはXDG、
-// WindowsはLOCALAPPDATA）。web pluginのplugininstancesと同じ基準。
-export function cacheDir(): string {
-  if (process.platform === "darwin") return join(homedir(), "Library", "Caches");
-  if (process.platform === "win32") {
-    return process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
-  }
-  return process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache");
-}
-
-// 実行記録の置き場。plugininstances（Go）・instances.ts（Electron）と同じ。
-export function recordsDir(): string {
-  return join(cacheDir(), "plugumi", "plugins");
-}
 
 // 実行記録のうち必要な部分だけ。urlを持つのは待受を立てるweb pluginだけ。
 interface InstanceRecord {
@@ -35,7 +20,7 @@ interface InstanceRecord {
 function webRecords(): { pid: number; url: string }[] {
   let names: string[];
   try {
-    names = readdirSync(recordsDir());
+    names = readdirSync(recordsDirectory());
   } catch {
     return [];
   }
@@ -43,7 +28,7 @@ function webRecords(): { pid: number; url: string }[] {
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
-      const entry = JSON.parse(readFileSync(join(recordsDir(), name), "utf8")) as InstanceRecord;
+      const entry = JSON.parse(readFileSync(join(recordsDirectory(), name), "utf8")) as InstanceRecord;
       if (entry.name === "web" && typeof entry.url === "string" && entry.url !== "") {
         found.push({ pid: entry.pid ?? 0, url: entry.url });
       }
@@ -137,7 +122,7 @@ async function hostBinary(): Promise<string> {
       "plugumi-webのソースが見つかりません。PLUGUMI_HOST_BINかPLUGUMI_REPOを指定してください",
     );
   }
-  const directory = join(cacheDir(), "plugumi", "host");
+  const directory = join(cacheDirectory(), "plugumi", "host");
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const binary = join(directory, process.platform === "win32" ? "plugumi-web.exe" : "plugumi-web");
   try {

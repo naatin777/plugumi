@@ -1,12 +1,15 @@
-// Electron Pluginのmainプロセス。Coreへ接続するのはhost（plugumi-web）で、
-// Electronはその配る画面をBrowserWindowで開くだけのviewer（decisions/00015）。
-import { randomUUID } from "node:crypto";
+// Electron Pluginのmainプロセス。host（plugumi-web）が配る画面を
+// BrowserWindowで開くviewerであり、同時に内部ブラウザ由来のToolを
+// hostのCoreへ登録するPluginでもある（decisions/00015）。
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { app, BrowserWindow, ipcMain } from "electron";
+import { newInstanceId, registerPlugin } from "plugumi-plugin-client";
 import { parseCoreArgs } from "./args.js";
-import { findHost, recordsDir, spawnHost } from "./host.js";
-import { register as registerInstance } from "./instances.js";
+import { findHost, spawnHost } from "./host.js";
+import { followHostCores } from "./cores.js";
+import { Windows } from "./windows.js";
+import { windowTools } from "./tools.js";
 
 // OS領域の帯（shellのenv(titlebar-area-height)既定値）に合わせる。
 // 色はテーマ連動（rendererのplugumi:theme通知でsetTitleBarOverlayする）。
@@ -20,13 +23,10 @@ async function start(): Promise<void> {
   const commandURLs = parseCoreArgs(process.argv.slice(app.isPackaged ? 1 : 2));
 
   // 実行記録（<cache>/plugumi/plugins/<id>.json）。失敗しても動かす。
-  const instanceId = `plugin-${randomUUID()}`;
-  let unregister = () => {};
-  try {
-    unregister = registerInstance(recordsDir(), instanceId);
-  } catch {
-    unregister = () => {};
-  }
+  const instanceId = newInstanceId();
+  const unregister = registerPlugin({
+    name: "electron", id: instanceId, version: "0.1.0", pid: process.pid,
+  }) ?? (() => {});
 
   // 既に動いているhostがあればそれを使い、無ければplugumi-webを子プロセス
   // として起動する。再利用したhostは終了時に止めない。
@@ -57,6 +57,8 @@ async function start(): Promise<void> {
     await window.loadURL(path === undefined ? hostURL : hostURL + path);
     return window;
   };
+  const windows = new Windows(createWindow);
+
   ipcMain.on("plugumi:theme", (event, theme: unknown) => {
     // setTitleBarOverlayはWindows/Linux専用。macOSにはメソッド自体が
     // 存在しないので呼ぶと例外になる（hiddenInsetで十分なため不要）。
@@ -67,14 +69,21 @@ async function start(): Promise<void> {
   });
   // Areaを別windowに出す（detach）要求。
   ipcMain.on("plugumi:open-window", (_event, path: unknown) => {
-    if (typeof path === "string" && path.startsWith("/")) void createWindow(path);
+    if (typeof path === "string" && path.startsWith("/")) void windows.open(path);
   });
-  await createWindow();
+
+  // 内部ブラウザ由来のToolをhostのCoreへ登録する。windowとは独立に
+  // 動かし、Coreの増減はhostの/api/coresに追従する。
+  const cores = new AbortController();
+  followHostCores(hostURL, instanceId, windowTools(windows), cores.signal);
+
+  await windows.open();
 
   app.on("window-all-closed", () => {
     app.quit();
   });
   app.on("before-quit", () => {
+    cores.abort();
     unregister();
     spawned?.kill();
   });

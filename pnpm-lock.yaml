@@ -175,6 +175,25 @@ importers:
 
   .: {}
 
+  packages/plugin-client:
+    dependencies:
+      ws:
+        specifier: ^8.23.0
+        version: 8.23.0
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   packages/plugin-view:
     devDependencies:
       '@types/node':
@@ -186,12 +205,9 @@ importers:
 
   plugins/agent:
     dependencies:
-      ws:
-        specifier: ^8.23.0
-        version: 8.23.0
-      zod:
-        specifier: ^4.6.7
-        version: 4.6.7
+      plugumi-plugin-client:
+        specifier: workspace:*
+        version: link:../../packages/plugin-client
     devDependencies:
       '@types/node':
         specifier: ^24.19.2
@@ -202,8 +218,15 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      ws:
+        specifier: ^8.23.0
+        version: 8.23.0
 
   plugins/electron:
+    dependencies:
+      plugumi-plugin-client:
+        specifier: workspace:*
+        version: link:../../packages/plugin-client
     devDependencies:
       '@types/node':
         specifier: 24.19.2

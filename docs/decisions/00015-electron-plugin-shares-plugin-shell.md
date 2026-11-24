@@ -24,7 +24,7 @@ Electronでも、Web Pluginと同じ画面（Plugin Shell、Panel、OS領域）�
 
 ## 決定
 
-- Electron Pluginは、`plugins/electron/` に置くviewerである。Coreへは自分で接続せず、Web Plugin（plugumi-web）がloopbackで配る画面を `BrowserWindow` で開くだけとする。
+- Electron Pluginは、`plugins/electron/` に置くviewerである。viewerとしてはCoreへ自分で接続せず、Web Plugin（plugumi-web）がloopbackで配る画面を `BrowserWindow` で開くだけとする。登録・保存・UI取得はWeb Pluginに任せるが、Tool提供のためのPlugin接続だけは別途張る（後述）。
 - Web Pluginは実行記録（`<cache>/plugumi/plugins/<id>.json`）に待受URLを `url` として書く。Electronのmainプロセスは記録を読み、`GET <url>/api/cores` が200を返すhostを再利用する。見つからなければplugumi-webを子プロセスとして起動する（バイナリは `PLUGUMI_HOST_BIN`、無ければリポジトリからcacheへ `go build` する）。再利用したhostは終了時に止めず、自分が起動した子プロセスだけを終了時に止める。
 - 画面はPlugin Shell（`shared/plugin-shell`）として共有する。Web Pluginの配るページをそのまま読み込むので、`ShellHost` の実装はHTTP（`/api`）の1本だけになり、preloadのIPC実装や `plugumi-ui://` プロトコルは持たない。
 - Areaを別windowに出す（detach）とタイトルバー装飾のテーマ連動だけはpreloadのIPCで行う。preloadは `window.plugumiWindows.open(path)` を公開し、mainプロセスは `plugumi:open-window` で受けたpathをhost URLで開く。テーマはrendererの `plugumi:theme` DOMイベントをpreloadが `plugumi:theme` IPCへ中継し、mainプロセスが `titleBarOverlay` に反映する。
@@ -43,7 +43,7 @@ Electronでも、Web Pluginと同じ画面（Plugin Shell、Panel、OS領域）�
 ## トレードオフと帰結
 
 - Coreへの接続、保存、UIファイルの取得はWeb PluginのGo実装1本になる。Electron側のTypeScript backend（約1,100行）は削除した。
-- ElectronはCoreへToolを登録しない。WebとElectronで登録するToolが違うのは設計どおりで、Electronが将来Toolを登録するなら、その強みである「内部ブラウザ（Chromium）を持つこと」由来のもの、たとえばwindowの開閉・表示状態の取得・描画内容の取得のような、Webのhostには出せない能力に限る。そのときElectronはviewerとは別にPluginとしてCoreへ接続する。
+- ElectronがCoreへ登録するToolは、内部ブラウザ（Chromium）を持つこと由来のもの、すなわちwindowの開閉・一覧・フォーカス・描画内容の取得（toolPathは `electron/window/*`）のような、Webのhostには出せない能力に限る。接続先はviewerが開いているhostの `GET /api/cores` に追従し、Coreごとにviewerとは別のPlugin接続を張る。TypeScript側のPlugin接続機構（registration・RPC・実行記録）は `packages/plugin-client` としてagentと共有する。ElectronのmainプロセスはCJSだが、同梱Node（24系）の `require(esm)` でpure ESMの同packageを読む。
 - ElectronはWeb Plugin無しには動かない。viewerがhostを起動・発見するため、利用者が意識する必要はないが、Web Pluginが起動できない環境（Go toolchainやバイナリが無い）ではElectronも使えない。
 - 保存先を分けないので、Web Pluginで作ったProjectはElectronにもそのまま出る。
 - 依存として `electron` の追加を承認済み。ビルドの補助ツールや配布用のパッケージ作成ツールは、必要になったときに改めて決める。
