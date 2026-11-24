@@ -93,43 +93,43 @@ export function PagesTrack(props: {
   onCleanup(() => clearTimeout(timer));
 
   // 横wheel gestureの追従drag。deltaXの累積をtrackのずれ（--page-drag-px）
-  // に映して隣のpageを「見せるだけ」出し、gestureが途切れた時点で十分に
-  // 動いていればonFlipでcommit、足りなければ元の位置へ戻す。閾値flipと
-  // 違って指に追従するので、trackのtransitionはdrag中だけ切る。
+  // に映して隣のpageを「見せるだけ」出し、十分にずれた時点でgesture途中
+  // でもonFlipにcommitする。足りないまま途切れれば元の位置へ戻す。
+  // 閾値flipと違って指に追従するので、trackのtransitionはdrag中だけ切る。
   const [peek, setPeek] = createSignal<string | null>(null);
   const [dragging, setDragging] = createSignal(false);
   let viewport!: HTMLDivElement;
   let track!: HTMLDivElement;
-  let accumX = 0;
-  let accumY = 0;
+  // 現在のずれ（負=次のpage側、正=前のpage側）。隣が無い側には0で留める。
+  let px = 0;
   let idle: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(idle));
+  let grace: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => {
+    clearTimeout(idle);
+    clearTimeout(grace);
+  });
 
   const index = () =>
     Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected));
 
-  // accumXをtrackのずれpxに変換する。隣のpageが無い側には動かせない。
-  const dragPx = () => {
-    const width = viewport.clientWidth || 1;
-    const at = index();
-    const lower = at + 1 < props.refs.length ? -width : 0;
-    const upper = at > 0 ? width : 0;
-    return Math.min(upper, Math.max(lower, -accumX));
+  const show = () => {
+    setDragging(px !== 0);
+    // dragで顔を出す側のpageを描画に載せる（普段はcontent-visibility:hidden）。
+    setPeek(px === 0 ? null : (props.refs[px < 0 ? index() + 1 : index() - 1]?.instanceId ?? null));
+    track.style.setProperty("--page-drag-px", `${px}px`);
   };
 
-  // commitした直後は同じgestureの勢い（momentum）で連続してpageを
-  // 送らないよう抑止する。ただし抑止は勢いが落ちるまでに限定する —
-  // wheelが完全に途切れるまで待つと、休まず続けてスワイプしたとき
-  // momentumと次のスワイプが1本のストリームになり、全部飲み込まれて
-  // 「連続でスワイプできない」になる。
-  let committedDir: 0 | 1 | -1 = 0;
-  let committedAt = 0;
-
   const release = () => {
+    px = 0;
     setDragging(false);
     setPeek(null);
     track.style.setProperty("--page-drag-px", "0px");
   };
+
+  // commitした直後は同じgestureの勢い（momentum）で連続してpageを
+  // 送らないよう抑止する。
+  let committedDir: 0 | 1 | -1 = 0;
+  let committedAt = 0;
 
   // 閾値を越えた時点（gesture途中）でcommitする。wheelの流れが途切れる
   // まで待つとmomentum分だけ遅れて、tabの反映が遅く感じられる。
@@ -142,8 +142,6 @@ export function PagesTrack(props: {
 
   const settle = () => {
     release();
-    accumX = 0;
-    accumY = 0;
     committedDir = 0;
   };
 
@@ -159,8 +157,16 @@ export function PagesTrack(props: {
       if (node instanceof HTMLElement && scrollableX(node, direction)) return;
     }
     event.preventDefault();
+    // ゆっくりめくるgestureはwheelが途中で小休止する。200ms空いたら
+    // gestureの区切りとしてcommit抑止は解除するが、ずらしたtrackまで
+    // すぐ戻すと小休止ごとにtrackが跳ねるので、さらに250ms止まった
+    // ときだけ解放する。
     clearTimeout(idle);
-    idle = setTimeout(settle, WHEEL_IDLE_MS);
+    clearTimeout(grace);
+    idle = setTimeout(() => {
+      committedDir = 0;
+      grace = setTimeout(settle, 250);
+    }, WHEEL_IDLE_MS);
     if (committedDir !== 0) {
       // 勢いが落ちた（deltaが小さい）・逆方向へ戻し始めた・抑止の上限を
       // 越えた、のどれかで再武装する。
@@ -170,21 +176,13 @@ export function PagesTrack(props: {
         Date.now() - committedAt > 400;
       if (!rearmed) return;
       committedDir = 0;
-      accumX = 0;
-      accumY = 0;
     }
-    accumX += event.deltaX;
-    accumY += event.deltaY;
-    const px = dragPx();
-    // 隣が無い側にclampされた分は捨てる。そのまま貯めると逆向きに
-    // 戻し始めても溜まった分を返すまでtrackが動かない。
-    accumX = -px;
-    setDragging(px !== 0);
-    // dragで顔を出す側のpageを描画に載せる（普段はcontent-visibility:hidden）。
-    setPeek(px === 0 ? null : (props.refs[px < 0 ? index() + 1 : index() - 1]?.instanceId ?? null));
-    track.style.setProperty("--page-drag-px", `${px}px`);
+    px -= event.deltaX;
     const width = viewport.clientWidth || 1;
-    if (Math.abs(px) >= Math.max(80, width * 0.25) && Math.abs(accumX) > Math.abs(accumY) * 2) {
+    const at = index();
+    px = Math.min(at > 0 ? width : 0, Math.max(at + 1 < props.refs.length ? -width : 0, px));
+    show();
+    if (Math.abs(px) >= Math.max(80, width * 0.25)) {
       finish(px < 0 ? 1 : -1);
     }
   };
