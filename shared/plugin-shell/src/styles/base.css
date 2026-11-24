@@ -1,9 +1,11 @@
 /* 画面全体の土台。ページbodyはframe色。
-   color-schemeは書かない — 旧@scope (:root)では`:root`への宣言が
-   適用されず常にUA既定（light相当）で動いていた。ここでdarkを
-   宣言するとpopover・form control等のcanvastext解決が変わり、
-   見た目が変わってしまうため、旧来どおり宣言しないままにする。 */
+   color-schemeはdata-plugumi-themeに追従させる — shadow root内の
+   Panelにも継承され、popover・form controlのUA色（canvastext等）が
+   テーマ通りに解決される。 */
 @layer base {
+  :root { color-scheme: dark; }
+  :root[data-plugumi-theme="light"] { color-scheme: light; }
+
   body {
     margin: 0;
     background: var(--shell-frame-color);

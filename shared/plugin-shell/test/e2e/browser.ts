@@ -191,7 +191,6 @@ export function releaseBrowser(): void {
 // 画面の状態を作るためのpage内script。clickは実DOM event。
 export const PREPARE = (opts: { theme: string; sub: boolean; drawer: string }) => `
 (() => {
-  document.documentElement.dataset.plugumiTheme = ${JSON.stringify(opts.theme)};
   const btn = (label) => document.querySelector('button[aria-label="' + label + '"]');
   const click = (label) => { const b = btn(label); if (b) b.click(); };
   // Subの実効表示を合わせる。
@@ -214,6 +213,9 @@ export const PREPARE = (opts: { theme: string; sub: boolean; drawer: string }) =
     const want = drawer === kind;
     if (d.hasAttribute('data-closed') === want) click(label);
   }
+  // themeは最後に変える。上のclickはupdatePrefs経由でapplyTheme(読込済み
+  // theme)を呼ぶので、先に変えると上書きされて元に戻る。
+  document.documentElement.dataset.plugumiTheme = ${JSON.stringify(opts.theme)};
   return true;
 })()`;
 
