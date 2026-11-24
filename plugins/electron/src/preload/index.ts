@@ -13,3 +13,13 @@ window.addEventListener("plugumi:theme", () => {
 contextBridge.exposeInMainWorld("plugumiWindows", {
   open: (path: string) => ipcRenderer.send("plugumi:open-window", path),
 });
+
+// Panel領域へのWebContentsViewの貼り付け。Panelはプレースホルダの
+// rectを報告し、mainがviewの位置を合わせる。idはPanel側が発行する。
+contextBridge.exposeInMainWorld("plugumiSite", {
+  attach: (id: string, url: string) => ipcRenderer.send("plugumi:site-attach", id, url),
+  bounds: (id: string, rect: { x: number; y: number; width: number; height: number }) =>
+    ipcRenderer.send("plugumi:site-bounds", id, rect),
+  navigate: (id: string, url: string) => ipcRenderer.send("plugumi:site-navigate", id, url),
+  detach: (id: string) => ipcRenderer.send("plugumi:site-detach", id),
+});
