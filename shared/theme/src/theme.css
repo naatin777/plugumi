@@ -42,10 +42,15 @@
   .theme-item { flex: none; }
 }
 .theme-item:hover { color: var(--plugumi-colors-text); }
+/* 選択セグメントはtabと同じ「面」 — raisedのfill＋輪郭＋上端ハイライト。
+   trackの上に乗る小さなカードとして読ませる。 */
 .theme-item.selected {
-  background: var(--plugumi-colors-background-tertiary);
+  background: var(--plugumi-colors-raised);
   color: var(--plugumi-colors-text);
   font-weight: 600;
+  box-shadow:
+    inset 0 0 0 1px var(--plugumi-colors-raised-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 .theme-note {
   margin: 0;
