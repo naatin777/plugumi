@@ -27,7 +27,8 @@ const defaults = (): ShellPrefs => ({
   subOpen: false,
   subWidth: 480,
   theme: "system",
-  aurora: true,
+  // 既定はoff — 「デスクトップ→vibrancy→暗いframe→タイル」が素の世界。
+  aurora: false,
   auroraVivid: 100,
   tabAlpha: 50,
 });

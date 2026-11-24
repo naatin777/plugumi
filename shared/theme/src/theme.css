@@ -65,3 +65,12 @@
   flex: 1; min-width: 0;
   accent-color: var(--plugumi-colors-text-muted);
 }
+/* オンオフ項目。checkbox＋labelの1行。 */
+.theme-check {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+  flex: none;
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-muted);
+  cursor: pointer;
+}
+.theme-check input[type="checkbox"] { accent-color: var(--plugumi-colors-text-muted); }
