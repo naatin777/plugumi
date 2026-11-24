@@ -194,7 +194,7 @@ panel.setActivity({
 ## 横スワイプの範囲
 
 - **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。tabはタイトルが数文字読める最小幅（`min(6em, 100%)`）までしか縮まず、溢れた分はtab帯自体の横scroll（縦ホイールでもscrollできる）。「×」は選択中のtabだけ常に出し、非選択tabはhover/focus時だけタイトルの上へ重ねて出す。
-- **Panelの中身**: 中身がその方向へ横scrollできる間は中身のscrollが優先される。scrollできない（scroll領域が無い、または端まで行った）横スワイプはpagesのtrackをgestureに追従させてずらし、隣のpageをのぞかせる。十分にずれた時点（80pxまたは幅の25%）でそのgesture途中でも1つ隣へcommitし、足りなければ元のpageへ戻る。commitしたgestureはそこで打ち止めにして、残りの勢いで連続してpageを送らない。
+- **Panelの中身**: 中身がその方向へ横scrollできる間は中身のscrollが優先される。scrollできない（scroll領域が無い、または端まで行った）横スワイプはpagesのtrackをgestureに追従させてずらし、隣のpageをのぞかせる。十分にずれた時点（80pxまたは幅の25%）でそのgesture途中でも1つ隣へcommitし、足りなければ元のpageへ戻る。commit直後は勢い（momentum）で連続してpageを送らないよう抑止するが、勢いが落ちた・逆方向へ戻し始めた・一定時間経過のどれかで再び受け付ける — 全部のdeltaを飲み込み続けると「1枚めくったあと続けてスワイプしても動かない」になるため。
 
 ## 用語
 

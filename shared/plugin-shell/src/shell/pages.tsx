@@ -117,9 +117,13 @@ export function PagesTrack(props: {
     return Math.min(upper, Math.max(lower, -accumX));
   };
 
-  // commitしたgestureはそこで打ち止めにする。残りの勢いで連続して
-  // pageを送らないため。
-  let committed = false;
+  // commitした直後は同じgestureの勢い（momentum）で連続してpageを
+  // 送らないよう抑止する。ただし抑止は勢いが落ちるまでに限定する —
+  // wheelが完全に途切れるまで待つと、休まず続けてスワイプしたとき
+  // momentumと次のスワイプが1本のストリームになり、全部飲み込まれて
+  // 「連続でスワイプできない」になる。
+  let committedDir: 0 | 1 | -1 = 0;
+  let committedAt = 0;
 
   const release = () => {
     setDragging(false);
@@ -130,7 +134,8 @@ export function PagesTrack(props: {
   // 閾値を越えた時点（gesture途中）でcommitする。wheelの流れが途切れる
   // まで待つとmomentum分だけ遅れて、tabの反映が遅く感じられる。
   const finish = (direction: 1 | -1) => {
-    committed = true;
+    committedDir = direction;
+    committedAt = Date.now();
     release();
     props.onFlip(direction);
   };
@@ -139,7 +144,7 @@ export function PagesTrack(props: {
     release();
     accumX = 0;
     accumY = 0;
-    committed = false;
+    committedDir = 0;
   };
 
   const onWheel = (event: WheelEvent) => {
@@ -156,7 +161,18 @@ export function PagesTrack(props: {
     event.preventDefault();
     clearTimeout(idle);
     idle = setTimeout(settle, WHEEL_IDLE_MS);
-    if (committed) return;
+    if (committedDir !== 0) {
+      // 勢いが落ちた（deltaが小さい）・逆方向へ戻し始めた・抑止の上限を
+      // 越えた、のどれかで再武装する。
+      const rearmed =
+        Math.sign(event.deltaX) === -committedDir ||
+        Math.abs(event.deltaX) < 8 ||
+        Date.now() - committedAt > 400;
+      if (!rearmed) return;
+      committedDir = 0;
+      accumX = 0;
+      accumY = 0;
+    }
     accumX += event.deltaX;
     accumY += event.deltaY;
     const px = dragPx();
