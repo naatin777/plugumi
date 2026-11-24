@@ -145,6 +145,12 @@ export function PagesTrack(props: {
       Math.abs(px) >= Math.max(96, width * 0.3) ||
       (Math.abs(px) >= 24 && Math.abs(velocity) >= 0.5 && Math.sign(velocity) === Math.sign(px));
     const direction: 1 | -1 = px < 0 ? 1 : -1;
+    // 落ち着くまでの時間は残り距離に応じる。固定だと短い距離はのんびり
+    // しすぎ、長い距離は「奪われる」ように速すぎる。
+    const travel = commit ? width - Math.abs(px) : Math.abs(px);
+    const ms = Math.min(400, Math.max(140, Math.round(travel * 0.6)));
+    track.style.setProperty("transition-duration", `${ms}ms`);
+    setTimeout(() => track.style.removeProperty("transition-duration"), ms);
     committedDir = direction;
     committedAt = Date.now();
     release();
