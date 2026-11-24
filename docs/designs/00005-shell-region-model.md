@@ -194,7 +194,7 @@ panel.setActivity({
 ## 横スワイプの範囲
 
 - **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。tabはタイトルが数文字読める最小幅（`min(6em, 100%)`）までしか縮まず、溢れた分はtab帯自体の横scroll（縦ホイールでもscrollできる）。「×」は選択中のtabだけ常に出し、非選択tabはhover/focus時だけタイトルの上へ重ねて出す。
-- **Panelの中身**: 中身がその方向へ横scrollできる間は中身のscrollが優先される。scrollできない（scroll領域が無い、または端まで行った）横スワイプはpagesのtrackをgestureに追従させてずらし、隣のpageをのぞかせる。十分にずれた時点（80pxまたは幅の25%、あるいは移動量は小さくても速度の高いflick）でそのgesture途中でも1つ隣へcommitし、足りなければ元のpageへ戻る。gestureの終わりは固定の待ち時間ではなく直近のevent間隔から適応して判定する（ゆっくりなgestureはevent自体がまばらなので、固定値だと小休止を終了と誤判定してtrackが跳ねる）。commit直後は勢い（momentum）で連続してpageを送らないよう抑止するが、momentumは減衰しかしないので、減衰中にdeltaが急増したら指が戻った新しいpushとみなして再び受け付ける（逆方向・gestureの終了でも再武装する）。
+- **Panelの中身**: 中身がその方向へ横scrollできる間は中身のscrollが優先される。scrollできない（scroll領域が無い、または端まで行った）横スワイプはpagesのtrackをgestureに追従させてずらし、隣のpageをのぞかせる。push中（指で動かしている間）はtrackが追従するだけでpageは切り替わらない — 切り替えるかはgestureの終わり（指が離れてdeltaが減衰し始めた、または流れが止まった時点）に位置と速度から決める（十分にずれている、または移動量は小さくても速度の高いflickなら1つ隣へ、足りなければ元へ戻す）。gestureの終わりは固定の待ち時間ではなく直近のevent間隔から適応して判定する（ゆっくりなgestureはevent自体がまばらなので、固定値だと小休止を終了と誤判定してtrackが跳ねる）。決着後のmomentumのdeltaはtrackを動かさない。momentumは減衰しかしないので、減衰中にdeltaが急増したら指が戻った新しいpushとみなして再び受け付ける（逆方向・gestureの終了でも再武装する）。
 
 ## 用語
 

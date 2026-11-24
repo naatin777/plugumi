@@ -99,11 +99,14 @@ export function PagesTrack(props: {
   let track!: HTMLDivElement;
   // 現在のずれ（負=次のpage側、正=前のpage側）。隣が無い側には0で留める。
   let px = 0;
-  // gesture解析用。velocityはpx/ms（符号はpxと同じ向き）、lastDeltaXは
-  // 直近eventのdeltaX。momentumの減衰が続いているとみなしたらcoasting。
+  // gesture解析用。velocityはpx/ms（符号はpxと同じ向き）のEMA、peakVは
+  // gesture中の最大|velocity|、lastDeltaXは直近eventのdeltaX。
+  // momentumの減衰が続いている（=指が離れた）とみなしたらcoasting。
   let velocity = 0;
+  let peakV = 0;
   let lastDeltaX = 0;
   let lastEventAt = 0;
+  let decelCount = 0;
   let coasting = false;
   let idle: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(idle));
@@ -125,27 +128,39 @@ export function PagesTrack(props: {
     track.style.setProperty("--page-drag-px", "0px");
   };
 
-  // commitした直後は同じgestureの勢い（momentum）で連続してpageを
-  // 送らないよう抑止する。
+  // gestureの決着（commitまたは戻し）をつけたあとは、残りの
+  // momentumのdeltaを飲むだけにする。committedDirは決着時の向きで、
+  // 逆方向への戻し操作を即座に受け付けるために使う。
   let committedDir: 0 | 1 | -1 = 0;
   let committedAt = 0;
 
-  // 閾値を越えた時点（gesture途中）でcommitする。wheelの流れが途切れる
-  // まで待つとmomentum分だけ遅れて、tabの反映が遅く感じられる。
-  const finish = (direction: 1 | -1) => {
+  // gestureの終わり（指が離れてmomentumに入った、または流れが止まった）
+  // 時点で、位置と速度からcommitか戻しかを決める。push中は位置が閾値を
+  // 越えてもcommitしない — ゆっくりずらしている途中で勝手に切り替わると
+  // 「強制的に移動させられた」感じになる。指が離れてからのmomentumの
+  // deltaはtrackをもう動かさない。
+  const decide = () => {
+    const width = viewport.clientWidth || 1;
+    const commit =
+      Math.abs(px) >= Math.max(96, width * 0.3) ||
+      (Math.abs(px) >= 24 && Math.abs(velocity) >= 0.5 && Math.sign(velocity) === Math.sign(px));
+    const direction: 1 | -1 = px < 0 ? 1 : -1;
     committedDir = direction;
     committedAt = Date.now();
     release();
-    props.onFlip(direction);
+    if (commit) props.onFlip(direction);
   };
 
   const settle = () => {
+    if (px !== 0) decide();
     release();
     committedDir = 0;
     coasting = false;
     velocity = 0;
+    peakV = 0;
     lastDeltaX = 0;
     lastEventAt = 0;
+    decelCount = 0;
   };
 
   const onWheel = (event: WheelEvent) => {
@@ -186,13 +201,16 @@ export function PagesTrack(props: {
       coasting = false;
       px = 0;
       velocity = 0;
+      peakV = 0;
+      decelCount = 0;
     }
 
-    // 速度（EMA）。flick（移動量は小さいが速度が高い）を距離未到達でも
-    // commitするために使う。
+    const prevDelta = lastDeltaX;
+    // 速度（EMA）。push終了時のcommit判定（flickは移動量が小さくても
+    // 速度で送る）と、減衰検出が有効になる速度だったかの判定に使う。
     if (gapMs > 0) {
-      const dt = Math.max(4, gapMs);
-      velocity = velocity * 0.7 + (-event.deltaX / dt) * 0.3;
+      velocity = velocity * 0.7 + (-event.deltaX / Math.max(4, gapMs)) * 0.3;
+      peakV = Math.max(peakV, Math.abs(velocity));
     }
     lastDeltaX = event.deltaX;
     lastEventAt = now;
@@ -201,11 +219,11 @@ export function PagesTrack(props: {
     const at = index();
     px = Math.min(at > 0 ? width : 0, Math.max(at + 1 < props.refs.length ? -width : 0, px));
     show();
-    const farEnough = Math.abs(px) >= Math.max(80, width * 0.25);
-    const flick = Math.abs(px) >= 24 && Math.abs(velocity) >= 0.5 && Math.sign(velocity) === Math.sign(px);
-    if (farEnough || flick) {
-      finish(px < 0 ? 1 : -1);
-    }
+    // pushの終わり = deltaの減衰が続いたとき。ゆっくりなdragはdeltaが
+    // 小さく揺らぐので、一度速く動いたgestureにだけこの判定をかける。
+    if (peakV >= 0.4 && Math.abs(event.deltaX) < Math.abs(prevDelta) * 0.7) decelCount += 1;
+    else decelCount = 0;
+    if (decelCount >= 2) decide();
   };
 
   // slide中はfrom/toの両方を描画、それ以外はselectedだけ描画する。
