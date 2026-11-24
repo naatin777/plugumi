@@ -17,8 +17,8 @@
     --resizer-size: 8px;
     --resizer-out: calc(-1 * (var(--area-gap) + var(--resizer-size)) / 2 - var(--tile-border, 0px));
   }
-  /* 溝の中央に短い棒のハンドルを置く。普段は薄く、hover/ドラッグ中に
-     濃くして掴める場所だと分からせる。 */
+  /* 溝の中央に短い棒のハンドルを置く。掴める場所を発見できるよう
+     普段から見せ、hover/ドラッグ中に濃くする。 */
   .resizer::before {
     content: "";
     position: absolute;
@@ -26,7 +26,7 @@
     transform: translate(-50%, -50%);
     border-radius: 999px;
     background: var(--plugumi-colors-text-muted);
-    opacity: 0.25;
+    opacity: 0.55;
     pointer-events: none;
   }
   .resizer[data-axis="x"]::before { width: 3px; height: 28px; }
