@@ -42,7 +42,7 @@
 
   .title-tools {
     position: absolute;
-    top: var(--work-gap); bottom: 0;
+    top: 0; bottom: 0;
     display: flex; align-items: center;
     gap: var(--plugumi-spacing-xs);
     padding: 0 var(--plugumi-spacing-sm);
@@ -78,7 +78,7 @@
      行の下端まで伸ばす。 */
   .work-segment {
     position: absolute;
-    top: var(--work-gap); bottom: 0;
+    top: 0; bottom: 0;
     display: flex; align-items: center;
     justify-content: flex-end;
     gap: var(--plugumi-spacing-xs);
@@ -154,7 +154,7 @@
   .shell-scrim {
     position: absolute;
     left: 0; right: 0;
-    top: calc(var(--titlebar-h) + var(--work-gap));
+    top: var(--titlebar-h);
     bottom: 40px;
     z-index: var(--plugumi-z-scrim);
     background: var(--plugumi-colors-scrim);
@@ -184,7 +184,7 @@
     border-right: 1px solid var(--plugumi-colors-border);
     box-sizing: border-box;
     left: 0;
-    top: calc(var(--titlebar-h) + var(--work-gap));
+    top: var(--titlebar-h);
     bottom: 40px;
     width: min(var(--sidebar-raw-width, 260px), 85%);
     z-index: var(--plugumi-z-side-drawer);
