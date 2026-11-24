@@ -28,7 +28,7 @@ Electronでも、Web Pluginと同じ画面（Plugin Shell、Panel、OS領域）�
 - Web Pluginは実行記録（`<cache>/plugumi/plugins/<id>.json`）に待受URLを `url` として書く。Electronのmainプロセスは記録を読み、`GET <url>/api/cores` が200を返すhostを再利用する。見つからなければplugumi-webを子プロセスとして起動する（バイナリは `PLUGUMI_HOST_BIN`、無ければリポジトリからcacheへ `go build` する）。再利用したhostは終了時に止めず、自分が起動した子プロセスだけを終了時に止める。
 - 画面はPlugin Shell（`shared/plugin-shell`）として共有する。Web Pluginの配るページをそのまま読み込むので、`ShellHost` の実装はHTTP（`/api`）の1本だけになり、preloadのIPC実装や `plugumi-ui://` プロトコルは持たない。
 - Areaを別windowに出す（detach）とタイトルバー装飾のテーマ連動だけはpreloadのIPCで行う。preloadは `window.plugumiWindows.open(path)` を公開し、mainプロセスは `plugumi:open-window` で受けたpathをhost URLで開く。テーマはrendererの `plugumi:theme` DOMイベントをpreloadが `plugumi:theme` IPCへ中継し、mainプロセスが `titleBarOverlay` に反映する。
-- Web側の `ShellHost.windows` は、preloadが注入したbridgeがあればそちらを優先し、無ければ `window.open` で開く。
+- detachはElectron専用の操作とする。Web側の `ShellHost.windows` はpreloadのbridgeがあるときだけ非nullになり、ブラウザでは別windowへ出す操作を出さない。
 - Project以下の保存はWeb Pluginの `~/.plugumi/web/` に一本化する。Electron独自の `~/.plugumi/electron/` は廃止し、Electron Plugin自身のCore接続・保存・UI取得のTypeScript実装は削除する。
 - ウィンドウは `BrowserWindow` に `titleBarOverlay` を指定する。ElectronはこのときWindow Controls OverlayのCSS環境変数を提供するので、PWAと同じOS領域のCSSを使える。
 
@@ -43,6 +43,7 @@ Electronでも、Web Pluginと同じ画面（Plugin Shell、Panel、OS領域）�
 ## トレードオフと帰結
 
 - Coreへの接続、保存、UIファイルの取得はWeb PluginのGo実装1本になる。Electron側のTypeScript backend（約1,100行）は削除した。
+- ElectronはCoreへToolを登録しない。WebとElectronで登録するToolが違うのは設計どおりで、Electronが将来Toolを登録するなら、その強みである「内部ブラウザ（Chromium）を持つこと」由来のもの、たとえばwindowの開閉・表示状態の取得・描画内容の取得のような、Webのhostには出せない能力に限る。そのときElectronはviewerとは別にPluginとしてCoreへ接続する。
 - ElectronはWeb Plugin無しには動かない。viewerがhostを起動・発見するため、利用者が意識する必要はないが、Web Pluginが起動できない環境（Go toolchainやバイナリが無い）ではElectronも使えない。
 - 保存先を分けないので、Web Pluginで作ったProjectはElectronにもそのまま出る。
 - 依存として `electron` の追加を承認済み。ビルドの補助ツールや配布用のパッケージ作成ツールは、必要になったときに改めて決める。
