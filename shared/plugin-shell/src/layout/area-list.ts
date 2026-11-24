@@ -1,6 +1,6 @@
 // Area list（左の列）の保存モデルと純粋な操作群。
 // 表示するAreaは常に「今のProjectの全Area」から導出する（隠しAreaは
-// 作らない）。保存するのは差分だけ: Subに移したAreaと表示形式。
+// 作らない）。保存するのは差分だけ: Sub・Detachに移したAreaと表示形式。
 // 保存先はlocalStorageで、壊れた形は空として扱う（移行しない）。
 
 export type AreaRef = {
@@ -10,7 +10,7 @@ export type AreaRef = {
 
 export type AreaDisplay = "full" | "center";
 
-export type ListSlot = "main" | "sub";
+export type ListSlot = "main" | "sub" | "detach";
 
 export type AreaListState = {
   version: 1;
@@ -18,6 +18,10 @@ export type AreaListState = {
   sub: string[];
   // Subに表示中のAreaのpath key。
   selectedSub: string | null;
+  // DetachセクションにいるAreaのpath key（並び順）= 「別windowに出す」
+  // と印を付けたArea。windowの開閉は保存しない — 閉じていても残り、
+  // 行のclickで開き直す。
+  detached: string[];
   // Main表示の形式。既定は "full" で保存しない。
   display: Record<string, AreaDisplay>;
 };
@@ -44,6 +48,7 @@ export const emptyAreaList = (): AreaListState => ({
   version: 1,
   sub: [],
   selectedSub: null,
+  detached: [],
   display: {},
 });
 
@@ -68,19 +73,27 @@ export function flattenAreas(areas: AreaNode[]): FlatArea[] {
   return out;
 }
 
-// Mainセクション = 全Areaのうちsubに無いもの（tree順）。
+// Mainセクション = 全Areaのうちsubにもdetachedにも無いもの（tree順）。
 export function mainAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
-  const sub = new Set(state.sub);
-  return flattenAreas(areas).filter((area) => !sub.has(pathKey(area.path)));
+  const placed = new Set([...state.sub, ...state.detached]);
+  return flattenAreas(areas).filter((area) => !placed.has(pathKey(area.path)));
 }
 
 // Subセクション = subの順で、treeに実在するものだけ（消えたAreaのkeyは
-// 表示から外すだけ — 保存は掃除しない）。
-export function subAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
+// 表示から外すだけ — 保存は掃除しない）。Detachも同じ規則。
+const placedAreas = (placed: string[], areas: AreaNode[]): FlatArea[] => {
   const exists = new Set(flattenAreas(areas).map((area) => pathKey(area.path)));
-  return state.sub
+  return placed
     .filter((key) => exists.has(key))
     .map((key) => ({ path: pathFromKey(key), depth: 0 }));
+};
+
+export function subAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
+  return placedAreas(state.sub, areas);
+}
+
+export function detachedAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
+  return placedAreas(state.detached, areas);
 }
 
 // ---- 操作 ----
@@ -88,19 +101,34 @@ export function subAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
 const clone = (state: AreaListState): AreaListState =>
   JSON.parse(JSON.stringify(state)) as AreaListState;
 
+// 配置はMain/Sub/Detachで排他 — 移動は他slotから外すことも含む。
+
 // Subへ移す（末尾へ。選択もする）。既にsubにあれば選択だけ行う。
 export function toSub(state: AreaListState, key: string): AreaListState {
   const next = clone(state);
+  next.detached = next.detached.filter((item) => item !== key);
   if (!next.sub.includes(key)) next.sub.push(key);
   next.selectedSub = key;
   return next;
 }
 
-// Mainへ戻す。選択中なら末尾へfallback、無ければnull。
-export function toMain(state: AreaListState, key: string): AreaListState {
-  if (!state.sub.includes(key)) return state;
+// Detachへ移す（末尾へ）。windowを開くかは呼び側の仕事（Electronのみ）。
+export function toDetach(state: AreaListState, key: string): AreaListState {
   const next = clone(state);
   next.sub = next.sub.filter((item) => item !== key);
+  if (next.selectedSub === key) {
+    next.selectedSub = next.sub[next.sub.length - 1] ?? null;
+  }
+  if (!next.detached.includes(key)) next.detached.push(key);
+  return next;
+}
+
+// Mainへ戻す。選択中なら末尾へfallback、無ければnull。
+export function toMain(state: AreaListState, key: string): AreaListState {
+  if (!state.sub.includes(key) && !state.detached.includes(key)) return state;
+  const next = clone(state);
+  next.sub = next.sub.filter((item) => item !== key);
+  next.detached = next.detached.filter((item) => item !== key);
   if (next.selectedSub === key) {
     next.selectedSub = next.sub[next.sub.length - 1] ?? null;
   }
@@ -134,9 +162,14 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // 形が合わない内容は空として扱う。selectedSubはsubに無いkeyならnullへ落とす。
+// detachedは後から足した項目なので、無い保存は空配列として読む。
 export function decodeAreaList(raw: unknown): AreaListState {
   if (!isObject(raw) || raw.version !== 1) return emptyAreaList();
   if (!Array.isArray(raw.sub) || raw.sub.some((key) => typeof key !== "string")) {
+    return emptyAreaList();
+  }
+  const detached = raw.detached ?? [];
+  if (!Array.isArray(detached) || detached.some((key) => typeof key !== "string")) {
     return emptyAreaList();
   }
   if (!isObject(raw.display)) return emptyAreaList();
@@ -152,6 +185,7 @@ export function decodeAreaList(raw: unknown): AreaListState {
     selectedSub: typeof selectedSub === "string" && (raw.sub as string[]).includes(selectedSub)
       ? selectedSub
       : null,
+    detached: detached as string[],
     display,
   };
 }

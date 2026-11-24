@@ -1,13 +1,14 @@
 // sidebar（Shell固有のナビ領域。Panelではない）= Area list。
-// 上部にProject切替、下にMain/Subの2セクション。表示するAreaは今の
+// 上部にProject切替、下にMain/Sub/Detachの3セクション。表示するAreaは今の
 // Projectの全Areaから導出する（隠しAreaはない）。行のclickでMainは
-// URL切替、Subは選択。作成はinline入力、削除は2段階のinline確認にする
-// （prompt/confirmはElectronで使えないため）。
+// URL切替、Subは選択、Detachは別windowを開く（Electronのみ — bridgeが
+// 無い環境ではURL移動にフォールバック）。作成はinline入力、削除は2段階の
+// inline確認にする（prompt/confirmはElectronで使えないため）。
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
 import type { AreaDisplay, ListSlot, FlatArea } from "../layout/area-list.ts";
-import { mainAreas, pathKey, selectSub, setDisplay, subAreas, toMain, toSub } from "../layout/area-list.ts";
+import { detachedAreas, mainAreas, pathKey, selectSub, setDisplay, subAreas, toDetach, toMain, toSub } from "../layout/area-list.ts";
 import { useShell } from "./controller.tsx";
 import { openPopover } from "./popover.ts";
 import { NameForm, ConfirmButton } from "./inline.tsx";
@@ -44,6 +45,7 @@ export function SidebarView(): JSX.Element {
         <ProjectSwitcher />
         <AreaSlot slot="main" label="Main" />
         <AreaSlot slot="sub" label="Sub" />
+        <AreaSlot slot="detach" label="Detach" />
       </nav>
     </>
   );
@@ -104,34 +106,43 @@ function ProjectSwitcher(): JSX.Element {
 }
 
 // 1セクション。表示するAreaはprojectTreeから導出する。
-// Main = subに無い全Area（tree順・入れ子はインデント）、Sub = subの順。
+// Main = sub/detachedに無い全Area（tree順・入れ子はインデント）、
+// Sub = subの順、Detach = detachedの順。
 function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
   const shell = useShell();
   const areas = () => shell.projectTree()?.areas ?? [];
   const entries = () =>
     props.slot === "main"
       ? mainAreas(shell.areaList(), areas())
-      : subAreas(shell.areaList(), areas());
+      : props.slot === "sub"
+        ? subAreas(shell.areaList(), areas())
+        : detachedAreas(shell.areaList(), areas());
+  const emptyLabel = () =>
+    props.slot === "main" ? "Areaがありません"
+      : props.slot === "sub" ? "Subに移したAreaはありません"
+      : "Detachに移したAreaはありません";
   return (
-    <section class={styles["area-slot"]}>
-      <p class={styles["nav-label"]}>{props.label}</p>
-      <Show when={entries().length === 0}>
-        <p class={styles["nav-empty"]}>
-          {props.slot === "main" ? "Areaがありません" : "Subに移したAreaはありません"}
-        </p>
-      </Show>
-      <For each={entries()}>
-        {(area) => <AreaRow slot={props.slot} area={area} />}
-      </For>
-      <AreaCreate slot={props.slot} parent={[]} />
-    </section>
+    // Detach節はwindowを開ける環境（Electron）かdetach済みのAreaが
+    // あるときだけ出す — webで空のまま残しても辿れない。
+    <Show when={props.slot !== "detach" || shell.host.windows !== null || entries().length > 0}>
+      <section class={styles["area-slot"]}>
+        <p class={styles["nav-label"]}>{props.label}</p>
+        <Show when={entries().length === 0}>
+          <p class={styles["nav-empty"]}>{emptyLabel()}</p>
+        </Show>
+        <For each={entries()}>
+          {(area) => <AreaRow slot={props.slot} area={area} />}
+        </For>
+        <AreaCreate slot={props.slot} parent={[]} />
+      </section>
+    </Show>
   );
 }
 
 const samePath = (a: string[] | undefined, b: string[]) =>
   !!a && a.length === b.length && a.every((part, index) => part === b[index]);
 
-// Area1行。clickでMainはURL移動・Subは選択。
+// Area1行。clickでMainはURL移動・Subは選択・Detachは別windowを開く。
 // prop名はrefにしない — refはJSXの予約属性で、転送の対象になる。
 function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
   const shell = useShell();
@@ -142,11 +153,12 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
     `/${shell.coreKey()}/${shell.project()}/` +
     `${props.area.path.map(encodeURIComponent).join("/")}/`);
   // 強調は「そのAreaが実際にそのslotに出ているか」で決める。
-  // MainはURL（areaPath）が正本。
+  // MainはURL（areaPath）が正本。Detachはwindowの有無を追わないので
+  // 常に未選択。
   const selected = () =>
     props.slot === "main"
       ? samePath(shell.areaPath(), props.area.path)
-      : shell.areaList().selectedSub === key();
+      : props.slot === "sub" && shell.areaList().selectedSub === key();
   const display = () =>
     shell.areaList().display[key()] ?? "full";
 
@@ -158,19 +170,32 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
       navigate(href());
       return;
     }
+    if (props.slot === "detach") {
+      const windows = shell.host.windows;
+      if (windows) windows.open(`${href()}?window=detached`);
+      else navigate(href()); // bridgeが無い環境ではMain表示にフォールバック
+      return;
+    }
     shell.applyAreaList((state) => selectSub(state, key()));
     shell.updatePrefs((prefs) => { prefs.subOpen = true; });
   };
 
-  const move = (event: MouseEvent) => {
+  const moveToMain = (event: MouseEvent) => {
     closePopover(event);
-    if (props.slot === "main") {
-      shell.applyAreaList((state) => toSub(state, key()));
-      shell.updatePrefs((prefs) => { prefs.subOpen = true; });
-    } else {
-      shell.applyAreaList((state) => toMain(state, key()));
-      navigate(href());
-    }
+    shell.applyAreaList((state) => toMain(state, key()));
+    navigate(href());
+  };
+
+  const moveToSub = (event: MouseEvent) => {
+    closePopover(event);
+    shell.applyAreaList((state) => toSub(state, key()));
+    shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+  };
+
+  const moveToDetach = (windows: { open(path: string): void }) => (event: MouseEvent) => {
+    closePopover(event);
+    shell.applyAreaList((state) => toDetach(state, key()));
+    windows.open(`${href()}?window=detached`);
   };
 
   const setMode = (next: AreaDisplay) => (event: MouseEvent) => {
@@ -204,9 +229,25 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           …
         </button>
         <div class={styles["area-menu"]} data-part="popover" popover="auto" ref={menu}>
-          <button class={styles["area-menu-item"]} onClick={move}>
-            {props.slot === "main" ? "Subへ" : "Mainへ"}
-          </button>
+          {/* 配置の移動はMain/Sub/Detachの3方向。自分のslotは出さない。 */}
+          <Show when={props.slot !== "main"}>
+            <button class={styles["area-menu-item"]} onClick={moveToMain}>
+              Mainへ
+            </button>
+          </Show>
+          <Show when={props.slot !== "sub"}>
+            <button class={styles["area-menu-item"]} onClick={moveToSub}>
+              Subへ
+            </button>
+          </Show>
+          {/* detachはElectronのみ（host.windowsがnullなら出さない）。 */}
+          <Show when={props.slot !== "detach" && shell.host.windows}>
+            {(windows) => (
+              <button class={styles["area-menu-item"]} onClick={moveToDetach(windows())}>
+                別windowで開く
+              </button>
+            )}
+          </Show>
           <button
             class={styles["area-menu-item"]}
             onClick={(event) => {
@@ -231,20 +272,6 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
             >
               centerのみ
             </button>
-          </Show>
-          {/* detachはElectronのみ（host.windowsがnullなら出さない）。 */}
-          <Show when={shell.host.windows}>
-            {(windows) => (
-              <button
-                class={styles["area-menu-item"]}
-                onClick={(event) => {
-                  closePopover(event);
-                  windows().open(`${href()}?window=detached`);
-                }}
-              >
-                別windowで開く
-              </button>
-            )}
           </Show>
           <ConfirmButton
             class={`${styles["area-menu-item"]} ${styles["danger"]}`}
@@ -295,11 +322,15 @@ function AreaCreate(props: { slot: ListSlot; parent: string[] }): JSX.Element {
         submit={async (name) => {
           await shell.createArea(shell.project(), props.parent, name);
           const key = pathKey([name]);
+          const path = `/${shell.coreKey()}/${shell.project()}/${encodeURIComponent(name)}/`;
           if (props.slot === "sub") {
             shell.applyAreaList((state) => toSub(state, key));
             shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+          } else if (props.slot === "detach") {
+            shell.applyAreaList((state) => toDetach(state, key));
+            shell.host.windows?.open(`${path}?window=detached`);
           } else {
-            navigate(`/${shell.coreKey()}/${shell.project()}/${encodeURIComponent(name)}/`);
+            navigate(path);
           }
           setAdding(false);
         }}

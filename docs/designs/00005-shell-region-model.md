@@ -73,7 +73,7 @@ Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に�
 
 ### Area list: Main/Subセクション
 
-Area listは**今のProjectの全Area**を**Main**・**Sub**の2セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。上部にProjectの切替（現在のProject名を押すと一覧popover、ここから「Projectを追加」もできる）。
+Area listは**今のProjectの全Area**を**Main**・**Sub**・**Detach**の3セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。上部にProjectの切替（現在のProject名を押すと一覧popover、ここから「Projectを追加」もできる）。
 
 - **表示はProjectのtreeから導出**し、Areaを一覧として保存しない（隠しAreaは存在しない）。保存するのはProjectごとの差分だけである:
 
@@ -82,14 +82,16 @@ Area listは**今のProjectの全Area**を**Main**・**Sub**の2セクション�
     version: 1;
     sub: string[];                        // SubセクションのAreaのpath key（並び順）
     selectedSub: string | null;           // Subに表示中
+    detached: string[];                   // DetachセクションのAreaのpath key（並び順）
     display: Record<string, AreaDisplay>; // Main表示の形式（既定"full"は保存しない）
   };
   ```
 
-  path keyはpathの各segmentを`encodeURIComponent`して`/`で継いだ文字列。保存先はlocalStorageの`plugumi:shell:area-list:<coreKey>:<project>`（Projectごとに読み替える）。Main = 全Areaのうち`sub`に無いもの（tree順・入れ子はインデント）、Sub = `sub`の順でtreeに実在するものだけ（消えたAreaは表示から外すだけで、保存は掃除しない）。
-- **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する（Mainの選択はURLが正本）。行メニュー: 「Subへ」「子Areaを追加」、表示形式「すべて / centerのみ」、「別windowで開く」、「Areaを削除」（確認あり。「<name> とその下のAreaを削除します」）。
-- **Sub**: 行のclickでそのAreaをSub領域に表示する（Subが閉じていれば開く）。Subは開閉でき、閉じるとMainが全幅になる。Subはcenterだけの表示なので表示切替は出さない。行メニュー: 「Mainへ」「子Areaを追加」「別windowで開く」「Areaを削除」。
-- **別windowで開く（detach）**: 行メニューからそのAreaを別windowで開く。Electronではpreloadのbridge経由でBrowserWindowを開く（Webでは項目自体を出さない）。detached windowはtitle帯最小限＋そのAreaのAreaView1個（Main扱い＝dockあり）だけを描く。
+  path keyはpathの各segmentを`encodeURIComponent`して`/`で継いだ文字列。保存先はlocalStorageの`plugumi:shell:area-list:<coreKey>:<project>`（Projectごとに読み替える）。Main = 全Areaのうち`sub`にも`detached`にも無いもの（tree順・入れ子はインデント）、Sub・Detach = 各キー配列の順でtreeに実在するものだけ（消えたAreaは表示から外すだけで、保存は掃除しない）。配置は3slotで排他 — 「Subへ」「別windowで開く」等の移動は他slotから外すことも含む。
+- **Main**: 行のclickでそのAreaのURLへ移動し、Mainに表示する（Mainの選択はURLが正本）。行メニュー: 「Subへ」「別windowで開く」「子Areaを追加」、表示形式「すべて / centerのみ」、「Areaを削除」（確認あり。「<name> とその下のAreaを削除します」）。
+- **Sub**: 行のclickでそのAreaをSub領域に表示する（Subが閉じていれば開く）。Subは開閉でき、閉じるとMainが全幅になる。Subはcenterだけの表示なので表示切替は出さない。行メニュー: 「Mainへ」「別windowで開く」「子Areaを追加」「Areaを削除」。
+- **Detach**: 別windowに出すと印を付けたArea（Electronのみ — `host.windows`のbridgeが無い環境かつ未使用なら節自体を出さない）。行のclickでそのAreaのdetached windowを開く（毎回新規 — windowの開閉は保存せず、閉じていても行は残る）。行メニュー: 「Mainへ」「Subへ」「子Areaを追加」「Areaを削除」。
+- **別windowで開く（detach）**: 行メニューからそのAreaをDetachへ移して別windowで開く。Electronではpreloadのbridge経由でBrowserWindowを開く。detached windowはtitle帯最小限＋そのAreaのAreaView1個（Main扱い＝dockあり）だけを描く。
 - **「＋ Areaを追加」は新規作成**（名前入力。親はProject直下）。Subの「＋」で作ったAreaはそのままSubへ入る。「子Areaを追加」は行メニューから。Areaが0個のProjectでは各セクションに案内文を出す。
 
 ### 列ごとの開閉ボタン

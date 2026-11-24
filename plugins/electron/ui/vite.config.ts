@@ -35,9 +35,7 @@ function uiManifest(): Plugin {
       walk(outDir);
       files.sort((a, b) => a.path.localeCompare(b.path));
       const panels = [
-        { panelId: "windows", title: "Windows", entry: "panel.js", styles: ["panel.css"] },
-        // lib modeのCSSは1ファイルに合体するので両entryがpanel.cssを参照する。
-        { panelId: "site", title: "Site", entry: "site.js", styles: ["panel.css"] },
+        { panelId: "site", title: "Site", entry: "site.js", styles: ["site.css"] },
       ];
       writeFileSync(join(outDir, "plugumi-ui.json"), JSON.stringify({ files, panels }) + "\n");
     },
@@ -48,13 +46,13 @@ export default defineConfig({
   plugins: [svelte(), uiManifest()],
   build: {
     // mount(host, context)をexportするESM 1ファイルにまとめる。
-    // CSSはpanel.cssとして分けて出し、manifestのstylesで宣言する
+    // CSSはsite.cssとして分けて出し、manifestのstylesで宣言する
     // （Clientがentryより先に読み、自分の登録のscope内に限定して適用する）。
     lib: {
-      entry: { panel: "src/panel.ts", site: "src/site.ts" },
+      entry: { site: "src/site.ts" },
       formats: ["es"],
       fileName: (_format, name) => `${name}.js`,
-      cssFileName: "panel",
+      cssFileName: "site",
     },
     outDir: "dist",
   },
