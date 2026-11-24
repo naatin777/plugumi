@@ -43,9 +43,10 @@
 }
 .theme-item:hover { color: var(--plugumi-colors-text); }
 /* 選択セグメントはtabと同じ「面」 — raisedのfill＋輪郭＋上端ハイライト。
-   trackの上に乗る小さなカードとして読ませる。 */
+   trackの上に乗る小さなカードとして読ませる。透過fillなので
+   darkではtrackの上で明るいカードに見える。 */
 .theme-item.selected {
-  background: var(--plugumi-colors-raised);
+  background: color-mix(in oklab, var(--plugumi-colors-raised) 70%, transparent);
   color: var(--plugumi-colors-text);
   font-weight: 600;
   box-shadow:

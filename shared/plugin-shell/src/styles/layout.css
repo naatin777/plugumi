@@ -25,13 +25,9 @@
     /* frame（土台・title左右・sidebar・status帯）は全てこの1色。
        work面（canvas）と明確に分ける色を決定済みのtokenから引く。 */
     --shell-frame-color: var(--plugumi-colors-background-primary);
-    /* 操作面（button・tab・行）の塗り。床やタイル・auroraが少し
-       透ける濃度にする — hoverはfill、選択・pressedはfill-strong。
-       tertiaryを参照するのでthemeごとの追従は自動。 */
-    --plugumi-colors-fill:
-      color-mix(in oklab, var(--plugumi-colors-background-tertiary) 55%, transparent);
-    --plugumi-colors-fill-strong:
-      color-mix(in oklab, var(--plugumi-colors-background-tertiary) 78%, transparent);
+    /* 操作面の塗り --plugumi-colors-fill / -strong はtheme別なので
+       tokens.css側。darkは白の透過（面を明るく浮かせる）、lightは
+       暗い透かし。 */
     /* titleのtool群のfootprint。実行時はwork-shapeが中身の自然幅を
        実測して書き込む。ここは計測前とStyle Lab用の既定値。 */
     --title-tools-left: 260px;
