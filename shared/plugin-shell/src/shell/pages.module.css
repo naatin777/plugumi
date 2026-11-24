@@ -21,10 +21,11 @@
 
   /* deck — 固定幅の列を横に並べて流し見する。幅をviewportの整数倍に
      しないので右端に次の列が切れて見え、「まだある」の合図になる。
-     snapは近い列にだけ吸着するproximity（流し見で境目に止まれるよう）。
+     snapは付けない — 列は小さいので境目に揃える補助は要らず、
+     自由な位置で止まったほうが流し見しやすい。
      列の区切りはhairline — 列同士はタイルではなく1枚のカードの中の
      区画なので溝は付けない。 */
-  .pages-viewport[data-layout="deck"] { scroll-snap-type: x proximity; }
+  .pages-viewport[data-layout="deck"] { scroll-snap-type: none; }
   .pages-viewport[data-layout="deck"] .pages-page {
     width: var(--deck-col-w);
     /* resizerを列の左辺へ出すためにclipしない（中身はPanelMount側が
