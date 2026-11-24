@@ -4,7 +4,6 @@ import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Leaf } from "../layout/model.ts";
 import { useArea } from "./controller.tsx";
-import type { Edges } from "./center.tsx";
 import { TabStrip } from "./tab-strip.tsx";
 import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
 import { leafBodyTest } from "./drag.ts";
@@ -14,7 +13,7 @@ import { IconPlus, IconDeck } from "../icons.tsx";
 import styles from "./leaf.module.css";
 import stripStyles from "./tab-strip.module.css";
 
-export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
+export function LeafView(props: { leaf: Leaf }): JSX.Element {
   const area = useArea();
   const focused = () => area.layout().center.focusedLeaf === props.leaf.id;
   let unregister: (() => void) | undefined;
@@ -45,13 +44,6 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
     <section
       class={{ [styles["leaf"]]: true, [styles["focused"]]: focused() }}
       data-part="leaf"
-      style={{
-        // splitの内側の辺は直角にし、外縁の角だけを丸める
-        "border-top-left-radius": props.edges.top && props.edges.left ? "var(--plugumi-radii-lg)" : "0",
-        "border-top-right-radius": props.edges.top && props.edges.right ? "var(--plugumi-radii-lg)" : "0",
-        "border-bottom-right-radius": props.edges.bottom && props.edges.right ? "var(--plugumi-radii-lg)" : "0",
-        "border-bottom-left-radius": props.edges.bottom && props.edges.left ? "var(--plugumi-radii-lg)" : "0",
-      }}
       onPointerDown={markFocus}
       {...pageNavProps(flip)}
       {...surfaceAttrs(selectedInstance()?.activity(), "border")}
