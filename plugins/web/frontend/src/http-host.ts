@@ -75,10 +75,6 @@ export function httpShellHost(): ShellHost {
       });
       if (!response.ok) throw new Error(await errorMessage(response));
     },
-    async deleteProject(key: string, project: string): Promise<void> {
-      const response = await fetch(`${base(key)}/${project}`, { method: "DELETE" });
-      if (!response.ok) throw new Error(await errorMessage(response));
-    },
     async createArea(key: string, project: string, parent: string[], name: string): Promise<void> {
       const response = await fetch(`${base(key)}/${project}/areas`, {
         method: "POST", headers: { "Content-Type": "application/json" },

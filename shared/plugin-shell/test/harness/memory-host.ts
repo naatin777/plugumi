@@ -118,10 +118,6 @@ export function createMemoryHost(): ShellHost {
       stored.projects.push({ name, areas: [] });
       save();
     },
-    async deleteProject(_key, name) {
-      stored.projects = stored.projects.filter((project) => project.name !== name);
-      save();
-    },
     async createArea(_key, project, parent, name) {
       const found = findProject(project);
       if (!found) throw new Error("project not found");

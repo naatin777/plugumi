@@ -75,7 +75,6 @@ export interface ShellController {
   // ---- drag & drop（windowに1個。全AreaControllerが共有する） ----
   drag: DragController;
   ghost(): { x: number; y: number; title: string } | null;
-  dropElement(): HTMLElement | null;
 
   // Shellの横幅に応じた段階（ResizeObserverがセット）。
   // <1100pxでSubがdrawer、<800pxでArea listもdrawerになる。
@@ -84,9 +83,7 @@ export interface ShellController {
   // drawer化した領域の一時的な開閉。prefsの開閉とは別signal — 狭くなった
   // 瞬間に保存済みの「開」がcenterを覆わないよう、初期は閉。
   subDrawer(): boolean;
-  setSubDrawer(open: boolean): void;
   sideDrawer(): boolean;
-  setSideDrawer(open: boolean): void;
   // drawerかどうかを含む実効の表示状態・切替。
   subDrawerMode(): boolean;
   sideDrawerMode(): boolean;
@@ -98,15 +95,12 @@ export interface ShellController {
   closeDrawers(): void;
 
   // 「+」のpanel pickerはshellに1個。開くとき対象のAreaControllerを指定する。
-  pickerArea(): AreaController | null;
-  pickerTarget(): MoveTarget | null;
   openPicker(area: AreaController, target?: MoveTarget,
     anchor?: HTMLElement, align?: PopoverAlign): void;
   bindPicker(element: HTMLElement): void;
   pickPanel(entry: PanelEntry): void;
 
   createProject(name: string): Promise<void>;
-  removeProject(name: string): Promise<void>;
   createArea(project: string, parent: string[], name: string): Promise<void>;
   removeArea(project: string, path: string[]): Promise<void>;
 }
@@ -265,13 +259,11 @@ export function createShellController(
 
   // ---- drag & drop（windowに1個。AreaControllerが共有する） ----
   const [ghost, setGhost] = createSignal<{ x: number; y: number; title: string } | null>(null);
-  const [dropElement, setDropElementRaw] = createSignal<HTMLElement | null>(null);
   let marked: HTMLElement | null = null;
   const setDropElement = (element: HTMLElement | null) => {
     marked?.removeAttribute("data-drop-target");
     marked = element;
     marked?.setAttribute("data-drop-target", "");
-    setDropElementRaw(element);
   };
   const drag = createDragController(setGhost, setDropElement, (session, target, targetArea) => {
     if (targetArea === session.area) {
@@ -306,10 +298,6 @@ export function createShellController(
     await host.createProject(coreKey(), name);
     navigate(`/${coreKey()}/${name}/`);
   };
-  const removeProject = async (name: string) => {
-    await host.deleteProject(coreKey(), name);
-    if (name === project()) navigate(`/${coreKey()}/`, { replace: true });
-  };
   const createArea = async (projectName: string, parent: string[], name: string) => {
     await host.createArea(coreKey(), projectName, parent, name);
   };
@@ -329,15 +317,15 @@ export function createShellController(
     areaList, applyAreaList,
     mainRef, subRef, displayOf,
     focusedArea, setFocusedArea,
-    drag, ghost, dropElement,
+    drag, ghost,
     shellSize, setShellSize,
-    subDrawer, setSubDrawer,
-    sideDrawer, setSideDrawer,
+    subDrawer,
+    sideDrawer,
     subDrawerMode, sideDrawerMode,
     subShown, sideShown,
     toggleSub, toggleSide, closeDrawers,
-    pickerArea, pickerTarget, openPicker, bindPicker: setPicker, pickPanel,
-    createProject, removeProject, createArea, removeArea,
+    openPicker, bindPicker: setPicker, pickPanel,
+    createProject, createArea, removeArea,
   };
 
   // effectは2系統だけ: (a) core/project/areaの変化 → listの読み替え・

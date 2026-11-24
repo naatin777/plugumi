@@ -74,7 +74,6 @@ export interface ShellHost {
 
   listProjects(key: string): Promise<ProjectTree[]>;
   createProject(key: string, name: string): Promise<void>;
-  deleteProject(key: string, project: string): Promise<void>;
   createArea(key: string, project: string, parent: string[], name: string): Promise<void>;
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
 
