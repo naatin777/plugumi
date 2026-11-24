@@ -93,15 +93,6 @@
     right: max(var(--sub-width, 0px), var(--title-right));
     min-width: 0;
   }
-  /* SubのsegmentはSub列の区間に置き、右端は右pillの手前。
-     Subが閉じている・drawerのときは幅0。 */
-  .work-segment[data-slot="sub"] {
-    right: calc(var(--title-right));
-    width: var(--sub-seg-w);
-  }
-  [data-part="shell"]:not([data-sub]) .work-segment[data-slot="sub"] {
-    padding: 0;
-  }
 
   /* body側の列。sidebar列は常時存在し、閉じると中身（aside）が
      幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは

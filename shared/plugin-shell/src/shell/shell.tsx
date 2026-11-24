@@ -10,7 +10,7 @@ import { findLeaf, selectPanel } from "../layout/model.ts";
 import { flipPage } from "./pages.tsx";
 import { WorkShape } from "./work-shape.tsx";
 import { StatusBar } from "./status-bar.tsx";
-import { TitleToolsLeft, TitleSegmentMain, TitleSegmentSub, TitleToolsRight } from "./title-tools.tsx";
+import { TitleToolsLeft, TitleSegmentMain, TitleToolsRight } from "./title-tools.tsx";
 import { SidebarView } from "./sidebar.tsx";
 import { AreaView, AreaEmpty, DragGhost } from "./area-view.tsx";
 import { Resizer } from "./resizer.tsx";
@@ -114,7 +114,6 @@ export function ShellFrame(): JSX.Element {
       <WorkShape
         titleLeft={<TitleToolsLeft />}
         titleMain={<TitleSegmentMain area={mainArea} />}
-        titleSub={<TitleSegmentSub area={subArea} />}
         titleRight={<TitleToolsRight />}
         sidebar={
           <Show when={shell.sideDrawerMode() || prefs().sidebarOpen}>

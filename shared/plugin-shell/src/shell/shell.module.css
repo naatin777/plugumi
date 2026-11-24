@@ -16,11 +16,6 @@
        別途transitionを無効化する。 */
     transition: --side-width var(--work-anim) ease,
       --sub-width var(--work-anim) ease;
-    /* Subのsegmentは「Main|Subの境界線〜右pillの左端」の区間に置く。
-       閉時・drawer時は0に畳まれる（--sub-widthのtransitionに乗る）。 */
-    --sub-seg-w: max(
-      0px,
-      calc(var(--sub-width, 0px) - var(--title-right)));
     height: 100vh;
     background: var(--shell-frame-color);
     color: var(--plugumi-colors-text);

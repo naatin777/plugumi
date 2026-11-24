@@ -123,24 +123,6 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
   );
 }
 
-// Sub列のsegment。Subはcenterだけの表示なので「+」だけを持つ
-// （開閉は右端のSubボタンが担い、位置は固定）。
-export function TitleSegmentSub(props: { area: AreaController }): JSX.Element {
-  const shell = useShell();
-  // drawer化している間は「+」も出さない。
-  const detailed = () => !shell.subDrawerMode() && shell.subShown();
-  return (
-    <Show when={detailed()}>
-      <ToolButton
-        label="Panelを開く"
-        onClick={(event) => shell.openPicker(props.area, undefined, event.currentTarget as HTMLElement)}
-      >
-        <IconPlus />
-      </ToolButton>
-    </Show>
-  );
-}
-
 export function TitleToolsRight(): JSX.Element {
   const shell = useShell();
   return (

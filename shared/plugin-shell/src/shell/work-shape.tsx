@@ -10,9 +10,8 @@ import styles from "./work-shape.module.css";
 
 export interface WorkShapeProps {
   titleLeft?: JSX.Element;
-  // 列ごとの開閉ボタンを持つのでsegmentは2つ — Main列の真上とSub列の真上。
+  // Main列の真上に置く区画。Sub列の上にはsegmentを置かない。
   titleMain?: JSX.Element;
-  titleSub?: JSX.Element;
   titleRight?: JSX.Element;
   sidebar?: JSX.Element;
   // 幅が足りないときsidebar列はdrawerになる（main.shell[data-size]で切替）。
@@ -66,7 +65,6 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
           <div class={styles["tools-inner"]} ref={leftInner}>{props.titleLeft}</div>
         </div>
         <div class={styles["work-segment"]} data-slot="main">{props.titleMain}</div>
-        <div class={styles["work-segment"]} data-slot="sub">{props.titleSub}</div>
         <div class={`${styles["title-tools"]} ${styles["right"]}`}>
           <div class={styles["tools-inner"]} ref={rightInner}>{props.titleRight}</div>
         </div>
