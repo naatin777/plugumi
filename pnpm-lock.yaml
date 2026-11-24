@@ -288,6 +288,9 @@ importers:
       '@solidjs/web':
         specifier: 2.0.0
         version: 2.0.0(solid-js@2.0.0)
+      plugumi-theme-panel:
+        specifier: workspace:*
+        version: link:../theme
       solid-js:
         specifier: 2.0.0
         version: 2.0.0
@@ -301,6 +304,18 @@ importers:
       vite:
         specifier: 8.3.8
         version: 8.3.8(@types/node@24.19.2)
+
+  shared/theme:
+    dependencies:
+      '@plugumi/plugin-view':
+        specifier: workspace:*
+        version: link:../../packages/plugin-view
+      '@solidjs/web':
+        specifier: 2.0.0
+        version: 2.0.0(solid-js@2.0.0)
+      solid-js:
+        specifier: 2.0.0
+        version: 2.0.0
 
 packages:
 

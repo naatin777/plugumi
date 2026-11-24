@@ -12,7 +12,7 @@ const plugin = (registrationId: string, panelId = "p"): PluginPanelEntry => ({
 
 const builtin = (panelId: string): BuiltinPanelEntry => ({
   kind: "builtin", pluginId: "shell", panelId,
-  title: panelId, mount: () => () => {},
+  title: panelId, mount: () => ({ destroy() {} }),
 });
 
 describe("resolvePanel", () => {

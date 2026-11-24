@@ -22,7 +22,7 @@ import {
   areaKey, emptyAreaList, loadAreaList, pathFromKey, pathKey, saveAreaList,
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
-import { builtinPanels } from "../panels/builtin.tsx";
+import { builtinPanels } from "../panels/builtin.ts";
 import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
 import { saveLastLocation } from "../storage.ts";
@@ -410,7 +410,8 @@ export function createAreaController(
     if (!found) {
       const declaration = resolvePanel(panelRef, shell.panels());
       found = new PanelInstance(host, shell.coreKey(), panelRef,
-        declaration?.title ?? panelRef.panelId, shell);
+        declaration?.title ?? panelRef.panelId, shell,
+        declaration?.kind ?? "plugin");
       instances.set(panelRef.instanceId, found);
       // instance()は描画中（spread・memo内）にも呼ばれる。mountのsignal書き込みを
       // その場で走らせるとowned scopeへの書き込みでREACTIVITY_HALTEDするので、

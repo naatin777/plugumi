@@ -85,7 +85,11 @@ Panelの最背面は透明にする。Panelの面はShellが領域によらず `
 
 ## Shell組み込みPanel
 
-Plugin経由ではなくShellが直接mountするPanel（`kind: "builtin"`、`pluginId`は`"shell"`）もある。Coreのpanels一覧とは別にShell側の一覧に加わり、picker・workspace保存・復元では同じPanelとして扱われる。組み込みは本contractの `mount(host, context)` ではなくShell内部の `BuiltinPanelMount`（`mount(host, shell)`）で呼ばれ、styles・uiSha256・registrationIdは持たない（更新追従・再mountも行わない）。最初の組み込みはテーマ切替Panel（`panelId: "theme"`）。
+Plugin経由ではなくShellのbundleに同梱されるPanel（`kind: "builtin"`、`pluginId`は`"shell"`）もある。Coreのpanels一覧とは別にShell側の一覧に加わり、picker・workspace保存・復元では同じPanelとして扱われる。
+
+組み込みも本contractの `mount(host, context)` で呼ばれ、`host`はPluginと同じShadowRoot。違うのはコードとstyleの来所だけで、module fetchの代わりにbundle同梱の`mount`を呼び、Core経由の`styles` fetchの代わりに同梱されたCSSテキストを`adoptedStyleSheets`へ載せる。contextは`PanelContext`に`shell: ShellController`を足した`BuiltinPanelContext` — 同梱コードなので信頼境界はなく、テーマのような端末localのprefsへはCore Toolではなくこの`shell`で届く（`callTool`は組み込みでは使えない）。`styles`・`uiSha256`・`registrationId`は持たず、一覧の更新追従・再mountも行わない。
+
+組み込みPanelの実体は`shared/`配下の独立package（最初の組み込みはテーマ切替Panel `plugumi-theme-panel`、`panelId: "theme"`）として置き、`shared/plugin-shell`はmountの機構だけを持つ。
 
 ## 未決定
 

@@ -1,13 +1,24 @@
-// Shell組み込みPanel。CoreのPluginを経由せずShellが直接mountするので、
-// Core未接続でも常に一覧に出る。最初の1つはテーマ切替Panel
-// （pluginId "shell" / panelId "theme"）。
+// テーマ切替Panelの本体。Pluginと同じく `mount(host, context)` で
+// ShadowRootへ描く。テーマの読み書きはCore Toolではなく端末localの
+// prefsなので、同梱Panelにだけ渡される context.shell を使う —
+// signalがそのまま届くので、他のtheme Panelや別経路の変更にも追従する。
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { render } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
-import type { BuiltinPanelEntry } from "../host.tsx";
-import type { ShellController } from "../shell/controller.tsx";
-import type { ThemeMode } from "../prefs.ts";
-import styles from "./builtin.module.css";
+import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
+
+type ThemeMode = "system" | "light" | "dark";
+
+// shellから受け取る最小の口。ShellControllerの型は引かず、
+// このPanelが触るsliceだけを宣言する。
+export interface ThemeShell {
+  prefs(): { theme: ThemeMode };
+  updatePrefs(mutate: (prefs: { theme: ThemeMode }) => void): void;
+}
+
+export interface ThemePanelContext extends PanelContext {
+  shell: ThemeShell;
+}
 
 const MODES: readonly (readonly [ThemeMode, string])[] = [
   ["system", "システム"],
@@ -15,7 +26,7 @@ const MODES: readonly (readonly [ThemeMode, string])[] = [
   ["dark", "ダーク"],
 ];
 
-function ThemePanel(props: { shell: ShellController }): JSX.Element {
+function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
   const theme = () => props.shell.prefs().theme;
   // 「システム」選択時に今OSがどちらかを添える。OS側の変更にも追従する
   // （prefsが別経路で変わってもtheme()が追う）。
@@ -26,12 +37,12 @@ function ThemePanel(props: { shell: ShellController }): JSX.Element {
   onCleanup(() => systemQuery.removeEventListener("change", onScheme));
   const resolved = () => (theme() === "system" ? (osDark() ? "dark" : "light") : theme());
   return (
-    <div class={styles["builtin-theme"]}>
-      <div class={styles["builtin-theme-seg"]} role="radiogroup" aria-label="テーマ">
+    <div class="theme-panel">
+      <div class="theme-seg" role="radiogroup" aria-label="テーマ">
         <For each={MODES}>
           {([mode, label]) => (
             <button
-              class={{ [styles["builtin-theme-item"]]: true, [styles["selected"]]: theme() === mode }}
+              class={{ "theme-item": true, selected: theme() === mode }}
               role="radio"
               aria-checked={theme() === mode ? "true" : "false"}
               onClick={() => props.shell.updatePrefs((prefs) => {
@@ -44,7 +55,7 @@ function ThemePanel(props: { shell: ShellController }): JSX.Element {
         </For>
       </div>
       <Show when={theme() === "system"}>
-        <p class={styles["builtin-theme-note"]}>
+        <p class="theme-note">
           今は{resolved() === "dark" ? "ダーク" : "ライト"}
         </p>
       </Show>
@@ -52,12 +63,7 @@ function ThemePanel(props: { shell: ShellController }): JSX.Element {
   );
 }
 
-export const builtinPanels: BuiltinPanelEntry[] = [
-  {
-    kind: "builtin",
-    pluginId: "shell",
-    panelId: "theme",
-    title: "テーマ",
-    mount: (host, shell) => render(() => <ThemePanel shell={shell} />, host),
-  },
-];
+export function mount(host: ShadowRoot, context: ThemePanelContext): PanelHandle {
+  const dispose = render(() => <ThemePanel shell={context.shell} />, host);
+  return { destroy: () => dispose() };
+}

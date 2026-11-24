@@ -1,0 +1,55 @@
+/* テーマPanelの中身。ShadowRootへadoptされるので、外（document）の
+   規則は届かない — 見た目はこのファイルだけで決める。CSS変数
+   （--plugumi-*）はShadow境界を越えて継承されるのでそのまま使える。
+   Panel hostに追従し、固定の大きさは持たない。 */
+
+.theme-panel {
+  width: 100%; height: 100%;
+  box-sizing: border-box;
+  container-type: inline-size;
+  display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
+  align-items: stretch; justify-content: flex-start;
+  padding: var(--plugumi-spacing-sm);
+  overflow: auto;
+  color: var(--plugumi-colors-text);
+  font: inherit;
+}
+.theme-seg {
+  display: flex; width: 100%;
+  /* 低いPanelでは縮めずPanel内スクロールに任せる。 */
+  flex: none;
+  box-sizing: border-box;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-background-secondary);
+}
+.theme-item {
+  flex: 1 1 0; min-width: 0;
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+  border: none; border-radius: var(--plugumi-radii-sm);
+  background: transparent;
+  color: var(--plugumi-colors-text-muted);
+  font: inherit; font-size: var(--plugumi-font-size-xs);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+}
+/* 狭いPanelでは項目を縦積みにしてはみ出さない。 */
+@container (width < 220px) {
+  .theme-seg { flex-direction: column; }
+  /* 縦積みでflex-basis 0のままだと高さが0に潰れる。 */
+  .theme-item { flex: none; }
+}
+.theme-item:hover { color: var(--plugumi-colors-text); }
+.theme-item.selected {
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+  font-weight: 600;
+}
+.theme-note {
+  margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-2xs);
+}

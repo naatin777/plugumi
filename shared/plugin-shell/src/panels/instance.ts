@@ -70,23 +70,27 @@ export class PanelInstance {
   private entry = "";
   private destroyPanel: (() => void) | undefined;
   private releaseStyles: (() => void) | undefined;
-  // Plugin PanelはShadowRootへ描いてCSSを隔てる。builtinはdocument側の
-  // CSSを使うので、shadowを作るのはpluginのmountに限る — hostに
-  // shadowがあるとlight DOMの中身は描画されなくなる。
+  // PanelはPlugin・組み込みともShadowRootへ描く。
   private shadow: ShadowRoot | undefined;
   private mountToken = 0;
+  // mountは直列にしか走らせない。同時に2本進めると、staleになった側の
+  // handle.destroy()がsharedなShadowRootごと消して、新しい側の描画を
+  // 巻き込む（destroyは自分が挿したnodeだけでなくrootを全消しする）。
+  private pending: PanelEntry | undefined;
+  private mounting = false;
 
-  private kind: "plugin" | "builtin" = "plugin";
+  private kind: "plugin" | "builtin";
   private readonly shell: ShellHost;
   private readonly controller: ShellController;
   private readonly coreKey: string;
 
   constructor(
     shell: ShellHost, coreKey: string, ref: PanelRef, title: string,
-    controller: ShellController,
+    controller: ShellController, kind: PanelEntry["kind"] = "plugin",
   ) {
     this.shell = shell;
     this.controller = controller;
+    this.kind = kind;
     this.coreKey = coreKey;
     this.id = ref.instanceId;
     this.pluginId = ref.pluginId;
@@ -117,6 +121,10 @@ export class PanelInstance {
   // 進行中の非同期を無効化し、mount済みのPanelとstyleを外す。
   private teardown(): void {
     this.mountToken++;
+    // キューに積まれたmountも取り消す（missing/dispose時に古い描画を
+    // 遅れて再実行させない）。doMountからの呼び出しではpendingは
+    // すでに取り出し済みで空なので無害。
+    this.pending = undefined;
     this.destroyPanel?.();
     this.destroyPanel = undefined;
     this.releaseStyles?.();
@@ -129,7 +137,24 @@ export class PanelInstance {
     }
   }
 
+  // mountの入口はここだけ。進行中なら最新のentryに積み替えて終わり、
+  // 走っていなければ pending が尽きるまで順にdoMountする。
   async mount(panel: PanelEntry): Promise<void> {
+    this.pending = panel;
+    if (this.mounting) return;
+    this.mounting = true;
+    try {
+      while (this.pending) {
+        const next = this.pending;
+        this.pending = undefined;
+        await this.doMount(next);
+      }
+    } finally {
+      this.mounting = false;
+    }
+  }
+
+  private async doMount(panel: PanelEntry): Promise<void> {
     this.setTitle(panel.title);
     this.teardown();
     const token = this.mountToken;
@@ -143,17 +168,39 @@ export class PanelInstance {
       this.setError({ kind, message: String(cause) });
     };
 
+    const root = this.shadow ?? this.host.attachShadow({ mode: "open" });
+    this.shadow = root;
+
     if (panel.kind === "builtin") {
-      // 組み込みはCoreを経由しない — styles取得・import・callToolなしで
-      // Shellが直接mountする。
+      // 組み込みはCoreを経由しない — fetch・import・callToolなしで、
+      // bundle同梱のmountとcssを使う。DOMの置き場はPluginと同じ
+      // ShadowRootで、呼ぶcontractも同じ。
       this.kind = "builtin";
       this.host.dataset.plugumiPlugin = "shell";
+      if (panel.css) {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(panel.css);
+        root.adoptedStyleSheets = [sheet];
+      }
+      let handle: PanelHandle;
       try {
-        this.destroyPanel = panel.mount(this.host, this.controller);
-        this.setState("mounted");
+        handle = await panel.mount(root, {
+          root,
+          // 組み込みにCore Toolは無い。Shell状態にはcontext.shellで届く。
+          callTool: () => Promise.reject(new Error("組み込みPanelはToolを呼べません")),
+          setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
+          shell: this.controller,
+        });
       } catch (cause) {
         fail("mount", cause);
+        return;
       }
+      if (token !== this.mountToken) {
+        handle.destroy?.();
+        return;
+      }
+      this.destroyPanel = () => handle.destroy?.();
+      this.setState("mounted");
       return;
     }
     this.kind = "plugin";
@@ -161,8 +208,6 @@ export class PanelInstance {
     this.uiSha256 = panel.uiSha256;
     this.entry = panel.entry;
     this.host.dataset.plugumiPlugin = panel.registrationId;
-    const root = this.shadow ?? this.host.attachShadow({ mode: "open" });
-    this.shadow = root;
 
     let release: () => void;
     let sheet: CSSStyleSheet;
@@ -231,6 +276,15 @@ export class PanelInstance {
     else this.setState("missing");
   }
 
+  // 今mount中/済みのentryと同じか（重複mountを省く判定）。
+  private current(panel: PanelEntry): boolean {
+    if (this.kind !== panel.kind) return false;
+    if (panel.kind === "builtin") return this.panelId === panel.panelId;
+    return this.registrationId === panel.registrationId
+      && this.panelId === panel.panelId
+      && this.uiSha256 === panel.uiSha256;
+  }
+
   // panels一覧の更新を追従する。自分のregistrationIdが生きていれば
   // uiSha256の変化だけ見る。無ければpluginId+panelIdで解決し直す。
   update(panels: PanelEntry[]): void {
@@ -248,7 +302,10 @@ export class PanelInstance {
     }
     const replacement = resolvePanel(this, panels);
     if (replacement) {
-      void this.mount(replacement);
+      // 同じentryをすでにmount中/済みなら積まない（mount前にupdateが
+      // 走るとregistrationId等がまだ空で同一判定できず重複する）。
+      // error時は再mountしてよい — 一覧の変化を機会に回復する。
+      if (!this.current(replacement) || this.error()) void this.mount(replacement);
       return;
     }
     this.teardown();

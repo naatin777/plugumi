@@ -4,6 +4,7 @@
 // Shellがdecodeする。putはShellのstateをそのまま渡す。
 import { createContext, useContext, type ParentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
 import type { WorkspaceState } from "./layout/model.ts";
 import type { ShellController } from "./shell/controller.tsx";
 
@@ -21,10 +22,18 @@ export interface CoreEntry {
   error?: string;
 }
 
-// Shell組み込みPanel。Coreを経由せずShellが直接mountする
-// （Plugin PanelのPanelContextにShell内部を漏らさないため、
-// mountはShellControllerを受け取る）。
-export type BuiltinPanelMount = (host: HTMLElement, shell: ShellController) => () => void;
+// Shell組み込みPanel。pluginId "shell" のlocal PluginとしてShellの
+// bundleに同梱され、Pluginと同じくShadowRootへmountする
+// （contracts/00005のPanelMountと同じ形）。
+// contextはPluginと同じPanelContextに、Shell内部へ届くshellを足した
+// もの — 同梱コードなので信頼境界はなく、Core Toolではなく端末localの
+// prefsのようなShell状態に届けるためにある。
+export interface BuiltinPanelContext extends PanelContext {
+  shell: ShellController;
+}
+
+export type BuiltinPanelMount =
+  (host: ShadowRoot, context: BuiltinPanelContext) => PanelHandle | Promise<PanelHandle>;
 
 export interface PluginPanelEntry {
   kind: "plugin";
@@ -43,6 +52,9 @@ export interface BuiltinPanelEntry {
   panelId: string;
   title: string;
   mount: BuiltinPanelMount;
+  // ShadowRootへadoptするCSSテキスト。Pluginのstyles（Core経由の
+  // fetch）と違い、bundleに同梱されるので文字列を直接持つ。
+  css?: string;
 }
 
 export type PanelEntry = PluginPanelEntry | BuiltinPanelEntry;
