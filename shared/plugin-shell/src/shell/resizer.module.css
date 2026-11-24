@@ -35,30 +35,6 @@
   .resizer[data-axis="x"] { width: var(--resizer-size); margin: 0; cursor: col-resize; z-index: var(--plugumi-z-resizer); justify-self: center; }
   .resizer[data-axis="y"] { height: var(--resizer-size); margin: 0; cursor: row-resize; z-index: var(--plugumi-z-resizer); align-self: center; }
 
-  /* ---- dock: resizerは溝の中央へ帯を出す ---- */
-  [data-part="dock"] > .resizer[data-axis="x"] {
-    position: absolute; top: 0; bottom: 0;
-    right: var(--resizer-out);
-  }
-  [data-part="dock"][data-dock="right"] > .resizer[data-axis="x"] {
-    right: auto; left: var(--resizer-out);
-  }
-  [data-part="dock"] > .resizer[data-axis="y"] {
-    position: absolute; left: 0; right: 0;
-    top: var(--resizer-out);
-  }
-  [data-part="dock"][data-closed] > .resizer { display: none; }
-
-  /* drawerのresizerは台のcenter側の辺（境界線）をまたぐ位置に置く。
-     見た目・cursorはinlineと同じ。帯の中心を線に合わせる。 */
-  [data-part="area-view"]:is([data-size="narrow"], [data-size="compact"])
-      [data-part="dock"]:is([data-dock="left"], [data-dock="right"]) > .resizer[data-axis="x"],
-  [data-part="area-view"][data-size="compact"]
-      [data-part="dock"][data-dock="bottom"] > .resizer[data-axis="y"] {
-    --resizer-out: calc(-1 * var(--resizer-size) / 2);
-    z-index: var(--plugumi-z-drawer-resizer);
-  }
-
   /* ---- frame側（Area list列）・work-mat: 列の境界線に乗るresizer。
      帯を線の中心に掛け、hover/ドラッグで線を強調する（普段は境界線
      だけが見える）。 ---- */

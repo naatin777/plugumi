@@ -197,21 +197,12 @@ export const PREPARE = (opts: { theme: string; sub: boolean; drawer: string }) =
   const subPane = document.querySelector('[data-part="sub-slot"]');
   if (subPane && subPane.hasAttribute('data-closed') === ${opts.sub}) click('Sub');
   // drawerは1つだけ開く（"none"は全部閉じる）。
-  const kinds = { left: '左の領域', right: '右の領域', bottom: '下の領域' };
   const drawer = ${JSON.stringify(opts.drawer)};
   // Sub drawerは上で済ませた。sideはArea listボタン（drawerのときだけ）。
   const side = document.querySelector('[data-part="area-list"]');
   const wantSide = drawer === 'side';
   if (side && side.hasAttribute('data-drawer')) {
     if (side.hasAttribute('data-closed') === wantSide) click('Area list');
-  }
-  // dockはdrawer化しているときだけ開閉を触る。drawerはCSS上
-  // position:absolute（inlineはgrid/static）なのでcomputed styleで見分ける。
-  for (const [kind, label] of Object.entries(kinds)) {
-    const d = document.querySelector('[data-part="dock"][data-dock="' + kind + '"]');
-    if (!d || getComputedStyle(d).position !== 'absolute') continue;
-    const want = drawer === kind;
-    if (d.hasAttribute('data-closed') === want) click(label);
   }
   // themeは最後に変える。上のclickはupdatePrefs経由でapplyTheme(読込済み
   // theme)を呼ぶので、先に変えると上書きされて元に戻る。
@@ -239,7 +230,6 @@ export const COLLECT = `
     for (const prop of props) styles[prop] = cs.getPropertyValue(prop);
     return {
       part: el.dataset.part,
-      dock: el.dataset.dock ?? '',
       divider: el.dataset.divider ?? '',
       slot: slot(el),
       rect: [r.x, r.y, r.width, r.height].map((v) => Math.round(v)),
@@ -248,7 +238,7 @@ export const COLLECT = `
   });
   const counts = {};
   return list.map((item) => {
-    const base = [item.part, item.dock, item.divider, item.slot].join('|');
+    const base = [item.part, item.divider, item.slot].join('|');
     counts[base] = (counts[base] ?? 0) + 1;
     return { key: base + '#' + counts[base], rect: item.rect, styles: item.styles };
   }).sort((a, b) => a.key < b.key ? -1 : 1);

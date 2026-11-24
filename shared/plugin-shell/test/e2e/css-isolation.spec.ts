@@ -20,7 +20,6 @@ const SHELL_PROPS = `
   };
   return {
     tab: pick(document.querySelector('[data-part="tab"]')),
-    dock: pick(document.querySelector('[data-part="dock"]')),
     areaView: pick(document.querySelector('[data-part="area-view"]')),
     titlebar: pick(document.querySelector('[data-part="titlebar"]')),
     areaRow: pick(document.querySelector('[data-part="area-list-row"]')),

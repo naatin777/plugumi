@@ -7,8 +7,8 @@
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
-import type { AreaDisplay, ListSlot, FlatArea } from "../layout/area-list.ts";
-import { detachedAreas, mainAreas, pathKey, selectSub, setDisplay, subAreas, toDetach, toMain, toSub } from "../layout/area-list.ts";
+import type { ListSlot, FlatArea } from "../layout/area-list.ts";
+import { detachedAreas, mainAreas, pathKey, selectSub, subAreas, toDetach, toMain, toSub } from "../layout/area-list.ts";
 import { useShell } from "./controller.tsx";
 import { openPopover } from "./popover.ts";
 import { NameForm, ConfirmButton } from "./inline.tsx";
@@ -161,9 +161,6 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
     props.slot === "main"
       ? samePath(shell.areaPath(), props.area.path)
       : props.slot === "sub" && shell.areaList().selectedSub === key();
-  const display = () =>
-    shell.areaList().display[key()] ?? "full";
-
   const [addingChild, setAddingChild] = createSignal(false);
 
   const open = (event: MouseEvent) => {
@@ -198,11 +195,6 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
     closePopover(event);
     shell.applyAreaList((state) => toDetach(state, key()));
     windows.open(`${href()}?window=detached`);
-  };
-
-  const setMode = (next: AreaDisplay) => (event: MouseEvent) => {
-    closePopover(event);
-    shell.applyAreaList((state) => setDisplay(state, key(), next));
   };
 
   const remove = () => {
@@ -259,22 +251,6 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           >
             子Areaを追加
           </button>
-          {/* Subはcenterだけの表示なので表示切替はMain行にだけ出す。 */}
-          <Show when={props.slot === "main"}>
-            <p class={styles["area-menu-label"]}>表示</p>
-            <button
-              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: display() === "full" }}
-              onClick={setMode("full")}
-            >
-              すべて
-            </button>
-            <button
-              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: display() === "center" }}
-              onClick={setMode("center")}
-            >
-              centerのみ
-            </button>
-          </Show>
           <ConfirmButton
             class={`${styles["area-menu-item"]} ${styles["danger"]}`}
             label="Areaを削除"

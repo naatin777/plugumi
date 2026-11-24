@@ -1,5 +1,5 @@
 // titleのtool群。左: Area list開閉 + Core switcher、
-// 中央（work区間）: 「+」・検索・dock開閉、
+// 中央（work区間）: 「+」・検索、
 // 右: Sub開閉だけ（先頭＝Sub列寄りに固定）。pillの下限は中身の実測幅。
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -7,11 +7,7 @@ import { useHref, useNavigate } from "@solidjs/router";
 import { useShell, type AreaController } from "./controller.tsx";
 import { openPopover } from "./popover.ts";
 import { ToolButton } from "./tool-button.tsx";
-import {
-  IconAreaList, IconSub, IconPlus,
-  IconDockLeft, IconDockBottom, IconDockRight,
-  IconSearch,
-} from "../icons.tsx";
+import { IconAreaList, IconSub, IconPlus, IconSearch } from "../icons.tsx";
 import controlStyles from "./controls.module.css";
 import styles from "./title-tools.module.css";
 
@@ -91,33 +87,6 @@ function CoreMenuItem(props: { key: string; name: string; status: string }): JSX
 
 // work帯のロケーション。projectとarea階層をcrumbとして出す
 // 列ごとの開閉ボタンを持たせるため、work区間はMain/Subで別segment。
-// dockボタンはそのsegmentの列（slot）にだけ効く。実効の開閉は
-// AreaControllerが幅（inline/drawer）に応じて返す。
-function DockButtons(props: { area: AreaController }): JSX.Element {
-  return (
-    <>
-      <ToolButton
-        label="左の領域" keep pressed={props.area.dockShown("left")}
-        onClick={() => props.area.toggleDock("left")}
-      >
-        <IconDockLeft />
-      </ToolButton>
-      <ToolButton
-        label="下の領域" keep pressed={props.area.dockShown("bottom")}
-        onClick={() => props.area.toggleDock("bottom")}
-      >
-        <IconDockBottom />
-      </ToolButton>
-      <ToolButton
-        label="右の領域" keep pressed={props.area.dockShown("right")}
-        onClick={() => props.area.toggleDock("right")}
-      >
-        <IconDockRight />
-      </ToolButton>
-    </>
-  );
-}
-
 export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
   const shell = useShell();
   return (
@@ -163,7 +132,6 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
         <span class={styles["bar-search-key"]}>⌘K</span>
       </button>
       <span class={styles["bar-flex"]} />
-      <DockButtons area={props.area} />
     </>
   );
 }

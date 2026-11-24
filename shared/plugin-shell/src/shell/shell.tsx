@@ -1,6 +1,6 @@
 // Project画面の外枠。main.shellに既知の幅をCSS変数として供給し、
 // work面の形はCSSだけで決まる。
-// （Area list＋Sub）をまとめて畳む。キーはe.codeで見る（⌥⌘1-5, ⌥⌘Z）。
+// （Area list＋Sub）をまとめて畳む。キーはe.codeで見る（⌥⌘1-2, ⌥⌘Z）。
 // main.shellの幅はResizeObserverで測りshellSizeへ — 狭いときはSubと
 // Area listがdrawerになる（shell.module.css・work-shape.module.cssのdata-size規則）。
 import { Show, onCleanup } from "solid-js";
@@ -52,21 +52,11 @@ export function ShellFrame(): JSX.Element {
       }
       return;
     }
-    const toggle = () => {
-      switch (event.code) {
-        case "Digit1": return "sidebar" as const;
-        case "Digit2": return "left" as const;
-        case "Digit3": return "bottom" as const;
-        case "Digit4": return "right" as const;
-        case "Digit5": return "sub" as const;
-        default: return null;
-      }
-    };
-    const which = toggle();
+    const which = event.code === "Digit1" ? "sidebar"
+      : event.code === "Digit2" ? "sub" : null;
     if (!which) return;
     if (which === "sidebar") shell.toggleSide();
-    else if (which === "sub") shell.toggleSub();
-    else mainArea.toggleDock(which);
+    else shell.toggleSub();
     event.preventDefault();
   };
 
@@ -139,7 +129,7 @@ export function ShellFrame(): JSX.Element {
         }
       >
         <Show when={shell.mainRef()} fallback={<AreaEmpty />}>
-          <AreaView area={mainArea} slot="main" />
+          <AreaView area={mainArea} />
         </Show>
         <Show when={subInline() || shell.subDrawerMode()}>
           <Resizer
@@ -169,7 +159,7 @@ export function ShellFrame(): JSX.Element {
             when={shell.subRef()}
             fallback={<p class={areaStyles["area-view-empty"]}>Subに表示するAreaを選んでください</p>}
           >
-            <AreaView area={subArea} slot="sub" />
+            <AreaView area={subArea} />
           </Show>
         </div>
       </WorkShape>

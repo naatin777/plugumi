@@ -1,18 +1,12 @@
 // 端末ごとの表示設定。Workspaceの保存とは分け、1つのlocalStorageキーに
 // まとめる（designs/00005「開閉・幅・テーマなど端末ごとの表示設定」）。
 // localStorageが使えない環境でも落ちないよう、読み書きはtry/catchで包む。
-import type { DockKind } from "./layout/model.ts";
-
 export type ThemeMode = "system" | "light" | "dark";
 
 export interface ShellPrefs {
   // Area list（左の列）の開閉と幅。
   sidebarOpen: boolean;
   sidebarWidth: number;
-  // Area内のdockの開閉（Subはcenterだけなのでdockの開閉はMain用だけ）と
-  // 幅/高さ（px）。bottomは高さ。
-  dockOpen: Record<DockKind, boolean>;
-  dockSize: Record<DockKind, number>;
   // Sub列（右のAreaView）の開閉と幅。
   subOpen: boolean;
   subWidth: number;
@@ -26,8 +20,6 @@ const KEY = "plugumi:shell:prefs";
 const defaults = (): ShellPrefs => ({
   sidebarOpen: true,
   sidebarWidth: 260,
-  dockOpen: { left: true, bottom: true, right: true },
-  dockSize: { left: 280, bottom: 200, right: 280 },
   subOpen: false,
   subWidth: 480,
   theme: "system",
@@ -52,26 +44,10 @@ export function loadPrefs(): ShellPrefs {
   const saved = raw as Record<string, unknown>;
   const flag = (value: unknown, fallback: boolean): boolean =>
     typeof value === "boolean" ? value : fallback;
-  const dockOpen = typeof saved.dockOpen === "object" && saved.dockOpen !== null
-    ? saved.dockOpen as Record<string, unknown>
-    : {};
-  const dockSize = typeof saved.dockSize === "object" && saved.dockSize !== null
-    ? saved.dockSize as Record<string, unknown>
-    : {};
   const theme = saved.theme;
   return {
     sidebarOpen: flag(saved.sidebarOpen, base.sidebarOpen),
     sidebarWidth: clampWidth(saved.sidebarWidth, base.sidebarWidth),
-    dockOpen: {
-      left: flag(dockOpen.left, base.dockOpen.left),
-      bottom: flag(dockOpen.bottom, base.dockOpen.bottom),
-      right: flag(dockOpen.right, base.dockOpen.right),
-    },
-    dockSize: {
-      left: clampWidth(dockSize.left, base.dockSize.left),
-      bottom: clampWidth(dockSize.bottom, base.dockSize.bottom),
-      right: clampWidth(dockSize.right, base.dockSize.right),
-    },
     subOpen: flag(saved.subOpen, base.subOpen),
     subWidth: clampWidth(saved.subWidth, base.subWidth),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,

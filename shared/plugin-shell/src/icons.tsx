@@ -22,7 +22,7 @@ const icon = (paths: () => JSX.Element) => (props: IconProps) => (
 );
 
 // 枠+内部の線で領域を表すアイコン群。外側の列（Area list・Sub）は
-// 列を塗りつぶしてArea内のdock（線だけ）と描き分ける。
+// 列を塗りつぶして示す。
 export const IconAreaList = icon(() => <>
   <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
   <path
@@ -37,26 +37,6 @@ export const IconSub = icon(() => <>
     d="M10 3.25 h2.5 a1.25 1.25 0 0 1 1.25 1.25 v7 a1.25 1.25 0 0 1 -1.25 1.25 H10 Z"
     fill="currentColor" stroke="none"
   />
-</>);
-
-export const IconDockLeft = icon(() => <>
-  <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-  <line x1="6.5" y1="2.5" x2="6.5" y2="13.5" />
-  <line x1="3" y1="5.5" x2="5" y2="5.5" />
-  <line x1="3" y1="8" x2="5" y2="8" />
-</>);
-
-export const IconDockBottom = icon(() => <>
-  <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-  <line x1="1.5" y1="9.5" x2="14.5" y2="9.5" />
-  <line x1="4.5" y1="11.5" x2="11.5" y2="11.5" />
-</>);
-
-export const IconDockRight = icon(() => <>
-  <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-  <line x1="9.5" y1="2.5" x2="9.5" y2="13.5" />
-  <line x1="11" y1="5.5" x2="13" y2="5.5" />
-  <line x1="11" y1="8" x2="13" y2="8" />
 </>);
 
 export const IconPlus = icon(() => <>

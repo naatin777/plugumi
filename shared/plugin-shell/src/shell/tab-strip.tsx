@@ -17,7 +17,7 @@ import styles from "./tab-strip.module.css";
 export interface TabStripProps {
   refs: PanelRef[];
   selected: string | null;
-  // drop先のindexをMoveTargetに変える（dock/leafで形が違う）
+  // drop先のindexをMoveTargetに変える
   target: (index: number) => MoveTarget;
   onSelect?: (instanceId: string) => void;
   // 帯の上の横スワイプでpageを前後させる（未指定ならwheelは素通し）

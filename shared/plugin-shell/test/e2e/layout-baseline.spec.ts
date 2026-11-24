@@ -19,8 +19,8 @@ interface Entry {
 const VIEWPORTS: [number, number][] = [[1440, 900], [1000, 700], [400, 800]];
 const drawersFor = (width: number): string[] =>
   width >= 1100 ? ["none"]
-    : width >= 800 ? ["none", "left", "right", "sub"]
-    : ["none", "left", "right", "bottom", "sub", "side"];
+    : width >= 800 ? ["none", "sub"]
+    : ["none", "sub", "side"];
 
 interface State { name: string; w: number; h: number; theme: string; sub: boolean; drawer: string }
 

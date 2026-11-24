@@ -137,8 +137,6 @@ export const tokenNames = {
     resizer: "--plugumi-z-resizer",
     activity: "--plugumi-z-activity",
     drawerResizer: "--plugumi-z-drawer-resizer",
-    dockScrim: "--plugumi-z-dock-scrim",
-    dockDrawer: "--plugumi-z-dock-drawer",
     divider: "--plugumi-z-divider",
     scrim: "--plugumi-z-scrim",
     subDrawer: "--plugumi-z-sub-drawer",

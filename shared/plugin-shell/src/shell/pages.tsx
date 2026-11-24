@@ -5,7 +5,7 @@
 // こちらはscroll位置とselectedの相互同期だけを担う。
 // 見えていないPanelは大きさを保ったまま描画だけを止める
 // （content-visibility:hidden）。
-import { createEffect, createSignal, mapArray, onCleanup } from "solid-js";
+import { createEffect, createSignal, mapArray, onCleanup, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelRef } from "../layout/model.ts";
 import { useArea } from "./controller.tsx";
@@ -63,7 +63,11 @@ export function PagesTrack(props: {
   // scrollTo）を区別するため、gesture系入力の直近時刻を追う。
   let lastInputAt = 0;
   let settle: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(settle));
+  let observer: ResizeObserver | undefined;
+  onCleanup(() => {
+    clearTimeout(settle);
+    observer?.disconnect();
+  });
 
   const index = () =>
     Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected));
@@ -122,16 +126,17 @@ export function PagesTrack(props: {
 
   const registerViewport = (el: HTMLDivElement) => {
     viewport = el;
-    el.scrollLeft = index() * el.clientWidth;
+    // 初期位置・resize時の読みは追跡不要の現在値（untrackで明示）。
+    el.scrollLeft = untrack(index) * el.clientWidth;
     syncVisible();
     // resize（splitのresize・drawer開閉・窓のresize）でscrollLeftが
     // page境界からずれるので、選択位置に合わせ直す。
-    const observer = new ResizeObserver(() => {
-      const left = index() * (el.clientWidth || 1);
+    observer?.disconnect();
+    observer = new ResizeObserver(() => {
+      const left = untrack(index) * (el.clientWidth || 1);
       if (Math.abs(el.scrollLeft - left) > 1) el.scrollTo({ left });
     });
     observer.observe(el);
-    onCleanup(() => observer.disconnect());
   };
 
   const visible = (instanceId: string) => {

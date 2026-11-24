@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
   decodeAreaList, detachedAreas, emptyAreaList, flattenAreas, mainAreas, pathKey, pathFromKey,
-  selectSub, setDisplay, subAreas, toDetach, toMain, toSub,
+  selectSub, subAreas, toDetach, toMain, toSub,
   type AreaNode,
 } from "./area-list.ts";
 
@@ -98,17 +98,10 @@ describe("操作", () => {
     assert.equal(selectSub(state, "z"), state);
     assert.equal(selectSub(state, "a"), state);
   });
-
-  test("setDisplayはfullを保存しない（差分だけ）", () => {
-    let state = setDisplay(emptyAreaList(), "a", "center");
-    assert.equal(state.display.a, "center");
-    state = setDisplay(state, "a", "full");
-    assert.equal("a" in state.display, false);
-  });
 });
 
 describe("decode", () => {
-  test("正しい形をそのまま読める", () => {
+  test("正しい形をそのまま読める（displayキーが残っていても無視する）", () => {
     const state = decodeAreaList({
       version: 1,
       sub: ["a", "b"],
@@ -121,23 +114,22 @@ describe("decode", () => {
 
   test("壊れた形は空になる", () => {
     for (const raw of [null, undefined, {}, "x", [], { version: 2 },
-      { version: 1, sub: "no", selectedSub: null, display: {} },
-      { version: 1, sub: [], selectedSub: null, detached: "no", display: {} },
-      { version: 1, sub: [], selectedSub: null, display: { a: "bad" } }]) {
+      { version: 1, sub: "no", selectedSub: null },
+      { version: 1, sub: [], selectedSub: null, detached: "no" }]) {
       assert.deepEqual(decodeAreaList(raw), emptyAreaList(), JSON.stringify(raw));
     }
   });
 
   test("subに無いselectedSubはnullに落とす", () => {
     const state = decodeAreaList({
-      version: 1, sub: ["a"], selectedSub: "gone", display: {},
+      version: 1, sub: ["a"], selectedSub: "gone",
     });
     assert.equal(state.selectedSub, null);
   });
 
   test("detachedが無い古い保存は空配列として読む", () => {
     const state = decodeAreaList({
-      version: 1, sub: [], selectedSub: null, display: {},
+      version: 1, sub: [], selectedSub: null,
     });
     assert.deepEqual(state.detached, []);
   });

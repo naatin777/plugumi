@@ -39,13 +39,10 @@ const themeRef = (id: string) =>
 
 const empty = (): WorkspaceState => ({
   version: 1,
-  left: { panels: [], selected: null },
-  bottom: { panels: [], selected: null },
-  right: { panels: [], selected: null },
   center: { focusedLeaf: "l1", root: { kind: "leaf", id: "l1", panels: [], selected: null } },
 });
 
-// seed=basic: Main/SubそれぞれにAreaがあり、center分割2leaf＋各dockに
+// seed=basic: Main/SubそれぞれにAreaがあり、center分割2leaf＋両側のleafに
 // Panelが入っている状態。keyはE2Eが使うURL（test/demo/a1/）と合わせる。
 const seeds: Record<string, () => Stored> = {
   basic: () => ({
@@ -56,9 +53,6 @@ const seeds: Record<string, () => Stored> = {
     workspaces: {
       "demo/a1": {
         version: 1,
-        left: { panels: [ref("pl", "victim")], selected: "pl" },
-        bottom: { panels: [ref("pb", "victim")], selected: "pb" },
-        right: { panels: [ref("pr", "victim")], selected: "pr" },
         center: {
           focusedLeaf: "l1",
           root: {

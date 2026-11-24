@@ -61,8 +61,7 @@
     background: var(--plugumi-colors-border);
     pointer-events: none;
     display: none;
-    /* AreaView内のdock drawer（台）は境界線に接して開くので、
-       線は台より上に描く。 */
+    /* 列線はSubの台より上に描く（台は境界線に接して開く）。 */
     z-index: var(--plugumi-z-divider);
   }
   main.shell[data-side] .col-divider[data-divider="side"] {
@@ -103,7 +102,7 @@
     width: min(var(--sub-raw-width, 480px), 90%);
     z-index: var(--plugumi-z-sub-drawer);
     box-sizing: border-box;
-    /* dockのdrawerと同じ「台」— 端にぴったりの四角い不透明の面で、
+    /* 端にぴったりの四角い不透明の「台」で、
        center側の辺にだけ1px線。影・角丸・blurは付けない。 */
     box-shadow: none;
     background: var(--shell-frame-color);

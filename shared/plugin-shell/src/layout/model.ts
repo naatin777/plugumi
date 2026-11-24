@@ -13,11 +13,7 @@ export type PanelRef = {
   panelId: string;
 };
 
-// workspaceの縁領域（位置の契約）。rightは右の列。
-export type DockKind = "left" | "bottom" | "right";
-export const dockKinds: DockKind[] = ["left", "bottom", "right"];
-
-export type Stack = {
+type Stack = {
   panels: PanelRef[];
   selected: string | null;
 };
@@ -40,32 +36,23 @@ export type Split = {
 
 export type Node = Leaf | Split;
 
-// workspace = left・bottom・center・rightの領域。
-// dockは全て同じStackで、panelは全領域で共通（widgetのような
-// 別種は存在しない）。
+// workspace = centerのsplit treeだけ。縁領域は持たない — 「縁に置く」は
+// 利用者がtreeで左端・右端・下端にleafを作ることで表現する。
 export type WorkspaceState = {
   version: 1;
-  left: Stack;
-  bottom: Stack;
-  right: Stack;
   center: { root: Node; focusedLeaf: string };
 };
 
-// 領域をまたぐ移動の向き。
+// leaf分割の向き。
 export type Edge = "left" | "right" | "top" | "bottom";
 
 // Panelが今いる場所。
-export type PanelLocation =
-  | { region: "dock"; dock: DockKind }
-  | { region: "leaf"; leafId: string };
+export type PanelLocation = { region: "leaf"; leafId: string };
 
 // 移動先。indexは挿入位置。splitはleafのedge側に新しいleafを作って入れる。
 export type MoveTarget =
-  | { region: "dock"; dock: DockKind; index: number }
   | { region: "leaf"; leafId: string; index: number }
   | { region: "split"; leafId: string; edge: Edge };
-
-export const emptyStack = (): Stack => ({ panels: [], selected: null });
 
 const newId = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
 
@@ -89,9 +76,6 @@ export const rootLeaf = (): Leaf => ({
 
 export const emptyWorkspace = (): WorkspaceState => ({
   version: 1,
-  left: emptyStack(),
-  bottom: emptyStack(),
-  right: emptyStack(),
   center: { root: rootLeaf(), focusedLeaf: "leaf-root" },
 });
 
@@ -115,21 +99,12 @@ export function leafOf(node: Node, instanceId: string): Leaf | undefined {
 }
 
 export function locationOf(state: WorkspaceState, instanceId: string): PanelLocation | null {
-  for (const dock of dockKinds) {
-    if (state[dock].panels.some((panel) => panel.instanceId === instanceId)) {
-      return { region: "dock", dock };
-    }
-  }
   const leaf = leafOf(state.center.root, instanceId);
   if (leaf) return { region: "leaf", leafId: leaf.id };
   return null;
 }
 
 export function panelRefOf(state: WorkspaceState, instanceId: string): PanelRef | undefined {
-  for (const dock of dockKinds) {
-    const found = state[dock].panels.find((panel) => panel.instanceId === instanceId);
-    if (found) return found;
-  }
   const leaf = leafOf(state.center.root, instanceId);
   return leaf?.panels.find((panel) => panel.instanceId === instanceId);
 }
@@ -188,22 +163,21 @@ function decodeNode(value: unknown): Node | null {
 }
 
 // 形が合わない内容は空として扱う（移行・部分修復はしない）。
+// dock廃止前の保存（left/bottom/rightキーを持つ）も、centerさえ読めれば
+// そのまま採用する — dockにいたPanelは復元しない。
 export function decodeWorkspace(raw: unknown): WorkspaceState {
   if (!isObject(raw) || raw.version !== 1 || !isObject(raw.center)) {
     return emptyWorkspace();
   }
-  const left = decodeStack(raw.left);
-  const bottom = decodeStack(raw.bottom);
-  const right = decodeStack(raw.right);
   const root = decodeNode(raw.center.root);
-  if (!left || !bottom || !right || !root) return emptyWorkspace();
+  if (!root) return emptyWorkspace();
   const focused = raw.center.focusedLeaf;
   const leaves = allLeaves(root);
   const focusedLeaf =
     typeof focused === "string" && leaves.some((leaf) => leaf.id === focused)
       ? focused
       : leaves[0].id;
-  return { version: 1, left, bottom, right, center: { root, focusedLeaf } };
+  return { version: 1, center: { root, focusedLeaf } };
 }
 
 // ---- 操作 ----
@@ -252,14 +226,6 @@ function fixSelected(container: Stack | Leaf): void {
 
 // Panelを取り出す。取り出したあとの片付け（split畳み・selected補正）込み。
 function take(state: WorkspaceState, instanceId: string): PanelRef | undefined {
-  for (const stack of dockKinds.map((dock) => state[dock])) {
-    const index = stack.panels.findIndex((panel) => panel.instanceId === instanceId);
-    if (index >= 0) {
-      const [ref] = stack.panels.splice(index, 1);
-      fixSelected(stack);
-      return ref;
-    }
-  }
   const leaf = leafOf(state.center.root, instanceId);
   if (!leaf) return undefined;
   const index = leaf.panels.findIndex((panel) => panel.instanceId === instanceId);
@@ -283,12 +249,6 @@ export function addPanel(
 
 function insert(state: WorkspaceState, ref: PanelRef, target: MoveTarget): void {
   switch (target.region) {
-    case "dock": {
-      const stack = state[target.dock];
-      stack.panels.splice(at(stack.panels, target.index), 0, ref);
-      stack.selected = ref.instanceId;
-      return;
-    }
     case "leaf": {
       const leaf = findLeaf(state.center.root, target.leafId);
       if (!leaf) return;
@@ -345,12 +305,8 @@ export function selectPanel(state: WorkspaceState, instanceId: string): Workspac
   const location = locationOf(state, instanceId);
   if (!location) return state;
   const next = clone(state);
-  if (location.region === "dock") {
-    next[location.dock].selected = instanceId;
-  } else {
-    findLeaf(next.center.root, location.leafId)!.selected = instanceId;
-    next.center.focusedLeaf = location.leafId;
-  }
+  findLeaf(next.center.root, location.leafId)!.selected = instanceId;
+  next.center.focusedLeaf = location.leafId;
   return next;
 }
 
@@ -414,8 +370,5 @@ export function focusLeaf(state: WorkspaceState, leafId: string): WorkspaceState
 
 // 全PanelRefを列挙する（Instanceの生存管理に使う）。
 export function allPanelRefs(state: WorkspaceState): PanelRef[] {
-  return [
-    ...dockKinds.flatMap((dock) => state[dock].panels),
-    ...allLeaves(state.center.root).flatMap((leaf) => leaf.panels),
-  ];
+  return allLeaves(state.center.root).flatMap((leaf) => leaf.panels);
 }

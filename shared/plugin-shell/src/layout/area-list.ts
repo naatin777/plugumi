@@ -8,8 +8,6 @@ export type AreaRef = {
   path: string[];
 };
 
-export type AreaDisplay = "full" | "center";
-
 export type ListSlot = "main" | "sub" | "detach";
 
 export type AreaListState = {
@@ -22,8 +20,6 @@ export type AreaListState = {
   // と印を付けたArea。windowの開閉は保存しない — 閉じていても残り、
   // 行のclickで開き直す。
   detached: string[];
-  // Main表示の形式。既定は "full" で保存しない。
-  display: Record<string, AreaDisplay>;
 };
 
 // hostのAreaTreeと構造が同じ最小の形（hostへ依存しないようここで宣言）。
@@ -42,7 +38,7 @@ export const pathKey = (path: string[]): string =>
 export const pathFromKey = (key: string): string[] =>
   key.split("/").filter(Boolean).map(decodeURIComponent);
 
-// projectまで含めたAreaの同一性比較用（sub/displayのキーはpathKey）。
+// projectまで含めたAreaの同一性比較用（subのキーはpathKey）。
 export const areaKey = (ref: AreaRef): string =>
   `${encodeURIComponent(ref.project)}/${pathKey(ref.path)}`;
 
@@ -51,7 +47,6 @@ export const emptyAreaList = (): AreaListState => ({
   sub: [],
   selectedSub: null,
   detached: [],
-  display: {},
 });
 
 // ---- 導出（保存しない） ----
@@ -146,17 +141,6 @@ export function selectSub(state: AreaListState, key: string): AreaListState {
   return next;
 }
 
-// "full" は既定なのでキーを消す（差分だけ保存する）。
-export function setDisplay(
-  state: AreaListState, key: string, display: AreaDisplay,
-): AreaListState {
-  if ((state.display[key] ?? "full") === display) return state;
-  const next = clone(state);
-  if (display === "full") delete next.display[key];
-  else next.display[key] = display;
-  return next;
-}
-
 // ---- 保存（localStorage。prefsと同じく読み書きはtry/catchで包む） ----
 
 const KEY = (coreKey: string, project: string) =>
@@ -176,12 +160,6 @@ export function decodeAreaList(raw: unknown): AreaListState {
   if (!Array.isArray(detached) || detached.some((key) => typeof key !== "string")) {
     return emptyAreaList();
   }
-  if (!isObject(raw.display)) return emptyAreaList();
-  const display: Record<string, AreaDisplay> = {};
-  for (const [key, value] of Object.entries(raw.display)) {
-    if (value !== "full" && value !== "center") return emptyAreaList();
-    display[key] = value;
-  }
   const selectedSub = raw.selectedSub;
   return {
     version: 1,
@@ -190,7 +168,6 @@ export function decodeAreaList(raw: unknown): AreaListState {
       ? selectedSub
       : null,
     detached: detached as string[],
-    display,
   };
 }
 

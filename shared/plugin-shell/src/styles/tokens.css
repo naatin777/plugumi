@@ -41,16 +41,14 @@
   --plugumi-letter-spacing-wide: 0.02em;
 
   /* 重なり順。値の大小関係がそのまま意味を持つ — 床 < Panel内の表示 <
-     溝のresizer < activityの飾り < drawer台のresizer < AreaViewの幕 <
-     dockの台 < 列線・作業域の幕・Subの台 < Area listの台・Subの列線
-     resizer < drag ghost。同じ値同士はDOM順で前後が決まる。 */
+     溝のresizer < activityの飾り < 列線・作業域の幕・Subの台 <
+     Area listの台・Subの列線resizer < drag ghost。
+     同じ値同士はDOM順で前後が決まる。 */
   --plugumi-z-floor: -1;
   --plugumi-z-panel-state: 1;
   --plugumi-z-resizer: 2;
   --plugumi-z-activity: 3;
   --plugumi-z-drawer-resizer: 4;
-  --plugumi-z-dock-scrim: 5;
-  --plugumi-z-dock-drawer: 6;
   --plugumi-z-divider: 7;
   --plugumi-z-scrim: 7;
   --plugumi-z-sub-drawer: 7;

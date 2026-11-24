@@ -48,9 +48,9 @@ function DetachedArea(): JSX.Element {
     >
       {/* 最低限のtitle帯（窓のdrag領域）だけ残す。 */}
       <header class={workStyles["work-title"]} />
-      {/* Main扱い（dockあり）で1個だけ描く。同じAreaを元windowと同時に
+      {/* Mainと同じ形で1個だけ描く。同じAreaを元windowと同時に
           開くと独立に保存されlast-write-winsになる。 */}
-      <AreaView area={area} slot="main" />
+      <AreaView area={area} />
       <DragGhost />
     </main>
   );

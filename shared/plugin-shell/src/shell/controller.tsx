@@ -10,16 +10,16 @@ import {
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
-import type { WorkspaceState, PanelRef, MoveTarget, DockKind } from "../layout/model.ts";
+import type { WorkspaceState, PanelRef, MoveTarget } from "../layout/model.ts";
 import {
   emptyWorkspace, addPanel, closePanel, selectPanel, movePanel, detachPanel,
   splitAt, setRatio,
   allPanelRefs,
   decodeWorkspace, newInstanceId,
 } from "../layout/model.ts";
-import type { AreaRef, AreaListState, AreaDisplay } from "../layout/area-list.ts";
+import type { AreaRef, AreaListState } from "../layout/area-list.ts";
 import {
-  areaKey, emptyAreaList, loadAreaList, pathFromKey, pathKey, saveAreaList,
+  areaKey, emptyAreaList, loadAreaList, pathFromKey, saveAreaList,
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
 import { builtinPanels } from "../panels/builtin.ts";
@@ -67,7 +67,6 @@ export interface ShellController {
   // Main/Subに表示するArea。MainはURLが正本。
   mainRef(): AreaRef | null;
   subRef(): AreaRef | null;
-  displayOf(ref: AreaRef | null): AreaDisplay;
   // ページ送りなど「触っている側」のArea（[data-part="area-view"]のpointerdownで更新）。
   focusedArea(): AreaController | null;
   setFocusedArea(area: AreaController): void;
@@ -92,12 +91,8 @@ export interface ShellController {
   toggleSub(): void;
   toggleSide(): void;
   // 外pointerdownやEscapeで一時drawerを全部畳む。drawerはshell全体で
-  // 1つしか開かないので、AreaControllerがdock drawerを開くときも
-  // これを呼んで他を畳む（exceptは開こうとしている自分自身）。
-  closeDrawers(except?: AreaController): void;
-  // 存在するAreaViewのcontrollerの登録（drawer排他のために使う）。
-  registerArea(area: AreaController): void;
-  unregisterArea(area: AreaController): void;
+  // 1つしか開かない（開く側のtoggleが先にこれを呼ぶ）。
+  closeDrawers(): void;
 
   // 「+」のpanel pickerはshellに1個。開くとき対象のAreaControllerを指定する。
   openPicker(area: AreaController, target?: MoveTarget,
@@ -112,24 +107,11 @@ export interface ShellController {
 }
 
 export type ShellSize = "wide" | "medium" | "compact";
-export type AreaSize = "wide" | "narrow" | "compact";
 
 // 1つのAreaViewが持つ状態。layout・Panel Instance・dragは全部Area単位。
 export interface AreaController {
   shell: ShellController;
   ref(): AreaRef | null;
-
-  // AreaViewの実測幅に応じた段階（ResizeObserverがセット）。
-  // narrowでleft/right、compactでbottomもdrawerになる。
-  size(): AreaSize;
-  setSize(size: AreaSize): void;
-  // drawer化したdockの一時的な開閉（同時に開くのは1つ）。
-  drawer(): DockKind | null;
-  setDrawer(kind: DockKind | null): void;
-  dockIsDrawer(kind: DockKind): boolean;
-  // 実効の開閉（drawerならsignal、inlineならprefs）。
-  dockShown(kind: DockKind): boolean;
-  toggleDock(kind: DockKind): void;
 
   layout(): WorkspaceState;
   applyLayout(mutate: (state: WorkspaceState) => WorkspaceState): void;
@@ -231,28 +213,17 @@ export function createShellController(
     },
     { equals: (a, b) => sameArea(a, b) },
   );
-  // 表示形式はMain用だけ（Subはcenter固定でdisplayを持たない）。
-  const displayOf = (ref: AreaRef | null): AreaDisplay =>
-    ref ? areaListState().display[pathKey(ref.path)] ?? "full" : "full";
-
   // ---- 触っている側のArea ----
   const [focusedArea, setFocusedArea] = createSignal<AreaController | null>(null);
 
   // ---- 幅に応じたdrawer化 ----
   // drawerの開閉はsignal（prefsではない）— 狭くなった瞬間にcenterが
-  // 覆われないよう初期は閉。AreaViewのdock drawerは各controllerが持つ。
-  // 開くdrawerはshell全体で1つ — 新しく開くと他は全部畳まれる
-  // （台が重ならない。exceptは「これから開く側」を閉じないため）。
-  const areas = new Set<AreaController>();
-  const closeDrawers = (except?: AreaController) => {
+  // 覆われないよう初期は閉。開くdrawerはshell全体で1つ — 新しく開くと
+  // 他は全部畳まれる（台が重ならないため）。
+  const closeDrawers = () => {
     setSubDrawer(false);
     setSideDrawer(false);
-    for (const area of areas) {
-      if (area !== except) area.setDrawer(null);
-    }
   };
-  const registerArea = (area: AreaController) => areas.add(area);
-  const unregisterArea = (area: AreaController) => areas.delete(area);
   const [shellSize, setShellSize] = createSignal<ShellSize>("wide");
   const [subDrawer, setSubDrawer] = createSignal(false);
   const [sideDrawer, setSideDrawer] = createSignal(false);
@@ -336,7 +307,7 @@ export function createShellController(
     cores, core, panels, projects,
     prefs, updatePrefs,
     areaList, applyAreaList,
-    mainRef, subRef, displayOf,
+    mainRef, subRef,
     focusedArea, setFocusedArea,
     drag, ghost,
     shellSize, setShellSize,
@@ -345,7 +316,6 @@ export function createShellController(
     subDrawerMode, sideDrawerMode,
     subShown, sideShown,
     toggleSub, toggleSide, closeDrawers,
-    registerArea, unregisterArea,
     openPicker, bindPicker: setPicker, pickPanel,
     createProject, createArea, removeArea,
   };
@@ -380,24 +350,6 @@ export function createAreaController(
   ref: () => AreaRef | null,
 ): AreaController {
   const host = shell.host;
-
-  // ---- 幅に応じたdrawer化（このAreaView単位） ----
-  // 開くのはshell全体で1つ — 開くとき自分以外のdrawerを畳む。
-  const [size, setSize] = createSignal<AreaSize>("wide");
-  const [drawerSignal, setDrawerSignal] = createSignal<DockKind | null>(null);
-  const drawer = drawerSignal;
-  const setDrawer = (kind: DockKind | null) => {
-    if (kind) shell.closeDrawers(controller);
-    setDrawerSignal(kind);
-  };
-  const dockIsDrawer = (kind: DockKind) =>
-    size() === "compact" || (size() === "narrow" && kind !== "bottom");
-  const dockShown = (kind: DockKind) =>
-    dockIsDrawer(kind) ? drawer() === kind : shell.prefs().dockOpen[kind];
-  const toggleDock = (kind: DockKind) => {
-    if (dockIsDrawer(kind)) setDrawer(drawer() === kind ? null : kind);
-    else shell.updatePrefs((prefs) => { prefs.dockOpen[kind] = !prefs.dockOpen[kind]; });
-  };
 
   // ---- layout（workspaceを1つの状態に持つ） ----
   // store+reconcileで、変わらないleaf/PanelRefのproxyを保つ。
@@ -518,13 +470,10 @@ export function createAreaController(
 
   const controller: AreaController = {
     shell, ref,
-    size, setSize, drawer, setDrawer, dockIsDrawer, dockShown, toggleDock,
     layout, applyLayout,
     instance, openPanel, detach, adopt,
     drag: shell.drag,
   };
-  shell.registerArea(controller);
-  onCleanup(() => shell.unregisterArea(controller));
 
   // effectは2系統だけ: (a) refの変化 → 読み直し、(b) panels一覧の変化 →
   // Instance追従。

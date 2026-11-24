@@ -2,10 +2,10 @@
 @layer components {
 
   /* ---- tab帯はカードのheader ----
-     dock・centerのleafは、それぞれ「tab帯（header）＋中身」
-     の1枚のカード。stripは輪郭の内側の上端に置き、中身との間はhairline
-     （divider面）で区切る。tab自体は面を持たず、selectedはtoneで示す。 */
-  .dock-strip, .leaf-strip {
+     leafは「tab帯（header）＋中身」の1枚のカード。stripは輪郭の内側の
+     上端に置き、中身との間はhairline（divider面）で区切る。tab自体は
+     面を持たず、selectedはtoneで示す。 */
+  .leaf-strip {
     display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
     height: var(--shell-strip-h); box-sizing: border-box;
     padding: 0 var(--plugumi-spacing-xs);

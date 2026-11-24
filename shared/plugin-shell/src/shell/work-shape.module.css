@@ -4,7 +4,7 @@
 
   /* title帯の中でsegment（開閉区画）の端を決める変数。barの左端は
      sidebar列の端に揃える（sidebarがtool群より狭い時だけtool群が優先）。
-     右端は窓の端 — 右列はmatの中のdockなので揃える対象はtool群だけ。
+     右端は窓の端 — 右列はmatの中の列なので揃える対象はtool群だけ。
      detachedのshellもStyle Labのlab-shapeも、同じ形を使うので
      data-partで拾う（classはcomponentごとにhashされるため）。 */
   [data-part="shell"], [data-part="lab-shape"] {
@@ -177,7 +177,7 @@
   [data-part="shell"][data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
   [data-part="shell"][data-size="compact"] .frame-side {
     position: absolute;
-    /* dockのdrawerと同じ「台」— 画面左端にぴったりの四角い不透明の面。
+    /* 画面左端にぴったりの四角い不透明の「台」。
        上下はapp bar下の線〜status帯上の線、右辺にだけ1px線。 */
     box-shadow: none;
     background: var(--shell-frame-color);

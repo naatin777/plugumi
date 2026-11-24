@@ -1,4 +1,4 @@
-// Panel InstanceのhostをDOMへ据える共用部品。dock・leaf・widgetのどれも
+// Panel InstanceのhostをDOMへ据える共用部品。leaf・widgetのどれも
 // 同じ「Panelの中身」を抱くが、Panelそのものは領域に依存しないので
 // ここに置く。activityのborder/dividerはカードとstripが受け持つ
 // （contentは列やbody側）。

@@ -1,7 +1,7 @@
 // 領域をまたぐPanelのdrag & drop（designs/00004「Panelのタブはregionを
 // またいでドラッグできる」）。HTML5 DnDではなくpointer eventで追う。
 // drop先はdocument.elementFromPointで見つけ、祖先を辿って登録済みの
-// 最も内側の要素を採る（stripがdockより内側にあればstripが勝つ）。
+// 最も内側の要素を採る（stripがleafより内側にあればstripが勝つ）。
 // class名での要素探索はしない。getBoundingClientRectはこのファイル内だけで
 // 使う（登録要素の中でのindex/edgeの計算）。
 import type { MoveTarget } from "../layout/model.ts";
@@ -169,7 +169,7 @@ const insertIndex = (element: HTMLElement, pos: number, axis: "x" | "y"): number
   return index;
 };
 
-// 横strip（dock・leafのtab帯）のdrop判定。
+// 横strip（leafのtab帯）のdrop判定。
 export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
   (element, x, y) => {
     if (!inside(element, x, y)) return null;
@@ -203,11 +203,4 @@ export const leafBodyTest = (leafId: () => string): DropTester =>
       return { region: "split", leafId: id, edge: "bottom" };
     }
     return { region: "leaf", leafId: id, index: -1 };
-  };
-
-// 本体がstripに見えない場合（空dock・navのsection等）の矩形判定。
-export const bodyTest = (target: MoveTarget): DropTester =>
-  (element, x, y) => {
-    if (!inside(element, x, y)) return null;
-    return target;
   };
