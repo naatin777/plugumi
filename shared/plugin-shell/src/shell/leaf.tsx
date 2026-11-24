@@ -66,7 +66,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
           when={props.leaf.panels.length > 0}
           fallback={<LeafEmpty leafId={props.leaf.id} />}
         >
-          <PagesTrack refs={props.leaf.panels} selected={props.leaf.selected} />
+          <PagesTrack refs={props.leaf.panels} selected={props.leaf.selected} onFlip={flip} />
         </Show>
       </div>
     </section>

@@ -36,17 +36,23 @@ export const pageMouse = (flip: (direction: 1 | -1) => void) =>
     }
   };
 
-// カードの上の横wheelでpageを前後させるgesture。1回のgestureで1page
-// だけ: deltaXを貯めて閾値で1回flipし、wheelの流れが止まるまで次は
-// 出さない（stripの横wheelと同じidle、閾値はstripより強め — 中身の
-// 上なので誤爆を減らす）。
-const WHEEL_FLIP_PX = 80;
+// カード要素へまとめて展開するpageナビ用のhandler群。mouseup/auxclickは
+// ブラウザの戻る/進む遷移を止めるだけ（flipはmousedownの1回で完結）。
+export const pageNavProps = (flip: (direction: 1 | -1) => void) => ({
+  onMouseDown: pageMouse(flip),
+  onMouseUp: (event: MouseEvent) => {
+    if (event.button === 3 || event.button === 4) event.preventDefault();
+  },
+  onAuxClick: (event: MouseEvent) => event.preventDefault(),
+});
+
+// wheel gestureが途切れたとみなすまでのidle時間。
 const WHEEL_IDLE_MS = 200;
 
 // 利用者gestureで横scrollできる要素か（overflow:hiddenはプログラム
 // scrollの箱なので利用者scrollの対象に含めない）。scrollの余裕には
 // 実質的な下限を設ける — 数pxしか動かない箱にgestureが吸われると
-// flipもscrollも起きない「デッドゾーン」になる。
+// dragもscrollも起きない「デッドゾーン」になる。
 const scrollableX = (el: Element, direction: 1 | -1): boolean => {
   const overflowX = getComputedStyle(el).overflowX;
   if (overflowX !== "auto" && overflowX !== "scroll" && overflowX !== "overlay") return false;
@@ -56,58 +62,10 @@ const scrollableX = (el: Element, direction: 1 | -1): boolean => {
     : Math.abs(el.scrollLeft) > 4;
 };
 
-// カード要素へまとめて展開するpageナビ用のhandler群。mouseup/auxclickは
-// ブラウザの戻る/進む遷移を止めるだけ（flipはmousedownの1回で完結）。
-// 横wheelは「中身がその方向へscrollできるなら中身優先、出来なければ
-// page flip」。strip上ではstrip自身のhandlerがpreventDefault済みなので
-// defaultPreventedで二重flipを避ける。
-export const pageNavProps = (flip: (direction: 1 | -1) => void) => {
-  let accumX = 0;
-  let accumY = 0;
-  let locked = false;
-  let idle: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(idle));
-  const onWheel = (event: WheelEvent) => {
-    if (event.defaultPrevented) return;
-    if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return;
-    const direction: 1 | -1 = event.deltaX > 0 ? 1 : -1;
-    // カードの中（Panelのshadow内部まで）にその方向へscrollできる
-    // 要素があるならscrollに任せる。無ければpreventDefaultしておく —
-    // flipしないsub-thresholdの横スワイプでもブラウザの戻る/進むが
-    // 発動するのを防ぐため。
-    for (const node of event.composedPath()) {
-      if (node === event.currentTarget) break;
-      if (node instanceof HTMLElement && scrollableX(node, direction)) return;
-    }
-    event.preventDefault();
-    // flipは「横」のgestureを決めきってから: 累積の横成分が縦の2倍
-    // 以上で閾値を超えたときだけ発動する（縦scrollの行きがけの横
-    // ドリフトや斜めscrollでは切り替わらない）。
-    accumX += event.deltaX;
-    accumY += event.deltaY;
-    clearTimeout(idle);
-    idle = setTimeout(() => { locked = false; accumX = 0; accumY = 0; }, WHEEL_IDLE_MS);
-    if (locked) return;
-    if (Math.abs(accumX) >= WHEEL_FLIP_PX && Math.abs(accumX) > Math.abs(accumY) * 2) {
-      flip(direction);
-      locked = true;
-      accumX = 0;
-      accumY = 0;
-    }
-  };
-  return {
-    onMouseDown: pageMouse(flip),
-    onMouseUp: (event: MouseEvent) => {
-      if (event.button === 3 || event.button === 4) event.preventDefault();
-    },
-    onAuxClick: (event: MouseEvent) => event.preventDefault(),
-    onWheel,
-  };
-};
-
 export function PagesTrack(props: {
   refs: PanelRef[];
   selected: string | null;
+  onFlip: (direction: 1 | -1) => void;
 }): JSX.Element {
   const area = useArea();
   // slide中に描画するもう1枚（行きのpage）。selectedはpropsから、
@@ -134,18 +92,100 @@ export function PagesTrack(props: {
   );
   onCleanup(() => clearTimeout(timer));
 
+  // 横wheel gestureの追従drag。deltaXの累積をtrackのずれ（--page-drag-px）
+  // に映して隣のpageを「見せるだけ」出し、gestureが途切れた時点で十分に
+  // 動いていればonFlipでcommit、足りなければ元の位置へ戻す。閾値flipと
+  // 違って指に追従するので、trackのtransitionはdrag中だけ切る。
+  const [peek, setPeek] = createSignal<string | null>(null);
+  const [dragging, setDragging] = createSignal(false);
+  let viewport!: HTMLDivElement;
+  let track!: HTMLDivElement;
+  let accumX = 0;
+  let accumY = 0;
+  let idle: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(idle));
+
+  const index = () =>
+    Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected));
+
+  // accumXをtrackのずれpxに変換する。隣のpageが無い側には動かせない。
+  const dragPx = () => {
+    const width = viewport.clientWidth || 1;
+    const at = index();
+    const lower = at + 1 < props.refs.length ? -width : 0;
+    const upper = at > 0 ? width : 0;
+    return Math.min(upper, Math.max(lower, -accumX));
+  };
+
+  // commitしたgestureはそこで打ち止めにする。残りの勢いで連続して
+  // pageを送らないため。
+  let committed = false;
+
+  const release = () => {
+    setDragging(false);
+    setPeek(null);
+    track.style.setProperty("--page-drag-px", "0px");
+  };
+
+  // 閾値を越えた時点（gesture途中）でcommitする。wheelの流れが途切れる
+  // まで待つとmomentum分だけ遅れて、tabの反映が遅く感じられる。
+  const finish = (direction: 1 | -1) => {
+    committed = true;
+    release();
+    props.onFlip(direction);
+  };
+
+  const settle = () => {
+    release();
+    accumX = 0;
+    accumY = 0;
+    committed = false;
+  };
+
+  const onWheel = (event: WheelEvent) => {
+    if (event.defaultPrevented) return;
+    if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return;
+    const direction: 1 | -1 = event.deltaX > 0 ? 1 : -1;
+    // 中身（Panelのshadow内部まで）がその方向へscrollできるなら
+    // scrollに任せる。無ければpreventDefaultしておく — commitしない
+    // sub-thresholdの横スワイプでもブラウザの戻る/進むが発動するのを防ぐ。
+    for (const node of event.composedPath()) {
+      if (node === viewport) break;
+      if (node instanceof HTMLElement && scrollableX(node, direction)) return;
+    }
+    event.preventDefault();
+    clearTimeout(idle);
+    idle = setTimeout(settle, WHEEL_IDLE_MS);
+    if (committed) return;
+    accumX += event.deltaX;
+    accumY += event.deltaY;
+    const px = dragPx();
+    // 隣が無い側にclampされた分は捨てる。そのまま貯めると逆向きに
+    // 戻し始めても溜まった分を返すまでtrackが動かない。
+    accumX = -px;
+    setDragging(px !== 0);
+    // dragで顔を出す側のpageを描画に載せる（普段はcontent-visibility:hidden）。
+    setPeek(px === 0 ? null : (props.refs[px < 0 ? index() + 1 : index() - 1]?.instanceId ?? null));
+    track.style.setProperty("--page-drag-px", `${px}px`);
+    const width = viewport.clientWidth || 1;
+    if (Math.abs(px) >= Math.max(80, width * 0.25) && Math.abs(accumX) > Math.abs(accumY) * 2) {
+      finish(px < 0 ? 1 : -1);
+    }
+  };
+
   // slide中はfrom/toの両方を描画、それ以外はselectedだけ描画する。
+  // 追従drag中はpeek（ずれて見えている隣のpage）も描画に載せる。
   const visible = (instanceId: string) =>
-    instanceId === props.selected || instanceId === outgoing();
+    instanceId === props.selected || instanceId === outgoing() || instanceId === peek();
 
   return (
-    <div class={styles["pages-viewport"]}>
+    <div ref={viewport} class={styles["pages-viewport"]} onWheel={onWheel}>
       <div
+        ref={track}
         class={styles["pages-track"]}
+        data-wheel-drag={dragging() ? "" : undefined}
         style={{
-          "--page-index": String(
-            Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected)),
-          ),
+          "--page-index": String(index()),
         }}
       >
         {/* <For each={store配列}>はeachの評価がuntracked setupで走り

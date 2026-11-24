@@ -81,7 +81,7 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
             when={stack().panels.length > 0}
             fallback={<div class={styles["dock-empty"]}>Panel を開くとここに表示されます</div>}
           >
-            <PagesTrack refs={stack().panels} selected={stack().selected} />
+            <PagesTrack refs={stack().panels} selected={stack().selected} onFlip={flip} />
           </Show>
         </div>
       </div>
