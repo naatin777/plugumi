@@ -86,6 +86,12 @@ export class PanelInstance {
   private readonly shell: ShellHost;
   private readonly controller: ShellController;
   private readonly coreKey: string;
+  // context.inputへ渡す開き時の入力。AreaControllerがInstance作成時に入れる。
+  input: unknown;
+  // context.openPanelの実体。AreaControllerがInstance作成時に差す —
+  // Instance自身は自分がどのleafに居るか知らないので、呼び出し時点の
+  // layoutから探す側に任せる。
+  openSibling: ((panelId: string, input?: unknown) => void) | undefined;
 
   constructor(
     shell: ShellHost, coreKey: string, ref: PanelRef, title: string,
@@ -192,6 +198,8 @@ export class PanelInstance {
           // 組み込みにCore Toolは無い。Shell状態にはcontext.shellで届く。
           callTool: () => Promise.reject(new Error("組み込みPanelはToolを呼べません")),
           setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
+          input: this.input,
+          openPanel: (panelId, input) => this.openSibling?.(panelId, input),
           shell: this.controller,
         });
       } catch (cause) {
@@ -257,6 +265,8 @@ export class PanelInstance {
           }),
         // Pluginは意味だけ渡す。呼ぶたびに全体を置き換える。
         setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
+        input: this.input,
+        openPanel: (panelId, input) => this.openSibling?.(panelId, input),
       });
     } catch (cause) {
       release();

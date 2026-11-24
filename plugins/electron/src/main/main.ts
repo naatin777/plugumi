@@ -62,6 +62,22 @@ async function start(): Promise<void> {
   };
   const windows = new Windows(createWindow);
 
+  // <webview>のguestがwindow.openやtarget=_blankで新しいwindowを要求した
+  // とき — Electronのpopupは作らず、要求元のSite PanelへURLを中継する
+  // （同じleafに新しいSite Panelとして開く。context.openPanel経由）。
+  // guestのwebContentsにはrendererから触れないのでapp単位で張る。
+  app.on("web-contents-created", (_event, contents) => {
+    if (contents.getType() !== "webview") return;
+    contents.setWindowOpenHandler(({ url }) => {
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send("plugumi:site-open", { guestId: contents.id, url });
+        }
+      }
+      return { action: "deny" };
+    });
+  });
+
   ipcMain.on("plugumi:theme", (event, theme: unknown) => {
     // setTitleBarOverlayはWindows/Linux専用。macOSにはメソッド自体が
     // 存在しないので呼ぶと例外になる（hiddenInsetで十分なため不要）。

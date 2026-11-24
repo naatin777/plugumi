@@ -13,3 +13,9 @@ window.addEventListener("plugumi:theme", () => {
 contextBridge.exposeInMainWorld("plugumiWindows", {
   open: (path: string) => ipcRenderer.send("plugumi:open-window", path),
 });
+
+// <webview>のguestの新規window要求をSite Panelへ中継する。guestIdで
+// どのwebviewの要求か分かるので全windowへばら撒き、受け手が選ぶ。
+ipcRenderer.on("plugumi:site-open", (_event, detail) => {
+  window.dispatchEvent(new CustomEvent("plugumi:site-open", { detail }));
+});

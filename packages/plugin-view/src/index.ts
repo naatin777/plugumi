@@ -13,6 +13,11 @@ export interface PanelContext {
   // 色・速度・太さなどの表現はShell側のtokenが決める。
   // 呼ぶたびに全体を置き換える。永続化されず再mountで消える。
   setActivity(activity: PanelActivity | null): void;
+  // このPanelを開いたときの初期入力。context.openPanelの第2引数が
+  // 新しいPanelのcontext.inputとして届く。永続化はされない。
+  input?: unknown;
+  // 同じleafの自分の隣に、同じPluginの別Panelを開く。
+  openPanel(panelId: string, input?: unknown): void;
 }
 
 export type PanelActivityTone = "neutral" | "info" | "success" | "warning" | "danger";

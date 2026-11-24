@@ -5,18 +5,19 @@
   // overlayがdrawer等を遮る不安定さがあった — ElectronのwebviewTagを
   // 有効にしたwindowでのみ動く）
   import { onMount } from "svelte";
+  import type { PanelContext } from "@plugumi/plugin-view";
 
   interface Props {
-    // mount contractのcontext。今は使わない。
-    context: unknown;
+    context: PanelContext;
   }
-  let { context: _context }: Props = $props();
+  let { context }: Props = $props();
 
   // <webview>はElectronのwebviewTagで有効化される要素。ブラウザや
   // 無効化されたrendererではただのunknown elementになりloadURLを持たない。
   interface WebviewElement extends HTMLElement {
     loadURL(url: string): Promise<unknown>;
     getURL(): string;
+    getWebContentsId(): number;
     goBack(): void;
     goForward(): void;
     canGoBack(): boolean;
@@ -24,7 +25,10 @@
   }
   const supported = "loadURL" in document.createElement("webview");
 
-  const home = "https://www.google.com";
+  // 開き時の入力（context.openPanelで生えたPanelにだけ来る）。
+  const inputUrl = (context.input as { url?: unknown } | undefined)?.url;
+  const home = (typeof inputUrl === "string" ? validURL(inputUrl) : undefined)
+    ?? "https://www.google.com";
   let draft = $state(home);
   let current = $state(home);
   let view = $state<WebviewElement | undefined>();
@@ -52,11 +56,17 @@
     view.addEventListener("did-navigate", sync);
     view.addEventListener("did-navigate-in-page", sync);
     view.addEventListener("dom-ready", sync);
-    // target=_blank等はpopupを出さず同じviewで開く。
-    view.addEventListener("new-window", (event) => {
-      const url = validURL((event as { url?: string }).url ?? "");
-      if (url !== undefined && view !== undefined) void view.loadURL(url);
-    });
+    // guestが新しいwindowを要求したとき（target=_blank・window.open）、
+    // main→preload経由で届く。guestIdが自分のwebviewのものだけ拾い、
+    // 同じleafの隣に新しいSite Panelを開く。
+    const openSibling = (event: Event) => {
+      const detail = (event as CustomEvent<{ guestId?: number; url?: string }>).detail;
+      if (detail?.guestId !== view?.getWebContentsId()) return;
+      const url = validURL(detail.url ?? "");
+      if (url !== undefined) context.openPanel("site", { url });
+    };
+    window.addEventListener("plugumi:site-open", openSibling);
+    return () => window.removeEventListener("plugumi:site-open", openSibling);
   });
 
   function go() {
@@ -103,7 +113,10 @@
       <button type="submit">移動</button>
     </form>
     <div class="view">
-      <webview bind:this={view} src={home} webpreferences="contextIsolation=yes, sandbox=yes"></webview>
+      <!-- allowpopups — window.open/target=_blankの要求をmainの
+           setWindowOpenHandlerへ通すために要る。無いとguestの要求は
+           rendererにもmainにも届かず握り潰される。 -->
+      <webview bind:this={view} src={home} webpreferences="contextIsolation=yes, sandbox=yes" allowpopups></webview>
       {#if current === ""}
         <p class="hint">URLを入力して移動を押してください</p>
       {/if}

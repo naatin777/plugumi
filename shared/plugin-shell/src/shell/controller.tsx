@@ -14,7 +14,7 @@ import type { WorkspaceState, PanelRef, MoveTarget } from "../layout/model.ts";
 import {
   emptyWorkspace, addPanel, closePanel, selectPanel, movePanel, detachPanel,
   splitAt, setRatio,
-  allPanelRefs,
+  allPanelRefs, leafOf,
   decodeWorkspace, newInstanceId,
 } from "../layout/model.ts";
 import type { AreaRef, AreaListState } from "../layout/area-list.ts";
@@ -116,8 +116,8 @@ export interface AreaController {
   layout(): WorkspaceState;
   applyLayout(mutate: (state: WorkspaceState) => WorkspaceState): void;
 
-  instance(ref: PanelRef): PanelInstance;
-  openPanel(pluginId: string, panelId: string, target?: MoveTarget): void;
+  instance(ref: PanelRef, input?: unknown): PanelInstance;
+  openPanel(pluginId: string, panelId: string, target?: MoveTarget, input?: unknown): void;
   // 別AreaControllerへ移す: 元からPanelRefを取り出し（disposeしない）、
   // 先へInstanceごと入れる。移すと両方のlayoutがそれぞれ保存される。
   detach(instanceId: string): { instance: PanelInstance; ref: PanelRef } | null;
@@ -385,13 +385,24 @@ export function createAreaController(
 
   // ---- Panel Instance ----
   const instances = new Map<string, PanelInstance>();
-  const instance = (panelRef: PanelRef): PanelInstance => {
+  const instance = (panelRef: PanelRef, input?: unknown): PanelInstance => {
     let found = instances.get(panelRef.instanceId);
     if (!found) {
       const declaration = resolvePanel(panelRef, shell.panels());
       found = new PanelInstance(host, shell.coreKey(), panelRef,
         declaration?.title ?? panelRef.panelId, shell,
         declaration?.kind ?? "plugin");
+      found.input = input;
+      // context.openPanel — 呼び出し時点のlayoutから自分が居るleafを
+      // 探して、隣に同じPluginの別Panelを足す。leafから外れていれば無視。
+      const source = found;
+      found.openSibling = (panelId, next) => {
+        const leaf = leafOf(layoutState.center.root, source.id);
+        if (!leaf) return;
+        const index = leaf.panels.findIndex((ref) => ref.instanceId === source.id);
+        openPanel(source.pluginId, panelId,
+          { region: "leaf", leafId: leaf.id, index: index + 1 }, next);
+      };
       instances.set(panelRef.instanceId, found);
       // instance()は描画中（spread・memo内）にも呼ばれる。mountのsignal書き込みを
       // その場で走らせるとowned scopeへの書き込みでREACTIVITY_HALTEDするので、
@@ -436,13 +447,13 @@ export function createAreaController(
     }
   };
 
-  const openPanel = (pluginId: string, panelId: string, target?: MoveTarget) => {
+  const openPanel = (pluginId: string, panelId: string, target?: MoveTarget, input?: unknown) => {
     const declaration = shell.panels().find(
       (entry) => entry.pluginId === pluginId && entry.panelId === panelId,
     );
     if (!declaration) return;
     const panelRef: PanelRef = { instanceId: newInstanceId(), pluginId, panelId };
-    instance(panelRef); // mountを始めてからlayoutに入れる
+    instance(panelRef, input); // mountを始めてからlayoutに入れる
     applyLayout((state) => addPanel(state, panelRef, target));
   };
 

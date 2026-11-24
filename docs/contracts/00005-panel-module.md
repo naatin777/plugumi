@@ -33,12 +33,17 @@ interface PanelContext {
   root: ShadowRoot;
   // このPanelを提供した登録のToolを呼ぶ。現在はsyncのToolだけに対応する。
   callTool(toolPath: string, input: unknown): Promise<unknown>;
+  // このPanelを開いたときの初期入力。openPanelの第2引数がそのまま届く。
+  input?: unknown;
+  // 同じleafの自分の隣に、同じPluginの別Panelを開く。
+  openPanel(panelId: string, input?: unknown): void;
 }
 ```
 
 - `host` は、そのPanel Instance専用のShadowRootである。Panelは `host` の中だけにDOMを作る。ShadowRootを持つhost要素には `data-plugumi-plugin="<registrationId>"` が付いている。
 - popover・tooltip・dialogなど、Panelの並びの外に置きたい要素は `context.root`（`host`と同じShadowRoot）へappendする。documentやbody直下へ出すと、Panel自身のCSSがその要素に届かない。
 - `callTool` は、Toolの結果を返す。Toolがエラーを返したときは、Promiseを拒否する。
+- `openPanel` で開いたPanelは、自分を開いたPanelの隣（leaf内の次の位置）に挿入され、その新しいPanelの `context.input` に第2引数が届く。`input` は実行時だけの値で、workspaceへは保存されず再mountでも届かない。開けるのは同じPluginのPanelだけ（他PluginのPanelを指定することはできない）。
 - Panelは特定のフレームワークに依存しなくてよい。フレームワークのランタイムはPanelのBundleに含める。
 - TypeScriptの型（`PanelContext`・`PanelHandle`）は、配布用のパッケージ `@plugumi/plugin-view` から使える。
 
@@ -94,6 +99,6 @@ Plugin経由ではなくShellのbundleに同梱されるPanel（`kind: "builtin"
 ## 未決定
 
 - `async` のToolの途中出力と取消
-- Panelの初期パラメータ、状態の保存と復元
+- Panelの状態の保存と復元（開き時の初期入力は `context.input` で渡せるが、workspaceへの永続化は扱わない）
 - Panelのタイトルやバッジを動的に変える方法
 - 共通の部品とその見た目の取り決め（Style Contract）
