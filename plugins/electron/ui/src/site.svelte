@@ -17,12 +17,18 @@
   interface WebviewElement extends HTMLElement {
     loadURL(url: string): Promise<unknown>;
     getURL(): string;
+    goBack(): void;
+    goForward(): void;
+    canGoBack(): boolean;
+    canGoForward(): boolean;
   }
   const supported = "loadURL" in document.createElement("webview");
 
   let draft = $state("");
   let current = $state("");
   let view = $state<WebviewElement | undefined>();
+  let canBack = $state(false);
+  let canFwd = $state(false);
 
   function validURL(value: string): string | undefined {
     try {
@@ -39,9 +45,12 @@
     const sync = () => {
       const url = view === undefined ? "" : view.getURL();
       current = url === "about:blank" ? "" : url;
+      canBack = view?.canGoBack() ?? false;
+      canFwd = view?.canGoForward() ?? false;
     };
     view.addEventListener("did-navigate", sync);
     view.addEventListener("did-navigate-in-page", sync);
+    view.addEventListener("dom-ready", sync);
     // target=_blank等はpopupを出さず同じviewで開く。
     view.addEventListener("new-window", (event) => {
       const url = validURL((event as { url?: string }).url ?? "");
@@ -67,6 +76,28 @@
         go();
       }}
     >
+      <button
+        type="button"
+        class="nav"
+        disabled={!canBack}
+        onclick={() => view?.goBack()}
+        aria-label="戻る"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="10,3.5 5.5,8 10,12.5" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="nav"
+        disabled={!canFwd}
+        onclick={() => view?.goForward()}
+        aria-label="進む"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6,3.5 10.5,8 6,12.5" />
+        </svg>
+      </button>
       <input type="text" bind:value={draft} placeholder="https://…" />
       <button type="submit">移動</button>
     </form>
@@ -110,6 +141,15 @@
     border: 1px solid var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-sm);
     cursor: pointer;
+  }
+  button.nav {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--plugumi-spacing-xs);
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
   .view {
     flex: 1;
