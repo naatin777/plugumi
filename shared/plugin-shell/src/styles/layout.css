@@ -41,5 +41,8 @@
     /* deck表示の列幅。viewportの整数倍にならない値にして右端に次の
        列が覗く形にする。 */
     --deck-col-w: 340px;
+    /* 実行時にshellがprefsから書き込む。ここはStyle Lab・初期値。 */
+    --tab-fill: 50%;
+    --aurora-vivid: 1;
   }
 }

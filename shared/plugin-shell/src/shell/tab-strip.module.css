@@ -52,16 +52,22 @@
   }
   .tab:not(.selected):hover .tab-close,
   .tab:not(.selected) .tab-close:focus-visible {
-    /* 非選択tabの「×」はtabのhover面と同じ塗りでタイトル末尾を隠す
-       （tabのfillより濃いと幕が見える）。 */
     opacity: 1; pointer-events: auto;
-    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) 30%, transparent);
+  }
+  /* 「×」が出るとき、タイトルは右端をぼかして✕と重ならないように
+     する（幕で隠すと透過fillの上に塗りムラが見える）。 */
+  .tab:not(.selected):hover .tab-title,
+  .tab:not(.selected):focus-within .tab-title {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
   }
   /* tabの面はかなり透かす — カードのblurとauroraの上で、選択は面より
-     文字の濃さで読ませる。 */
-  .tab:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) 30%, transparent); }
+     文字の濃さで読ませる。濃さは--tab-fill（prefsのスライダー）。 */
+  .tab:hover {
+    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) calc(var(--tab-fill) * 0.6), transparent);
+  }
   .tab.selected {
-    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) 50%, transparent);
+    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) var(--tab-fill), transparent);
     color: var(--plugumi-colors-text);
   }
   /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と

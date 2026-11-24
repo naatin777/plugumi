@@ -13,6 +13,10 @@ export interface ShellPrefs {
   theme: ThemeMode;
   // 床の虹色もやもや。消すとフラットな暗い床になる。
   aurora: boolean;
+  // auroraの鮮やかさ（%）。0で無彩色に近づき、100が標準。
+  auroraVivid: number;
+  // 選択tabの面の濃さ（%）。カードのblur越しに床が見える濃度。
+  tabAlpha: number;
 }
 
 const KEY = "plugumi:shell:prefs";
@@ -24,11 +28,18 @@ const defaults = (): ShellPrefs => ({
   subWidth: 480,
   theme: "system",
   aurora: true,
+  auroraVivid: 100,
+  tabAlpha: 50,
 });
 
 const clampWidth = (value: unknown, fallback: number): number =>
   typeof value === "number" && Number.isFinite(value)
     ? Math.min(960, Math.max(80, value))
+    : fallback;
+
+const clampPercent = (value: unknown, min: number, max: number, fallback: number): number =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, value))
     : fallback;
 
 // 形が合わないフィールドだけ既定に戻す。キー全体が壊れていれば全既定。
@@ -52,6 +63,8 @@ export function loadPrefs(): ShellPrefs {
     subWidth: clampWidth(saved.subWidth, base.subWidth),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
     aurora: flag(saved.aurora, base.aurora),
+    auroraVivid: clampPercent(saved.auroraVivid, 0, 200, base.auroraVivid),
+    tabAlpha: clampPercent(saved.tabAlpha, 0, 100, base.tabAlpha),
   };
 }
 

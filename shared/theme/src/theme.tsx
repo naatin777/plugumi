@@ -12,8 +12,8 @@ type ThemeMode = "system" | "light" | "dark";
 // shellから受け取る最小の口。ShellControllerの型は引かず、
 // このPanelが触るsliceだけを宣言する。
 export interface ThemeShell {
-  prefs(): { theme: ThemeMode };
-  updatePrefs(mutate: (prefs: { theme: ThemeMode }) => void): void;
+  prefs(): { theme: ThemeMode; auroraVivid: number; tabAlpha: number };
+  updatePrefs(mutate: (prefs: { theme: ThemeMode; auroraVivid: number; tabAlpha: number }) => void): void;
 }
 
 export interface ThemePanelContext extends PanelContext {
@@ -59,6 +59,26 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
           今は{resolved() === "dark" ? "ダーク" : "ライト"}
         </p>
       </Show>
+      <label class="theme-slider">
+        <span class="theme-slider-label">tabの濃さ</span>
+        <input
+          type="range" min={0} max={100}
+          value={props.shell.prefs().tabAlpha}
+          onInput={(event) => props.shell.updatePrefs((prefs) => {
+            prefs.tabAlpha = Number(event.currentTarget.value);
+          })}
+        />
+      </label>
+      <label class="theme-slider">
+        <span class="theme-slider-label">背景の鮮やかさ</span>
+        <input
+          type="range" min={0} max={200}
+          value={props.shell.prefs().auroraVivid}
+          onInput={(event) => props.shell.updatePrefs((prefs) => {
+            prefs.auroraVivid = Number(event.currentTarget.value);
+          })}
+        />
+      </label>
     </div>
   );
 }

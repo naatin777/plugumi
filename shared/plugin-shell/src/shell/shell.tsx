@@ -105,6 +105,9 @@ export function ShellFrame(): JSX.Element {
         // --sub-raw-widthはdrawerの幅の計算に使う設定値。
         "--sub-width": `${subInline() ? prefs().subWidth : 0}px`,
         "--sub-raw-width": `${prefs().subWidth}px`,
+        // テーマPanelのスライダーが動かす表示設定。
+        "--tab-fill": `${prefs().tabAlpha}%`,
+        "--aurora-vivid": prefs().auroraVivid / 100,
       }}
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/

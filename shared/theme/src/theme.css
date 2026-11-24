@@ -53,3 +53,15 @@
   color: var(--plugumi-colors-text-muted);
   font-size: var(--plugumi-font-size-2xs);
 }
+/* 濃度スライダー。label＋rangeの1行で、rangeは残り幅を使う。 */
+.theme-slider {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-sm);
+  flex: none;
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-muted);
+}
+.theme-slider-label { flex: none; white-space: nowrap; }
+.theme-slider input[type="range"] {
+  flex: 1; min-width: 0;
+  accent-color: var(--plugumi-colors-text-muted);
+}
