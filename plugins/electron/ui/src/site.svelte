@@ -24,8 +24,9 @@
   }
   const supported = "loadURL" in document.createElement("webview");
 
-  let draft = $state("");
-  let current = $state("");
+  const home = "https://www.google.com";
+  let draft = $state(home);
+  let current = $state(home);
   let view = $state<WebviewElement | undefined>();
   let canBack = $state(false);
   let canFwd = $state(false);
@@ -102,7 +103,7 @@
       <button type="submit">移動</button>
     </form>
     <div class="view">
-      <webview bind:this={view} src="about:blank" webpreferences="contextIsolation=yes, sandbox=yes"></webview>
+      <webview bind:this={view} src={home} webpreferences="contextIsolation=yes, sandbox=yes"></webview>
       {#if current === ""}
         <p class="hint">URLを入力して移動を押してください</p>
       {/if}
