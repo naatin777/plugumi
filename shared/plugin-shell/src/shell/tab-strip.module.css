@@ -52,18 +52,19 @@
     opacity: 1; pointer-events: auto;
   }
   /* tabの面はかなり透かす — カードのblurとauroraの上で、選択は面より
-     文字の濃さで読ませる。濃さは--tab-fill（prefsのスライダー）。 */
+     文字の濃さで読ませる。濃さは--tab-fill（prefsのスライダー）。
+     面の色は--raised（darkでは明るい霜、lightでは白）。 */
   .tab:hover {
-    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) calc(var(--tab-fill) * 0.6), transparent);
+    background: color-mix(in oklab, var(--plugumi-colors-raised) calc(var(--tab-fill) * 0.6), transparent);
   }
   .tab.selected {
-    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary) var(--tab-fill), transparent);
+    background: color-mix(in oklab, var(--plugumi-colors-raised) var(--tab-fill), transparent);
     color: var(--plugumi-colors-text);
     /* 透過fillだけだとガラスの上でのっぺりするので、選択tabは輪郭で
        自立させる — insetの1px枠＋上端のハイライトで「面」に見せる。
        box-shadowなのでlayoutは動かない。 */
     box-shadow:
-      inset 0 0 0 1px var(--plugumi-colors-border),
+      inset 0 0 0 1px var(--plugumi-colors-raised-edge),
       inset 0 1px 0 rgb(255 255 255 / 0.06);
   }
   /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と

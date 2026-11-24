@@ -67,6 +67,10 @@
   --plugumi-colors-border: #3a3a3a;
   --plugumi-colors-border-strong: #6a6a6a;
   --plugumi-colors-border-highlight: #8c8c8c;
+  /* ガラスの上に乗る小さな「面」（選択tab）の色と輪郭。darkでは
+     bgより明るいtertiaryで霜ガラスに、輪郭はhairlineで足りる。 */
+  --plugumi-colors-raised: var(--plugumi-colors-background-tertiary);
+  --plugumi-colors-raised-edge: var(--plugumi-colors-border);
   /* 背景がほぼ黒なので弱い値だと効かない — ライトより濃くする。 */
   --plugumi-colors-scrim: rgb(0 0 0 / 0.45);
   --plugumi-colors-accent: #f0f0f0;
@@ -106,9 +110,15 @@
   --plugumi-colors-text-muted: #4f4f4f;
   --plugumi-colors-text-subtle: #666666;
   --plugumi-colors-code-text: #4f4f4f;
-  --plugumi-colors-border: #d4d4d4;
+  /* hairlineは透過ブラック — #d4d4d4は白地やvibrancy越しに
+     消えるので、下地を選ばず読める濃さにする。 */
+  --plugumi-colors-border: rgb(0 0 0 / 0.25);
   --plugumi-colors-border-strong: #949494;
   --plugumi-colors-border-highlight: #6f6f6f;
+  /* lightの「面」は白 — tertiaryはbgより暗いので塗ると汚れに見える。
+     輪郭もhairlineは白地に消えるためstrongを使う。 */
+  --plugumi-colors-raised: #ffffff;
+  --plugumi-colors-raised-edge: var(--plugumi-colors-border-strong);
   --plugumi-colors-scrim: rgb(0 0 0 / 0.18);
   --plugumi-colors-accent: #111111;
   --plugumi-colors-accent-contrast: #ffffff;
@@ -150,6 +160,10 @@
   --plugumi-colors-border: #3a3a3a;
   --plugumi-colors-border-strong: #6a6a6a;
   --plugumi-colors-border-highlight: #8c8c8c;
+  /* ガラスの上に乗る小さな「面」（選択tab）の色と輪郭。darkでは
+     bgより明るいtertiaryで霜ガラスに、輪郭はhairlineで足りる。 */
+  --plugumi-colors-raised: var(--plugumi-colors-background-tertiary);
+  --plugumi-colors-raised-edge: var(--plugumi-colors-border);
   /* 背景がほぼ黒なので弱い値だと効かない — ライトより濃くする。 */
   --plugumi-colors-scrim: rgb(0 0 0 / 0.45);
   --plugumi-colors-accent: #f0f0f0;
