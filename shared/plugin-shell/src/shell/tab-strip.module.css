@@ -53,11 +53,11 @@
   .tab:not(.selected):hover .tab-close,
   .tab:not(.selected) .tab-close:focus-visible {
     opacity: 1; pointer-events: auto;
-    background: var(--plugumi-colors-background-tertiary);
+    background: var(--plugumi-colors-fill);
   }
-  .tab:hover { background: var(--plugumi-colors-background-tertiary); }
+  .tab:hover { background: var(--plugumi-colors-fill); }
   .tab.selected {
-    background: var(--plugumi-colors-background-tertiary);
+    background: var(--plugumi-colors-fill-strong);
     color: var(--plugumi-colors-text);
   }
   /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と
@@ -81,10 +81,10 @@
     background: transparent; color: var(--plugumi-colors-text-muted);
     cursor: pointer;
   }
-  .strip-deck:hover { background: var(--plugumi-colors-background-tertiary); }
+  .strip-deck:hover { background: var(--plugumi-colors-fill); }
   .strip-deck.on {
-    background: var(--plugumi-colors-background-tertiary);
+    background: var(--plugumi-colors-fill-strong);
     color: var(--plugumi-colors-text);
   }
-  .tab-close:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
+  .tab-close:hover { background: var(--plugumi-colors-fill-strong); }
 }

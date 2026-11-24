@@ -21,7 +21,7 @@
     font: inherit; font-weight: 600;
     cursor: pointer;
   }
-  .project-switcher-button:hover { background: var(--plugumi-colors-background-tertiary); }
+  .project-switcher-button:hover { background: var(--plugumi-colors-fill); }
   .project-switcher-name {
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
@@ -47,7 +47,7 @@
     padding: 2px var(--plugumi-spacing-xs);
     border-radius: var(--plugumi-radii-md);
   }
-  .area-row.selected { background: var(--plugumi-colors-background-tertiary); }
+  .area-row.selected { background: var(--plugumi-colors-fill-strong); }
   .area-row a { color: var(--plugumi-colors-text); text-decoration: none; flex: 1; }
 
   /* ---- Main/Subセクション（Areaの一覧） ---- */
@@ -76,7 +76,7 @@
     visibility: hidden;
   }
   .area-row:hover .area-menu-button, .area-menu-button:focus-visible { visibility: visible; }
-  .area-menu-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+  .area-menu-button:hover { background: var(--plugumi-colors-fill); color: var(--plugumi-colors-text); }
 
   .area-menu {
     padding: var(--plugumi-spacing-xs);

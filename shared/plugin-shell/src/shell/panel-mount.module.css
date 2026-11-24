@@ -25,7 +25,7 @@
     padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
     border: 1px solid var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-md);
-    background: var(--plugumi-colors-background-tertiary);
+    background: var(--plugumi-colors-fill);
     color: var(--plugumi-colors-text); cursor: pointer; font: inherit;
   }
 
