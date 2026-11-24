@@ -126,6 +126,9 @@ export function PagesTrack(props: {
     () => index(),
     (i) => {
       if (props.deck) {
+        // gesture scrollの追従で選択が動いただけなら寄せない — 列の
+        // 途中で止めたいのに選択した列へscrollが引っ張られる。
+        if (gestureActive()) return;
         const { colW, pitch } = metrics();
         const left = i * pitch;
         const end = viewport.scrollLeft + viewport.clientWidth;
