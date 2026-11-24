@@ -234,6 +234,7 @@ type panelEntry struct {
 	Entry          string   `json:"entry"`
 	Styles         []string `json:"styles"`
 	UISHA256       string   `json:"uiSha256"`
+	RPCAvailable   bool     `json:"rpcAvailable"`
 }
 
 func (s *Server) listPanels(w http.ResponseWriter, r *http.Request) {
@@ -253,6 +254,7 @@ func (s *Server) listPanels(w http.ResponseWriter, r *http.Request) {
 				RegistrationID: registration.RegistrationID, PluginID: registration.PluginID,
 				PanelID: panel.PanelID, Title: panel.Title, Entry: panel.Entry,
 				Styles: panel.Styles, UISHA256: registration.UISHA256,
+				RPCAvailable: registration.RPCAvailable,
 			})
 		}
 	}

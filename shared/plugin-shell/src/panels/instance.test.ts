@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import { resolvePanel } from "./instance.ts";
 import type { PanelEntry, PluginPanelEntry, BuiltinPanelEntry } from "../host.tsx";
 
-const plugin = (registrationId: string, panelId = "p"): PluginPanelEntry => ({
+const plugin = (registrationId: string, panelId = "p", rpcAvailable = true): PluginPanelEntry => ({
   kind: "plugin", registrationId, pluginId: "plugin-a", panelId,
-  title: `panel ${panelId}`, entry: "ui.js", styles: [], uiSha256: "sha",
+  title: `panel ${panelId}`, entry: "ui.js", styles: [], uiSha256: "sha", rpcAvailable,
 });
 
 const builtin = (panelId: string): BuiltinPanelEntry => ({
@@ -35,6 +35,11 @@ describe("resolvePanel", () => {
     ];
     assert.equal(resolvePanel({ pluginId: "plugin-a", panelId: "p" }, panels)?.registrationId, "r1");
     assert.equal(resolvePanel({ pluginId: "plugin-a", panelId: "other" }, panels)?.registrationId, "r3");
+  });
+
+  it("rpcAvailableな宣言を優先する（dead登録が残っていてもliveへ移れる）", () => {
+    const panels: PanelEntry[] = [plugin("r9", "p", false), plugin("r1", "p", true)];
+    assert.equal(resolvePanel({ pluginId: "plugin-a", panelId: "p" }, panels)?.registrationId, "r1");
   });
 
   it("一致が無ければundefined（missing扱い）", () => {

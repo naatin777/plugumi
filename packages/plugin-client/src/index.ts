@@ -6,6 +6,8 @@ export { Connection } from "./rpc.js";
 export type { Socket } from "./rpc.js";
 export { dispatchToolCall, toolDeclarations } from "./tools.js";
 export type { Tool, ToolHandler } from "./tools.js";
+export { loadUI } from "./ui.js";
+export type { UI, UIFile, UIPanel } from "./ui.js";
 export {
   cacheDirectory,
   newInstanceId,

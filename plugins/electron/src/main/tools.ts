@@ -71,7 +71,7 @@ export function windowTools(windows: Windows): Tool[] {
       declaration: {
         toolPath: "electron/window/screenshot",
         kind: "sync",
-        description: "input.idのwindowの描画内容をPNGで返す（id省略時は先頭のwindow）",
+        description: "input.idのwindowの描画内容をJPEGで返す（id省略時は先頭のwindow）",
       },
       handler: async (input) => {
         const fields = inputObject(input);
@@ -80,9 +80,14 @@ export function windowTools(windows: Windows): Tool[] {
           : inputWindowId(input);
         if (id === undefined) throw new Error("開いているwindowがありません");
         const image = await windows.get(id).webContents.capturePage();
-        const png = image.toPNG();
-        const { width, height } = image.getSize();
-        return { pngBase64: png.toString("base64"), width, height };
+        // CoreのWS受信上限は1MiB（contracts/00004）。PNGだと越えるので、
+        // 幅を抑えてJPEGで返す。遠隔確認用途なので可逆性は要らない。
+        const scaled = image.getSize().width > 1920
+          ? image.resize({ width: 1920 })
+          : image;
+        const jpeg = scaled.toJPEG(80);
+        const { width, height } = scaled.getSize();
+        return { imageBase64: jpeg.toString("base64"), mime: "image/jpeg", width, height };
       },
     },
   ];

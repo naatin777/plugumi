@@ -4,7 +4,8 @@
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { app, BrowserWindow, ipcMain } from "electron";
-import { newInstanceId, registerPlugin } from "plugumi-plugin-client";
+import { loadUI, newInstanceId, registerPlugin } from "plugumi-plugin-client";
+import type { UI } from "plugumi-plugin-client";
 import { parseCoreArgs } from "./args.js";
 import { findHost, spawnHost } from "./host.js";
 import { followHostCores } from "./cores.js";
@@ -72,10 +73,17 @@ async function start(): Promise<void> {
     if (typeof path === "string" && path.startsWith("/")) void windows.open(path);
   });
 
-  // 内部ブラウザ由来のToolをhostのCoreへ登録する。windowとは独立に
-  // 動かし、Coreの増減はhostの/api/coresに追従する。
+  // 内部ブラウザ由来のToolとPanelをhostのCoreへ登録する。windowとは
+  // 独立に動かし、Coreの増減はhostの/api/coresに追従する。
+  // UI bundle（ui/dist）は未buildならPanel無しで動かす。
+  let ui: UI | undefined;
+  try {
+    ui = loadUI(join(__dirname, "..", "..", "ui", "dist"));
+  } catch {
+    console.error("[electron] UI bundleがありません（plugins/electron/uiでpnpm buildするとPanelが登録されます）");
+  }
   const cores = new AbortController();
-  followHostCores(hostURL, instanceId, windowTools(windows), cores.signal);
+  followHostCores(hostURL, instanceId, windowTools(windows), ui, cores.signal);
 
   await windows.open();
 

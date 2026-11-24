@@ -2,7 +2,7 @@
 // viewerが開いているhostの画面をこのwindowが映すので、繋ぐCoreも
 // hostの /api/cores に合わせ、一覧の増減は定期追従する。
 import { coreURL, PluginClient } from "plugumi-plugin-client";
-import type { Tool } from "plugumi-plugin-client";
+import type { Tool, UI } from "plugumi-plugin-client";
 
 const POLL_MS = 5000;
 
@@ -14,7 +14,8 @@ interface CoreEntry {
 // 取得に失敗した回は既存clientを維持する（host再起動中の瞬断で
 // 登録を落とさないため）。
 export function followHostCores(
-  hostURL: string, pluginInstanceId: string, tools: Tool[], signal: AbortSignal,
+  hostURL: string, pluginInstanceId: string, tools: Tool[], ui: UI | undefined,
+  signal: AbortSignal,
 ): void {
   const clients = new Map<string, AbortController>();
 
@@ -55,6 +56,7 @@ export function followHostCores(
         pluginInstanceId,
         token: process.env.PLUGUMI_TOKEN,
         tools,
+        ui,
         log: (message) => console.error(`[electron] ${message}`),
       });
       void client.run(AbortSignal.any([signal, abort.signal])).then((outcome) => {

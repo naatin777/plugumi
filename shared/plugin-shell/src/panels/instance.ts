@@ -37,16 +37,19 @@ interface PanelModule {
 }
 
 // pluginId+panelIdが同じ宣言を現在のpanels一覧から選ぶ。
-// 0件ならundefined（missing）、複数ならregistrationId昇順の先頭。
+// 0件ならundefined（missing）、複数ならRPCが生きている宣言を優先し、
+// 同じ条件ならregistrationId昇順の先頭。登録がWS切断で残っている
+// （rpcAvailable:false）間も代替があればそちらへ移れるようにする。
 export function resolvePanel(
   ref: Pick<PanelRef, "pluginId" | "panelId">, panels: PanelEntry[],
 ): PanelEntry | undefined {
   const candidates = panels
     .filter((panel) => panel.pluginId === ref.pluginId && panel.panelId === ref.panelId)
-    // registrationIdで昇順にするのはPlugin Panelだけ（builtinは持たない）。
-    .sort((a, b) => a.kind === "plugin" && b.kind === "plugin"
-      ? a.registrationId.localeCompare(b.registrationId)
-      : 0);
+    .sort((a, b) => {
+      if (a.kind !== "plugin" || b.kind !== "plugin") return 0;
+      if (a.rpcAvailable !== b.rpcAvailable) return a.rpcAvailable ? -1 : 1;
+      return a.registrationId.localeCompare(b.registrationId);
+    });
   return candidates[0];
 }
 
@@ -294,7 +297,9 @@ export class PanelInstance {
       panel.kind === "plugin" &&
       panel.registrationId === this.registrationId && panel.panelId === this.panelId,
     );
-    if (same) {
+    // rpcAvailable:falseの登録は一覧に残るので、liveの代替があるなら
+    // 解決し直して移る（callToolが通る方を優先する）。
+    if (same?.rpcAvailable) {
       if (this.state() === "missing" || same.uiSha256 !== this.uiSha256) {
         void this.mount(same);
       }

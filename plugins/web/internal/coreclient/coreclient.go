@@ -110,6 +110,7 @@ type RegistryRegistration struct {
 	PluginID       string             `json:"pluginId"`
 	Panels         []PanelDeclaration `json:"panels"`
 	UISHA256       string             `json:"uiSha256"`
+	RPCAvailable   bool               `json:"rpcAvailable"`
 	Tools          []struct {
 		ToolPath string `json:"toolPath"`
 		Kind     string `json:"kind"`

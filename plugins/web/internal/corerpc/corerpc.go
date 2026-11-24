@@ -137,6 +137,9 @@ func (c *Client) connection(ctx context.Context) (*websocket.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 既定の受信上限（32KiB）だと大きなTool結果で接続が切れるので、
+	// Core側の受信上限（core/internal/server/http.go、1MiB）に合わせる。
+	conn.SetReadLimit(1 << 20)
 	c.mu.Lock()
 	if c.conn != nil {
 		// 並行して張られた方を使い、自分は閉じる。

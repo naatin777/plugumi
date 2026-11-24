@@ -44,6 +44,9 @@ export interface PluginPanelEntry {
   entry: string;
   styles: string[];
   uiSha256: string;
+  // 提供元の登録のRPC接続が生きているか。falseの宣言はmountはできるが
+  // callToolが通らないので、同じpanelIdにliveの宣言があればそちらを優先する。
+  rpcAvailable: boolean;
 }
 
 export interface BuiltinPanelEntry {

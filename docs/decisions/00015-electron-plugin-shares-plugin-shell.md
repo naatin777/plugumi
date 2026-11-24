@@ -43,7 +43,7 @@ Electronでも、Web Pluginと同じ画面（Plugin Shell、Panel、OS領域）�
 ## トレードオフと帰結
 
 - Coreへの接続、保存、UIファイルの取得はWeb PluginのGo実装1本になる。Electron側のTypeScript backend（約1,100行）は削除した。
-- ElectronがCoreへ登録するToolは、内部ブラウザ（Chromium）を持つこと由来のもの、すなわちwindowの開閉・一覧・フォーカス・描画内容の取得（toolPathは `electron/window/*`）のような、Webのhostには出せない能力に限る。接続先はviewerが開いているhostの `GET /api/cores` に追従し、Coreごとにviewerとは別のPlugin接続を張る。TypeScript側のPlugin接続機構（registration・RPC・実行記録）は `packages/plugin-client` としてagentと共有する。ElectronのmainプロセスはCJSだが、同梱Node（24系）の `require(esm)` でpure ESMの同packageを読む。
+- ElectronがCoreへ登録するToolは、内部ブラウザ（Chromium）を持つこと由来のもの、すなわちwindowの開閉・一覧・フォーカス・描画内容の取得（toolPathは `electron/window/*`）のような、Webのhostには出せない能力に限る。同じ由来のPanel（`plugins/electron/ui` のWindows Panel）もUI bundleとして登録する — Electronが繋がっているときだけpickerに現れる。接続先はviewerが開いているhostの `GET /api/cores` に追従し、Coreごとにviewerとは別のPlugin接続を張る。TypeScript側のPlugin接続機構（registration・RPC・実行記録・UI bundleの登録）は `packages/plugin-client` としてagentと共有する。ElectronのmainプロセスはCJSだが、同梱Node（24系）の `require(esm)` でpure ESMの同packageを読む。
 - ElectronはWeb Plugin無しには動かない。viewerがhostを起動・発見するため、利用者が意識する必要はないが、Web Pluginが起動できない環境（Go toolchainやバイナリが無い）ではElectronも使えない。
 - 保存先を分けないので、Web Pluginで作ったProjectはElectronにもそのまま出る。
 - 依存として `electron` の追加を承認済み。ビルドの補助ツールや配布用のパッケージ作成ツールは、必要になったときに改めて決める。

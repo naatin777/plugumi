@@ -10,6 +10,7 @@ import {
   registrySnapshotSchema,
 } from "./wire.js";
 import type { Incoming, ListedTool, RpcError } from "./wire.js";
+import type { UI } from "./ui.js";
 
 const API = "/v1";
 
@@ -36,6 +37,9 @@ export interface PluginClientOptions {
   token?: string;
   // 提供するTool。tools.callのdispatchはこれから自動で作る。
   tools: readonly Tool[];
+  // 提供するUI bundle。登録のたびにassets確認→不足送信→ui置換を行う
+  // （Coreはファイルをメモリ保持なので再接続でも再送が要る）。
+  ui?: UI;
   // tools.call以外も自前で捌きたいときに上書きする。
   onRequest?: (message: Incoming) => Promise<{ result?: unknown; error?: RpcError }>;
   onNotification?: (message: Incoming) => void;
@@ -115,6 +119,7 @@ export class PluginClient {
     await this.request("PUT", `${path}/tools`, requestSignal(), {
       tools: this.options.tools.map((tool) => tool.declaration),
     });
+    if (this.options.ui !== undefined) await this.publishUI(path, requestSignal());
 
     const { connection, closed } = await this.connect(lease.registrationId, signal);
     this.connection = connection;
@@ -136,6 +141,35 @@ export class PluginClient {
         ? [closed, renew]
         : [closed, renew, subscription]);
     }
+  }
+
+  // publishUI はassetsのmissing確認→不足分のPUT→ui全置換の手順を1回で
+  // 行う（contracts/00004）。request()はJSON専用なのでasset送信はfetchを直接使う。
+  private async publishUI(path: string, signal: AbortSignal): Promise<void> {
+    const ui = this.options.ui;
+    if (ui === undefined) return;
+    const response = await this.request("POST", "/assets/missing", signal, {
+      sha256: ui.files.map((file) => file.sha256),
+    });
+    const { missing } = (await response.json()) as { missing?: string[] };
+    const needed = new Set(missing ?? []);
+    for (const file of ui.files) {
+      if (!needed.has(file.sha256)) continue;
+      const asset = await fetch(new URL(`${API}/assets/${file.sha256}`, this.url), {
+        method: "PUT", signal, redirect: "error",
+        headers: { ...this.headers, "Content-Type": "application/octet-stream" },
+        body: file.data,
+      });
+      if (!asset.ok) {
+        await asset.body?.cancel();
+        throw new CoreHTTPError(asset.status, "PUT", `/assets/${file.sha256}`);
+      }
+      await asset.body?.cancel();
+    }
+    await this.request("PUT", `${path}/ui`, signal, {
+      files: ui.files.map(({ path, sha256 }) => ({ path, sha256 })),
+      panels: ui.panels,
+    });
   }
 
   private connect(registrationId: string, signal: AbortSignal): Promise<{ connection: Connection; closed: Promise<void> }> {
