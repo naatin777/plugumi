@@ -34,8 +34,6 @@ export function ShellFrame(): JSX.Element {
     if (event.code === "Escape") {
       // 開いている一時drawerを全部畳む。
       shell.closeDrawers();
-      mainArea.setDrawer(null);
-      subArea.setDrawer(null);
       return;
     }
     if (!event.metaKey && !event.ctrlKey) return;
@@ -83,8 +81,6 @@ export function ShellFrame(): JSX.Element {
     const target = event.target as HTMLElement | null;
     if (target?.closest("[data-drawer-keep]")) return;
     shell.closeDrawers();
-    mainArea.setDrawer(null);
-    subArea.setDrawer(null);
   };
   document.addEventListener("pointerdown", outsideDown, true);
   onCleanup(() => document.removeEventListener("pointerdown", outsideDown, true));

@@ -91,8 +91,13 @@ export interface ShellController {
   sideShown(): boolean;
   toggleSub(): void;
   toggleSide(): void;
-  // 外pointerdownやEscapeで一時drawerを全部畳む。
-  closeDrawers(): void;
+  // 外pointerdownやEscapeで一時drawerを全部畳む。drawerはshell全体で
+  // 1つしか開かないので、AreaControllerがdock drawerを開くときも
+  // これを呼んで他を畳む（exceptは開こうとしている自分自身）。
+  closeDrawers(except?: AreaController): void;
+  // 存在するAreaViewのcontrollerの登録（drawer排他のために使う）。
+  registerArea(area: AreaController): void;
+  unregisterArea(area: AreaController): void;
 
   // 「+」のpanel pickerはshellに1個。開くとき対象のAreaControllerを指定する。
   openPicker(area: AreaController, target?: MoveTarget,
@@ -236,6 +241,18 @@ export function createShellController(
   // ---- 幅に応じたdrawer化 ----
   // drawerの開閉はsignal（prefsではない）— 狭くなった瞬間にcenterが
   // 覆われないよう初期は閉。AreaViewのdock drawerは各controllerが持つ。
+  // 開くdrawerはshell全体で1つ — 新しく開くと他は全部畳まれる
+  // （台が重ならない。exceptは「これから開く側」を閉じないため）。
+  const areas = new Set<AreaController>();
+  const closeDrawers = (except?: AreaController) => {
+    setSubDrawer(false);
+    setSideDrawer(false);
+    for (const area of areas) {
+      if (area !== except) area.setDrawer(null);
+    }
+  };
+  const registerArea = (area: AreaController) => areas.add(area);
+  const unregisterArea = (area: AreaController) => areas.delete(area);
   const [shellSize, setShellSize] = createSignal<ShellSize>("wide");
   const [subDrawer, setSubDrawer] = createSignal(false);
   const [sideDrawer, setSideDrawer] = createSignal(false);
@@ -246,16 +263,18 @@ export function createShellController(
   const sideShown = () =>
     sideDrawerMode() ? sideDrawer() : prefs().sidebarOpen;
   const toggleSub = () => {
-    if (subDrawerMode()) setSubDrawer(!subDrawer());
-    else updatePrefs((prefs) => { prefs.subOpen = !prefs.subOpen; });
+    if (subDrawerMode()) {
+      const next = !subDrawer();
+      closeDrawers();
+      setSubDrawer(next);
+    } else updatePrefs((prefs) => { prefs.subOpen = !prefs.subOpen; });
   };
   const toggleSide = () => {
-    if (sideDrawerMode()) setSideDrawer(!sideDrawer());
-    else updatePrefs((prefs) => { prefs.sidebarOpen = !prefs.sidebarOpen; });
-  };
-  const closeDrawers = () => {
-    setSubDrawer(false);
-    setSideDrawer(false);
+    if (sideDrawerMode()) {
+      const next = !sideDrawer();
+      closeDrawers();
+      setSideDrawer(next);
+    } else updatePrefs((prefs) => { prefs.sidebarOpen = !prefs.sidebarOpen; });
   };
 
   // ---- drag & drop（windowに1個。AreaControllerが共有する） ----
@@ -326,6 +345,7 @@ export function createShellController(
     subDrawerMode, sideDrawerMode,
     subShown, sideShown,
     toggleSub, toggleSide, closeDrawers,
+    registerArea, unregisterArea,
     openPicker, bindPicker: setPicker, pickPanel,
     createProject, createArea, removeArea,
   };
@@ -362,8 +382,14 @@ export function createAreaController(
   const host = shell.host;
 
   // ---- 幅に応じたdrawer化（このAreaView単位） ----
+  // 開くのはshell全体で1つ — 開くとき自分以外のdrawerを畳む。
   const [size, setSize] = createSignal<AreaSize>("wide");
-  const [drawer, setDrawer] = createSignal<DockKind | null>(null);
+  const [drawerSignal, setDrawerSignal] = createSignal<DockKind | null>(null);
+  const drawer = drawerSignal;
+  const setDrawer = (kind: DockKind | null) => {
+    if (kind) shell.closeDrawers(controller);
+    setDrawerSignal(kind);
+  };
   const dockIsDrawer = (kind: DockKind) =>
     size() === "compact" || (size() === "narrow" && kind !== "bottom");
   const dockShown = (kind: DockKind) =>
@@ -497,6 +523,8 @@ export function createAreaController(
     instance, openPanel, detach, adopt,
     drag: shell.drag,
   };
+  shell.registerArea(controller);
+  onCleanup(() => shell.unregisterArea(controller));
 
   // effectは2系統だけ: (a) refの変化 → 読み直し、(b) panels一覧の変化 →
   // Instance追従。
