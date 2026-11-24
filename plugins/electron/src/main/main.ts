@@ -47,6 +47,9 @@ async function start(): Promise<void> {
       height: 900,
       titleBarStyle: "hidden",
       titleBarOverlay: { ...TITLEBAR_COLORS.dark, height: TITLEBAR_HEIGHT },
+      // 窓の後ろ側（デスクトップ）をネイティブのぼかしマテリアルで
+      // 透かす。shell側のframe色が透過な所だけ見える。
+      vibrancy: "fullscreen-ui",
       webPreferences: {
         preload: join(__dirname, "../preload/index.js"),
         contextIsolation: true,

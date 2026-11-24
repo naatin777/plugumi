@@ -17,7 +17,10 @@
     transition: --side-width var(--work-anim) ease,
       --sub-width var(--work-anim) ease;
     height: 100vh;
-    background: var(--shell-frame-color);
+    /* 窓が透過な宿主（Electronのvibrancy）ではデスクトップが見える。
+       濃度は--shell-frame-alpha（0で完全透過）。ブラウザ上では
+       このalphaの向こうに見えるものがないだけ。 */
+    background: color-mix(in oklab, var(--shell-frame-color) calc(var(--shell-frame-alpha, 0.6) * 100%), transparent);
     color: var(--plugumi-colors-text);
     font-family: var(--plugumi-font-family-sans);
     font-size: var(--plugumi-font-size-sm);
