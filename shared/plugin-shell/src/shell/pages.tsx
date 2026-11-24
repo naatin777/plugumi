@@ -1,8 +1,10 @@
 // 全領域で共用するpagesの中身（designs/00005「表示モード」）。
 // Panelは画面外にも本来の大きさのまま横に並び、viewportは横scroll
 // container＋scroll-snap。追従・momentum・端での跳ね返り・中身scroll
-// 優先（scroll chaining）・snap backはすべてネイティブ任せで、
-// こちらはscroll位置とselectedの相互同期だけを担う。
+// 優先（scroll chaining）・snap backはすべてネイティブ任せ。
+// pagesはscroll位置とselectedの相互同期を担う。deckではscroll位置は
+// 一切制御しない（snapも戻しも無し）が、gestureで流している間は
+// 中央に掛かっている列をselectedに反映し、tabが「読んでいる場所」を指す。
 // 見えていないPanelは大きさを保ったまま描画だけを止める
 // （content-visibility:hidden）。
 import { createEffect, createSignal, mapArray, onCleanup, onSettled, untrack } from "solid-js";
@@ -104,35 +106,37 @@ export function PagesTrack(props: {
     ]);
   };
 
-  // deckではviewport内で一番面積の大きい列を「読んでいる場所」とみなす。
-  // 同じ面積の列が並ぶときは手前（左）を取る。
-  const mostVisible = () => {
-    const { colW, pitch } = metrics();
-    const s = viewport.scrollLeft;
-    const end = s + viewport.clientWidth;
-    let best = 0;
-    let bestArea = 0;
-    for (let i = 0; i < props.refs.length; i++) {
-      const left = i * pitch;
-      const area = Math.min(left + colW, end) - Math.max(left, s);
-      if (area > bestArea) { bestArea = area; best = i; }
-    }
-    return best;
-  };
-
   const syncSelected = () => {
+    // deckは「viewportの中央に掛かっている列」を読んでいる場所とみなす。
+    const { pitch } = metrics();
     const i = props.deck
-      ? mostVisible()
-      : Math.round(viewport.scrollLeft / metrics().pitch);
+      ? Math.min(props.refs.length - 1,
+          Math.floor((viewport.scrollLeft + viewport.clientWidth / 2) / pitch))
+      : Math.round(viewport.scrollLeft / pitch);
     if (i !== index() && props.refs[i] !== undefined) props.onSelect(i);
   };
 
   // selected → scroll位置（tab選択・キー・マウスボタンなど外からの変更）。
-  // gesture由来のscrollでselectedがliveに動くときは位置が既に一致して
-  // いるのでscrollToは発火しない。
+  // pagesは選択pageがviewportに収まるようscrollする。gesture由来の
+  // scrollでselectedがliveに動くときは位置が既に一致しているので
+  // scrollToは発火しない。
+  // deckは選択した列が見えていなければ最小限寄せるだけで、見えていれば
+  // scroll位置に一切触らない（scroll位置は利用者のもの）。
   createEffect(
     () => index(),
     (i) => {
+      if (props.deck) {
+        const { colW, pitch } = metrics();
+        const left = i * pitch;
+        const end = viewport.scrollLeft + viewport.clientWidth;
+        const target = left < viewport.scrollLeft ? left
+          : left + colW > end ? left + colW - viewport.clientWidth
+          : undefined;
+        if (target !== undefined) {
+          viewport.scrollTo({ left: target, behavior: "smooth" });
+        }
+        return;
+      }
       const left = pageLeft(i);
       if (Math.abs(viewport.scrollLeft - left) > 1) {
         viewport.scrollTo({ left, behavior: "smooth" });
@@ -142,6 +146,17 @@ export function PagesTrack(props: {
 
   const onScroll = () => {
     syncVisible();
+    // deckはscroll位置に一切触らない（settle補正も無し）。gestureで
+    // 流している間だけ、一番見えている列をtabに反映する。tab押下で
+    // 掛けた寄せscrollはgesture扱いにならないので追従は発火しない
+    // （追従→別列を寄せる→追従、の往復を避けるため）。
+    if (props.deck) {
+      if (gestureActive()) {
+        lastInputAt = Date.now();
+        syncSelected();
+      }
+      return;
+    }
     if (gestureActive()) {
       // momentum中もscrollが続く間はgesture扱いを延長する。
       lastInputAt = Date.now();
@@ -155,12 +170,10 @@ export function PagesTrack(props: {
         syncSelected();
         return;
       }
-      // pagesだけ: gesture由来でないscrollは選択位置へ戻す。scroll
-      // containerにした副作用として、Panelの中のscrollIntoViewが
-      // viewportまでscrollさせてpageをずらすことがある。deckはずれた
-      // 列がそのまま見えるだけなので戻さない。自分で掛けたscrollToは
-      // scrollが続いている間このtimerが発火しないので巻き込まない。
-      if (props.deck) return;
+      // gesture由来でないscrollは選択位置へ戻す。scroll containerにした
+      // 副作用として、Panelの中のscrollIntoViewがviewportまでscroll
+      // させてpageをずらすことがある。自分で掛けたscrollToはscrollが
+      // 続いている間このtimerが発火しないので巻き込まない。
       const left = pageLeft(index());
       if (Math.abs(viewport.scrollLeft - left) > 1) {
         viewport.scrollTo({ left, behavior: "smooth" });
