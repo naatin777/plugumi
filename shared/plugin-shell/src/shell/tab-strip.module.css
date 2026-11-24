@@ -35,7 +35,8 @@
     /* 非選択は透明だと「ただの文字」になるので、薄い輪郭だけ敷いて
        chipとして形を持たせる。選択は強い輪郭＋面で一段上げる。 */
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--plugumi-colors-raised-edge) 35%, transparent);
-    background: transparent;
+    /* 非選択→hover→選択で 0.3 → 0.6 → 1.0 の3段。面の色は--raised。 */
+    background: color-mix(in oklab, var(--plugumi-colors-raised) calc(var(--tab-fill) * 0.3), transparent);
     color: var(--plugumi-colors-text-muted);
     font-size: var(--plugumi-font-size-xs);
     white-space: nowrap; cursor: pointer; user-select: none;
