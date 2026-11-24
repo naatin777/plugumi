@@ -66,20 +66,22 @@ function ProjectSwitcher(): JSX.Element {
           openPopover(menu, event.currentTarget);
         }}
       >
-        <span class={styles["project-switcher-name"]}>{shell.project()}</span>
+        <span class={styles["project-switcher-name"]}>
+          {shell.projectTree()?.title ?? shell.project()}
+        </span>
         <IconChevronRight size={12} />
       </button>
       <div class={styles["project-menu"]} data-part="popover" popover="auto" ref={menu}>
         <For each={shell.projects()}>
           {(item) => (
             <button
-              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: item.name === shell.project() }}
+              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: item.key === shell.project() }}
               onClick={(event) => {
                 closePopover(event);
-                navigate(`/${shell.coreKey()}/${item.name}/`);
+                navigate(`/${shell.coreKey()}/${item.key}/`);
               }}
             >
-              {item.name}
+              {item.title}
             </button>
           )}
         </For>
@@ -148,7 +150,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
   const shell = useShell();
   const navigate = useNavigate();
   const key = () => pathKey(props.area.path);
-  const name = () => props.area.path[props.area.path.length - 1] ?? "";
+  const title = () => props.area.title;
   const href = useHref(() =>
     `/${shell.coreKey()}/${shell.project()}/` +
     `${props.area.path.map(encodeURIComponent).join("/")}/`);
@@ -217,7 +219,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           data-part="area-list-row"
         style={{ "padding-left": `${props.area.depth * 12}px` }}
       >
-        <a href={href()} onClick={open}>{name()}</a>
+        <a href={href()} onClick={open}>{title()}</a>
         <button
           class={styles["area-menu-button"]}
           aria-label="Areaのメニュー"
@@ -276,7 +278,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           <ConfirmButton
             class={`${styles["area-menu-item"]} ${styles["danger"]}`}
             label="Areaを削除"
-            confirmLabel={`「${name()}」とその下のAreaを削除します`}
+            confirmLabel={`「${title()}」とその下のAreaを削除します`}
             confirm={() => {
               menu.hidePopover();
               remove();
@@ -289,7 +291,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
       <Show when={addingChild()}>
         <div class={styles["area-child-form"]}>
           <NameForm
-            label={`「${name()}」の子Area名`}
+            label={`「${title()}」の子Area名`}
             submit={async (child) => {
               await shell.createArea(shell.project(), props.area.path, child);
               setAddingChild(false);
@@ -319,15 +321,15 @@ function AreaCreate(props: { slot: ListSlot; parent: string[] }): JSX.Element {
     >
       <NameForm
         label="Area名"
-        submit={async (name) => {
-          await shell.createArea(shell.project(), props.parent, name);
-          const key = pathKey([name]);
-          const path = `/${shell.coreKey()}/${shell.project()}/${encodeURIComponent(name)}/`;
+        submit={async (title) => {
+          const key = await shell.createArea(shell.project(), props.parent, title);
+          const placement = pathKey([key]);
+          const path = `/${shell.coreKey()}/${shell.project()}/${encodeURIComponent(key)}/`;
           if (props.slot === "sub") {
-            shell.applyAreaList((state) => toSub(state, key));
+            shell.applyAreaList((state) => toSub(state, placement));
             shell.updatePrefs((prefs) => { prefs.subOpen = true; });
           } else if (props.slot === "detach") {
-            shell.applyAreaList((state) => toDetach(state, key));
+            shell.applyAreaList((state) => toDetach(state, placement));
             shell.host.windows?.open(`${path}?window=detached`);
           } else {
             navigate(path);

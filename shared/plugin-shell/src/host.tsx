@@ -62,13 +62,17 @@ export interface BuiltinPanelEntry {
 
 export type PanelEntry = PluginPanelEntry | BuiltinPanelEntry;
 
+// keyはURL path segmentとして使う識別子（serverが発行する）、
+// titleは自由な表示名。nameを兼ねない — 日本語・大文字・記号をそのまま出せる。
 export interface AreaTree {
-  name: string;
+  key: string;
+  title: string;
   areas: AreaTree[];
 }
 
 export interface ProjectTree {
-  name: string;
+  key: string;
+  title: string;
   areas: AreaTree[];
 }
 
@@ -88,8 +92,9 @@ export interface ShellHost {
   callTool(key: string, body: CallToolBody): Promise<unknown>;
 
   listProjects(key: string): Promise<ProjectTree[]>;
-  createProject(key: string, name: string): Promise<void>;
-  createArea(key: string, project: string, parent: string[], name: string): Promise<void>;
+  // 作成はtitleを渡し、発行されたkeyが返る。
+  createProject(key: string, title: string): Promise<string>;
+  createArea(key: string, project: string, parent: string[], title: string): Promise<string>;
   deleteArea(key: string, project: string, areaPath: string[]): Promise<void>;
 
   // 未保存・壊れた形はnullかobject以外で返ることがある。decodeはShell側。

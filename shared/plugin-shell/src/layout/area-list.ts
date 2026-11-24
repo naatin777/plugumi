@@ -27,8 +27,10 @@ export type AreaListState = {
 };
 
 // hostのAreaTreeと構造が同じ最小の形（hostへ依存しないようここで宣言）。
+// pathに入るのはkey（URL segment）。titleは表示用で同一性には使わない。
 export interface AreaNode {
-  name: string;
+  key: string;
+  title: string;
   areas: AreaNode[];
 }
 
@@ -57,15 +59,16 @@ export const emptyAreaList = (): AreaListState => ({
 export type FlatArea = {
   path: string[];
   depth: number;
+  title: string;
 };
 
-// treeをDFSで平坦化する（tree順＝親→子の順）。
+// treeをDFSで平坦化する（tree順＝親→子の順）。pathはkeyの列。
 export function flattenAreas(areas: AreaNode[]): FlatArea[] {
   const out: FlatArea[] = [];
   const walk = (nodes: AreaNode[], path: string[]) => {
     for (const node of nodes) {
-      const next = [...path, node.name];
-      out.push({ path: next, depth: path.length });
+      const next = [...path, node.key];
+      out.push({ path: next, depth: path.length, title: node.title });
       walk(node.areas, next);
     }
   };
@@ -82,10 +85,11 @@ export function mainAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {
 // Subセクション = subの順で、treeに実在するものだけ（消えたAreaのkeyは
 // 表示から外すだけ — 保存は掃除しない）。Detachも同じ規則。
 const placedAreas = (placed: string[], areas: AreaNode[]): FlatArea[] => {
-  const exists = new Set(flattenAreas(areas).map((area) => pathKey(area.path)));
+  const byKey = new Map(flattenAreas(areas).map((area) => [pathKey(area.path), area]));
   return placed
-    .filter((key) => exists.has(key))
-    .map((key) => ({ path: pathFromKey(key), depth: 0 }));
+    .map((key) => byKey.get(key))
+    .filter((area): area is FlatArea => area !== undefined)
+    .map((area) => ({ ...area, depth: 0 }));
 };
 
 export function subAreas(state: AreaListState, areas: AreaNode[]): FlatArea[] {

@@ -460,58 +460,73 @@ func TestProjectAPIs(t *testing.T) {
 	if response.Code != http.StatusOK || response.Body.String() != "[]\n" && !strings.Contains(response.Body.String(), "[]") {
 		t.Fatalf("empty list: %d %s", response.Code, response.Body)
 	}
-	// 作成・重複・不正名。
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects", `{"name":"plugumi"}`); response.Code != http.StatusCreated {
+	// titleをPOSTするとkeyが発行される。titleは識別子ではなく重複してもよい。
+	response = do(t, fixture.handler, http.MethodPost, base+"/projects", `{"title":"plugumi"}`)
+	if response.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", response.Code, response.Body)
 	}
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects", `{"name":"plugumi"}`); response.Code != http.StatusConflict {
-		t.Fatalf("duplicate: %d", response.Code)
+	project := responseKey(t, response)
+	if response := do(t, fixture.handler, http.MethodPost, base+"/projects", `{"title":"plugumi"}`); response.Code != http.StatusCreated {
+		t.Fatalf("duplicate title: %d", response.Code)
 	}
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects", `{"name":"Bad"}`); response.Code != http.StatusBadRequest {
+	if response := do(t, fixture.handler, http.MethodPost, base+"/projects", `{"title":""}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("invalid: %d", response.Code)
 	}
-	// 直下と子Area。
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects/plugumi/areas", `{"parent":[],"name":"main"}`); response.Code != http.StatusCreated {
+	// 直下と子Area。URLには発行されたkeyを使う。
+	response = do(t, fixture.handler, http.MethodPost, base+"/projects/"+project+"/areas", `{"parent":[],"title":"main"}`)
+	if response.Code != http.StatusCreated {
 		t.Fatalf("area: %d %s", response.Code, response.Body)
 	}
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects/plugumi/areas", `{"parent":["main"],"name":"feature-a"}`); response.Code != http.StatusCreated {
+	main := responseKey(t, response)
+	response = do(t, fixture.handler, http.MethodPost, base+"/projects/"+project+"/areas", `{"parent":["`+main+`"],"title":"feature-a"}`)
+	if response.Code != http.StatusCreated {
 		t.Fatalf("child area: %d", response.Code)
 	}
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects/plugumi/areas", `{"parent":["nope"],"name":"x"}`); response.Code != http.StatusNotFound {
+	feature := responseKey(t, response)
+	if response := do(t, fixture.handler, http.MethodPost, base+"/projects/"+project+"/areas", `{"parent":["nope"],"title":"x"}`); response.Code != http.StatusNotFound {
 		t.Fatalf("missing parent: %d", response.Code)
-	}
-	if response := do(t, fixture.handler, http.MethodPost, base+"/projects/plugumi/areas", `{"parent":[],"name":"main"}`); response.Code != http.StatusConflict {
-		t.Fatalf("dup area: %d", response.Code)
 	}
 	// workspaceのPUT/GET。
 	docks := `{"version":1,"center":{"root":{"kind":"leaf","id":"leaf-a","panels":[{"instanceId":"panel-a1","pluginId":"standard","panelId":"files"}],"selected":"panel-a1"}}}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/feature-a/workspace", docks); response.Code != http.StatusNoContent {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", docks); response.Code != http.StatusNoContent {
 		t.Fatalf("put workspace: %d %s", response.Code, response.Body)
 	}
-	response = do(t, fixture.handler, http.MethodGet, base+"/projects/plugumi/areas/main/feature-a/workspace", "")
+	response = do(t, fixture.handler, http.MethodGet, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "panel-a1") {
 		t.Fatalf("get workspace: %d %s", response.Code, response.Body)
 	}
 	// objectでもnullでもないJSONは400。中身はserverが解釈しない。
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", `[1,2]`); response.Code != http.StatusBadRequest {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/workspace", `[1,2]`); response.Code != http.StatusBadRequest {
 		t.Fatalf("array body: %d", response.Code)
 	}
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/workspace", `"x"`); response.Code != http.StatusBadRequest {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/workspace", `"x"`); response.Code != http.StatusBadRequest {
 		t.Fatalf("string body: %d", response.Code)
 	}
 	// nullは消去として受け付ける。
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/plugumi/areas/main/feature-a/workspace", `null`); response.Code != http.StatusNoContent {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", `null`); response.Code != http.StatusNoContent {
 		t.Fatalf("null body: %d", response.Code)
 	}
 	// Area削除は子ごと。workspaceも一緒に消える。
-	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/plugumi/areas/main", ""); response.Code != http.StatusNoContent {
+	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/"+project+"/areas/"+main, ""); response.Code != http.StatusNoContent {
 		t.Fatalf("delete area: %d", response.Code)
 	}
 	response = do(t, fixture.handler, http.MethodGet, base+"/projects", "")
-	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "feature-a") ||
-		strings.Contains(response.Body.String(), `"main"`) {
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), `"feature-a"`) ||
+		strings.Contains(response.Body.String(), `"title":"main"`) {
 		t.Fatalf("tree after delete: %s", response.Body)
 	}
+}
+
+// responseKey は201応答から発行されたkeyを取り出す。
+func responseKey(t *testing.T, response *httptest.ResponseRecorder) string {
+	t.Helper()
+	var body struct {
+		Key string `json:"key"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || body.Key == "" {
+		t.Fatalf("no key in response: %s", response.Body)
+	}
+	return body.Key
 }
 
 func TestProjectAPIsRequireCoreName(t *testing.T) {
@@ -521,7 +536,7 @@ func TestProjectAPIsRequireCoreName(t *testing.T) {
 	fixture.manager.Add(nameless.URL, cores.SourceCommand)
 	fixture.manager.SetInfo(nameless.URL, coreclient.CoreInfo{CoreID: "fake-"})
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
-		response := do(t, fixture.handler, method, "/api/cores/fake-/projects", `{"name":"x"}`)
+		response := do(t, fixture.handler, method, "/api/cores/fake-/projects", `{"title":"x"}`)
 		if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "core.name") {
 			t.Fatalf("%s nameless core: %d %s", method, response.Code, response.Body)
 		}

@@ -24,7 +24,7 @@ export default function CoreRedirect(): JSX.Element {
       // 保存されていた場所のProjectとAreaがまだ残っているときだけ戻る
       if (saved.startsWith(`/${key()}/`)) {
         const parts = saved.slice(key().length + 2).split("/").filter(Boolean).map(decodeURIComponent);
-        const tree = projects.find((project) => project.name === parts[0]);
+        const tree = projects.find((project) => project.key === parts[0]);
         if (tree && findArea(tree.areas, parts.slice(1))) {
           navigate(saved, { replace: true });
           return;
@@ -32,7 +32,7 @@ export default function CoreRedirect(): JSX.Element {
       }
       const first = projects[0];
       if (first) {
-        navigate(`/${key()}/${first.name}/`, { replace: true });
+        navigate(`/${key()}/${first.key}/`, { replace: true });
         return;
       }
       setEmpty(true);

@@ -34,11 +34,11 @@ export function areaPathOf(segment: string | undefined): string[] {
 }
 
 export function findArea(areas: AreaTree[], path: string[]): AreaTree | undefined {
-  if (path.length === 0) return { name: "", areas };
+  if (path.length === 0) return { key: "", title: "", areas };
   let nodes = areas;
   let found: AreaTree | undefined;
-  for (const name of path) {
-    found = nodes.find((area) => area.name === name);
+  for (const key of path) {
+    found = nodes.find((area) => area.key === key);
     if (!found) return undefined;
     nodes = found.areas;
   }
@@ -100,8 +100,9 @@ export interface ShellController {
   bindPicker(element: HTMLElement): void;
   pickPanel(entry: PanelEntry): void;
 
-  createProject(name: string): Promise<void>;
-  createArea(project: string, parent: string[], name: string): Promise<void>;
+  // 作成はtitleを渡す。返るのはserverが発行したkey（URLに使う）。
+  createProject(title: string): Promise<void>;
+  createArea(project: string, parent: string[], title: string): Promise<string>;
   removeArea(project: string, path: string[]): Promise<void>;
 }
 
@@ -183,7 +184,7 @@ export function createShellController(
   const panels = () => [...builtinPanels, ...(panelsList() ?? [])];
   const projects = () => projectsList() ?? [];
   const core = () => coresList()?.find((entry) => entry.key === coreKey());
-  const projectTree = () => projectsList()?.find((tree) => tree.name === project());
+  const projectTree = () => projectsList()?.find((tree) => tree.key === project());
 
   // ---- 表示設定 ----
   const [prefs, setPrefs] = createSignal<ShellPrefs>(loadPrefs());
@@ -294,18 +295,19 @@ export function createShellController(
   };
 
   // ---- project/area ----
-  const createProject = async (name: string) => {
-    await host.createProject(coreKey(), name);
-    navigate(`/${coreKey()}/${name}/`);
+  const createProject = async (title: string) => {
+    const key = await host.createProject(coreKey(), title);
+    navigate(`/${coreKey()}/${key}/`);
   };
-  const createArea = async (projectName: string, parent: string[], name: string) => {
-    await host.createArea(coreKey(), projectName, parent, name);
+  // 発行されたkeyを返す — 作成直後の遷移・配置はkeyが必要。
+  const createArea = async (projectKey: string, parent: string[], title: string) => {
+    return host.createArea(coreKey(), projectKey, parent, title);
   };
-  const removeArea = async (projectName: string, path: string[]) => {
-    await host.deleteArea(coreKey(), projectName, path);
+  const removeArea = async (projectKey: string, path: string[]) => {
+    await host.deleteArea(coreKey(), projectKey, path);
     // 開いていたArea（またはその祖先）を消したらprojectの入口へ戻す
     const current = areaPath();
-    if (projectName === project() && path.every((part, index) => current[index] === part)) {
+    if (projectKey === project() && path.every((part, index) => current[index] === part)) {
       navigate(`/${coreKey()}/${project()}/`, { replace: true });
     }
   };

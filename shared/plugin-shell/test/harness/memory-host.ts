@@ -46,12 +46,12 @@ const empty = (): WorkspaceState => ({
 });
 
 // seed=basic: Main/SubそれぞれにAreaがあり、center分割2leaf＋各dockに
-// Panelが入っている状態。
+// Panelが入っている状態。keyはE2Eが使うURL（test/demo/a1/）と合わせる。
 const seeds: Record<string, () => Stored> = {
   basic: () => ({
-    projects: [{ name: "demo", areas: [
-      { name: "a1", areas: [] },
-      { name: "a2", areas: [] },
+    projects: [{ key: "demo", title: "demo", areas: [
+      { key: "a1", title: "a1", areas: [] },
+      { key: "a2", title: "a2", areas: [] },
     ] }],
     workspaces: {
       "demo/a1": {
@@ -97,8 +97,11 @@ export function createMemoryHost(): ShellHost {
   // テスト（css-isolationのworkspace書き換え）が空を踏まないように。
   save();
 
-  const findProject = (name: string) =>
-    stored.projects.find((project) => project.name === name);
+  const findProject = (key: string) =>
+    stored.projects.find((project) => project.key === key);
+
+  // 実serverと同じく作成時にkeyを発行する（titleは識別子ではない）。
+  const newKey = () => Math.random().toString(36).slice(2, 10).padEnd(8, "0");
 
   return {
     async listCores() { return [CORE]; },
@@ -113,35 +116,37 @@ export function createMemoryHost(): ShellHost {
     async callTool(_key: string, _body: CallToolBody) { return null; },
 
     async listProjects() { return stored.projects; },
-    async createProject(_key, name) {
-      if (findProject(name)) throw new Error("name already exists");
-      stored.projects.push({ name, areas: [] });
+    async createProject(_key, title) {
+      const key = newKey();
+      stored.projects.push({ key, title, areas: [] });
       save();
+      return key;
     },
-    async createArea(_key, project, parent, name) {
+    async createArea(_key, project, parent, title) {
       const found = findProject(project);
       if (!found) throw new Error("project not found");
       let nodes = found.areas;
       for (const part of parent) {
-        const next = nodes.find((area) => area.name === part);
+        const next = nodes.find((area) => area.key === part);
         if (!next) throw new Error("parent not found");
         nodes = next.areas;
       }
-      if (nodes.some((area) => area.name === name)) throw new Error("name already exists");
-      nodes.push({ name, areas: [] });
+      const key = newKey();
+      nodes.push({ key, title, areas: [] });
       save();
+      return key;
     },
     async deleteArea(_key, project, areaPath) {
       const found = findProject(project);
       if (!found) throw new Error("project not found");
       let nodes = found.areas;
       for (const part of areaPath.slice(0, -1)) {
-        const next = nodes.find((area) => area.name === part);
+        const next = nodes.find((area) => area.key === part);
         if (!next) throw new Error("area not found");
         nodes = next.areas;
       }
-      const name = areaPath[areaPath.length - 1];
-      const index = nodes.findIndex((area) => area.name === name);
+      const key = areaPath[areaPath.length - 1];
+      const index = nodes.findIndex((area) => area.key === key);
       if (index < 0) throw new Error("area not found");
       nodes.splice(index, 1);
       save();

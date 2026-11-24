@@ -68,7 +68,7 @@ Project・Area・Workspaceの状態は、Web Pluginのサーバーが `~/.plugum
 
 `<core>` にはCore名を使う。Core名がないCoreは `coreId` で表すが、`coreId` はCoreの再起動で変わるため、ブックマークには使えない。
 
-ProjectとAreaは、名前をそのままURLの識別子にする。名前の形式はCore名と同じ（小文字の英数字とハイフン、1〜63文字）で、同じ親の中では重複できない。Projectの名前はCoreの中で、Areaの名前は同じ親のAreaの中で一意とする。
+ProjectとAreaは、表示名（title）とURLの識別子（key）を分ける。titleは日本語・大文字・記号を含む自由な表示名（空・制御文字・64文字以上のみ不可）で、識別子ではないため重複を許す。keyはserverが作成時に発行する8文字のランダムな識別子（小文字英数）で、ProjectはCore内で、Areaは同じ親のArea内で一意とする。URLの `<project>` ・ `<area>` にはkeyを使う。
 
 Web Plugin自身も、APIの `/api/`、ビルド済みファイルの `/assets/`、PanelのUIファイルを中継する `/ui/` をパスの先頭に使う。そのため、Web Pluginは `api`・`assets`・`ui` をCore名として予約し、URLには使わない。これらはWeb Plugin側の都合なので、Coreの設定では禁止しない。Core名が予約名と同じCoreは、画面から追加できない。`--core` で指定されている場合は一覧に表示するが、リンクは作らない。
 
@@ -114,7 +114,6 @@ Core名を返すAPIは[接続契約 00004](../contracts/00004-plugin-client-prot
 ## 未解決の問い
 
 - Areaが入れ子の構造のほかに持つ内容
-- 名前に日本語などを使えるようにするか（表示名とURLの識別子を分けるか）
 - 同時編集を後勝ちより丁寧に扱う必要があるか
 - 同じマシンで動いているCoreを、URLを入力せずに一覧から選べるようにするか
 - 別のマシンのCoreを扱うときの、Core名の重複と認証

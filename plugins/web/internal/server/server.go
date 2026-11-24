@@ -387,47 +387,49 @@ func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) addProject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name string `json:"name"`
+		Title string `json:"title"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
 	s.projectContext(w, r, func(document *projects.Document) (any, int) {
-		switch err := document.AddProject(body.Name); {
-		case errors.Is(err, projects.ErrInvalidName):
-			return map[string]any{"error": map[string]any{"message": "invalid name"}}, http.StatusBadRequest
-		case errors.Is(err, projects.ErrDuplicateName):
-			return map[string]any{"error": map[string]any{"message": "name already exists"}}, http.StatusConflict
+		key, err := document.AddProject(body.Title)
+		if errors.Is(err, projects.ErrInvalidTitle) {
+			return errorBody("invalid title"), http.StatusBadRequest
 		}
-		return map[string]any{"name": body.Name}, http.StatusCreated
+		if err != nil {
+			return errorBody(fmt.Sprintf("could not create project: %v", err)), http.StatusInternalServerError
+		}
+		return map[string]any{"key": key, "title": body.Title}, http.StatusCreated
 	})
 }
 
 func (s *Server) addArea(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Parent []string `json:"parent"`
-		Name   string   `json:"name"`
+		Title string   `json:"title"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
-	projectName := r.PathValue("project")
+	projectKey := r.PathValue("project")
 	s.projectContext(w, r, func(document *projects.Document) (any, int) {
-		project := document.FindProject(projectName)
+		project := document.FindProject(projectKey)
 		if project == nil {
 			return errorBody("project not found"), http.StatusNotFound
 		}
-		switch err := project.AddArea(body.Parent, body.Name); {
-		case errors.Is(err, projects.ErrInvalidName):
-			return errorBody("invalid name"), http.StatusBadRequest
+		key, err := project.AddArea(body.Parent, body.Title)
+		switch {
+		case errors.Is(err, projects.ErrInvalidTitle):
+			return errorBody("invalid title"), http.StatusBadRequest
 		case errors.Is(err, projects.ErrAreaNotFound):
 			return errorBody("parent area not found"), http.StatusNotFound
-		case errors.Is(err, projects.ErrDuplicateName):
-			return errorBody("name already exists"), http.StatusConflict
+		case err != nil:
+			return errorBody(fmt.Sprintf("could not create area: %v", err)), http.StatusInternalServerError
 		}
-		return map[string]any{"name": body.Name}, http.StatusCreated
+		return map[string]any{"key": key, "title": body.Title}, http.StatusCreated
 	})
 }
 

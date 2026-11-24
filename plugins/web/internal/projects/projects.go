@@ -6,25 +6,45 @@ package projects
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"regexp"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
 	"slices"
 )
 
 var (
-	ErrInvalidName     = errors.New("invalid name")
-	ErrDuplicateName   = errors.New("name already exists among siblings")
+	ErrInvalidTitle    = errors.New("invalid title")
 	ErrProjectNotFound = errors.New("project not found")
 	ErrAreaNotFound    = errors.New("area not found")
 )
 
-// core.nameと同じ形式。名前がそのままURLの識別子になるため。
-var namePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+// 表示名。URLには出ないため文字種は自由（日本語・大文字・記号OK）。
+// 空・長過ぎ・制御文字だけを弾く。
+func ValidTitle(title string) bool {
+	if title == "" || utf8.RuneCountInString(title) > 63 {
+		return false
+	}
+	return !strings.ContainsFunc(title, unicode.IsControl)
+}
 
-// ValidName はProject/Area名の検証（1〜63文字のslug）。
-func ValidName(name string) bool {
-	return len(name) >= 1 && len(name) <= 63 && namePattern.MatchString(name)
+// keyはURLの識別子。利用者が決めるものではなく生成される。
+const keyAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+// newKey は8文字のランダムkeyを生成する。
+func newKey() (string, error) {
+	var raw [8]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	key := make([]byte, len(raw))
+	for i, b := range raw {
+		key[i] = keyAlphabet[int(b)%len(keyAlphabet)]
+	}
+	return string(key), nil
 }
 
 // Opaque はShell所有のJSONをそのまま保持する。未保存はnilで、
@@ -32,15 +52,18 @@ func ValidName(name string) bool {
 type Opaque = json.RawMessage
 
 // Area は入れ子にできる領域。Workspaceと1対1。
+// KeyはURL path segmentとして兄弟内で一意、Titleは自由な表示名。
 type Area struct {
-	Name      string `json:"name"`
+	Key       string `json:"key"`
+	Title     string `json:"title"`
 	Workspace Opaque `json:"workspace"`
 	Areas     []Area `json:"areas"`
 }
 
 // Project はAreaの木を持つ。
 type Project struct {
-	Name  string `json:"name"`
+	Key   string `json:"key"`
+	Title string `json:"title"`
 	Areas []Area `json:"areas"`
 }
 
@@ -49,23 +72,25 @@ type Document struct {
 	Projects []Project `json:"projects"`
 }
 
-// AreaTree はGET /projectsが返す名前だけの木。
+// AreaTree はGET /projectsが返すkey+titleの木。
 type AreaTree struct {
-	Name  string     `json:"name"`
+	Key   string     `json:"key"`
+	Title string     `json:"title"`
 	Areas []AreaTree `json:"areas"`
 }
 
 // ProjectTree はGET /projectsの1要素。
 type ProjectTree struct {
-	Name  string     `json:"name"`
+	Key   string     `json:"key"`
+	Title string     `json:"title"`
 	Areas []AreaTree `json:"areas"`
 }
 
-// Trees は名前ツリーに変換する。
+// Trees はkey+titleのツリーに変換する。
 func (document *Document) Trees() []ProjectTree {
 	trees := make([]ProjectTree, 0, len(document.Projects))
 	for _, project := range document.Projects {
-		trees = append(trees, ProjectTree{Name: project.Name, Areas: areaTrees(project.Areas)})
+		trees = append(trees, ProjectTree{Key: project.Key, Title: project.Title, Areas: areaTrees(project.Areas)})
 	}
 	return trees
 }
@@ -73,36 +98,42 @@ func (document *Document) Trees() []ProjectTree {
 func areaTrees(areas []Area) []AreaTree {
 	trees := make([]AreaTree, 0, len(areas))
 	for _, area := range areas {
-		trees = append(trees, AreaTree{Name: area.Name, Areas: areaTrees(area.Areas)})
+		trees = append(trees, AreaTree{Key: area.Key, Title: area.Title, Areas: areaTrees(area.Areas)})
 	}
 	return trees
 }
 
-// FindProject は名前でProjectを指す。
-func (document *Document) FindProject(name string) *Project {
+// FindProject はkeyでProjectを指す。
+func (document *Document) FindProject(key string) *Project {
 	for index := range document.Projects {
-		if document.Projects[index].Name == name {
+		if document.Projects[index].Key == key {
 			return &document.Projects[index]
 		}
 	}
 	return nil
 }
 
-// AddProject は直下にProjectを作る。
-func (document *Document) AddProject(name string) error {
-	if !ValidName(name) {
-		return ErrInvalidName
+// AddProject は直下にProjectを作り、発行したkeyを返す。
+// titleは識別子ではないため重複を許す。
+func (document *Document) AddProject(title string) (string, error) {
+	if !ValidTitle(title) {
+		return "", ErrInvalidTitle
 	}
-	if document.FindProject(name) != nil {
-		return ErrDuplicateName
+	for {
+		key, err := newKey()
+		if err != nil {
+			return "", err
+		}
+		if document.FindProject(key) == nil {
+			document.Projects = append(document.Projects, Project{
+				Key: key, Title: title, Areas: []Area{},
+			})
+			return key, nil
+		}
 	}
-	document.Projects = append(document.Projects, Project{
-		Name: name, Areas: []Area{},
-	})
-	return nil
 }
 
-// FindArea はpath（親からの名前列、空=直下不可でProject自身ではない）で
+// FindArea はpath（親からのkey列、空=直下不可でProject自身ではない）で
 // Areaを指す。pathの各要素はその親の直下にあること。
 func (project *Project) FindArea(path []string) *Area {
 	if len(path) == 0 {
@@ -110,10 +141,10 @@ func (project *Project) FindArea(path []string) *Area {
 	}
 	areas := project.Areas
 	var found *Area
-	for _, name := range path {
+	for _, key := range path {
 		found = nil
 		for index := range areas {
-			if areas[index].Name == name {
+			if areas[index].Key == key {
 				found = &areas[index]
 				break
 			}
@@ -126,10 +157,10 @@ func (project *Project) FindArea(path []string) *Area {
 	return found
 }
 
-// AddArea はparent（直下なら空）の下に子Areaを作る。
-func (project *Project) AddArea(parent []string, name string) error {
-	if !ValidName(name) {
-		return ErrInvalidName
+// AddArea はparent（直下なら空）の下に子Areaを作り、発行したkeyを返す。
+func (project *Project) AddArea(parent []string, title string) (string, error) {
+	if !ValidTitle(title) {
+		return "", ErrInvalidTitle
 	}
 	var siblings *[]Area
 	if len(parent) == 0 {
@@ -137,17 +168,22 @@ func (project *Project) AddArea(parent []string, name string) error {
 	} else {
 		owner := project.FindArea(parent)
 		if owner == nil {
-			return ErrAreaNotFound
+			return "", ErrAreaNotFound
 		}
 		siblings = &owner.Areas
 	}
-	for _, area := range *siblings {
-		if area.Name == name {
-			return ErrDuplicateName
+	for {
+		key, err := newKey()
+		if err != nil {
+			return "", err
+		}
+		if slices.IndexFunc(*siblings, func(area Area) bool {
+			return area.Key == key
+		}) < 0 {
+			*siblings = append(*siblings, Area{Key: key, Title: title, Areas: []Area{}})
+			return key, nil
 		}
 	}
-	*siblings = append(*siblings, Area{Name: name, Areas: []Area{}})
-	return nil
 }
 
 // RemoveArea はpathのAreaを子ごと削除する。
@@ -164,7 +200,7 @@ func (project *Project) RemoveArea(path []string) bool {
 		siblings = parent.Areas
 	}
 	index := slices.IndexFunc(siblings, func(area Area) bool {
-		return area.Name == path[len(path)-1]
+		return area.Key == path[len(path)-1]
 	})
 	if index < 0 {
 		return false

@@ -8,67 +8,80 @@ import (
 	"testing"
 )
 
-func TestNames(t *testing.T) {
+func TestTitles(t *testing.T) {
 	for _, ok := range []struct {
-		name  string
+		title string
 		valid bool
 	}{
-		{"plugumi", true}, {"a", true}, {"feature-a", true},
-		{"", false}, {"A", false}, {"-a", false}, {"a-", false}, {"a--b", false},
-		{"a_b", false}, {strings.Repeat("a", 64), false}, {strings.Repeat("a", 63), true},
+		{"plugumi", true}, {"a", true}, {"作業エリア", true},
+		{"My Area!", true}, {"UPPER", true}, {"全角・半角 Mixed", true},
+		{"", false}, {strings.Repeat("a", 64), false}, {strings.Repeat("あ", 63), true},
+		{"a\nb", false}, {"tab\tname", false},
 	} {
-		if ValidName(ok.name) != ok.valid {
-			t.Errorf("ValidName(%q) = %v, want %v", ok.name, !ok.valid, ok.valid)
+		if ValidTitle(ok.title) != ok.valid {
+			t.Errorf("ValidTitle(%q) = %v, want %v", ok.title, !ok.valid, ok.valid)
 		}
 	}
 }
 
 func TestAddProject(t *testing.T) {
 	document := &Document{Projects: []Project{}}
-	if err := document.AddProject("plugumi"); err != nil {
+	key, err := document.AddProject("plugumi")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := document.AddProject("plugumi"); err != ErrDuplicateName {
-		t.Fatalf("duplicate: %v", err)
+	if len(key) != 8 || document.FindProject(key) == nil {
+		t.Fatalf("key: %q", key)
 	}
-	if err := document.AddProject("Bad Name"); err != ErrInvalidName {
+	// titleは識別子ではないため重複を許し、keyが分かれる。
+	other, err := document.AddProject("plugumi")
+	if err != nil || other == key {
+		t.Fatalf("duplicate title: key=%q err=%v", other, err)
+	}
+	if _, err := document.AddProject(""); err != ErrInvalidTitle {
 		t.Fatalf("invalid: %v", err)
 	}
 }
 
 func TestNestedAreas(t *testing.T) {
 	document := &Document{Projects: []Project{}}
-	if err := document.AddProject("p"); err != nil {
+	projectKey, err := document.AddProject("p")
+	if err != nil {
 		t.Fatal(err)
 	}
-	project := document.FindProject("p")
-	if err := project.AddArea(nil, "main"); err != nil {
+	project := document.FindProject(projectKey)
+	main, err := project.AddArea(nil, "main")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := project.AddArea(nil, "main"); err != ErrDuplicateName {
-		t.Fatalf("sibling duplicate: %v", err)
+	// titleは識別子ではないため兄弟で重複してもよい。
+	again, err := project.AddArea(nil, "main")
+	if err != nil || again == main {
+		t.Fatalf("sibling duplicate title: key=%q err=%v", again, err)
 	}
-	if err := project.AddArea([]string{"main"}, "feature-a"); err != nil {
+	feature, err := project.AddArea([]string{main}, "feature-a")
+	if err != nil {
 		t.Fatal(err)
 	}
-	// 兄弟が違えば同名でよい。
-	if err := project.AddArea(nil, "other"); err != nil {
+	// 別枝なら同じtitleでもよい。
+	other, err := project.AddArea(nil, "other")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := project.AddArea([]string{"other"}, "feature-a"); err != nil {
+	if _, err := project.AddArea([]string{other}, "feature-a"); err != nil {
 		t.Fatal(err)
 	}
-	if err := project.AddArea([]string{"nope"}, "x"); err != ErrAreaNotFound {
+	if _, err := project.AddArea([]string{"nope"}, "x"); err != ErrAreaNotFound {
 		t.Fatalf("missing parent: %v", err)
 	}
-	if project.FindArea([]string{"main", "feature-a"}) == nil {
+	if project.FindArea([]string{main, feature}) == nil {
 		t.Fatal("nested area not found")
 	}
 	// 削除は子ごと。
-	if !project.RemoveArea([]string{"main"}) {
+	if !project.RemoveArea([]string{main}) {
 		t.Fatal("remove")
 	}
-	if project.FindArea([]string{"main"}) != nil || project.FindArea([]string{"other", "feature-a"}) == nil {
+	if project.FindArea([]string{main}) != nil || project.FindArea([]string{other}) == nil {
 		t.Fatal("remove should take children, keep other branches")
 	}
 }
@@ -99,14 +112,16 @@ func TestSaveLoad(t *testing.T) {
 	if err != nil || len(document.Projects) != 0 {
 		t.Fatalf("missing file: %v %v", document, err)
 	}
-	if err := document.AddProject("plugumi"); err != nil {
+	projectKey, err := document.AddProject("テスト")
+	if err != nil {
 		t.Fatal(err)
 	}
-	project := document.FindProject("plugumi")
-	if err := project.AddArea(nil, "main"); err != nil {
+	project := document.FindProject(projectKey)
+	areaKey, err := project.AddArea(nil, "main")
+	if err != nil {
 		t.Fatal(err)
 	}
-	project.FindArea([]string{"main"}).Workspace =
+	project.FindArea([]string{areaKey}).Workspace =
 		Opaque(`{"version":1,"center":{"focusedLeaf":"leaf-1"}}`)
 	if err := Save(dir, "local", document); err != nil {
 		t.Fatal(err)
@@ -119,17 +134,53 @@ func TestSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	area := loaded.FindProject("plugumi").FindArea([]string{"main"})
+	area := loaded.FindProject(projectKey).FindArea([]string{areaKey})
 	// RawMessageはMarshalIndentで再整形されるため、比較はsemanticに行う。
 	var workspace any
 	if err := json.Unmarshal(area.Workspace, &workspace); err != nil {
 		t.Fatal(err)
 	}
 	if workspace.(map[string]any)["version"].(float64) != 1 ||
-		len(loaded.Trees()) != 1 || loaded.Trees()[0].Areas[0].Name != "main" {
+		len(loaded.Trees()) != 1 ||
+		loaded.Trees()[0].Title != "テスト" ||
+		loaded.Trees()[0].Areas[0].Key != areaKey {
 		t.Fatalf("roundtrip: %+v", loaded.Trees())
 	}
 	if data, _ := os.ReadFile(other); string(data) != "{}" {
 		t.Fatal("other files under ~/.plugumi were touched")
+	}
+}
+
+func TestLoadLegacyNames(t *testing.T) {
+	dir := t.TempDir()
+	// 旧形式はnameがkeyを兼ねていた。key/titleへ移される。
+	legacy := `{"projects":[{"name":"plugumi","areas":[
+		{"name":"main","workspace":{"version":1},"areas":[{"name":"child","areas":[]}]}
+	]}]}`
+	if err := os.WriteFile(filepath.Join(dir, "local.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	document, err := Load(dir, "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := document.FindProject("plugumi")
+	if project == nil || project.Title != "plugumi" {
+		t.Fatalf("project: %+v", document.Projects)
+	}
+	area := project.FindArea([]string{"main"})
+	if area == nil || area.Title != "main" || len(area.Workspace) == 0 {
+		t.Fatalf("area: %+v", project.Areas)
+	}
+	if project.FindArea([]string{"main", "child"}) == nil {
+		t.Fatalf("nested area: %+v", area)
+	}
+	// Saveすると新形式になる。
+	if err := Save(dir, "local", document); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "local.json"))
+	if strings.Contains(string(data), `"name"`) || !strings.Contains(string(data), `"key"`) {
+		t.Fatalf("saved format: %s", data)
 	}
 }

@@ -7,20 +7,23 @@ import {
 } from "./area-list.ts";
 
 const tree: AreaNode[] = [
-  { name: "main", areas: [
-    { name: "feature-a", areas: [{ name: "jj", areas: [] }] },
-    { name: "feature-b", areas: [] },
+  { key: "main", title: "Main", areas: [
+    { key: "feature-a", title: "機能A", areas: [{ key: "jj", title: "JJ", areas: [] }] },
+    { key: "feature-b", title: "機能B", areas: [] },
   ] },
-  { name: "other", areas: [] },
+  { key: "other", title: "その他", areas: [] },
 ];
 
 const paths = (list: { path: string[] }[]) => list.map((item) => pathKey(item.path));
 
 describe("導出", () => {
-  test("全Areaをtree順（親→子）で平坦化する", () => {
-    assert.deepEqual(paths(flattenAreas(tree)), [
+  test("全Areaをtree順（親→子）で平坦化し、titleを運ぶ", () => {
+    const flat = flattenAreas(tree);
+    assert.deepEqual(paths(flat), [
       "main", "main/feature-a", "main/feature-a/jj", "main/feature-b", "other",
     ]);
+    assert.equal(flat[0].title, "Main");
+    assert.equal(flat[2].title, "JJ");
   });
 
   test("Mainは全Areaからsubを除いたもの、Subはsubの順で実在分だけ", () => {
@@ -31,7 +34,9 @@ describe("導出", () => {
       "main", "main/feature-a", "main/feature-b",
     ]);
     // 保存順（other→jj）が保たれ、treeに無いkeyは出ない
-    assert.deepEqual(paths(subAreas(state, tree)), ["other", "main/feature-a/jj"]);
+    const sub = subAreas(state, tree);
+    assert.deepEqual(paths(sub), ["other", "main/feature-a/jj"]);
+    assert.deepEqual(sub.map((area) => area.title), ["その他", "JJ"]);
   });
 
   test("keyはsegmentごとにencode/decodeする", () => {
