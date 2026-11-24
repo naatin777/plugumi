@@ -46,9 +46,6 @@ export const pageNavProps = (flip: (direction: 1 | -1) => void) => ({
   onAuxClick: (event: MouseEvent) => event.preventDefault(),
 });
 
-// wheel gestureが途切れたとみなすまでのidle時間。
-const WHEEL_IDLE_MS = 200;
-
 // 利用者gestureで横scrollできる要素か（overflow:hiddenはプログラム
 // scrollの箱なので利用者scrollの対象に含めない）。scrollの余裕には
 // 実質的な下限を設ける — 数pxしか動かない箱にgestureが吸われると
@@ -102,12 +99,14 @@ export function PagesTrack(props: {
   let track!: HTMLDivElement;
   // 現在のずれ（負=次のpage側、正=前のpage側）。隣が無い側には0で留める。
   let px = 0;
+  // gesture解析用。velocityはpx/ms（符号はpxと同じ向き）、lastDeltaXは
+  // 直近eventのdeltaX。momentumの減衰が続いているとみなしたらcoasting。
+  let velocity = 0;
+  let lastDeltaX = 0;
+  let lastEventAt = 0;
+  let coasting = false;
   let idle: ReturnType<typeof setTimeout> | undefined;
-  let grace: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => {
-    clearTimeout(idle);
-    clearTimeout(grace);
-  });
+  onCleanup(() => clearTimeout(idle));
 
   const index = () =>
     Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected));
@@ -143,6 +142,10 @@ export function PagesTrack(props: {
   const settle = () => {
     release();
     committedDir = 0;
+    coasting = false;
+    velocity = 0;
+    lastDeltaX = 0;
+    lastEventAt = 0;
   };
 
   const onWheel = (event: WheelEvent) => {
@@ -157,32 +160,50 @@ export function PagesTrack(props: {
       if (node instanceof HTMLElement && scrollableX(node, direction)) return;
     }
     event.preventDefault();
-    // ゆっくりめくるgestureはwheelが途中で小休止する。200ms空いたら
-    // gestureの区切りとしてcommit抑止は解除するが、ずらしたtrackまで
-    // すぐ戻すと小休止ごとにtrackが跳ねるので、さらに250ms止まった
-    // ときだけ解放する。
+    // gestureの終わりは「直近のevent間隔」から適応して待つ。固定値だと
+    // ゆっくりなgesture（event自体がまばら）の途中の小休止を終了と
+    // 誤判定してtrackが跳ねる（wheel-gesturesのwillEndと同じ考え方）。
+    const now = Date.now();
+    const gapMs = lastEventAt === 0 ? 0 : now - lastEventAt;
     clearTimeout(idle);
-    clearTimeout(grace);
-    idle = setTimeout(() => {
-      committedDir = 0;
-      grace = setTimeout(settle, 250);
-    }, WHEEL_IDLE_MS);
+    idle = setTimeout(settle, Math.min(800, Math.max(300, gapMs * 1.6)));
+
     if (committedDir !== 0) {
-      // 勢いが落ちた（deltaが小さい）・逆方向へ戻し始めた・抑止の上限を
-      // 越えた、のどれかで再武装する。
+      // momentumは減衰しかしない。減衰中（coasting）にdeltaが急増した
+      // ら指が戻った新しいpushとして再武装する。逆方向と抑止の上限は
+      // 常に受け付ける。
+      const surge = Math.abs(event.deltaX) > Math.max(10, Math.abs(lastDeltaX) * 1.8);
       const rearmed =
         Math.sign(event.deltaX) === -committedDir ||
-        Math.abs(event.deltaX) < 8 ||
-        Date.now() - committedAt > 400;
+        (coasting && surge) ||
+        now - committedAt > 600;
+      // 抑止中も勢いの減衰は追いかける。急増判定はこのlastDeltaXが基準。
+      if (Math.abs(event.deltaX) < Math.abs(lastDeltaX) * 0.7) coasting = true;
+      lastDeltaX = event.deltaX;
+      lastEventAt = now;
       if (!rearmed) return;
       committedDir = 0;
+      coasting = false;
+      px = 0;
+      velocity = 0;
     }
+
+    // 速度（EMA）。flick（移動量は小さいが速度が高い）を距離未到達でも
+    // commitするために使う。
+    if (gapMs > 0) {
+      const dt = Math.max(4, gapMs);
+      velocity = velocity * 0.7 + (-event.deltaX / dt) * 0.3;
+    }
+    lastDeltaX = event.deltaX;
+    lastEventAt = now;
     px -= event.deltaX;
     const width = viewport.clientWidth || 1;
     const at = index();
     px = Math.min(at > 0 ? width : 0, Math.max(at + 1 < props.refs.length ? -width : 0, px));
     show();
-    if (Math.abs(px) >= Math.max(80, width * 0.25)) {
+    const farEnough = Math.abs(px) >= Math.max(80, width * 0.25);
+    const flick = Math.abs(px) >= 24 && Math.abs(velocity) >= 0.5 && Math.sign(velocity) === Math.sign(px);
+    if (farEnough || flick) {
       finish(px < 0 ? 1 : -1);
     }
   };
