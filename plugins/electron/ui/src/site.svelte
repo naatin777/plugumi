@@ -1,30 +1,28 @@
 <script lang="ts">
-  // Webサイトを表示するPanel。中身はDOMではなくElectronの
-  // WebContentsView — プレースホルダのrectをpreload bridge
-  // （plugumiSite）でmainへ報告し、mainがviewを重ねる。
-  // ブラウザではbridgeが無いので案内だけを出す。
+  // Webサイトを表示するPanel。中身は<webview> — DOM要素なので
+  // 位置・clip・z-order・表示切替は全てレイアウトに従う。
+  // （WebContentsViewをDOMの上に重ねる方式はrect同期が常に遅れ、
+  // overlayがdrawer等を遮る不安定さがあった — ElectronのwebviewTagを
+  // 有効にしたwindowでのみ動く）
   import { onMount } from "svelte";
 
   interface Props {
-    // mount contractのcontext。今はpanelId発行しか使わない。
+    // mount contractのcontext。今は使わない。
     context: unknown;
   }
   let { context: _context }: Props = $props();
 
-  interface SiteBridge {
-    attach(id: string, url: string): void;
-    bounds(id: string, rect: { x: number; y: number; width: number; height: number }): void;
-    navigate(id: string, url: string): void;
-    detach(id: string): void;
+  // <webview>はElectronのwebviewTagで有効化される要素。ブラウザや
+  // 無効化されたrendererではただのunknown elementになりloadURLを持たない。
+  interface WebviewElement extends HTMLElement {
+    loadURL(url: string): Promise<unknown>;
+    getURL(): string;
   }
-
-  const bridge = (window as { plugumiSite?: SiteBridge }).plugumiSite;
-  const id = `site-${crypto.randomUUID()}`;
+  const supported = "loadURL" in document.createElement("webview");
 
   let draft = $state("");
   let current = $state("");
-  let placeholder = $state<HTMLDivElement | undefined>();
-  let attached = $state(false);
+  let view = $state<WebviewElement | undefined>();
 
   function validURL(value: string): string | undefined {
     try {
@@ -36,38 +34,32 @@
   }
 
   onMount(() => {
-    if (bridge === undefined || placeholder === undefined) return;
-    bridge.attach(id, "");
-    attached = true;
-    const report = () => {
-      if (placeholder === undefined) return;
-      const r = placeholder.getBoundingClientRect();
-      bridge.bounds(id, { x: r.x, y: r.y, width: r.width, height: r.height });
+    if (!supported || view === undefined) return;
+    // guest内の遷移をアドレス欄へ反映する。
+    const sync = () => {
+      const url = view === undefined ? "" : view.getURL();
+      current = url === "about:blank" ? "" : url;
     };
-    const observer = new ResizeObserver(report);
-    observer.observe(placeholder);
-    // scrollやtab切替でrectが変わってもResizeObserverが来ないことがあるので
-    // 定期報告でフォローする。
-    const timer = setInterval(report, 300);
-    report();
-    return () => {
-      clearInterval(timer);
-      observer.disconnect();
-      bridge.detach(id);
-    };
+    view.addEventListener("did-navigate", sync);
+    view.addEventListener("did-navigate-in-page", sync);
+    // target=_blank等はpopupを出さず同じviewで開く。
+    view.addEventListener("new-window", (event) => {
+      const url = validURL((event as { url?: string }).url ?? "");
+      if (url !== undefined && view !== undefined) void view.loadURL(url);
+    });
   });
 
   function go() {
     const url = validURL(draft);
-    if (url === undefined) return;
+    if (url === undefined || view === undefined) return;
     current = url;
-    bridge?.navigate(id, url);
+    void view.loadURL(url);
   }
 </script>
 
 <div class="panel">
-  {#if bridge === undefined}
-    <p class="unavailable">このPanelはElectronでのみ使えます（WebContentsViewが要ります）</p>
+  {#if !supported}
+    <p class="unavailable">このPanelはElectronでのみ使えます（webviewが要ります）</p>
   {:else}
     <form
       onsubmit={(event) => {
@@ -78,8 +70,9 @@
       <input type="text" bind:value={draft} placeholder="https://…" />
       <button type="submit">移動</button>
     </form>
-    <div class="view" bind:this={placeholder}>
-      {#if !attached || current === ""}
+    <div class="view">
+      <webview bind:this={view} src="about:blank" webpreferences="contextIsolation=yes, sandbox=yes"></webview>
+      {#if current === ""}
         <p class="hint">URLを入力して移動を押してください</p>
       {/if}
     </div>
@@ -120,12 +113,23 @@
   }
   .view {
     flex: 1;
+    position: relative;
     border: 1px dashed var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-sm);
     display: flex;
+    min-height: 0;
+  }
+  .view webview {
+    flex: 1;
+    min-height: 0;
+  }
+  .hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 0;
+    pointer-events: none;
   }
   .hint, .unavailable {
     color: var(--plugumi-colors-text-muted);

@@ -11,7 +11,6 @@ import { findHost, spawnHost } from "./host.js";
 import { followHostCores } from "./cores.js";
 import { Windows } from "./windows.js";
 import { windowTools } from "./tools.js";
-import { registerSiteHandlers } from "./siteviews.js";
 
 // OS領域の帯（shellのenv(titlebar-area-height)既定値）に合わせる。
 // 色はテーマ連動（rendererのplugumi:theme通知でsetTitleBarOverlayする）。
@@ -52,6 +51,8 @@ async function start(): Promise<void> {
         preload: join(__dirname, "../preload/index.js"),
         contextIsolation: true,
         sandbox: true,
+        // Site Panelが<webview>で外部サイトをDOM内に埋め込むために要る。
+        webviewTag: true,
       },
     });
     // detachedはrouteのpath+queryをそのまま開く。browserHistoryなので
@@ -73,9 +74,6 @@ async function start(): Promise<void> {
   ipcMain.on("plugumi:open-window", (_event, path: unknown) => {
     if (typeof path === "string" && path.startsWith("/")) void windows.open(path);
   });
-  // Panel領域へのWebContentsView貼り付け。
-  registerSiteHandlers();
-
   // 内部ブラウザ由来のToolとPanelをhostのCoreへ登録する。windowとは
   // 独立に動かし、Coreの増減はhostの/api/coresに追従する。
   // UI bundle（ui/dist）は未buildならPanel無しで動かす。
