@@ -34,9 +34,6 @@ func TestAddProject(t *testing.T) {
 	if err := document.AddProject("Bad Name"); err != ErrInvalidName {
 		t.Fatalf("invalid: %v", err)
 	}
-	if !document.RemoveProject("plugumi") || document.RemoveProject("plugumi") {
-		t.Fatal("remove")
-	}
 }
 
 func TestNestedAreas(t *testing.T) {

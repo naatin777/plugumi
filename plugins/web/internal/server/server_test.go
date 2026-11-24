@@ -512,10 +512,6 @@ func TestProjectAPIs(t *testing.T) {
 		strings.Contains(response.Body.String(), `"main"`) {
 		t.Fatalf("tree after delete: %s", response.Body)
 	}
-	// Project削除。
-	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/plugumi", ""); response.Code != http.StatusNoContent {
-		t.Fatalf("delete project: %d", response.Code)
-	}
 }
 
 func TestProjectAPIsRequireCoreName(t *testing.T) {

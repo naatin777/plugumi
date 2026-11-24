@@ -102,18 +102,6 @@ func (document *Document) AddProject(name string) error {
 	return nil
 }
 
-// RemoveProject はProjectを削除する。
-func (document *Document) RemoveProject(name string) bool {
-	index := slices.IndexFunc(document.Projects, func(project Project) bool {
-		return project.Name == name
-	})
-	if index < 0 {
-		return false
-	}
-	document.Projects = slices.Delete(document.Projects, index, index+1)
-	return true
-}
-
 // FindArea はpath（親からの名前列、空=直下不可でProject自身ではない）で
 // Areaを指す。pathの各要素はその親の直下にあること。
 func (project *Project) FindArea(path []string) *Area {

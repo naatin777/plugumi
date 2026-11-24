@@ -57,7 +57,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/cores/{key}/call", s.callTool)
 	mux.HandleFunc("GET /api/cores/{key}/projects", s.listProjects)
 	mux.HandleFunc("POST /api/cores/{key}/projects", s.addProject)
-	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}", s.removeProject)
 	mux.HandleFunc("POST /api/cores/{key}/projects/{project}/areas", s.addArea)
 	mux.HandleFunc("DELETE /api/cores/{key}/projects/{project}/areas/{rest...}", s.removeArea)
 	// workspaceのパスは{rest...}末尾が"workspace"のときだけ扱う
@@ -400,16 +399,6 @@ func (s *Server) addProject(w http.ResponseWriter, r *http.Request) {
 			return map[string]any{"error": map[string]any{"message": "name already exists"}}, http.StatusConflict
 		}
 		return map[string]any{"name": body.Name}, http.StatusCreated
-	})
-}
-
-func (s *Server) removeProject(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("project")
-	s.projectContext(w, r, func(document *projects.Document) (any, int) {
-		if !document.RemoveProject(name) {
-			return map[string]any{"error": map[string]any{"message": "project not found"}}, http.StatusNotFound
-		}
-		return nil, http.StatusNoContent
 	})
 }
 
