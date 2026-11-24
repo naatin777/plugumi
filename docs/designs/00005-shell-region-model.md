@@ -66,7 +66,7 @@ Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に�
 表示方式は全領域で共通の**pages**だけである。centerはsplitの木で区画に分け、並べて見たいPanelはsplitで並べる。
 
 - **pages**（left・bottom・right・centerのleaf）: tab帯に全Panelのtabを並べ、中身は1つのPanelだけを見せる。Panelは画面外にも本来の大きさのまま横に並んでおり、切り替えると横にスライドする。見えていないPanelは大きさを保ったまま描画だけを止める（`content-visibility: hidden`）。
-- **切り替え**: tabの選択、tab帯・Panelの中身の上での横スワイプ（1回で1つ隣へ）、前後のキー、マウスの戻る・進むボタンで行う。Panelの中身の上では、scroll位置からその方向へ横scrollできる中身があるときは中身のscrollを優先し、出来ないときだけpageを前後させる（scroll chainingと同じ優先順位）。ブラウザの「戻る/進む」が発動しないよう`overscroll-behavior-x: contain`とwheelのpreventDefaultを併用する。
+- **切り替え**: tabの選択、tab帯・Panelの中身の上での横スワイプ、前後のキー、マウスの戻る・進むボタンで行う。中身は横scrollのcontainer（`overflow-x: auto`＋`scroll-snap-type: x mandatory`）なので、追従・momentum・端での跳ね返り・snap back・中身scroll優先（scroll chaining）はすべてネイティブに任せる。ブラウザの「戻る/進む」が発動しないよう`overscroll-behavior-x: contain`を付ける。
 
 選択中（active）のPanelは各dock・leafの`selected`だけで決まる。
 
@@ -194,7 +194,7 @@ panel.setActivity({
 ## 横スワイプの範囲
 
 - **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。tabはタイトルが数文字読める最小幅（`min(6em, 100%)`）までしか縮まず、溢れた分はtab帯自体の横scroll（縦ホイールでもscrollできる）。「×」は選択中のtabだけ常に出し、非選択tabはhover/focus時だけタイトルの上へ重ねて出す。
-- **Panelの中身**: 中身がその方向へ横scrollできる間は中身のscrollが優先される。scrollできない（scroll領域が無い、または端まで行った）横スワイプはpagesのtrackをgestureに追従させてずらし、隣のpageをのぞかせる。push中（指で動かしている間）はtrackが追従するだけでpageは切り替わらない — 切り替えるかはgestureの終わり（指が離れてdeltaが減衰し始めた、または流れが止まった時点）に位置と速度から決める（十分にずれている、または移動量は小さくても速度の高いflickなら1つ隣へ、足りなければ元へ戻す）。gestureの終わりは固定の待ち時間ではなく直近のevent間隔から適応して判定する（ゆっくりなgestureはevent自体がまばらなので、固定値だと小休止を終了と誤判定してtrackが跳ねる）。決着後のmomentumのdeltaはtrackを動かさない。momentumは減衰しかしないので、減衰中にdeltaが急増したら指が戻った新しいpushとみなして再び受け付ける（逆方向・gestureの終了でも再武装する）。
+- **Panelの中身**: pagesのviewport自体が横scroll containerなので、中身がその方向へ横scrollできる間は中身がscrollし、端まで行くとscroll chainingでそのままviewportへ流れてpageがずれる — 優先順位の判定コードは要らず、ネイティブのscroll chainingがそのまま目的の挙動になる。scroll中はscroll位置から選択中をliveにtabへ反映し、gesture由来でないscroll（Panel内の`scrollIntoView`など）は収まった時点で選択中のpageへ戻す（scroll container化の副作用として、`scrollIntoView`がviewportまでscrollさせてpageをずらすことがあるため）。
 
 ## 用語
 

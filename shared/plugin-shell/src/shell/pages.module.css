@@ -1,23 +1,21 @@
-/* pages — 全領域で同じ形。viewportはoverflow:clip（scrollはさせず
-   trackの平行移動で切替える — hiddenだとscroll containerになり
-   中のscrollIntoViewでずれる）。 */
+/* pages — 全領域で同じ形。viewportは横scrollのcontainerで、切替えは
+   scroll-snap（追従・momentum・snap backはネイティブ）。scrollbarは
+   隠して、ブラウザの戻る/進むはoverscroll-behaviorで抑える。 */
 @layer components {
 
-  .pages-viewport { height: 100%; min-height: 0; overflow: clip; }
-  .pages-track {
-    display: flex; height: 100%;
-    transform: translateX(calc(var(--page-index, 0) * -100% + var(--page-drag-px, 0px)));
-    /* 160msはpages.tsxのSLIDE_MSと揃える。wheel gestureの決着時は
-       残り距離に応じたtransition-durationがinlineで上書きされる。 */
-    transition: transform 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  .pages-viewport {
+    height: 100%; min-height: 0;
+    overflow-x: auto;
+    overflow-y: clip;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
   }
-  /* wheel gestureで指に追従している間はtransitionを切る。 */
-  .pages-track[data-wheel-drag] { transition: none; }
+  .pages-viewport::-webkit-scrollbar { display: none; }
+  .pages-track { display: flex; height: 100%; }
   .pages-page {
     flex: none; width: 100%; min-width: 0; min-height: 0;
     position: relative;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .pages-track { transition: none; }
+    scroll-snap-align: start;
   }
 }

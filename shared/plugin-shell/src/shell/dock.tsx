@@ -40,6 +40,10 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
     const id = flipPage(stack().panels, stack().selected, direction);
     if (id) ops.select(id);
   };
+  const select = (index: number) => {
+    const ref = stack().panels[index];
+    if (ref) ops.select(ref.instanceId);
+  };
 
   return (
     <section
@@ -81,7 +85,7 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
             when={stack().panels.length > 0}
             fallback={<div class={styles["dock-empty"]}>Panel を開くとここに表示されます</div>}
           >
-            <PagesTrack refs={stack().panels} selected={stack().selected} onFlip={flip} />
+            <PagesTrack refs={stack().panels} selected={stack().selected} onSelect={select} />
           </Show>
         </div>
       </div>

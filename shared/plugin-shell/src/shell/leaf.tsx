@@ -37,6 +37,10 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
     const id = flipPage(props.leaf.panels, props.leaf.selected, direction);
     if (id) area.applyLayout((state) => selectPanel(state, id));
   };
+  const select = (index: number) => {
+    const ref = props.leaf.panels[index];
+    if (ref) area.applyLayout((state) => selectPanel(state, ref.instanceId));
+  };
   return (
     <section
       class={{ [styles["leaf"]]: true, [styles["focused"]]: focused() }}
@@ -66,7 +70,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
           when={props.leaf.panels.length > 0}
           fallback={<LeafEmpty leafId={props.leaf.id} />}
         >
-          <PagesTrack refs={props.leaf.panels} selected={props.leaf.selected} onFlip={flip} />
+          <PagesTrack refs={props.leaf.panels} selected={props.leaf.selected} onSelect={select} />
         </Show>
       </div>
     </section>
