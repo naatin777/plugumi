@@ -69,8 +69,9 @@
   --plugumi-colors-border-highlight: #8c8c8c;
   /* ガラスの上に乗る小さな「面」（選択tab）の色と輪郭。カードは
      vibrancy越しにデスクトップが透ける純ガラスなので、bgより暗い
-     色を塗ると「穴」に見える — 面は白で浮かせ、輪郭はhairline。 */
-  --plugumi-colors-raised: #ffffff;
+     色を塗ると「穴」に見える — 面は白で浮かせるが、素の白だと
+     明るすぎるので透過ホワイトにする。輪郭はhairline。 */
+  --plugumi-colors-raised: rgb(255 255 255 / 0.3);
   --plugumi-colors-raised-edge: var(--plugumi-colors-border);
   /* カード内の操作面（hover・pressed）の塗り。白の透過で上に
      明るく載せる — 暗い色を混ぜると床が透ける場所で汚れになる。 */
@@ -170,8 +171,9 @@
   --plugumi-colors-border-highlight: #8c8c8c;
   /* ガラスの上に乗る小さな「面」（選択tab）の色と輪郭。カードは
      vibrancy越しにデスクトップが透ける純ガラスなので、bgより暗い
-     色を塗ると「穴」に見える — 面は白で浮かせ、輪郭はhairline。 */
-  --plugumi-colors-raised: #ffffff;
+     色を塗ると「穴」に見える — 面は白で浮かせるが、素の白だと
+     明るすぎるので透過ホワイトにする。輪郭はhairline。 */
+  --plugumi-colors-raised: rgb(255 255 255 / 0.3);
   --plugumi-colors-raised-edge: var(--plugumi-colors-border);
   /* カード内の操作面（hover・pressed）の塗り。白の透過で上に
      明るく載せる — 暗い色を混ぜると床が透ける場所で汚れになる。 */
