@@ -13,7 +13,7 @@
     flex: none;
   }
   .tab-strip {
-    display: flex; align-items: stretch;
+    display: flex; align-items: stretch; gap: var(--plugumi-spacing-xs);
     /* stripの高さいっぱい（上下spacing-xsの余白）までtabが伸びる。
        tab自体に固定heightは持たせない。 */
     align-self: stretch; box-sizing: border-box;
