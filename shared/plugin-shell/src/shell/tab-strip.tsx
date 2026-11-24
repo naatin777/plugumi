@@ -78,11 +78,23 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   onCleanup(() => clearTimeout(idle));
 
   // tabが溢れてstripがclipする場合、選択tabは常に見える位置へ寄せる。
+  // scrollIntoViewはblock方向に祖先のscroll container（overflow:hiddenの
+  // 台など）まで動かして中身をずらすので使わず、strip内の横scrollだけを
+  // 動かす。
   createEffect(
     () => props.selected,
     () => {
-      strip?.querySelector<HTMLElement>('[data-part="tab"][data-selected]')
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      const tab = strip?.querySelector<HTMLElement>('[data-part="tab"][data-selected]');
+      if (strip === undefined || tab === null) return;
+      const stripRect = strip.getBoundingClientRect();
+      const tabRect = tab.getBoundingClientRect();
+      // はみ出した側へ最小限寄せる（inline:"nearest"と同じ動き）。
+      const left = strip.scrollLeft + (tabRect.left - stripRect.left);
+      const right = left + tabRect.width;
+      if (left < strip.scrollLeft) strip.scrollLeft = left;
+      else if (right > strip.scrollLeft + strip.clientWidth) {
+        strip.scrollLeft = right - strip.clientWidth;
+      }
     },
   );
 

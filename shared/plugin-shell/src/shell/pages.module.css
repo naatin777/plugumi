@@ -1,8 +1,9 @@
-/* pages — 全領域で同じ形。viewportはoverflow:hidden（利用者は
-   自由scrollしない）、trackの平行移動で切替える。 */
+/* pages — 全領域で同じ形。viewportはoverflow:clip（scrollはさせず
+   trackの平行移動で切替える — hiddenだとscroll containerになり
+   中のscrollIntoViewでずれる）。 */
 @layer components {
 
-  .pages-viewport { height: 100%; min-height: 0; overflow: hidden; }
+  .pages-viewport { height: 100%; min-height: 0; overflow: clip; }
   .pages-track {
     display: flex; height: 100%;
     transform: translateX(calc(var(--page-index, 0) * -100%));

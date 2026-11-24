@@ -5,7 +5,9 @@
   .area-view {
     position: relative;
     min-width: 0; min-height: 0;
-    overflow: hidden;
+    /* scrollしない箱はclip（hiddenだとscroll containerになって
+       中のscrollIntoViewで面ごとずれる）。 */
+    overflow: clip;
     /* dock幅のcqw上限の基準（40cqw = この幅の40%） */
     container-type: inline-size;
     display: grid;

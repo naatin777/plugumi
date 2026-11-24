@@ -9,7 +9,9 @@
     height: 100%; min-height: 0;
     /* Panelの面自体は透明。カードの縁とガラスはタイル側が持つ。 */
     background: transparent;
-    overflow: hidden;
+    /* scrollしない箱はclip（hiddenだとscroll containerになって
+       Panel内のscrollIntoViewで面ごとずれる）。 */
+    overflow: clip;
   }
 
   .panel-state {
