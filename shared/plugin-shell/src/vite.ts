@@ -9,11 +9,13 @@ export function woff2Only() {
     enforce: "pre" as const,
     transform(code: string, id: string) {
       if (!id.includes("@fontsource") || !id.endsWith(".css")) return null;
-      // woff2以外のsrc行を消す。残した行だけでCSSとして成り立つ。
-      const kept = code
-        .split("\n")
-        .filter((line) => !line.includes(".woff") || line.includes(".woff2"));
-      return { code: kept.join("\n"), map: null };
+      // src行は woff2 と woff を1行に並べているので、woffのurl(...)だけを
+      // 取り除く。行単位で消すとwoff2も道連れになる。
+      const kept = code.replace(
+        /,?\s*url\([^)]*\.woff\)\s*format\(['"]woff['"]\)/g,
+        "",
+      );
+      return { code: kept, map: null };
     },
   };
 }
