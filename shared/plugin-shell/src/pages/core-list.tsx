@@ -1,5 +1,7 @@
-// Core一覧（/）。追加と削除もここで行う。予約名（api/assets/ui）と
-// 起動指定（command）のCoreはリンクしない。
+// Core一覧（/）。追加と削除もここで行う。リンクはURLに使えるkeyを
+// 持つCoreだけ — 予約名（api/assets/ui）と同名のCoreはkeyを持たない
+// ためリンクしない（designs/00004）。command指定のCoreは削除できない
+// だけで、画面遷移はできる。
 import { For, Show, createSignal, onSettled } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref } from "@solidjs/router";
@@ -87,7 +89,7 @@ function CoreRow(props: { entry: CoreEntry; refresh: () => Promise<void> }): JSX
   return (
     <li>
       <Show
-        when={props.entry.source !== "command" && props.entry.name}
+        when={props.entry.key !== ""}
         fallback={
           <span class={styles["core-entry"]}>
             <span class={controlStyles["status-dot"]} data-status={props.entry.status === "connected" ? "connected" : "error"} />
@@ -98,7 +100,7 @@ function CoreRow(props: { entry: CoreEntry; refresh: () => Promise<void> }): JSX
       >
         <a class={styles["core-entry"]} href={href()}>
           <span class={controlStyles["status-dot"]} data-status={props.entry.status === "connected" ? "connected" : props.entry.status === "connecting" ? "connecting" : "error"} />
-          {props.entry.name}
+          {props.entry.name || props.entry.url}
           <small>{statusText(props.entry)}</small>
         </a>
         <Show when={props.entry.source !== "command"}>
