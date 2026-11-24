@@ -37,8 +37,8 @@
     /* 中身のmin-contentが外側の大きさを押し広げないよう両方向0にする
        （row/columnどちらのflex itemになっても効く）。 */
     flex: 1; min-width: 0; min-height: 0; overflow: auto;
-    /* Panel内の横scrollはPanelのもの。外側（page切替やブラウザの
-       戻るスワイプ）へ伝えない（designs/00005「横スワイプの範囲」）。 */
-    overscroll-behavior-x: contain;
+    /* overscroll-behaviorは付けない — containするとPanel内をscroll
+       できない横deltaが外側のpages viewportへchainせず死んでしまう
+       （中身scrollの端からpage切替へ流れるのはchainingの仕事）。 */
   }
 }
