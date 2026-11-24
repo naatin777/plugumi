@@ -131,6 +131,21 @@ export const tokenNames = {
     lg: "--plugumi-spacing-lg",
     xl: "--plugumi-spacing-xl",
   },
+  zIndex: {
+    floor: "--plugumi-z-floor",
+    panelState: "--plugumi-z-panel-state",
+    resizer: "--plugumi-z-resizer",
+    activity: "--plugumi-z-activity",
+    drawerResizer: "--plugumi-z-drawer-resizer",
+    dockScrim: "--plugumi-z-dock-scrim",
+    dockDrawer: "--plugumi-z-dock-drawer",
+    divider: "--plugumi-z-divider",
+    scrim: "--plugumi-z-scrim",
+    subDrawer: "--plugumi-z-sub-drawer",
+    sideDrawer: "--plugumi-z-side-drawer",
+    subResizer: "--plugumi-z-sub-resizer",
+    ghost: "--plugumi-z-ghost",
+  },
 } as const;
 
 export function cssVar(name: string): string {

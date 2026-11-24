@@ -7,6 +7,7 @@ import type { JSX } from "@solidjs/web";
 import type { BuiltinPanelEntry } from "../host.tsx";
 import type { ShellController } from "../shell/controller.tsx";
 import type { ThemeMode } from "../prefs.ts";
+import styles from "./builtin.module.css";
 
 const MODES: readonly (readonly [ThemeMode, string])[] = [
   ["system", "システム"],
@@ -25,12 +26,12 @@ function ThemePanel(props: { shell: ShellController }): JSX.Element {
   onCleanup(() => systemQuery.removeEventListener("change", onScheme));
   const resolved = () => (theme() === "system" ? (osDark() ? "dark" : "light") : theme());
   return (
-    <div class="builtin-theme">
-      <div class="builtin-theme-seg" role="radiogroup" aria-label="テーマ">
+    <div class={styles["builtin-theme"]}>
+      <div class={styles["builtin-theme-seg"]} role="radiogroup" aria-label="テーマ">
         <For each={MODES}>
           {([mode, label]) => (
             <button
-              class={{ "builtin-theme-item": true, selected: theme() === mode }}
+              class={{ [styles["builtin-theme-item"]]: true, [styles["selected"]]: theme() === mode }}
               role="radio"
               aria-checked={theme() === mode ? "true" : "false"}
               onClick={() => props.shell.updatePrefs((prefs) => {
@@ -43,7 +44,7 @@ function ThemePanel(props: { shell: ShellController }): JSX.Element {
         </For>
       </div>
       <Show when={theme() === "system"}>
-        <p class="builtin-theme-note">
+        <p class={styles["builtin-theme-note"]}>
           今は{resolved() === "dark" ? "ダーク" : "ライト"}
         </p>
       </Show>

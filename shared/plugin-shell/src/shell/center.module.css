@@ -1,0 +1,7 @@
+/* center — splitのgrid。 */
+@layer layout {
+
+  .center { grid-area: center; min-width: 0; min-height: 0; display: flex; }
+  .center > * { flex: 1; min-width: 0; min-height: 0; }
+  .split { display: grid; min-width: 0; min-height: 0; }
+}

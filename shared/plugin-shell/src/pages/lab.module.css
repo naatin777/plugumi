@@ -1,5 +1,6 @@
 /* Style Labの見本レイアウト。Token/componentの確認用。 */
-@scope (:root) {
+@layer components {
+
   .lab {
     padding: var(--plugumi-spacing-lg);
     display: flex; flex-direction: column;
@@ -12,7 +13,6 @@
     background: var(--shell-frame-color);
   }
   .lab h1 { font-size: var(--plugumi-font-size-lg); margin: 0; }
-  .lab-link { color: var(--plugumi-colors-text); font-size: var(--plugumi-font-size-sm); }
   .lab h2 { font-size: var(--plugumi-font-size-md); margin: 0 0 var(--plugumi-spacing-sm); }
   .lab h3 { font-size: var(--plugumi-font-size-sm); color: var(--plugumi-colors-text-muted); margin: var(--plugumi-spacing-sm) 0 4px; }
   .lab-tokens { margin-bottom: var(--plugumi-spacing-sm); }
@@ -63,7 +63,9 @@
     /* WorkShape内の .work-body grid には --side-width が要る。
        ラッパーに書けば継承で届く。 */
   }
-  .lab-shape .work-title { position: relative; height: var(--os-inset-height, 40px); }
+  /* WorkShapeのtitle帯はabsoluteレイアウトなので、デモでは高さを
+     明示して器にする。 */
+  .lab-shape [data-part="titlebar"] { position: relative; height: var(--os-inset-height, 40px); }
   .lab-fill {
     display: flex; align-items: center; justify-content: center;
     color: var(--plugumi-colors-text-muted);

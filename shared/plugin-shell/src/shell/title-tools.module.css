@@ -1,5 +1,5 @@
-/* work帯（title）の中身 — Core switcher・picker・検索仮置き。 */
-@scope (:root) {
+/* work帯（title）の中身 — 「+」・検索仮置き・区画の空白。 */
+@layer components {
 
   /* 見えない空白。Firefoxのflexible space相当で、両側が同じflexなので
      中央の要素はbarが伸縮しても真ん中に留まる。 */
@@ -17,4 +17,14 @@
   }
   .bar-search:hover { color: var(--plugumi-colors-text); }
   .bar-search-key { margin-left: auto; color: var(--plugumi-colors-text-subtle); }
+
+  /* 狭いときは検索の文字を隠してアイコンだけにする。compactでは
+     segmentに収まらないので検索自体を畳む。 */
+  [data-part="shell"]:is([data-size="medium"], [data-size="compact"]) .bar-search-text,
+  [data-part="shell"]:is([data-size="medium"], [data-size="compact"]) .bar-search-key {
+    display: none;
+  }
+  [data-part="shell"][data-size="compact"] [data-slot="main"] .bar-search {
+    display: none;
+  }
 }

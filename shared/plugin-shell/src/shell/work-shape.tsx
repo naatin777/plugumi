@@ -1,12 +1,12 @@
-// work面の形（designs/00005「work面の形」）。浮いたtitle帯のbarと
-// body側のmatタイルからなる。溝の奥には床要素は敷かず、shellの背景が
-// そのまま見える。
+// work面の形（designs/00005「work面の形」）。平らなtitle帯（tool群と
+// 開閉区画の見えない区画）と、body側の列（Area list・work mat）からなる。
+// 溝の奥には床要素は敷かず、shellの背景がそのまま見える。
 // 使う変数（親要素のinline styleやCSSで供給）:
 //   --side-width … sidebarが開いていなければ0
 //   --title-tools-left / --title-tools-right … tool群の実測footprint
-//   --work-radius … 面の角丸
 import type { JSX } from "@solidjs/web";
 import { createEffect, onCleanup, type ParentProps } from "solid-js";
+import styles from "./work-shape.module.css";
 
 export interface WorkShapeProps {
   titleLeft?: JSX.Element;
@@ -36,7 +36,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
     () => null,
     () => {
       if (!leftInner || !rightInner) return;
-      const shell = leftInner.closest("main.shell, .lab-shape");
+      const shell = leftInner.closest('[data-part="shell"], [data-part="lab-shape"]');
       if (!(shell instanceof HTMLElement)) return;
       const pill = leftInner.parentElement;
       if (!pill) return;
@@ -61,23 +61,23 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
 
   return (
     <>
-      <header class="work-title" data-part="titlebar">
-        <div class="title-tools left">
-          <div class="tools-inner" ref={leftInner}>{props.titleLeft}</div>
+      <header class={styles["work-title"]} data-part="titlebar">
+        <div class={`${styles["title-tools"]} ${styles["left"]}`}>
+          <div class={styles["tools-inner"]} ref={leftInner}>{props.titleLeft}</div>
         </div>
-        <div class="work-segment" data-slot="main">{props.titleMain}</div>
-        <div class="work-segment" data-slot="sub">{props.titleSub}</div>
-        <div class="title-tools right">
-          <div class="tools-inner" ref={rightInner}>{props.titleRight}</div>
+        <div class={styles["work-segment"]} data-slot="main">{props.titleMain}</div>
+        <div class={styles["work-segment"]} data-slot="sub">{props.titleSub}</div>
+        <div class={`${styles["title-tools"]} ${styles["right"]}`}>
+          <div class={styles["tools-inner"]} ref={rightInner}>{props.titleRight}</div>
         </div>
       </header>
-      <div class="work-body">
+      <div class={styles["work-body"]}>
         {/* Sub・Area listのdrawerが開いている間、台のすぐ下・作業域全体に
             敷く薄い暗幕（app bar・status barは暗くしない）。col-dividerは
             DOM順でこの下になるので線は一緒に暗くなる。pointerは通す。 */}
-        <div class="shell-scrim" data-part="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
+        <div class={styles["shell-scrim"]} data-part="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
         <aside
-          class="frame-side"
+          class={styles["frame-side"]}
           data-part="area-list"
           data-drawer={props.sidebarDrawer ? "" : undefined}
           data-closed={props.sidebarClosed ? "" : undefined}
@@ -87,7 +87,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         >
           {props.sidebar}
         </aside>
-        <div class="work-mat" data-part="main-slot">
+        <div class={styles["work-mat"]} data-part="main-slot">
           {props.children}
         </div>
       </div>

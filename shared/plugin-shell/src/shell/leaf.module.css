@@ -1,13 +1,7 @@
-/* center — splitのgridと、そのleafカード。 */
-@scope (:root) {
+/* leaf — 「tab帯＋中身」の1枚のカード。scrollのleafも1枚で、
+   列はその中に並ぶ。 */
+@layer layout {
 
-  /* ---- center ---- */
-  .center { grid-area: center; min-width: 0; min-height: 0; display: flex; }
-  .center > * { flex: 1; min-width: 0; min-height: 0; }
-  .split { display: grid; min-width: 0; min-height: 0; }
-
-  /* leafも「tab帯＋中身」の1枚のカード。scrollのleafも1枚で、
-     列はその中に並ぶ。 */
   .leaf {
     position: relative;
     box-sizing: border-box;
@@ -19,10 +13,6 @@
     overflow: clip;
     overflow-clip-margin: 8px;
   }
-  /* focusedのleafの選択tabは文字色で区別する（線は使わない）。 */
-  .leaf.focused .tab.selected {
-    color: var(--plugumi-colors-text-strong);
-  }
   .leaf-body { flex: 1; min-width: 0; min-height: 0; position: relative; }
   .leaf-empty {
     width: 100%; height: 100%;
@@ -32,5 +22,15 @@
     cursor: pointer;
     /* 狭い葉で折り返して変な位置に出ないようにする。 */
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+@layer components {
+  /* focusedのleafの選択tabは文字色で区別する（線は使わない）。
+     .tabのcolorはcomponents層にあるので、ここもcomponents層で無いと
+     layout層からは必ず負ける。.focusedはleafのclassなのでこの
+     moduleのまま、tabはdata属性で拾う。 */
+  .leaf.focused [data-part="tab"][data-selected] {
+    color: var(--plugumi-colors-text-strong);
   }
 }

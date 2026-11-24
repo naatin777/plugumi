@@ -6,6 +6,8 @@ import { useHref } from "@solidjs/router";
 
 import { useShellHost, type CoreEntry } from "../host.tsx";
 import { ConfirmButton } from "../shell/inline.tsx";
+import styles from "./core-list.module.css";
+import controlStyles from "../shell/controls.module.css";
 
 const statusText = (entry: CoreEntry): string => {
   switch (entry.status) {
@@ -51,9 +53,9 @@ export default function CoreListPage(): JSX.Element {
   };
 
   return (
-    <div class="core-list-page">
+    <div class={styles["core-list-page"]}>
       <h1>Plugumi</h1>
-      <ul class="core-list">
+      <ul class={styles["core-list"]}>
         <For each={cores()}>
           {(entry) => <CoreRow entry={entry} refresh={refresh} />}
         </For>
@@ -61,10 +63,10 @@ export default function CoreListPage(): JSX.Element {
       <Show
         when={adding()}
         fallback={
-          <button class="core-add" onClick={() => setAdding(true)}>Core を追加</button>
+          <button class={styles["core-add"]} onClick={() => setAdding(true)}>Core を追加</button>
         }
       >
-        <form class="core-add-form" onSubmit={submit}>
+        <form class={styles["core-add-form"]} onSubmit={submit}>
           <input
             value={url()}
             onInput={(event) => setUrl(event.currentTarget.value)}
@@ -74,7 +76,7 @@ export default function CoreListPage(): JSX.Element {
           <button type="button" onClick={() => setAdding(false)}>やめる</button>
         </form>
       </Show>
-      <Show when={error()}><p class="core-error">{error()}</p></Show>
+      <Show when={error()}><p class={styles["core-error"]}>{error()}</p></Show>
     </div>
   );
 }
@@ -87,15 +89,15 @@ function CoreRow(props: { entry: CoreEntry; refresh: () => Promise<void> }): JSX
       <Show
         when={props.entry.source !== "command" && props.entry.name}
         fallback={
-          <span class="core-entry">
-            <span class="status-dot" data-status={props.entry.status === "connected" ? "connected" : "error"} />
+          <span class={styles["core-entry"]}>
+            <span class={controlStyles["status-dot"]} data-status={props.entry.status === "connected" ? "connected" : "error"} />
             {props.entry.name || props.entry.url}
             <small>{statusText(props.entry)}</small>
           </span>
         }
       >
-        <a class="core-entry" href={href()}>
-          <span class="status-dot" data-status={props.entry.status === "connected" ? "connected" : props.entry.status === "connecting" ? "connecting" : "error"} />
+        <a class={styles["core-entry"]} href={href()}>
+          <span class={controlStyles["status-dot"]} data-status={props.entry.status === "connected" ? "connected" : props.entry.status === "connecting" ? "connecting" : "error"} />
           {props.entry.name}
           <small>{statusText(props.entry)}</small>
         </a>

@@ -1,0 +1,16 @@
+/* 画面全体の土台。ページbodyはframe色。
+   color-schemeは書かない — 旧@scope (:root)では`:root`への宣言が
+   適用されず常にUA既定（light相当）で動いていた。ここでdarkを
+   宣言するとpopover・form control等のcanvastext解決が変わり、
+   見た目が変わってしまうため、旧来どおり宣言しないままにする。 */
+@layer base {
+  body {
+    margin: 0;
+    background: var(--shell-frame-color);
+    color: var(--plugumi-colors-text);
+    font-family: var(--plugumi-font-family-sans);
+    font-size: var(--plugumi-font-size-sm);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { height: 100vh; }
+}

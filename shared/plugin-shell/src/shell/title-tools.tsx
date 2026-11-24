@@ -12,6 +12,8 @@ import {
   IconDockLeft, IconDockBottom, IconDockRight,
   IconSearch,
 } from "../icons.tsx";
+import controlStyles from "./controls.module.css";
+import styles from "./title-tools.module.css";
 
 // popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
 const closePopover = (event: MouseEvent) => {
@@ -41,19 +43,19 @@ function CoreSwitcher(): JSX.Element {
   const statusOf = (status: string | undefined) =>
     status === "connected" ? "connected" : status === "connecting" ? "connecting" : "error";
   return (
-    <div class="core-switcher">
+    <div class={controlStyles["core-switcher"]}>
       <button
-        class="core-button"
+        class={controlStyles["core-button"]}
         onClick={(event) => openPopover(menu(), event.currentTarget)}
       >
         <span
-          class="status-dot"
+          class={controlStyles["status-dot"]}
           data-status={statusOf(shell.core()?.status)}
           aria-hidden="true"
         />
-        <span class="core-name">{shell.core()?.name || shell.core()?.key || "Core"}</span>
+        <span class={controlStyles["core-name"]}>{shell.core()?.name || shell.core()?.key || "Core"}</span>
       </button>
-      <div class="core-menu" id="core-menu" data-part="popover" popover="auto" ref={setMenu}>
+      <div class={controlStyles["core-menu"]} id="core-menu" data-part="popover" popover="auto" ref={setMenu}>
         <For each={shell.cores()}>
           {(entry) => <CoreMenuItem key={entry.key} name={entry.name} status={statusOf(entry.status)} />}
         </For>
@@ -75,14 +77,14 @@ function CoreMenuItem(props: { key: string; name: string; status: string }): JSX
   };
   return (
     <a
-      class={{ "core-menu-item": true, selected: props.key !== "" && props.key === shell.coreKey() }}
+      class={controlStyles["core-menu-item"]}
       href={href()}
       onClick={select}
     >
       <Show when={props.status}>
-        <span class="status-dot" data-status={props.status} aria-hidden="true" />
+        <span class={controlStyles["status-dot"]} data-status={props.status} aria-hidden="true" />
       </Show>
-      <span class="core-name">{props.name || props.key}</span>
+      <span class={controlStyles["core-name"]}>{props.name || props.key}</span>
     </a>
   );
 }
@@ -129,19 +131,19 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
       >
         <IconPlus />
       </ToolButton>
-      <div class="panel-picker" id="panel-picker" data-part="picker" popover="auto" ref={shell.bindPicker}>
-        <Show when={shell.panels().length > 0} fallback={<p class="picker-empty">開けるPanelがありません</p>}>
+      <div class={controlStyles["panel-picker"]} id="panel-picker" data-part="picker" popover="auto" ref={shell.bindPicker}>
+        <Show when={shell.panels().length > 0} fallback={<p class={controlStyles["picker-empty"]}>開けるPanelがありません</p>}>
           <For each={shell.panels()}>
             {(entry) => (
               <button
-                class="picker-item"
+                class={controlStyles["picker-item"]}
                 onClick={(event) => {
                   closePopover(event);
                   shell.pickPanel(entry);
                 }}
               >
                 {entry.title}
-                <span class="picker-plugin">{entry.pluginId}</span>
+                <span class={controlStyles["picker-plugin"]}>{entry.pluginId}</span>
               </button>
             )}
           </For>
@@ -149,18 +151,18 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
       </div>
       {/* 見えない空白（Firefoxのflexible space相当）。左右の群は
           barの幅に関係なく端に固定され、中央だけが真ん中に留まる。 */}
-      <span class="bar-flex" />
+      <span class={styles["bar-flex"]} />
       {/* 仮: 中身はまだないので、ひとまずpanel pickerを開くだけ。 */}
       <button
-        class="bar-search" aria-label="検索"
+        class={styles["bar-search"]} aria-label="検索"
         onClick={(event) =>
           shell.openPicker(props.area, undefined, event.currentTarget, "center")}
       >
         <IconSearch size={12} />
-        <span class="bar-search-text">検索</span>
-        <span class="bar-search-key">⌘K</span>
+        <span class={styles["bar-search-text"]}>検索</span>
+        <span class={styles["bar-search-key"]}>⌘K</span>
       </button>
-      <span class="bar-flex" />
+      <span class={styles["bar-flex"]} />
       <DockButtons area={props.area} />
     </>
   );

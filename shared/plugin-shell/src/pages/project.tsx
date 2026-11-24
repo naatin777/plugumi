@@ -11,6 +11,8 @@ import {
 } from "../shell/controller.tsx";
 import { ShellFrame } from "../shell/shell.tsx";
 import { AreaView, DragGhost } from "../shell/area-view.tsx";
+import styles from "../shell/shell.module.css";
+import workStyles from "../shell/work-shape.module.css";
 
 export default function ProjectPage(): JSX.Element {
   const host = useShellHost();
@@ -40,9 +42,12 @@ function DetachedArea(): JSX.Element {
     return path.length > 0 ? { project: params.project ?? "", path } : null;
   });
   return (
-    <main class={{ shell: true, detached: true, "no-aurora": !shell.prefs().aurora }}>
+    <main
+      class={{ [styles["shell"]]: true, [styles["detached"]]: true, [styles["no-aurora"]]: !shell.prefs().aurora }}
+      data-part="shell"
+    >
       {/* 最低限のtitle帯（窓のdrag領域）だけ残す。 */}
-      <header class="work-title detached-title" />
+      <header class={workStyles["work-title"]} />
       {/* Main扱い（dockあり）で1個だけ描く。同じAreaを元windowと同時に
           開くと独立に保存されlast-write-winsになる。 */}
       <AreaView area={area} slot="main" />

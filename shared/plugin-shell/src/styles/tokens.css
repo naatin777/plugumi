@@ -1,7 +1,9 @@
 /* Plugumi Design Tokens。このファイルが変数名と値の正本。
    @plugumi/plugin-view の tokenNames はこのファイルに対応する。
    colorsはDarkが:root既定、[data-plugumi-theme]で上書き。
-   typography/spacing/radiiはテーマ非依存で:rootのみ。 */
+   typography/spacing/radii/z-indexはテーマ非依存で:rootのみ。 */
+
+@layer tokens {
 
 :root {
   --plugumi-spacing-xs: 4px;
@@ -37,6 +39,24 @@
   --plugumi-letter-spacing-tight: -0.01em;
   --plugumi-letter-spacing-normal: 0;
   --plugumi-letter-spacing-wide: 0.02em;
+
+  /* 重なり順。値の大小関係がそのまま意味を持つ — 床 < Panel内の表示 <
+     溝のresizer < activityの飾り < drawer台のresizer < AreaViewの幕 <
+     dockの台 < 列線・作業域の幕・Subの台 < Area listの台・Subの列線
+     resizer < drag ghost。同じ値同士はDOM順で前後が決まる。 */
+  --plugumi-z-floor: -1;
+  --plugumi-z-panel-state: 1;
+  --plugumi-z-resizer: 2;
+  --plugumi-z-activity: 3;
+  --plugumi-z-drawer-resizer: 4;
+  --plugumi-z-dock-scrim: 5;
+  --plugumi-z-dock-drawer: 6;
+  --plugumi-z-divider: 7;
+  --plugumi-z-scrim: 7;
+  --plugumi-z-sub-drawer: 7;
+  --plugumi-z-side-drawer: 8;
+  --plugumi-z-sub-resizer: 8;
+  --plugumi-z-ghost: 9999;
 
   --plugumi-colors-background-primary: #121212;
   --plugumi-colors-background-secondary: #1E1E1E;
@@ -160,4 +180,5 @@
   --plugumi-colors-activity-3: #a0d4b5;
   --plugumi-colors-activity-4: #93b7ee;
   --plugumi-colors-activity-5: #b9a7e8;
+}
 }

@@ -195,13 +195,13 @@ export const PREPARE = (opts: { theme: string; sub: boolean; drawer: string }) =
   const btn = (label) => document.querySelector('button[aria-label="' + label + '"]');
   const click = (label) => { const b = btn(label); if (b) b.click(); };
   // Subの実効表示を合わせる。
-  const subPane = document.querySelector('.sub-pane');
+  const subPane = document.querySelector('[data-part="sub-slot"]');
   if (subPane && subPane.hasAttribute('data-closed') === ${opts.sub}) click('Sub');
   // drawerは1つだけ開く（"none"は全部閉じる）。
   const kinds = { left: '左の領域', right: '右の領域', bottom: '下の領域' };
   const drawer = ${JSON.stringify(opts.drawer)};
   // Sub drawerは上で済ませた。sideはArea listボタン（drawerのときだけ）。
-  const side = document.querySelector('.frame-side');
+  const side = document.querySelector('[data-part="area-list"]');
   const wantSide = drawer === 'side';
   if (side && side.hasAttribute('data-drawer')) {
     if (side.hasAttribute('data-closed') === wantSide) click('Area list');
@@ -209,7 +209,7 @@ export const PREPARE = (opts: { theme: string; sub: boolean; drawer: string }) =
   // dockはdrawer化しているときだけ開閉を触る。drawerはCSS上
   // position:absolute（inlineはgrid/static）なのでcomputed styleで見分ける。
   for (const [kind, label] of Object.entries(kinds)) {
-    const d = document.querySelector('.dock[data-dock="' + kind + '"]');
+    const d = document.querySelector('[data-part="dock"][data-dock="' + kind + '"]');
     if (!d || getComputedStyle(d).position !== 'absolute') continue;
     const want = drawer === kind;
     if (d.hasAttribute('data-closed') === want) click(label);

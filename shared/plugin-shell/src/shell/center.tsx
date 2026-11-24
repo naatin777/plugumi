@@ -6,6 +6,7 @@ import type { Node, Split } from "../layout/model.ts";
 import { useArea, layoutOps } from "./controller.tsx";
 import { LeafView } from "./leaf.tsx";
 import { Resizer } from "./resizer.tsx";
+import styles from "./center.module.css";
 
 // leafの各辺がregionの外縁に接するか。splitの内側の辺は直角にして
 // 分割溝を真っ直ぐに通し、外縁だけ丸い1枚のカードに見せる
@@ -17,7 +18,7 @@ export function CenterView(): JSX.Element {
   const area = useArea();
   const root = () => area.layout().center.root;
   return (
-    <div class="center" data-region="center">
+    <div class={styles["center"]} data-region="center">
       <NodeView node={root()} edges={OUTER_EDGES} />
     </div>
   );
@@ -45,7 +46,7 @@ function SplitView(props: { split: Split; edges: Edges }): JSX.Element {
   return (
     <div
       ref={element}
-      class="split"
+      class={styles["split"]}
       data-axis={props.split.axis}
       style={props.split.axis === "x"
         ? { "grid-template-columns": `${props.split.ratio}fr var(--area-gap) ${1 - props.split.ratio}fr` }

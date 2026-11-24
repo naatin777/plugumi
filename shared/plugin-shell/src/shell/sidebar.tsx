@@ -13,6 +13,7 @@ import { openPopover } from "./popover.ts";
 import { NameForm, ConfirmButton } from "./inline.tsx";
 import { Resizer } from "./resizer.tsx";
 import { IconChevronRight, IconPlus } from "../icons.tsx";
+import styles from "./sidebar.module.css";
 
 // popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
 const closePopover = (event: MouseEvent) => {
@@ -39,7 +40,7 @@ export function SidebarView(): JSX.Element {
           });
         }}
       />
-      <nav class="sidebar" data-part="sidebar">
+      <nav class={styles["sidebar"]} data-part="sidebar">
         <ProjectSwitcher />
         <AreaSlot slot="main" label="Main" />
         <AreaSlot slot="sub" label="Sub" />
@@ -55,22 +56,22 @@ function ProjectSwitcher(): JSX.Element {
   const [adding, setAdding] = createSignal(false);
   let menu!: HTMLDivElement;
   return (
-    <div class="project-switcher">
+    <div>
       <button
-        class="project-switcher-button"
+        class={styles["project-switcher-button"]}
         onClick={(event) => {
           setAdding(false);
           openPopover(menu, event.currentTarget);
         }}
       >
-        <span class="project-switcher-name">{shell.project()}</span>
+        <span class={styles["project-switcher-name"]}>{shell.project()}</span>
         <IconChevronRight size={12} />
       </button>
-      <div class="project-menu" data-part="popover" popover="auto" ref={menu}>
+      <div class={styles["project-menu"]} data-part="popover" popover="auto" ref={menu}>
         <For each={shell.projects()}>
           {(item) => (
             <button
-              class={{ "area-menu-item": true, selected: item.name === shell.project() }}
+              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: item.name === shell.project() }}
               onClick={(event) => {
                 closePopover(event);
                 navigate(`/${shell.coreKey()}/${item.name}/`);
@@ -83,7 +84,7 @@ function ProjectSwitcher(): JSX.Element {
         <Show
           when={adding()}
           fallback={
-            <button class="area-menu-item" onClick={() => setAdding(true)}>
+            <button class={styles["area-menu-item"]} onClick={() => setAdding(true)}>
               <IconPlus size={12} /> Projectを追加
             </button>
           }
@@ -112,10 +113,10 @@ function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
       ? mainAreas(shell.areaList(), areas())
       : subAreas(shell.areaList(), areas());
   return (
-    <section class="area-slot">
-      <p class="nav-label">{props.label}</p>
+    <section class={styles["area-slot"]}>
+      <p class={styles["nav-label"]}>{props.label}</p>
       <Show when={entries().length === 0}>
-        <p class="nav-empty">
+        <p class={styles["nav-empty"]}>
           {props.slot === "main" ? "Areaがありません" : "Subに移したAreaはありません"}
         </p>
       </Show>
@@ -187,13 +188,13 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
   return (
     <>
       <div
-        class={{ "area-row": true, selected: selected() }}
+        class={{ [styles["area-row"]]: true, [styles["selected"]]: selected() }}
           data-part="area-list-row"
         style={{ "padding-left": `${props.area.depth * 12}px` }}
       >
         <a href={href()} onClick={open}>{name()}</a>
         <button
-          class="area-menu-button"
+          class={styles["area-menu-button"]}
           aria-label="Areaのメニュー"
           onClick={(event) => {
             event.stopPropagation();
@@ -202,12 +203,12 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
         >
           …
         </button>
-        <div class="area-menu" data-part="popover" popover="auto" ref={menu}>
-          <button class="area-menu-item" onClick={move}>
+        <div class={styles["area-menu"]} data-part="popover" popover="auto" ref={menu}>
+          <button class={styles["area-menu-item"]} onClick={move}>
             {props.slot === "main" ? "Subへ" : "Mainへ"}
           </button>
           <button
-            class="area-menu-item"
+            class={styles["area-menu-item"]}
             onClick={(event) => {
               closePopover(event);
               setAddingChild(true);
@@ -217,15 +218,15 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           </button>
           {/* Subはcenterだけの表示なので表示切替はMain行にだけ出す。 */}
           <Show when={props.slot === "main"}>
-            <p class="area-menu-label">表示</p>
+            <p class={styles["area-menu-label"]}>表示</p>
             <button
-              class={{ "area-menu-item": true, selected: display() === "full" }}
+              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: display() === "full" }}
               onClick={setMode("full")}
             >
               すべて
             </button>
             <button
-              class={{ "area-menu-item": true, selected: display() === "center" }}
+              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: display() === "center" }}
               onClick={setMode("center")}
             >
               centerのみ
@@ -235,7 +236,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           <Show when={shell.host.windows}>
             {(windows) => (
               <button
-                class="area-menu-item"
+                class={styles["area-menu-item"]}
                 onClick={(event) => {
                   closePopover(event);
                   windows().open(`${href()}?window=detached`);
@@ -246,7 +247,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
             )}
           </Show>
           <ConfirmButton
-            class="area-menu-item danger"
+            class={`${styles["area-menu-item"]} ${styles["danger"]}`}
             label="Areaを削除"
             confirmLabel={`「${name()}」とその下のAreaを削除します`}
             confirm={() => {
@@ -259,7 +260,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
         </div>
       </div>
       <Show when={addingChild()}>
-        <div class="area-child-form">
+        <div class={styles["area-child-form"]}>
           <NameForm
             label={`「${name()}」の子Area名`}
             submit={async (child) => {
@@ -284,7 +285,7 @@ function AreaCreate(props: { slot: ListSlot; parent: string[] }): JSX.Element {
     <Show
       when={adding()}
       fallback={
-        <button class="area-add" onClick={() => setAdding(true)}>
+        <button class={styles["area-add"]} onClick={() => setAdding(true)}>
           <IconPlus size={12} /> Areaを追加
         </button>
       }

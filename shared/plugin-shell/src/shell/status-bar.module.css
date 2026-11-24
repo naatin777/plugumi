@@ -1,0 +1,14 @@
+/* status帯。上端は全幅の横線。 */
+@layer layout {
+
+  .status-bar {
+    position: relative;
+    border-top: 1px solid var(--plugumi-colors-border);
+    display: flex; align-items: center;
+    gap: var(--plugumi-spacing-sm);
+    padding: 0 var(--plugumi-spacing-md);
+    font-size: var(--plugumi-font-size-xs);
+    color: var(--plugumi-colors-text-muted);
+    overflow: hidden;
+  }
+}

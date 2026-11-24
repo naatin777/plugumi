@@ -11,6 +11,8 @@ import { leafBodyTest } from "./drag.ts";
 import { focusLeaf, selectPanel } from "../layout/model.ts";
 import { dividerAttr, surfaceAttrs, busyAttr } from "./activity.ts";
 import { IconPlus } from "../icons.tsx";
+import styles from "./leaf.module.css";
+import stripStyles from "./tab-strip.module.css";
 
 export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
   const area = useArea();
@@ -37,7 +39,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
   };
   return (
     <section
-      class={{ leaf: true, focused: focused() }}
+      class={{ [styles["leaf"]]: true, [styles["focused"]]: focused() }}
       data-part="leaf"
       style={{
         // splitの内側の辺は直角にし、外縁の角だけを丸める
@@ -51,7 +53,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
       {...surfaceAttrs(selectedInstance()?.activity(), "border")}
       {...busyAttr(selectedInstance()?.activity())}
     >
-      <header class="leaf-strip" data-part="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
+      <header class={stripStyles["leaf-strip"]} data-part="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
         <TabStrip
           refs={props.leaf.panels}
           selected={props.leaf.selected}
@@ -59,7 +61,7 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
           onFlip={flip}
         />
       </header>
-      <div class="leaf-body" ref={registerBody}>
+      <div class={styles["leaf-body"]} ref={registerBody}>
         <Show
           when={props.leaf.panels.length > 0}
           fallback={<LeafEmpty leafId={props.leaf.id} />}
@@ -75,7 +77,7 @@ function LeafEmpty(props: { leafId: string }): JSX.Element {
   const area = useArea();
   return (
     <button
-      class="leaf-empty"
+      class={styles["leaf-empty"]}
       aria-label="Panelを開く"
       onClick={(event) => {
         event.stopPropagation();

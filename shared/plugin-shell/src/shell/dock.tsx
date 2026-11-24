@@ -10,6 +10,8 @@ import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
 import { Resizer } from "./resizer.tsx";
 import { bodyTest } from "./drag.ts";
 import { surfaceAttrs, busyAttr, dividerAttr } from "./activity.ts";
+import styles from "./dock.module.css";
+import stripStyles from "./tab-strip.module.css";
 
 export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean }): JSX.Element {
   const area = useArea();
@@ -41,7 +43,7 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
 
   return (
     <section
-      class="dock"
+      class={styles["dock"]}
       data-part="dock"
       data-dock={props.kind}
       data-closed={props.closed || undefined}
@@ -59,14 +61,14 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
           このタイルを載せる。常設のwrapperにすることでdrawer⇔inlineの
           切替でPanel Instanceをunmountしない。 */}
       <div
-        class="dock-inner"
+        class={styles["dock-inner"]}
         data-part="dock-inner"
         // カードの枠は選択中のPanelのactivityを写す（drawer時も台ではなく
         // タイルに付くようinnerに置く）。
         {...surfaceAttrs(selectedActivity(), "border")}
         {...busyAttr(selectedActivity())}
       >
-        <div class="dock-strip" data-part="dock-strip" {...dividerAttr(selectedActivity())}>
+        <div class={stripStyles["dock-strip"]} data-part="dock-strip" {...dividerAttr(selectedActivity())}>
           <TabStrip
             refs={stack().panels}
             selected={stack().selected}
@@ -74,10 +76,10 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
             onFlip={flip}
           />
         </div>
-        <div class="dock-body">
+        <div class={styles["dock-body"]}>
           <Show
             when={stack().panels.length > 0}
-            fallback={<div class="dock-empty">Panel を開くとここに表示されます</div>}
+            fallback={<div class={styles["dock-empty"]}>Panel を開くとここに表示されます</div>}
           >
             <PagesTrack refs={stack().panels} selected={stack().selected} />
           </Show>
@@ -91,7 +93,7 @@ export function Dock(props: { kind: DockKind; closed?: boolean; drawer?: boolean
           // drawerでも同じdockSizeを共有する。上限は台の上限（幅85cqw・
           // 高さ70cqh。台 = dockSize + --area-pad*2 なのでpad分引く）で
           // clampし、上限を越えた値を保存しない。
-          const view = el.closest(".area-view");
+          const view = el.closest('[data-part="area-view"]');
           const pad = 2 * parseFloat(getComputedStyle(el).paddingTop);
           const max = props.drawer
             ? (horizontal()

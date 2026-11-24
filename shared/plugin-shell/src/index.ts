@@ -10,21 +10,12 @@ import "@fontsource/m-plus-1-code/latin-400.css";
 import "@fontsource/m-plus-1-code/latin-700.css";
 import "@fontsource/m-plus-1-code/japanese-400.css";
 import "@fontsource/m-plus-1-code/japanese-700.css";
+// cascade layerの宣言順は最初の読み込みが効くので、layerの宣言を先頭に置く。
+// componentの*.module.cssは描くcomponent自身がimportする。
+import "./styles/layers.css";
 import "./styles/tokens.css";
-import "./index.css";
-import "./shell/shell.css";
-import "./shell/controls.css";
-import "./shell/title-tools.css";
-import "./shell/tab-strip.css";
-import "./shell/panel-mount.css";
-import "./shell/resizer.css";
-import "./shell/dock.css";
-import "./shell/center.css";
-import "./shell/pages.css";
-import "./shell/sidebar.css";
-import "./shell/activity.css";
-import "./panels/builtin.css";
-import "./pages/lab.css";
+import "./styles/base.css";
+import "./styles/layout.css";
 
 export type {
   ShellHost, CoreEntry, PanelEntry, PluginPanelEntry, BuiltinPanelEntry,

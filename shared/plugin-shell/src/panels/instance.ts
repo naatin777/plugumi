@@ -92,7 +92,6 @@ export class PanelInstance {
     this.pluginId = ref.pluginId;
     this.panelId = ref.panelId;
     this.host = document.createElement("div");
-    this.host.className = "instance-host";
     this.host.dataset.part = "panel-host";
     this.host.dataset.plugumiPlugin = "";
     const [titleSignal, setTitle] = createSignal(title);

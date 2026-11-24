@@ -4,7 +4,7 @@
 // component自体を出さず、SubでdockのPanel Instanceをmountさせない）。
 // workspaceのデータは触らないので、そのAreaをMainへ移せばdockは戻る。
 // 表示形式 "center" はdockをdata-closedで畳むだけ — Panelの配置は保つ。
-// 幅に応じてdata-sizeを立て、狭いときはdockがdrawerになる（dock.css）。
+// 幅に応じてdata-sizeを立て、狭いときはdockがdrawerになる（dock.module.css）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { AreaController } from "./controller.tsx";
@@ -13,6 +13,8 @@ import type { DockKind } from "../layout/model.ts";
 import { AreaContext, useShell } from "./controller.tsx";
 import { Dock } from "./dock.tsx";
 import { CenterView } from "./center.tsx";
+import styles from "./area-view.module.css";
+import controlStyles from "./controls.module.css";
 
 export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.Element {
   const shell = useShell();
@@ -41,7 +43,7 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
   return (
     <AreaContext value={props.area}>
       <div
-        class="area-view"
+        class={styles["area-view"]}
         data-part="area-view"
         ref={observe}
         data-size={props.area.size()}
@@ -52,7 +54,7 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
           {/* drawerの台のすぐ下・centerの上に敷く薄い暗幕。
               AreaView内だけを暗くする。pointerは通す（閉じるのは
               今の外click判定のまま）。 */}
-          <div class="dock-scrim" data-part="dock-scrim" data-closed={props.area.drawer() === null ? "" : undefined} />
+          <div class={styles["dock-scrim"]} data-part="dock-scrim" data-closed={props.area.drawer() === null ? "" : undefined} />
           <Dock kind="left" closed={dockClosed("left")} drawer={props.area.dockIsDrawer("left")} />
         </Show>
         <CenterView />
@@ -68,8 +70,8 @@ export function AreaView(props: { area: AreaController; slot: ListSlot }): JSX.E
 // Mainに表示するAreaが無い（URLがAreaを指していない）ときの案内。
 export function AreaEmpty(): JSX.Element {
   return (
-    <div class="area-view" data-empty>
-      <p class="area-view-empty">
+    <div class={styles["area-view"]} data-empty>
+      <p class={styles["area-view-empty"]}>
         Areaを選んでください。左のArea listの「＋ Areaを追加」から追加できます。
       </p>
     </div>
@@ -83,7 +85,7 @@ export function DragGhost(): JSX.Element {
   return (
     <Show when={shell.ghost()}>
       {(ghost) => (
-        <div class="drag-ghost" style={{ left: `${ghost().x + 8}px`, top: `${ghost().y + 8}px` }}>
+        <div class={controlStyles["drag-ghost"]} style={{ left: `${ghost().x + 8}px`, top: `${ghost().y + 8}px` }}>
           {ghost().title}
         </div>
       )}

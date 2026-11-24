@@ -6,11 +6,13 @@ import { Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelInstance } from "../panels/instance.ts";
 import { useArea } from "./controller.tsx";
+import styles from "./panel-mount.module.css";
+import activityStyles from "./activity.module.css";
 
 export function PanelMount(props: { instance: PanelInstance }): JSX.Element {
   const host = props.instance.host;
   return (
-    <div class="panel-frame">
+    <div class={styles["panel-frame"]}>
       <ActivityProgress instance={props.instance} />
       <PanelState instance={props.instance} />
       {host}
@@ -26,7 +28,7 @@ export function ActivityProgress(props: { instance: PanelInstance }): JSX.Elemen
     <Show when={progress()}>
       {(value) => (
         <div
-          class="activity-progress"
+          class={activityStyles["activity-progress"]}
           data-kind={value().kind}
           style={value().kind === "determinate"
             ? { width: `${Math.min(100, Math.max(0, (value() as { kind: "determinate"; value: number }).value * 100))}%` }
@@ -42,7 +44,7 @@ export function PanelState(props: { instance: PanelInstance }): JSX.Element {
   const area = useArea();
   return (
     <Show when={props.instance.state() !== "mounted" || props.instance.error()}>
-      <div class="panel-state">
+      <div class={styles["panel-state"]}>
         <Show when={props.instance.error()}>
           {(error) => (
             <>

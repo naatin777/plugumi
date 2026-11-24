@@ -1,5 +1,5 @@
 /* sidebar — project/areaツリー。frame色の面に直接置く。 */
-@scope (:root) {
+@layer components {
 
   /* ---- sidebar（frame色の面に直接置く） ---- */
   .sidebar {
@@ -34,27 +34,7 @@
   }
   .area-child-form { padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm); }
 
-  .project-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
-  .project-tab {
-    display: inline-flex; align-items: center;
-    border: 1px solid var(--plugumi-colors-border);
-    border-radius: var(--plugumi-radii-md);
-    background: var(--plugumi-colors-background-secondary);
-    font-size: var(--plugumi-font-size-xs);
-  }
-  .project-tab a {
-    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-    color: var(--plugumi-colors-text-muted); text-decoration: none;
-  }
-  .project-tab.selected { border-color: var(--plugumi-colors-border-strong); }
-  .project-tab.selected a { color: var(--plugumi-colors-text); }
-  .project-close {
-    display: inline-flex; padding: 2px; margin-right: 2px;
-    border: none; background: transparent; color: var(--plugumi-colors-text-muted);
-    cursor: pointer; border-radius: var(--plugumi-radii-sm);
-  }
-  .project-close:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
-  .project-add, .area-add, .area-add-child, .area-remove {
+  .project-add, .area-add {
     display: inline-flex; align-items: center; gap: 2px;
     border: 1px dashed var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-md);
@@ -62,8 +42,6 @@
     padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
     font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
   }
-  .area-list { list-style: none; margin: 0; padding-left: var(--plugumi-spacing-sm); }
-  .area-tree > .area-list { padding-left: 0; }
   .area-row {
     display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
     padding: 2px var(--plugumi-spacing-xs);
@@ -71,9 +49,6 @@
   }
   .area-row.selected { background: var(--plugumi-colors-background-tertiary); }
   .area-row a { color: var(--plugumi-colors-text); text-decoration: none; flex: 1; }
-  .area-add-child, .area-remove { border: none; padding: 2px; visibility: hidden; }
-  .area-row:hover .area-add-child, .area-row:hover .area-remove { visibility: visible; }
-  .area-hint { color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-xs); }
 
   /* ---- Main/Subセクション（Areaの一覧） ---- */
   .area-slot {
@@ -93,7 +68,7 @@
     color: var(--plugumi-colors-text-subtle);
     font-size: var(--plugumi-font-size-xs);
   }
-  /* Area listの行（.area-rowはtree側と同じ見た目を共有）。 */
+  /* Area listの行。 */
   .area-menu-button {
     border: none; padding: 0 4px;
     background: transparent; color: var(--plugumi-colors-text-muted);
@@ -103,7 +78,7 @@
   .area-row:hover .area-menu-button, .area-menu-button:focus-visible { visibility: visible; }
   .area-menu-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
 
-  .area-menu, .area-picker {
+  .area-menu {
     padding: var(--plugumi-spacing-xs);
     border: 1px solid var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-md);
@@ -112,7 +87,6 @@
     font: inherit; font-size: var(--plugumi-font-size-xs);
     min-width: 160px;
   }
-  .area-picker { width: 220px; max-height: 320px; overflow-y: auto; }
   .area-menu-label {
     margin: var(--plugumi-spacing-xs) var(--plugumi-spacing-xs) 2px;
     color: var(--plugumi-colors-text-muted);

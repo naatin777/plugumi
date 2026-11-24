@@ -11,8 +11,9 @@ import type { PanelRef } from "../layout/model.ts";
 import { useArea } from "./controller.tsx";
 import { PanelMount } from "./panel-mount.tsx";
 import { surfaceAttrs } from "./activity.ts";
+import styles from "./pages.module.css";
 
-// slideの長さ。pages.cssの--pages-slideと揃える。
+// slideの長さ。pages.module.cssのtransition（160ms）と揃える。
 const SLIDE_MS = 160;
 
 // 選択中から±1へ。端で止める（回らない）。移動したかを返す。
@@ -79,9 +80,9 @@ export function PagesTrack(props: {
     instanceId === props.selected || instanceId === outgoing();
 
   return (
-    <div class="pages-viewport">
+    <div class={styles["pages-viewport"]}>
       <div
-        class="pages-track"
+        class={styles["pages-track"]}
         style={{
           "--page-index": String(
             Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected)),
@@ -97,7 +98,7 @@ export function PagesTrack(props: {
             const instance = area.instance(ref);
             return (
               <div
-                class="pages-page"
+                class={styles["pages-page"]}
                 style={{
                   "content-visibility": visible(instanceId) ? "visible" : "hidden",
                 }}

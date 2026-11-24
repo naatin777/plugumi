@@ -1,5 +1,5 @@
 /* tab帯（カードのheader）とtab。 */
-@scope (:root) {
+@layer components {
 
   /* ---- tab帯はカードのheader ----
      dock・centerのleafは、それぞれ「tab帯（header）＋中身」
@@ -68,6 +68,13 @@
   .tab.selected {
     background: var(--plugumi-colors-background-tertiary);
     color: var(--plugumi-colors-text);
+  }
+  /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と
+     toneのattrはactivity.module.cssが持つ（ここは.tabがlocalな
+     ため、attrを受けたtabだけを拾う）。 */
+  .tab[data-activity-header] {
+    background: linear-gradient(var(--activity-color), var(--activity-color))
+      0 0 / 100% 2px no-repeat;
   }
   .tab-close {
     display: inline-flex; padding: 1px;

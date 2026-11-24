@@ -1,22 +1,6 @@
-/* 画面全体の土台。ページbodyはframe色。 */
-@scope (:root) {
-  :root {
-    color-scheme: dark;
-  }
-  :root[data-plugumi-theme="light"] {
-    color-scheme: light;
-  }
-  body {
-    margin: 0;
-    background: var(--shell-frame-color);
-    color: var(--plugumi-colors-text);
-    font-family: var(--plugumi-font-family-sans);
-    font-size: var(--plugumi-font-size-sm);
-    -webkit-font-smoothing: antialiased;
-  }
-  #root { height: 100vh; }
+/* Core一覧（/）。shellの外の画面。 */
+@layer components {
 
-  /* Core一覧（/）。shellの外の画面。 */
   .core-list-page {
     max-width: 520px;
     margin: 0 auto;

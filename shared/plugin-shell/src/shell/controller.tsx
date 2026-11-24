@@ -68,7 +68,7 @@ export interface ShellController {
   mainRef(): AreaRef | null;
   subRef(): AreaRef | null;
   displayOf(ref: AreaRef | null): AreaDisplay;
-  // ページ送りなど「触っている側」のArea（.area-viewのpointerdownで更新）。
+  // ページ送りなど「触っている側」のArea（[data-part="area-view"]のpointerdownで更新）。
   focusedArea(): AreaController | null;
   setFocusedArea(area: AreaController): void;
 

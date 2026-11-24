@@ -2,7 +2,7 @@
 // work面の形はCSSだけで決まる。
 // （Area list＋Sub）をまとめて畳む。キーはe.codeで見る（⌥⌘1-5, ⌥⌘Z）。
 // main.shellの幅はResizeObserverで測りshellSizeへ — 狭いときはSubと
-// Area listがdrawerになる（shell.cssのdata-size規則）。
+// Area listがdrawerになる（shell.module.css・work-shape.module.cssのdata-size規則）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useShell, createAreaController } from "./controller.tsx";
@@ -14,6 +14,8 @@ import { TitleToolsLeft, TitleSegmentMain, TitleSegmentSub, TitleToolsRight } fr
 import { SidebarView } from "./sidebar.tsx";
 import { AreaView, AreaEmpty, DragGhost } from "./area-view.tsx";
 import { Resizer } from "./resizer.tsx";
+import styles from "./shell.module.css";
+import areaStyles from "./area-view.module.css";
 
 export function ShellFrame(): JSX.Element {
   const shell = useShell();
@@ -104,7 +106,7 @@ export function ShellFrame(): JSX.Element {
   return (
     <main
       ref={observe}
-      class={{ shell: true, "no-aurora": !prefs().aurora }}
+      class={{ [styles["shell"]]: true, [styles["no-aurora"]]: !prefs().aurora }}
       data-part="shell"
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
       data-size={shell.shellSize()}
@@ -121,8 +123,8 @@ export function ShellFrame(): JSX.Element {
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/
           data-subで切り替える。 */}
-      <div class="col-divider" data-part="col-divider" data-divider="side" />
-      <div class="col-divider" data-part="col-divider" data-divider="sub" />
+      <div class={styles["col-divider"]} data-part="col-divider" data-divider="side" />
+      <div class={styles["col-divider"]} data-part="col-divider" data-divider="sub" />
       <WorkShape
         titleLeft={<TitleToolsLeft />}
         titleMain={<TitleSegmentMain area={mainArea} />}
@@ -153,7 +155,7 @@ export function ShellFrame(): JSX.Element {
               // drawerでも同じsubWidthを共有する。上限はdrawerの上限
               // （work-mat幅の90%）でclampし、越えた値は保存しない。
               const max = shell.subDrawerMode()
-                ? 0.9 * (document.querySelector(".work-mat")?.clientWidth ?? innerWidth)
+                ? 0.9 * (document.querySelector('[data-part="main-slot"]')?.clientWidth ?? innerWidth)
                 : 960;
               const clamped = Math.min(max, Math.max(240, size));
               shell.updatePrefs((prefs) => { prefs.subWidth = clamped; });
@@ -161,7 +163,7 @@ export function ShellFrame(): JSX.Element {
           />
         </Show>
         <div
-          class="sub-pane"
+          class={styles["sub-pane"]}
           data-part="sub-slot"
           data-closed={!shell.subShown() || undefined}
           // drawerのSubの中へのclickは「外」にしない。
@@ -169,7 +171,7 @@ export function ShellFrame(): JSX.Element {
         >
           <Show
             when={shell.subRef()}
-            fallback={<p class="area-view-empty">Subに表示するAreaを選んでください</p>}
+            fallback={<p class={areaStyles["area-view-empty"]}>Subに表示するAreaを選んでください</p>}
           >
             <AreaView area={subArea} slot="sub" />
           </Show>

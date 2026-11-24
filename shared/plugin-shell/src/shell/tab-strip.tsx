@@ -12,6 +12,7 @@ import { surfaceAttrs, busyAttr } from "./activity.ts";
 import { useArea, layoutOps } from "./controller.tsx";
 import { IconClose } from "../icons.tsx";
 import { stripTest } from "./drag.ts";
+import styles from "./tab-strip.module.css";
 
 export interface TabStripProps {
   refs: PanelRef[];
@@ -80,7 +81,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   createEffect(
     () => props.selected,
     () => {
-      strip?.querySelector<HTMLElement>(".tab.selected")
+      strip?.querySelector<HTMLElement>('[data-part="tab"][data-selected]')
         ?.scrollIntoView({ block: "nearest", inline: "nearest" });
     },
   );
@@ -95,13 +96,13 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   };
 
   return (
-    <div class="tab-strip" ref={register}>
+    <div class={styles["tab-strip"]} ref={register}>
       <For each={props.refs}>
         {(ref) => {
           const inst = () => area.instance(ref);
           return (
             <div
-              class={{ tab: true, selected: props.selected === ref.instanceId }}
+              class={{ [styles["tab"]]: true, [styles["selected"]]: props.selected === ref.instanceId }}
               data-part="tab"
               data-selected={props.selected === ref.instanceId || undefined}
               role="tab"
@@ -110,9 +111,9 @@ export function TabStrip(props: TabStripProps): JSX.Element {
               {...surfaceAttrs(inst().activity(), "header")}
               {...busyAttr(inst().activity())}
             >
-              <span class="tab-title">{inst().title()}</span>
+              <span class={styles["tab-title"]}>{inst().title()}</span>
               <button
-                class="tab-close"
+                class={styles["tab-close"]}
                 data-part="tab-close"
                 aria-label="閉じる"
                 onPointerDown={(event) => event.stopPropagation()}

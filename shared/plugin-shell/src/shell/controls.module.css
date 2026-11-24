@@ -1,5 +1,7 @@
-/* Shell共通の部品（icon-button・状態dot・名前入力・drag表示）。 */
-@scope (:root) {
+/* Shell共通の部品（icon-button・状態dot・名前入力・Core switcher・
+   picker・drag表示）。これらを描くcomponentがそれぞれこのmoduleを
+   importする。 */
+@layer components {
 
   /* ---- 共通 ---- */
   .icon-button {
@@ -59,6 +61,11 @@
   }
   .core-button:hover { background: var(--plugumi-colors-background-tertiary); }
   .core-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* compactではcore名を畳んでアイコンだけにする（core名が出るのは
+     左tool群のswitcherとmenuだけ）。 */
+  [data-part="shell"][data-size="compact"] [data-part="titlebar"] .core-name {
+    display: none;
+  }
 
   .core-menu, .panel-picker {
     min-width: 200px; max-width: 280px;
@@ -85,7 +92,7 @@
 
   /* ---- drag ---- */
   .drag-ghost {
-    position: fixed; z-index: 9999;
+    position: fixed; z-index: var(--plugumi-z-ghost);
     padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
     border: 1px solid var(--plugumi-colors-border-strong);
     border-radius: var(--plugumi-radii-md);
