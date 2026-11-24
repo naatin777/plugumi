@@ -44,7 +44,7 @@
   }
   .area-row {
     display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
-    padding: 2px var(--plugumi-spacing-xs);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
     border-radius: var(--plugumi-radii-md);
   }
   /* 選択中のArea行はtabと同じ言語で — 透けた面＋輪郭のchip。 */
@@ -57,7 +57,7 @@
   /* ---- Main/Subセクション（Areaの一覧） ---- */
   .area-slot {
     display: flex; flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     border-top: 1px solid var(--plugumi-colors-border);
     padding-top: var(--plugumi-spacing-sm);
   }
