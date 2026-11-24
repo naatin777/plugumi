@@ -41,25 +41,15 @@
     min-width: 0; overflow: hidden; text-overflow: ellipsis;
   }
   .tab .tab-close { flex: none; }
-  /* 「×」は選択中のtabだけ幅に入れて常に表示。非選択tabでは幅を取らず、
-     hover/focus-visibleのときだけタイトルの上へ重ねて出す（絶対配置で
-     tab幅は変わらない）。tabの面と同じ色でタイトル末尾を隠す。 */
+  /* 「×」は選択中のtabだけ常時表示。非選択では居場所だけ確保して
+     透明にし、hover/focus-visibleで出す — 絶対配置でタイトルの上に
+     重ねると文字とぶつかるので、常にflex内の実位置を取る。 */
   .tab:not(.selected) .tab-close {
-    position: absolute;
-    right: var(--plugumi-spacing-xs); top: 50%;
-    transform: translateY(-50%);
     opacity: 0; pointer-events: none;
   }
   .tab:not(.selected):hover .tab-close,
   .tab:not(.selected) .tab-close:focus-visible {
     opacity: 1; pointer-events: auto;
-  }
-  /* 「×」が出るとき、タイトルは右端をぼかして✕と重ならないように
-     する（幕で隠すと透過fillの上に塗りムラが見える）。 */
-  .tab:not(.selected):hover .tab-title,
-  .tab:not(.selected):focus-within .tab-title {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
-    mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
   }
   /* tabの面はかなり透かす — カードのblurとauroraの上で、選択は面より
      文字の濃さで読ませる。濃さは--tab-fill（prefsのスライダー）。 */
