@@ -15,4 +15,9 @@
     -webkit-font-smoothing: antialiased;
   }
   #root { height: 100vh; }
+
+  /* vibrancy宿主（Electron、preloadが属性を立てる）ではbodyを透かし、
+     main.shellの半透明なframe色の向こうにデスクトップを見せる。
+     ブラウザではこの属性が無くbodyは不透明のまま。 */
+  :root[data-plugumi-vibrancy] body { background: transparent; }
 }

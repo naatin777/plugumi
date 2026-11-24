@@ -108,6 +108,7 @@ export function ShellFrame(): JSX.Element {
         // テーマPanelのスライダーが動かす表示設定。
         "--tab-fill": `${prefs().tabAlpha}%`,
         "--aurora-vivid": prefs().auroraVivid / 100,
+        "--shell-frame-alpha": prefs().frameAlpha / 100,
       }}
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/

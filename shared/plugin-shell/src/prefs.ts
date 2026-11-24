@@ -15,6 +15,9 @@ export interface ShellPrefs {
   aurora: boolean;
   // auroraの鮮やかさ（%）。0で無彩色に近づき、100が標準。
   auroraVivid: number;
+  // 床に敷くframe色の濃さ（%）。vibrancy宿主ではデスクトップの
+  // 上に乗る暗さの量。ブラウザでは下地が同色なので見た目不変。
+  frameAlpha: number;
   // 選択tabの面の濃さ（%）。カードのblur越しに床が見える濃度。
   tabAlpha: number;
 }
@@ -30,6 +33,7 @@ const defaults = (): ShellPrefs => ({
   // 既定はoff — 「デスクトップ→vibrancy→暗いframe→タイル」が素の世界。
   aurora: false,
   auroraVivid: 100,
+  frameAlpha: 60,
   tabAlpha: 50,
 });
 
@@ -65,6 +69,7 @@ export function loadPrefs(): ShellPrefs {
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
     aurora: flag(saved.aurora, base.aurora),
     auroraVivid: clampPercent(saved.auroraVivid, 0, 200, base.auroraVivid),
+    frameAlpha: clampPercent(saved.frameAlpha, 0, 100, base.frameAlpha),
     tabAlpha: clampPercent(saved.tabAlpha, 0, 100, base.tabAlpha),
   };
 }
