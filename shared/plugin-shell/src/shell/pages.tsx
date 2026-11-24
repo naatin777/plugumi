@@ -36,15 +36,63 @@ export const pageMouse = (flip: (direction: 1 | -1) => void) =>
     }
   };
 
+// カードの上の横wheelでpageを前後させるgesture。1回のgestureで1page
+// だけ: deltaXを貯めて閾値で1回flipし、wheelの流れが止まるまで次は
+// 出さない（stripの横wheelと同じ閾値・idle）。
+const WHEEL_FLIP_PX = 50;
+const WHEEL_IDLE_MS = 200;
+
+// 利用者gestureで横scrollできる要素か（overflow:hiddenはプログラム
+// scrollの箱なので利用者scrollの対象に含めない）。
+const scrollableX = (el: Element, direction: 1 | -1): boolean => {
+  const overflowX = getComputedStyle(el).overflowX;
+  if (overflowX !== "auto" && overflowX !== "scroll" && overflowX !== "overlay") return false;
+  if (el.scrollWidth - el.clientWidth <= 1) return false;
+  return direction > 0
+    ? el.scrollLeft < el.scrollWidth - el.clientWidth - 1
+    : Math.abs(el.scrollLeft) > 1;
+};
+
 // カード要素へまとめて展開するpageナビ用のhandler群。mouseup/auxclickは
 // ブラウザの戻る/進む遷移を止めるだけ（flipはmousedownの1回で完結）。
-export const pageNavProps = (flip: (direction: 1 | -1) => void) => ({
-  onMouseDown: pageMouse(flip),
-  onMouseUp: (event: MouseEvent) => {
-    if (event.button === 3 || event.button === 4) event.preventDefault();
-  },
-  onAuxClick: (event: MouseEvent) => event.preventDefault(),
-});
+// 横wheelは「中身がその方向へscrollできるなら中身優先、出来なければ
+// page flip」。strip上ではstrip自身のhandlerがpreventDefault済みなので
+// defaultPreventedで二重flipを避ける。
+export const pageNavProps = (flip: (direction: 1 | -1) => void) => {
+  let accum = 0;
+  let locked = false;
+  let idle: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(idle));
+  const onWheel = (event: WheelEvent) => {
+    if (event.defaultPrevented) return;
+    if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return;
+    const direction: 1 | -1 = event.deltaX > 0 ? 1 : -1;
+    // カードの中（Panelのshadow内部まで）にその方向へscrollできる
+    // 要素があるならflipしない — scrollに任せる。
+    for (const node of event.composedPath()) {
+      if (node === event.currentTarget) break;
+      if (node instanceof HTMLElement && scrollableX(node, direction)) return;
+    }
+    event.preventDefault();
+    clearTimeout(idle);
+    idle = setTimeout(() => { locked = false; accum = 0; }, WHEEL_IDLE_MS);
+    if (locked) return;
+    accum += event.deltaX;
+    if (Math.abs(accum) >= WHEEL_FLIP_PX) {
+      flip(accum > 0 ? 1 : -1);
+      locked = true;
+      accum = 0;
+    }
+  };
+  return {
+    onMouseDown: pageMouse(flip),
+    onMouseUp: (event: MouseEvent) => {
+      if (event.button === 3 || event.button === 4) event.preventDefault();
+    },
+    onAuxClick: (event: MouseEvent) => event.preventDefault(),
+    onWheel,
+  };
+};
 
 export function PagesTrack(props: {
   refs: PanelRef[];

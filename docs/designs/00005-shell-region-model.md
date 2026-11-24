@@ -66,8 +66,7 @@ Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に�
 表示方式は全領域で共通の**pages**だけである。centerはsplitの木で区画に分け、並べて見たいPanelはsplitで並べる。
 
 - **pages**（left・bottom・right・centerのleaf）: tab帯に全Panelのtabを並べ、中身は1つのPanelだけを見せる。Panelは画面外にも本来の大きさのまま横に並んでおり、切り替えると横にスライドする。見えていないPanelは大きさを保ったまま描画だけを止める（`content-visibility: hidden`）。
-- **切り替え**: tabの選択、tab帯の上での横スワイプ（1回で1つ隣へ）、前後のキー、マウスの戻る・進むボタンで行う。
-- **自由な横scrollはしない**: 中身（Panelの上）での横スワイプ・横scrollはPanelのものとし、外側へ伝えない（`overscroll-behavior-x: contain`）。中身の横scrollでpageが変わる、斜めの縦scrollでpageが動く、ブラウザの「戻る」が発動する、を避けるためである。
+- **切り替え**: tabの選択、tab帯・Panelの中身の上での横スワイプ（1回で1つ隣へ）、前後のキー、マウスの戻る・進むボタンで行う。Panelの中身の上では、scroll位置からその方向へ横scrollできる中身があるときは中身のscrollを優先し、出来ないときだけpageを前後させる（scroll chainingと同じ優先順位）。ブラウザの「戻る/進む」が発動しないよう`overscroll-behavior-x: contain`とwheelのpreventDefaultを併用する。
 
 選択中（active）のPanelは各dock・leafの`selected`だけで決まる。
 
@@ -195,7 +194,7 @@ panel.setActivity({
 ## 横スワイプの範囲
 
 - **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。tabはタイトルが数文字読める最小幅（`min(6em, 100%)`）までしか縮まず、溢れた分はtab帯自体の横scroll（縦ホイールでもscrollできる）。「×」は選択中のtabだけ常に出し、非選択tabはhover/focus時だけタイトルの上へ重ねて出す。
-- **Panelの中身**: 横スワイプ・横scrollはPanelだけのもので、外側へは伝えない。
+- **Panelの中身**: 中身がその方向へ横scrollできる間は中身のscrollが優先される。scrollできない（scroll領域が無い、または端まで行った）横スワイプはpageを1つ前後させる。
 
 ## 用語
 
