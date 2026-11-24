@@ -78,4 +78,11 @@
       > .resizer[data-axis="x"] {
     display: none;
   }
+
+  /* deckの列境界のresizer — 列のhairlineに掛ける。掴むと全列共通の
+     幅が変わる。 */
+  [data-layout="deck"] [data-part="pages-page"] > .resizer[data-axis="x"] {
+    position: absolute; top: 0; bottom: 0;
+    left: calc(-1 * var(--resizer-size) / 2);
+  }
 }

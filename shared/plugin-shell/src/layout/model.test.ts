@@ -3,8 +3,8 @@ import { describe, test } from "node:test";
 import {
   addPanel, allLeaves, closePanel,
   decodeWorkspace, detachPanel, emptyWorkspace, findLeaf, locationOf,
-  movePanel, selectPanel, setRatio,
-  splitAt, type WorkspaceState, type PanelRef,
+  movePanel, selectPanel, setLeafColWidth, setLeafLayout, setRatio,
+  splitAt, type Leaf, type WorkspaceState, type PanelRef,
 } from "./model.ts";
 
 const ref = (id: string): PanelRef => ({
@@ -256,5 +256,37 @@ describe("leafのdecodeの厳密さ", () => {
     const { selected: _, ...noSelected } = leaf;
     const state = decodeWorkspace(raw(noSelected));
     assert.equal((state.center.root as { panels: unknown[] }).panels.length, 0);
+  });
+
+  test("layoutは省略可で、読んだ値が保たれる", () => {
+    const state = decodeWorkspace(raw({ ...leaf, layout: "deck" }));
+    assert.equal(allLeaves(state.center.root)[0].layout, "deck");
+  });
+
+  test("不正なlayout値は空のWorkspaceになる", () => {
+    for (const layout of ["tabs", 1, null]) {
+      const state = decodeWorkspace(raw({ ...leaf, layout }));
+      assert.equal((state.center.root as { panels: unknown[] }).panels.length, 0);
+    }
+  });
+});
+
+describe("setLeafLayout", () => {
+  test("deckにしてpagesに戻すとlayoutキーが消える", () => {
+    const state = emptyWorkspace();
+    const decked = setLeafLayout(state, "leaf-root", "deck");
+    assert.equal((decked.center.root as Leaf).layout, "deck");
+    const back = setLeafLayout(decked, "leaf-root", "pages");
+    assert.equal("layout" in back.center.root, false);
+  });
+});
+
+describe("setLeafColWidth", () => {
+  test("clampして保存する", () => {
+    const state = emptyWorkspace();
+    const wide = setLeafColWidth(state, "leaf-root", 5000);
+    assert.equal((wide.center.root as Leaf).colWidth, 960);
+    const narrow = setLeafColWidth(state, "leaf-root", 10);
+    assert.equal((narrow.center.root as Leaf).colWidth, 120);
   });
 });

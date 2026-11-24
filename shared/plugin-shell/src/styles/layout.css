@@ -31,5 +31,8 @@
     --title-tools-right: 280px;
     /* カードのheader帯（tab strip）の高さ */
     --shell-strip-h: 36px;
+    /* deck表示の列幅。viewportの整数倍にならない値にして右端に次の
+       列が覗く形にする。 */
+    --deck-col-w: 340px;
   }
 }

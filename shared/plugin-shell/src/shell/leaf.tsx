@@ -8,9 +8,9 @@ import type { Edges } from "./center.tsx";
 import { TabStrip } from "./tab-strip.tsx";
 import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
 import { leafBodyTest } from "./drag.ts";
-import { focusLeaf, selectPanel } from "../layout/model.ts";
+import { focusLeaf, selectPanel, setLeafLayout, setLeafColWidth } from "../layout/model.ts";
 import { dividerAttr, surfaceAttrs, busyAttr } from "./activity.ts";
-import { IconPlus } from "../icons.tsx";
+import { IconPlus, IconDeck } from "../icons.tsx";
 import styles from "./leaf.module.css";
 import stripStyles from "./tab-strip.module.css";
 
@@ -64,13 +64,34 @@ export function LeafView(props: { leaf: Leaf; edges: Edges }): JSX.Element {
           target={(index) => ({ region: "leaf", leafId: props.leaf.id, index })}
           onFlip={flip}
         />
+        {/* 列への展開。deckでは中身を固定幅の列にして横scrollで流し見する。 */}
+        <button
+          class={`${stripStyles["strip-deck"]} ${props.leaf.layout === "deck" ? stripStyles["on"] : ""}`}
+          data-part="deck-toggle"
+          aria-label="列に並べる"
+          aria-pressed={props.leaf.layout === "deck" ? "true" : "false"}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => area.applyLayout((state) =>
+            setLeafLayout(state, props.leaf.id, props.leaf.layout === "deck" ? "pages" : "deck")
+          )}
+        >
+          <IconDeck size={13} />
+        </button>
       </header>
       <div class={styles["leaf-body"]} ref={registerBody}>
         <Show
           when={props.leaf.panels.length > 0}
           fallback={<LeafEmpty leafId={props.leaf.id} />}
         >
-          <PagesTrack refs={props.leaf.panels} selected={props.leaf.selected} onSelect={select} />
+          <PagesTrack
+            refs={props.leaf.panels}
+            selected={props.leaf.selected}
+            onSelect={select}
+            deck={props.leaf.layout === "deck"}
+            colWidth={props.leaf.colWidth}
+            onColWidth={(width) =>
+              area.applyLayout((state) => setLeafColWidth(state, props.leaf.id, width))}
+          />
         </Show>
       </div>
     </section>

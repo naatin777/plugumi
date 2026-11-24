@@ -72,5 +72,19 @@
     border: none; border-radius: var(--plugumi-radii-sm);
     background: transparent; color: inherit; cursor: pointer;
   }
+  /* strip右端のdeck切替。普段は薄く、deck中は選択tabと同じ面で示す。 */
+  .strip-deck {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; align-self: stretch;
+    border: none; border-radius: var(--plugumi-radii-sm);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer;
+  }
+  .strip-deck:hover { background: var(--plugumi-colors-background-tertiary); }
+  .strip-deck.on {
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+  }
   .tab-close:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
 }

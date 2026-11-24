@@ -18,11 +18,18 @@ type Stack = {
   selected: string | null;
 };
 
+// leafの中身の並べ方。pagesは全幅で1枚ずつ、deckは固定幅の列を横に並べる
+// （designs/00005「表示モード」）。省略はpages。
+export type LeafLayout = "pages" | "deck";
+
 export type Leaf = {
   kind: "leaf";
   id: string;
   panels: PanelRef[];
   selected: string | null;
+  layout?: LeafLayout;
+  // deck表示の列幅（px）。全列で共通の値。省略はshellの既定幅。
+  colWidth?: number;
 };
 
 export type Split = {
@@ -136,20 +143,30 @@ function decodeStack(value: unknown): Stack | null {
   return { panels, selected: (selected as string | null) ?? null };
 }
 
-// leafの形は {kind,id,panels,selected} に限る。余分なキーを持つ
-// （旧版のdisplay/columnWidthsなど）入力は丸ごと拒否する（修復しない）。
+// leafの形は {kind,id,panels,selected} + 省略可のlayout に限る。余分な
+// キーを持つ（旧版のdisplay/columnWidthsなど）入力は丸ごと拒否する
+// （修復しない）。
 const leafKeys = ["id", "kind", "panels", "selected"];
+const leafOptionalKeys = ["layout", "colWidth"];
 
 function decodeNode(value: unknown): Node | null {
   if (!isObject(value) || typeof value.id !== "string" || value.id === "") return null;
   if (value.kind === "leaf") {
     const keys = Object.keys(value);
-    if (keys.length !== leafKeys.length || !leafKeys.every((key) => key in value)) {
+    if (!leafKeys.every((key) => key in value) ||
+        keys.some((key) => !leafKeys.includes(key) && !leafOptionalKeys.includes(key))) {
       return null;
     }
     const stack = decodeStack({ panels: value.panels, selected: value.selected });
     if (!stack) return null;
-    return { kind: "leaf", id: value.id, ...stack };
+    const layout = value.layout;
+    if (layout !== undefined && layout !== "pages" && layout !== "deck") return null;
+    const colWidth = value.colWidth;
+    if (colWidth !== undefined && typeof colWidth !== "number") return null;
+    const leaf: Leaf = { kind: "leaf", id: value.id, ...stack };
+    if (layout !== undefined) leaf.layout = layout;
+    if (colWidth !== undefined) leaf.colWidth = colWidth;
+    return leaf;
   }
   if (value.kind === "split") {
     const first = decodeNode(value.first);
@@ -358,6 +375,33 @@ export function setRatio(state: WorkspaceState, splitId: string, ratio: number):
     }
   };
   apply(next.center.root);
+  return next;
+}
+
+// leafの中身の並べ方を変える。pages（既定）に戻すときはキーごと消す。
+export function setLeafLayout(
+  state: WorkspaceState, leafId: string, layout: LeafLayout,
+): WorkspaceState {
+  const next = clone(state);
+  const leaf = findLeaf(next.center.root, leafId);
+  if (!leaf) return state;
+  if (layout === "pages") delete leaf.layout;
+  else leaf.layout = layout;
+  return next;
+}
+
+// deckの列幅のclamp範囲（px）。
+export const DECK_COL_MIN = 120;
+export const DECK_COL_MAX = 960;
+
+// deckの列幅を変える。全列で共通の幅なので値はleafに1つだけ持つ。
+export function setLeafColWidth(
+  state: WorkspaceState, leafId: string, width: number,
+): WorkspaceState {
+  const next = clone(state);
+  const leaf = findLeaf(next.center.root, leafId);
+  if (!leaf) return state;
+  leaf.colWidth = Math.min(DECK_COL_MAX, Math.max(DECK_COL_MIN, Math.round(width)));
   return next;
 }
 

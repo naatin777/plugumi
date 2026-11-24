@@ -5,11 +5,12 @@
 // こちらはscroll位置とselectedの相互同期だけを担う。
 // 見えていないPanelは大きさを保ったまま描画だけを止める
 // （content-visibility:hidden）。
-import { createEffect, createSignal, mapArray, onCleanup, untrack } from "solid-js";
+import { createEffect, createSignal, mapArray, onCleanup, onSettled, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelRef } from "../layout/model.ts";
 import { useArea } from "./controller.tsx";
 import { PanelMount } from "./panel-mount.tsx";
+import { Resizer } from "./resizer.tsx";
 import { surfaceAttrs } from "./activity.ts";
 import styles from "./pages.module.css";
 
@@ -54,6 +55,13 @@ export function PagesTrack(props: {
   refs: PanelRef[];
   selected: string | null;
   onSelect: (index: number) => void;
+  // deck: 全幅pageではなく固定幅の列を横に並べて流し見する
+  // （designs/00005「表示モード」）。
+  deck?: boolean;
+  // deckの列幅（px）。未指定はCSSの既定値。onColWidthを渡すと列の境目を
+  // 掴んで全列共通の幅を変えられる。
+  colWidth?: number;
+  onColWidth?: (width: number) => void;
 }): JSX.Element {
   const area = useArea();
   let viewport!: HTMLDivElement;
@@ -73,15 +81,49 @@ export function PagesTrack(props: {
     Math.max(0, props.refs.findIndex((ref) => ref.instanceId === props.selected));
   const gestureActive = () => Date.now() - lastInputAt < GESTURE_INPUT_MS;
 
+  // pageの列幅と配置間隔を実測する。pagesは列幅=viewport幅でpitchも
+  // 同じになるので、どちらのlayoutでも同じ式が使える。
+  const metrics = () => {
+    const track = viewport.firstElementChild;
+    const first = track?.children[0];
+    const second = track?.children[1];
+    const colW = first?.getBoundingClientRect().width || viewport.clientWidth || 1;
+    const pitch = first !== undefined && second !== undefined
+      ? second.getBoundingClientRect().left - first.getBoundingClientRect().left
+      : colW;
+    return { colW, pitch: pitch || colW };
+  };
+  const pageLeft = (i: number) => i * metrics().pitch;
+
   const syncVisible = () => {
+    const { pitch } = metrics();
     const w = viewport.clientWidth || 1;
-    const f = viewport.scrollLeft / w;
-    setRange([Math.floor(f) - 1, Math.ceil(f) + 1]);
+    setRange([
+      Math.floor(viewport.scrollLeft / pitch) - 1,
+      Math.ceil((viewport.scrollLeft + w) / pitch),
+    ]);
+  };
+
+  // deckではviewport内で一番面積の大きい列を「読んでいる場所」とみなす。
+  // 同じ面積の列が並ぶときは手前（左）を取る。
+  const mostVisible = () => {
+    const { colW, pitch } = metrics();
+    const s = viewport.scrollLeft;
+    const end = s + viewport.clientWidth;
+    let best = 0;
+    let bestArea = 0;
+    for (let i = 0; i < props.refs.length; i++) {
+      const left = i * pitch;
+      const area = Math.min(left + colW, end) - Math.max(left, s);
+      if (area > bestArea) { bestArea = area; best = i; }
+    }
+    return best;
   };
 
   const syncSelected = () => {
-    const w = viewport.clientWidth || 1;
-    const i = Math.round(viewport.scrollLeft / w);
+    const i = props.deck
+      ? mostVisible()
+      : Math.round(viewport.scrollLeft / metrics().pitch);
     if (i !== index() && props.refs[i] !== undefined) props.onSelect(i);
   };
 
@@ -91,7 +133,7 @@ export function PagesTrack(props: {
   createEffect(
     () => index(),
     (i) => {
-      const left = i * (viewport.clientWidth || 1);
+      const left = pageLeft(i);
       if (Math.abs(viewport.scrollLeft - left) > 1) {
         viewport.scrollTo({ left, behavior: "smooth" });
       }
@@ -113,11 +155,13 @@ export function PagesTrack(props: {
         syncSelected();
         return;
       }
-      // gesture由来でないscrollは選択位置へ戻す。scroll containerにした
-      // 副作用として、Panelの中のscrollIntoViewがviewportまでscroll
-      // させてpageをずらすことがある。自分で掛けたscrollToはscrollが
-      // 続いている間このtimerが発火しないので巻き込まない。
-      const left = index() * (viewport.clientWidth || 1);
+      // pagesだけ: gesture由来でないscrollは選択位置へ戻す。scroll
+      // containerにした副作用として、Panelの中のscrollIntoViewが
+      // viewportまでscrollさせてpageをずらすことがある。deckはずれた
+      // 列がそのまま見えるだけなので戻さない。自分で掛けたscrollToは
+      // scrollが続いている間このtimerが発火しないので巻き込まない。
+      if (props.deck) return;
+      const left = pageLeft(index());
       if (Math.abs(viewport.scrollLeft - left) > 1) {
         viewport.scrollTo({ left, behavior: "smooth" });
       }
@@ -126,18 +170,24 @@ export function PagesTrack(props: {
 
   const registerViewport = (el: HTMLDivElement) => {
     viewport = el;
+  };
+
+  // 初期位置とobserverはsettle後に張る — ref発火の時点ではpageの
+  // 子要素がまだ無く、deckのpitch計測ができないため。
+  onSettled(() => {
     // 初期位置・resize時の読みは追跡不要の現在値（untrackで明示）。
-    el.scrollLeft = untrack(index) * el.clientWidth;
+    viewport.scrollLeft = pageLeft(untrack(index));
     syncVisible();
     // resize（splitのresize・drawer開閉・窓のresize）でscrollLeftが
-    // page境界からずれるので、選択位置に合わせ直す。
-    observer?.disconnect();
+    // page境界からずれるので、選択位置に合わせ直す。deckの列幅は
+    // 窓に依らないので合わせ直す必要がない。
     observer = new ResizeObserver(() => {
-      const left = untrack(index) * (el.clientWidth || 1);
-      if (Math.abs(el.scrollLeft - left) > 1) el.scrollTo({ left });
+      if (props.deck) return;
+      const left = pageLeft(untrack(index));
+      if (Math.abs(viewport.scrollLeft - left) > 1) viewport.scrollTo({ left });
     });
-    observer.observe(el);
-  };
+    observer.observe(viewport);
+  });
 
   const visible = (instanceId: string) => {
     const [lo, hi] = range();
@@ -149,6 +199,10 @@ export function PagesTrack(props: {
     <div
       ref={registerViewport}
       class={styles["pages-viewport"]}
+      data-layout={props.deck ? "deck" : "pages"}
+      style={props.deck && props.colWidth !== undefined
+        ? { "--deck-col-w": `${props.colWidth}px` }
+        : undefined}
       onScroll={onScroll}
       // gesture判定にだけ使う。scroll自体・中身scroll優先・overscrollの
       // 跳ね返りはすべてネイティブに任せる。
@@ -162,17 +216,27 @@ export function PagesTrack(props: {
             警告になるのでmapArrayを直接使う（mapper内は各itemがtracked）。 */}
         {mapArray(
           () => props.refs,
-          (ref) => {
+          (ref, i) => {
             const instanceId = ref.instanceId;
             const instance = area.instance(ref);
             return (
               <div
                 class={styles["pages-page"]}
+                data-part="pages-page"
                 style={{
                   "content-visibility": visible(instanceId) ? "visible" : "hidden",
                 }}
                 {...surfaceAttrs(instance.activity(), "content")}
               >
+                {/* 列の境目のresizer（deck時のみ、全列共通の幅を変える）。 */}
+                {props.deck && props.onColWidth !== undefined && i() > 0 ? (
+                  <Resizer
+                    axis="x"
+                    direction={1}
+                    value={() => metrics().colW}
+                    apply={props.onColWidth}
+                  />
+                ) : null}
                 <PanelMount instance={instance} />
               </div>
             );

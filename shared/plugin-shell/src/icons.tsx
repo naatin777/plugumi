@@ -81,3 +81,10 @@ export const IconProject = icon(() => <>
   <rect x="2" y="3" width="12" height="10" rx="1.5" />
   <line x1="2" y1="6.5" x2="14" y2="6.5" />
 </>);
+
+// deck表示: 枠の中を縦に区切った列のイメージ。
+export const IconDeck = icon(() => <>
+  <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+  <line x1="6" y1="2.5" x2="6" y2="13.5" />
+  <line x1="10" y1="2.5" x2="10" y2="13.5" />
+</>);
