@@ -17,11 +17,9 @@
     --titlebar-w: env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)));
     --titlebar-inset-right: calc(
       var(--shell-viewport, 100vw) - var(--titlebar-x) - var(--titlebar-w));
-    /* 列の端 = bodyの外周padding + 列幅。列が窓端からgap分内側に
-       入るので、揃える側も同じ分だけ足す。 */
-    --title-left: calc(max(
-      var(--titlebar-x) + var(--title-tools-left),
-      var(--side-width, 0px)));
+    /* tool群の端は中身の自然幅で決まる。列の開閉（--side-width）には
+       追従しない — sidebarを動かしてもtitleの区画は動かない。 */
+    --title-left: calc(var(--titlebar-x) + var(--title-tools-left));
     --title-right: calc(
       var(--titlebar-inset-right) + var(--title-tools-right));
   }
@@ -86,11 +84,10 @@
     box-sizing: border-box;
     overflow: clip;
   }
-  /* Mainのsegmentは境界線1からSub列の境界線（無ければ右pill）の手前
-     まで。 */
+  /* Mainのsegmentは左右のtool群の間。列の開閉には追従しない。 */
   .work-segment[data-slot="main"] {
     left: calc(var(--title-left));
-    right: max(var(--sub-width, 0px), var(--title-right));
+    right: var(--title-right);
     min-width: 0;
   }
 

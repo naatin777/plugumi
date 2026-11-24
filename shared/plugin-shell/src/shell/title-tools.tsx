@@ -92,10 +92,11 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
     <>
       <ToolButton
         label="Panelを開く"
-        // titleの「+」はMainのAreaへ足す（leaf指定をリセットしてから開く）。
+        // titleの「+」は最後に触ったArea（無ければMain）へ足す。
         // popovertargetを併用するとtoggleとshowPopoverが二重に効いて
         // 閉じてしまうので、onClickから開く。
-        onClick={(event) => shell.openPicker(props.area, undefined, event.currentTarget as HTMLElement)}
+        onClick={(event) =>
+          shell.openPicker(shell.focusedArea() ?? props.area, undefined, event.currentTarget as HTMLElement)}
       >
         <IconPlus />
       </ToolButton>

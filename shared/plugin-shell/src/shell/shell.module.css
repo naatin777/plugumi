@@ -61,7 +61,7 @@
   }
   main.shell[data-side] .col-divider[data-divider="side"] {
     display: block;
-    left: var(--title-left);
+    left: var(--side-width);
   }
   main.shell[data-sub] .col-divider[data-divider="sub"] {
     display: block;
