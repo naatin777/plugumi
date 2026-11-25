@@ -35,8 +35,12 @@
     border-bottom: 1px solid var(--plugumi-colors-border);
   }
   .work-title .title-tools { app-region: drag; -webkit-app-region: drag; }
-  .work-title .title-tools :is(button, a, input, [popovertarget]) { app-region: no-drag; -webkit-app-region: no-drag; }
-  .work-title .work-segment { app-region: no-drag; -webkit-app-region: no-drag; }
+  .work-title .work-segment { app-region: drag; -webkit-app-region: drag; }
+  /* 帯は全体drag、中の操作・popoverだけno-drag（segment区画ごと
+     no-dragにすると帯の大半が掴めなくなる）。 */
+  .work-title :is(button, a, input, [popovertarget], [popover]) {
+    app-region: no-drag; -webkit-app-region: no-drag;
+  }
 
   .title-tools {
     position: absolute;
