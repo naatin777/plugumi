@@ -1,5 +1,5 @@
 // Package corerpc は呼び出し専用のWS接続（registrationIdを付けない
-// /v1/rpc）でtools.callを送る（contracts/00003・00004）。
+// /v1/rpc）でtools.callを送る（contracts/00004）。
 // 接続はCoreごとに1本を使い回し、切れたら次の呼び出しで張り直す。
 package corerpc
 

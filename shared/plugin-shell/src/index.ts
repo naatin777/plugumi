@@ -21,7 +21,6 @@ export type {
 } from "./host.tsx";
 export { ShellHostContext, ShellHostProvider, useShellHost } from "./host.tsx";
 export { shellRoutes } from "./routes.tsx";
-export { initTheme, applyTheme, resolvedTheme } from "./theme.ts";
-export { loadPrefs, savePrefs } from "./prefs.ts";
+export { initTheme } from "./theme.ts";
+export { loadPrefs } from "./prefs.ts";
 export type { WorkspaceState, PanelRef } from "./layout/model.ts";
-export { decodeWorkspace } from "./layout/model.ts";

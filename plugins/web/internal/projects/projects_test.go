@@ -150,37 +150,3 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatal("other files under ~/.plugumi were touched")
 	}
 }
-
-func TestLoadLegacyNames(t *testing.T) {
-	dir := t.TempDir()
-	// 旧形式はnameがkeyを兼ねていた。key/titleへ移される。
-	legacy := `{"projects":[{"name":"plugumi","areas":[
-		{"name":"main","workspace":{"version":1},"areas":[{"name":"child","areas":[]}]}
-	]}]}`
-	if err := os.WriteFile(filepath.Join(dir, "local.json"), []byte(legacy), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	document, err := Load(dir, "local")
-	if err != nil {
-		t.Fatal(err)
-	}
-	project := document.FindProject("plugumi")
-	if project == nil || project.Title != "plugumi" {
-		t.Fatalf("project: %+v", document.Projects)
-	}
-	area := project.FindArea([]string{"main"})
-	if area == nil || area.Title != "main" || len(area.Workspace) == 0 {
-		t.Fatalf("area: %+v", project.Areas)
-	}
-	if project.FindArea([]string{"main", "child"}) == nil {
-		t.Fatalf("nested area: %+v", area)
-	}
-	// Saveすると新形式になる。
-	if err := Save(dir, "local", document); err != nil {
-		t.Fatal(err)
-	}
-	data, _ := os.ReadFile(filepath.Join(dir, "local.json"))
-	if strings.Contains(string(data), `"name"`) || !strings.Contains(string(data), `"key"`) {
-		t.Fatalf("saved format: %s", data)
-	}
-}

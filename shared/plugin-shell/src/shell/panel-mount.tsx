@@ -1,7 +1,6 @@
-// Panel InstanceのhostをDOMへ据える共用部品。leaf・widgetのどれも
-// 同じ「Panelの中身」を抱くが、Panelそのものは領域に依存しないので
-// ここに置く。activityのborder/dividerはカードとstripが受け持つ
-// （contentは列やbody側）。
+// Panel InstanceのhostをDOMへ据える共用部品。どの領域も同じ「Panelの
+// 中身」を抱くが、Panelそのものは領域に依存しないのでここに置く。
+// activityのborder/dividerはカードとstripが受け持つ（contentは列やbody側）。
 import { Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { PanelInstance } from "../panels/instance.ts";
@@ -21,7 +20,6 @@ export function PanelMount(props: { instance: PanelInstance }): JSX.Element {
 }
 
 // determinate/indeterminateの進捗。header/divider面の位置に細い帯で出す。
-// widgetのmount枠でも同じ帯を使うのでexportする。
 export function ActivityProgress(props: { instance: PanelInstance }): JSX.Element {
   const progress = () => props.instance.activity()?.progress;
   return (
@@ -49,7 +47,7 @@ export function PanelState(props: { instance: PanelInstance }): JSX.Element {
           {(error) => (
             <>
               <p>Panelを開けませんでした（{error().kind}）</p>
-              <button onClick={() => props.instance.retry(area.shell.panels() ?? [])}>
+              <button onClick={() => props.instance.retry(area.shell.panels())}>
                 再試行
               </button>
             </>

@@ -1,5 +1,4 @@
 // icon-buttonの定型。label・押下状態・clickをまとめる。
-// widget-op等の小さいボタンはclassで差し替える。
 import type { JSX } from "@solidjs/web";
 import controlStyles from "./controls.module.css";
 

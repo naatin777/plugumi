@@ -5,9 +5,8 @@
   /* title帯の中でsegment（開閉区画）の端を決める変数。barの左端は
      sidebar列の端に揃える（sidebarがtool群より狭い時だけtool群が優先）。
      右端は窓の端 — 右列はmatの中の列なので揃える対象はtool群だけ。
-     detachedのshellもStyle Labのlab-shapeも、同じ形を使うので
      data-partで拾う（classはcomponentごとにhashされるため）。 */
-  [data-part="shell"], [data-part="lab-shape"] {
+  [data-part="shell"] {
     /* env(titlebar-area-*)を読むのはここだけ（envは1箇所で変数へ
        読み替えるのが公式の推奨形）。fallbackはenv未対応の表示向け。
        inset-right = 窓の右端からtitlebar area右端までの距離

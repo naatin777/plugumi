@@ -23,17 +23,6 @@ export interface ActivityState {
 }
 
 // 1つのsurfaceには最後のlayerを採用する（重複指定は意味を持たないため）。
-export function activityAttrs(
-  state: ActivityState | undefined,
-): Record<string, string> {
-  const attrs: Record<string, string> = {};
-  if (!state) return attrs;
-  for (const layer of state.layers) {
-    attrs[`data-activity-${layer.surface}`] = `${layer.tone} ${layer.effect}`;
-  }
-  return attrs;
-}
-
 // 指定したsurfaceだけを取り出す（tabにはheader、stripにはdividerなど）。
 export function surfaceAttrs(
   state: ActivityState | undefined,

@@ -23,8 +23,8 @@ export interface ShellPrefs {
   // UI・本文フォントのfamily名。無ければ同梱のIBM Plex Sansへ、
   // それも無ければsystem sansへ落ちる。
   sansFont: string;
-  // monoフォントのfamily名。localに無ければsystem monoへすぐ
-  // fallbackする（font-family stackの先頭として使う）。
+  // monoフォントのfamily名。無ければ同梱のIBM Plex Monoへ、
+  // それも無ければsystem monoへ落ちる（sansと同じ構造）。
   monoFont: string;
 }
 

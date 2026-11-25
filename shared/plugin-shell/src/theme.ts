@@ -1,5 +1,5 @@
 // テーマ（system/light/dark）の適用。systemはOSの明暗に追従する。
-// 選択はprefsに入る（plugumi:ui:*の旧キーは使わない）。
+// 選択はprefsに入る。
 import type { ThemeMode } from "./prefs.ts";
 
 const systemQuery = () => window.matchMedia("(prefers-color-scheme: dark)");

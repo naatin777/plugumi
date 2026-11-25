@@ -70,7 +70,6 @@ export class PanelInstance {
   private setError: (error: MountError | undefined) => void;
   private setActivity: (activity: ActivityState | undefined) => void;
 
-  private entry = "";
   private destroyPanel: (() => void) | undefined;
   private releaseStyles: (() => void) | undefined;
   // PanelはPlugin・組み込みともShadowRootへ描く。
@@ -217,7 +216,7 @@ export class PanelInstance {
     this.kind = "plugin";
     this.registrationId = panel.registrationId;
     this.uiSha256 = panel.uiSha256;
-    this.entry = panel.entry;
+    const entry = panel.entry;
     this.host.dataset.plugumiPlugin = panel.registrationId;
 
     let release: () => void;
@@ -238,7 +237,7 @@ export class PanelInstance {
     root.adoptedStyleSheets = [sheet];
     try {
       const url = this.shell.uiURL(
-        this.coreKey, this.registrationId, this.entry, this.uiSha256,
+        this.coreKey, this.registrationId, entry, this.uiSha256,
       );
       module = (await import(/* @vite-ignore */ url)) as PanelModule;
     } catch (cause) {

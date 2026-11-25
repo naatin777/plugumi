@@ -1,6 +1,7 @@
 /* Plugumi Design Tokens。このファイルが変数名と値の正本。
    @plugumi/plugin-view の tokenNames はこのファイルに対応する。
-   colorsはDarkが:root既定、[data-plugumi-theme]で上書き。
+   colorsはdarkが:root既定で、lightはdata-plugumi-theme属性で上書き。
+   applyThemeが常にdarkかlightを立てるのでdark用のブロックは置かない。
    typography/spacing/radii/z-indexはテーマ非依存で:rootのみ。 */
 
 @layer tokens {
@@ -161,55 +162,4 @@
   --plugumi-colors-activity-5: #6d3fa0;
 }
 
-[data-plugumi-theme="dark"] {
-  --plugumi-colors-background-primary: #121212;
-  --plugumi-colors-background-secondary: #1E1E1E;
-  --plugumi-colors-background-tertiary: #2D2D2D;
-  --plugumi-colors-text: #e6e6e6;
-  --plugumi-colors-text-strong: #fafafa;
-  --plugumi-colors-text-muted: #acacac;
-  --plugumi-colors-text-subtle: #a2a2a2;
-  --plugumi-colors-code-text: #d7d7d7;
-  --plugumi-colors-border: #3a3a3a;
-  --plugumi-colors-border-strong: #6a6a6a;
-  --plugumi-colors-border-highlight: #8c8c8c;
-  /* ガラスの上に乗る小さな「面」（選択tab）の色と輪郭。カードは
-     vibrancy越しにデスクトップが透ける純ガラスなので、bgより暗い
-     色を塗ると「穴」に見える — 面は白で浮かせるが、素の白だと
-     明るすぎるので透過ホワイトにする。輪郭はhairline。 */
-  --plugumi-colors-raised: rgb(255 255 255 / 0.3);
-  --plugumi-colors-raised-edge: var(--plugumi-colors-border);
-  /* カード内の操作面（hover・pressed）の塗り。白の透過で上に
-     明るく載せる — 暗い色を混ぜると床が透ける場所で汚れになる。 */
-  --plugumi-colors-fill: rgb(255 255 255 / 0.10);
-  --plugumi-colors-fill-strong: rgb(255 255 255 / 0.20);
-  /* 背景がほぼ黒なので弱い値だと効かない — ライトより濃くする。 */
-  --plugumi-colors-scrim: rgb(0 0 0 / 0.45);
-  --plugumi-colors-accent: #f0f0f0;
-  --plugumi-colors-accent-contrast: #080808;
-  --plugumi-colors-accent-surface: #343434;
-  --plugumi-colors-accent-border: #8c8c8c;
-  --plugumi-colors-accent-muted: #575757;
-  --plugumi-colors-error: #f3a1aa;
-  --plugumi-colors-error-contrast: #3b272d;
-  --plugumi-colors-error-surface: #3b272d;
-  --plugumi-colors-error-border: #a3616d;
-  --plugumi-colors-warning: #edca8e;
-  --plugumi-colors-warning-contrast: #382f21;
-  --plugumi-colors-warning-surface: #382f21;
-  --plugumi-colors-warning-border: #a8864b;
-  --plugumi-colors-success: #a0d4b5;
-  --plugumi-colors-success-contrast: #25362d;
-  --plugumi-colors-success-surface: #25362d;
-  --plugumi-colors-success-border: #6d9e82;
-  --plugumi-colors-info: #93b7ee;
-  --plugumi-colors-info-contrast: #1b2635;
-  --plugumi-colors-info-surface: #1b2635;
-  --plugumi-colors-info-border: #4a6b93;
-  --plugumi-colors-activity-1: #f3a1aa;
-  --plugumi-colors-activity-2: #edca8e;
-  --plugumi-colors-activity-3: #a0d4b5;
-  --plugumi-colors-activity-4: #93b7ee;
-  --plugumi-colors-activity-5: #b9a7e8;
-}
 }

@@ -35,7 +35,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
     () => null,
     () => {
       if (!leftInner || !rightInner) return;
-      const shell = leftInner.closest('[data-part="shell"], [data-part="lab-shape"]');
+      const shell = leftInner.closest('[data-part="shell"]');
       if (!(shell instanceof HTMLElement)) return;
       const pill = leftInner.parentElement;
       if (!pill) return;
