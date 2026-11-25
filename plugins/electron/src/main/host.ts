@@ -63,12 +63,27 @@ export interface SpawnedHost {
   process: ChildProcess;
 }
 
+// localStorageはportを含むorigin単位なので、毎回ランダムポートだと
+// 起動のたびにprefs等が全消去される。既定ポートを優先して試し、
+// 塞がっていれば（別process・古いwebが居る）：0へ落ちる。
+const PREFERRED_LISTEN = "127.0.0.1:48007";
+
 // spawnHost はplugumi-webを子プロセスとして起動し、実行記録にurlが
 // 現れて疎通できるまで待つ。--coreは起動引数をそのまま転送し、
 // PLUGUMI_TOKEN・PLUGUMI_CORE_URLは環境変数ごと引き継がれる。
 export async function spawnHost(coreURLs: string[]): Promise<SpawnedHost> {
   const binary = await hostBinary();
-  const args = ["--listen", "127.0.0.1:0"];
+  try {
+    return await spawnWithListen(binary, PREFERRED_LISTEN, coreURLs);
+  } catch {
+    return spawnWithListen(binary, "127.0.0.1:0", coreURLs);
+  }
+}
+
+async function spawnWithListen(
+  binary: string, listen: string, coreURLs: string[],
+): Promise<SpawnedHost> {
+  const args = ["--listen", listen];
   for (const url of coreURLs) args.push("--core", url);
   const child = spawn(binary, args, { stdio: ["ignore", "inherit", "inherit"] });
   const url = await waitForRecord(child);
