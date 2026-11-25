@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "5.3.0",
-    "@fontsource/m-plus-1-code": "5.3.1",
     "@plugumi/plugin-view": "workspace:*",
     "plugumi-theme-panel": "workspace:*"
   },

@@ -321,9 +321,6 @@ importers:
       '@fontsource/ibm-plex-sans':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource/m-plus-1-code':
-        specifier: 5.3.1
-        version: 5.3.1
       '@plugumi/plugin-view':
         specifier: workspace:*
         version: link:../../packages/plugin-view
@@ -463,9 +460,6 @@ packages:
 
   '@fontsource/ibm-plex-sans@5.3.0':
     resolution: {integrity: sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w==}
-
-  '@fontsource/m-plus-1-code@5.3.1':
-    resolution: {integrity: sha512-3ecDjm3buUu0tf8Fcb2VPe3PQDCDNlC75ATfAdmr638Vo/izd553DkkZbrP5DFwwXszXlzPHfhNjoCfk1MAJww==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -1402,8 +1396,6 @@ snapshots:
     optional: true
 
   '@fontsource/ibm-plex-sans@5.3.0': {}
-
-  '@fontsource/m-plus-1-code@5.3.1': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
