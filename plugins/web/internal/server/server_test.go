@@ -13,7 +13,7 @@ import (
 	"github.com/coder/websocket"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/internal/coreclient"
+	"github.com/naatin777/plugumi/plugins/web/internal/corerest"
 	"github.com/naatin777/plugumi/plugins/web/internal/cores"
 )
 
@@ -369,13 +369,13 @@ func fakeRPCCore(t *testing.T, respond func(params json.RawMessage) (any, any)) 
 		})
 	})
 	mux.HandleFunc("GET /v1/rpc", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
+		socket, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			return
 		}
-		defer conn.CloseNow()
+		defer socket.CloseNow()
 		for {
-			_, data, err := conn.Read(r.Context())
+			_, data, err := socket.Read(r.Context())
 			if err != nil {
 				return
 			}
@@ -390,7 +390,7 @@ func fakeRPCCore(t *testing.T, respond func(params json.RawMessage) (any, any)) 
 			response, _ := json.Marshal(map[string]any{
 				"jsonrpc": "2.0", "id": request.ID, "result": result, "error": rpcErr,
 			})
-			if err := conn.Write(r.Context(), websocket.MessageText, response); err != nil {
+			if err := socket.Write(r.Context(), websocket.MessageText, response); err != nil {
 				return
 			}
 		}
@@ -534,7 +534,7 @@ func TestProjectAPIsRequireCoreName(t *testing.T) {
 	// core.nameの無いCore（command由来）はkey=coreId。保存先が決められないので409。
 	nameless := fakeCore(t, "")
 	fixture.manager.Add(nameless.URL, cores.SourceCommand)
-	fixture.manager.SetInfo(nameless.URL, coreclient.CoreInfo{CoreID: "fake-"})
+	fixture.manager.SetInfo(nameless.URL, corerest.CoreInfo{CoreID: "fake-"})
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
 		response := do(t, fixture.handler, method, "/api/cores/fake-/projects", `{"title":"x"}`)
 		if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "core.name") {

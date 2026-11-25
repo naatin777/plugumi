@@ -139,17 +139,17 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 		}
 		defer reservation.Complete(nil)
 	}
-	raw, err := websocket.Accept(w, request, nil)
+	socket, err := websocket.Accept(w, request, nil)
 	if err != nil {
 		return
 	}
-	raw.SetReadLimit(1 << 20)
-	connection := rpc.NewConnection(raw, "core-")
-	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
+	socket.SetReadLimit(1 << 20)
+	connection := rpc.NewConnection(socket, "core-")
+	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
 		if message.Method == wire.MethodCall {
 			return s.router.HandleCall(connection, message)
 		}
-		return nil, &wire.RpcError{Code: -32601, Message: "method not found"}
+		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
 	}
 	connection.OnNotification = func(message *wire.Incoming) {
 		s.router.DispatchNotification(connection, message)
@@ -171,7 +171,7 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 				return
 			case <-heartbeat.C:
 				pingContext, cancel := context.WithTimeout(heartbeatContext, 5*time.Second)
-				err := raw.Ping(pingContext)
+				err := socket.Ping(pingContext)
 				cancel()
 				if err != nil {
 					connection.CloseNow()

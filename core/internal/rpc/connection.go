@@ -24,14 +24,14 @@ var connectionCounter atomic.Int64
 type Connection struct {
 	ID         string
 	IDPrefix   string
-	ws         *websocket.Conn
+	socket     *websocket.Conn
 	writeMu    sync.Mutex
 	pendingMu  sync.Mutex
 	counter    atomic.Int64
 	pending    map[string]chan *wire.Incoming
 	notifQueue chan notificationWork
 
-	OnRequest      func(*wire.Incoming) (json.RawMessage, *wire.RpcError)
+	OnRequest      func(*wire.Incoming) (json.RawMessage, *wire.RPCError)
 	OnNotification func(*wire.Incoming)
 	// OnResponded は受信requestへのresponseを書き終えた直後に呼ばれる。
 	// 中継側が「responseを先に届けてからnotificationを流す」順序を
@@ -47,11 +47,11 @@ type notificationWork struct {
 	drained chan struct{}
 }
 
-func NewConnection(ws *websocket.Conn, idPrefix string) *Connection {
+func NewConnection(socket *websocket.Conn, idPrefix string) *Connection {
 	connection := &Connection{
 		ID:         fmt.Sprintf("connection-%d", connectionCounter.Add(1)),
 		IDPrefix:   idPrefix,
-		ws:         ws,
+		socket:     socket,
 		pending:    map[string]chan *wire.Incoming{},
 		notifQueue: make(chan notificationWork, 256),
 		done:       make(chan struct{}),
@@ -89,7 +89,7 @@ func (c *Connection) NextID() json.RawMessage {
 func (c *Connection) Run(ctx context.Context) error {
 	defer c.closeOnce.Do(func() { close(c.done) })
 	for {
-		messageType, data, err := c.ws.Read(ctx)
+		messageType, data, err := c.socket.Read(ctx)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func (c *Connection) Run(ctx context.Context) error {
 
 func (c *Connection) handleRequest(message *wire.Incoming) {
 	var result json.RawMessage
-	var rpcErr *wire.RpcError
+	var rpcErr *wire.RPCError
 	if c.OnRequest != nil {
 		result, rpcErr = c.OnRequest(message)
 	}
@@ -219,7 +219,7 @@ func (c *Connection) write(value any) error {
 	// 呼び出し側（DropConnection等）にrouteを清算させる。
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := c.ws.Write(ctx, websocket.MessageText, data); err != nil {
+	if err := c.socket.Write(ctx, websocket.MessageText, data); err != nil {
 		c.Close()
 		return err
 	}
@@ -231,11 +231,11 @@ func (c *Connection) write(value any) error {
 // doneのcloseはこちらでも行う（Run側とはcloseOnceで排他）。
 func (c *Connection) Close() {
 	c.closeOnce.Do(func() { close(c.done) })
-	_ = c.ws.Close(websocket.StatusNormalClosure, "bye")
+	_ = c.socket.Close(websocket.StatusNormalClosure, "bye")
 }
 
 func (c *Connection) CloseNow() {
 	c.closeOnce.Do(func() { close(c.done) })
-	_ = c.ws.CloseNow()
+	_ = c.socket.CloseNow()
 }
 func (c *Connection) Done() <-chan struct{} { return c.done }

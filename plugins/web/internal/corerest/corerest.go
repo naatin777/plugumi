@@ -1,6 +1,6 @@
-// Package coreclient はCoreの/v1 REST呼び出しだけを行う（contracts/00004）。
+// Package corerest はCoreの/v1 REST呼び出しだけを行う（contracts/00004）。
 // 状態を持たず、http.Client・token・coreURLは呼び出し側が渡す。
-package coreclient
+package corerest
 
 import (
 	"bytes"

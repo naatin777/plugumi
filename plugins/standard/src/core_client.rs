@@ -384,7 +384,7 @@ fn on_message(calls: SharedCalls, message: Incoming, connection: Connection) {
                 .params
                 .as_ref()
                 .and_then(|params| params.get("callId"))
-                .map(Value::to_string);
+                .map(crate::wire::call_key);
             if let Some(sender) =
                 call_key.and_then(|key| calls.lock().unwrap().call_close_senders.remove(&key))
             {

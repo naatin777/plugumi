@@ -127,7 +127,7 @@ type callDoneMsg struct {
 	callID  string
 	outcome CallOutcome
 	result  json.RawMessage
-	rpcErr  *wire.RpcError
+	rpcErr  *wire.RPCError
 	err     error
 }
 
@@ -524,7 +524,7 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 		// callDoneMsgより先に処理されることがある。その場合は
 		// 終端が既に表示済みなのでaccepted行は出さない。
 		if m.callState == callActive || m.callState == callClosing {
-			m.appendCallLine(styleOK.Render("accepted — waiting for output/result"))
+			m.appendCallLine(styleOK.Render("accepted — waiting for chunk/result"))
 		}
 	case msg.outcome == CallSyncDone:
 		m.appendCallLine("result:")
@@ -534,7 +534,7 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 }
 
 func (m *Model) onEvent(event Event) {
-	if event.Kind == EventConnClosed {
+	if event.Kind == EventConnectionClosed {
 		m.statusMsg = styleWarn.Render("call channel disconnected — will reconnect on next call")
 		if m.detailMode == detailCall && (m.callState == callActive || m.callState == callClosing) {
 			m.appendCallLine(styleError.Render("connection lost"))
@@ -543,11 +543,11 @@ func (m *Model) onEvent(event Event) {
 		return
 	}
 	if m.detailMode != detailCall || event.CallID != m.callID || m.callID == "" ||
-		m.callTicket == nil || event.conn != m.callTicket.connection {
+		m.callTicket == nil || event.connection != m.callTicket.connection {
 		return
 	}
 	switch event.Kind {
-	case EventOutput:
+	case EventChunk:
 		// 途中出力は高頻度なので1行compactで流す
 		m.appendCallLine("out " + compactJSON(event.Payload))
 	case EventResult:

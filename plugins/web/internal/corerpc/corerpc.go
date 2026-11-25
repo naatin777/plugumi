@@ -73,14 +73,14 @@ type Client struct {
 	token   string
 
 	mu      sync.Mutex
-	conn    *websocket.Conn
+	socket  *websocket.Conn
 	nextID  int
 	pending map[string]chan callResult
 }
 
 // Call はsync Toolを呼んでresultを返す。JSON-RPC errorは*Errorで返す。
 func (c *Client) Call(ctx context.Context, registrationID, toolPath string, input json.RawMessage) (json.RawMessage, *Error, error) {
-	conn, err := c.connection(ctx)
+	socket, err := c.connection(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,8 +105,8 @@ func (c *Client) Call(ctx context.Context, registrationID, toolPath string, inpu
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := conn.Write(ctx, websocket.MessageText, request); err != nil {
-		c.drop(conn)
+	if err := socket.Write(ctx, websocket.MessageText, request); err != nil {
+		c.drop(socket)
 		return nil, nil, err
 	}
 	select {
@@ -120,10 +120,10 @@ func (c *Client) Call(ctx context.Context, registrationID, toolPath string, inpu
 // connection は生きている接続を返す。なければ新規に張る。
 func (c *Client) connection(ctx context.Context) (*websocket.Conn, error) {
 	c.mu.Lock()
-	if c.conn != nil {
-		conn := c.conn
+	if c.socket != nil {
+		socket := c.socket
 		c.mu.Unlock()
-		return conn, nil
+		return socket, nil
 	}
 	c.mu.Unlock()
 	wsURL := "ws" + strings.TrimPrefix(c.coreURL, "http") + "/v1/rpc"
@@ -133,34 +133,34 @@ func (c *Client) connection(ctx context.Context) (*websocket.Conn, error) {
 	if c.token != "" {
 		options.HTTPHeader = http.Header{"Authorization": {"Bearer " + c.token}}
 	}
-	conn, _, err := websocket.Dial(dialCtx, wsURL, options)
+	socket, _, err := websocket.Dial(dialCtx, wsURL, options)
 	if err != nil {
 		return nil, err
 	}
 	// 既定の受信上限（32KiB）だと大きなTool結果で接続が切れるので、
 	// Core側の受信上限（core/internal/server/http.go、1MiB）に合わせる。
-	conn.SetReadLimit(1 << 20)
+	socket.SetReadLimit(1 << 20)
 	c.mu.Lock()
-	if c.conn != nil {
+	if c.socket != nil {
 		// 並行して張られた方を使い、自分は閉じる。
-		existing := c.conn
+		existing := c.socket
 		c.mu.Unlock()
-		_ = conn.Close(websocket.StatusNormalClosure, "superseded")
+		_ = socket.Close(websocket.StatusNormalClosure, "superseded")
 		return existing, nil
 	}
-	c.conn = conn
+	c.socket = socket
 	c.mu.Unlock()
-	go c.readLoop(conn)
-	return conn, nil
+	go c.readLoop(socket)
+	return socket, nil
 }
 
 // readLoop はResponseをpendingへ振り分ける。Notificationは呼び出し専用接続では
 // 読み捨てる（async ToolはWeb UIから呼ばない）。切断時は待機中の呼び出しを全て失敗させる。
-func (c *Client) readLoop(conn *websocket.Conn) {
+func (c *Client) readLoop(socket *websocket.Conn) {
 	for {
-		_, data, err := conn.Read(context.Background())
+		_, data, err := socket.Read(context.Background())
 		if err != nil {
-			c.drop(conn)
+			c.drop(socket)
 			return
 		}
 		var message incoming
@@ -181,18 +181,18 @@ func (c *Client) readLoop(conn *websocket.Conn) {
 }
 
 // drop は切断した接続を手放し、待機中の呼び出しにエラーを返す。
-func (c *Client) drop(conn *websocket.Conn) {
+func (c *Client) drop(socket *websocket.Conn) {
 	c.mu.Lock()
-	if c.conn != conn {
+	if c.socket != socket {
 		c.mu.Unlock()
 		return
 	}
-	c.conn = nil
+	c.socket = nil
 	pending := c.pending
 	c.pending = map[string]chan callResult{}
 	c.mu.Unlock()
 	for _, waiting := range pending {
 		waiting <- callResult{err: &Error{Code: -32000, Message: "RPC connection closed"}}
 	}
-	_ = conn.Close(websocket.StatusNormalClosure, "closed")
+	_ = socket.Close(websocket.StatusNormalClosure, "closed")
 }

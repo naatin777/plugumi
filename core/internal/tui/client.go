@@ -25,22 +25,22 @@ import (
 type EventKind string
 
 const (
-	EventOutput     EventKind = "output"
-	EventResult     EventKind = "result"
-	EventConnClosed EventKind = "connection-closed"
+	EventChunk            EventKind = "chunk"
+	EventResult           EventKind = "result"
+	EventConnectionClosed EventKind = "connection-closed"
 )
 
 // Event は呼び出し側のWS接続経由で届く非同期イベント。TUIのUpdateが
 // events channelから拾って画面に反映する。
 type Event struct {
-	Kind EventKind // EventOutput | EventResult | EventConnClosed
-	// conn は届いた接続。idは接続ごとにtui-1から振り直すので、
+	Kind EventKind // EventChunk | EventResult | EventConnectionClosed
+	// connection は届いた接続。idは接続ごとにtui-1から振り直すので、
 	// 切断→再接続で同じidが回ってきても旧接続の遅延通知と混ざらないよう照合に使う。
-	conn    *rpc.Connection
-	CallID  string // json.RawMessageの文字列表現（"\"tui-1\""等）
-	Payload json.RawMessage
-	Result  json.RawMessage
-	Err     *wire.RpcError
+	connection *rpc.Connection
+	CallID     string // json.RawMessageの文字列表現（"\"tui-1\""等）
+	Payload    json.RawMessage
+	Result     json.RawMessage
+	Err        *wire.RPCError
 }
 
 // Client はCoreの管理RESTと呼び出し側のWSへの薄いクライアント。
@@ -211,27 +211,27 @@ func (c *Client) ensureConnection(ctx context.Context) (*rpc.Connection, error) 
 	if c.token != "" {
 		headers.Set("Authorization", "Bearer "+c.token)
 	}
-	raw, _, err := websocket.Dial(dialContext, c.wsURL, &websocket.DialOptions{
+	socket, _, err := websocket.Dial(dialContext, c.wsURL, &websocket.DialOptions{
 		HTTPClient: c.http,
 		HTTPHeader: headers,
 	})
 	if err != nil {
 		return nil, err
 	}
-	connection := rpc.NewConnection(raw, "tui-")
+	connection := rpc.NewConnection(socket, "tui-")
 	connection.OnNotification = func(message *wire.Incoming) {
 		c.dispatchNotification(connection, message)
 	}
 	// caller側にrequestが来ることはない（Core→callerはnotificationのみ）。
-	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
-		return nil, &wire.RpcError{Code: -32601, Message: "method not found"}
+	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
 	}
 	c.connection = connection
 	go func() {
-		defer raw.CloseNow()
+		defer socket.CloseNow()
 		_ = connection.Run(c.ctx)
 		select {
-		case c.events <- Event{Kind: EventConnClosed}:
+		case c.events <- Event{Kind: EventConnectionClosed}:
 		case <-c.ctx.Done():
 		case <-time.After(2 * time.Second): // 満杯でもgoroutineを残さない
 		}
@@ -245,12 +245,12 @@ type CallOutcome int
 
 const (
 	CallSyncDone      CallOutcome = iota // responseが終端（sync結果 or 受理失敗error）
-	CallAsyncAccepted                    // {accepted:true}。以後output/result通知が届く
+	CallAsyncAccepted                    // {accepted:true}。以後chunk/result通知が届く
 	CallFailed                           // request自体の失敗（JSON-RPC error response）
 )
 
 // CallTicket は1回のcallに必要なidとconnectionの組。
-// idをcall送信「前」に確定させるのは、responseより先に届くoutput通知を
+// idをcall送信「前」に確定させるのは、responseより先に届くchunk通知を
 // callIDで照合できるようにするため（client側の処理順は保証されない）。
 // connectionを保持するのは、切断→再接続でconnectionが差し替わってもidの発行元と
 // 送信先がずれないようにするため。
@@ -272,11 +272,11 @@ func (c *Client) NewCallTicket(ctx context.Context) (*CallTicket, error) {
 func (t *CallTicket) CallID() string { return string(t.ID) }
 
 // Call はticketのidでtools.callを送り、responseまで待つ。
-// async受理ならacceptedが返った時点で戻り、output/resultはevents経由。
+// async受理ならacceptedが返った時点で戻り、chunk/resultはevents経由。
 // kindは宣言ラベル（contracts/00004）。宣言がsyncのtoolが{accepted:true}を
 // resultとして返しても終端として扱う — shapeだけで判定すると
 // 終端済みのcallをasync受理と誤認して通知待ちになる。
-func (c *Client) Call(ctx context.Context, ticket *CallTicket, params wire.CallParams, kind string) (CallOutcome, json.RawMessage, *wire.RpcError, error) {
+func (c *Client) Call(ctx context.Context, ticket *CallTicket, params wire.CallParams, kind string) (CallOutcome, json.RawMessage, *wire.RPCError, error) {
 	res, err := ticket.connection.RequestWithID(ctx, ticket.ID, wire.MethodCall, params, nil)
 	if err != nil {
 		return CallFailed, nil, nil, err
@@ -305,7 +305,7 @@ func (c *Client) Close(ticket *CallTicket) error {
 }
 
 func (c *Client) dispatchNotification(connection *rpc.Connection, message *wire.Incoming) {
-	event := Event{Kind: EventOutput, conn: connection}
+	event := Event{Kind: EventChunk, connection: connection}
 	switch message.Method {
 	case wire.MethodCallChunk:
 		var params wire.CallChunkParams

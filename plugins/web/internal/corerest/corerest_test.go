@@ -1,4 +1,4 @@
-package coreclient
+package corerest
 
 import (
 	"encoding/json"

@@ -19,8 +19,11 @@ use crate::core_client::SharedCalls;
 use crate::rpc::Connection;
 use crate::wire::{self, ForwardCallParams, ToolDeclaration};
 
-/// 登録するTool一覧。`toolPath` と `kind` のみを持ち、
-/// handlerの選択は `dispatch` のmatchで行う（片方だけ更新しないこと）。
+/// 登録するTool一覧。toolを追加するときは `dispatch` のmatchにも
+/// handlerを追加する。ここにだけ書くと宣言済みの呼び出しがunknownで
+/// 失敗し、dispatchにだけ書くとCoreから呼び出しが届かない。
+/// マクロ等で一元化すると宣言と配送の実体が追いにくくなるので、
+/// この2箇所を直接編集する形を維持する。
 const TOOLS: &[(&str, &str)] = &[
     ("echo", "sync"),
     ("fs/list", "sync"),
@@ -44,7 +47,7 @@ pub fn declarations() -> Vec<ToolDeclaration> {
 }
 
 /// 1つの着信呼び出し。ToolPath・Inputのほか、async側では
-/// output/result/closed を使う。
+/// chunk/result/closed を使う。
 pub struct ToolCall {
     pub connection: Connection,
     pub id: Value, // callId = 呼び出しrequestのJSON-RPC id
@@ -101,19 +104,19 @@ pub fn dispatch(
         input: params.input,
         close_rx,
     };
+    let call_key = wire::call_key(&req_id);
     calls
         .lock()
         .unwrap()
         .call_close_senders
-        .insert(req_id.to_string(), close_tx);
+        .insert(call_key.clone(), close_tx);
 
     match params.tool_path.as_str() {
         // sync: handlerの戻り値が呼び出しのresponseになる。
         "echo" | "fs/list" | "fs/read" | "fs/write" => {
-            let call_key = req_id.to_string();
             tokio::spawn(async move {
                 let mut call = call;
-                let res = match call.tool_path.as_str() {
+                let result = match call.tool_path.as_str() {
                     "echo" => echo::handle(&mut call).await,
                     "fs/list" => fs::list(&mut call).await,
                     "fs/read" => fs::read(&mut call).await,
@@ -121,7 +124,7 @@ pub fn dispatch(
                 };
                 call.connection.respond(
                     call.id.clone(),
-                    res.map_err(|message| wire::RpcError {
+                    result.map_err(|message| wire::RpcError {
                         code: -32000,
                         message,
                         data: None,
@@ -134,7 +137,6 @@ pub fn dispatch(
         // async: 受理({accepted:true})を返してから実処理。
         "exec" | "ticks" => {
             connection.respond(req_id.clone(), Ok(serde_json::json!({"accepted": true})));
-            let call_key = req_id.to_string();
             tokio::spawn(async move {
                 match call.tool_path.as_str() {
                     "exec" => exec::handle(call).await,
@@ -147,11 +149,7 @@ pub fn dispatch(
         // 未知toolPathではclose sender登録を残さない（close配送対象がないのに
         // mapへ残るとリークする）。
         _ => {
-            calls
-                .lock()
-                .unwrap()
-                .call_close_senders
-                .remove(&req_id.to_string());
+            calls.lock().unwrap().call_close_senders.remove(&call_key);
             connection.respond(
                 req_id,
                 Err(wire::RpcError {

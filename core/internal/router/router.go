@@ -61,26 +61,26 @@ func routeKey(c *rpc.Connection, id json.RawMessage) string { return c.ID + "\x0
 // HandleCall はconnection上の tools.call request を捌く。targetへforwardし、
 // responseをそのままこのrequestのresponseとして返す。
 // OnRequestのgoroutine内で同期的に完結させる。
-func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
+func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
 	var params wire.CallParams
 	if err := wire.Unmarshal(message.Params, &params); err != nil {
-		return nil, &wire.RpcError{Code: -32602, Message: "invalid params"}
+		return nil, &wire.RPCError{Code: -32602, Message: "invalid params"}
 	}
 
 	if params.Target.RegistrationID == "" || params.Target.ToolPath == "" {
-		return nil, &wire.RpcError{Code: -32602, Message: "registrationId and toolPath are required"}
+		return nil, &wire.RPCError{Code: -32602, Message: "registrationId and toolPath are required"}
 	}
 	target, kind, lookupErr := r.registry.ResolveTool(params.Target)
 	switch lookupErr {
 	case nil:
 	case registry.ErrUnknownRegistration:
-		return nil, &wire.RpcError{Code: -32007, Message: "unknown registration: " + params.Target.RegistrationID}
+		return nil, &wire.RPCError{Code: -32007, Message: "unknown registration: " + params.Target.RegistrationID}
 	case registry.ErrConnectionUnavailable:
-		return nil, &wire.RpcError{Code: -32002, Message: "plugin connection unavailable"}
+		return nil, &wire.RPCError{Code: -32002, Message: "plugin connection unavailable"}
 	case registry.ErrUnknownTool:
-		return nil, &wire.RpcError{Code: -32601, Message: "no such toolPath: " + params.Target.ToolPath}
+		return nil, &wire.RPCError{Code: -32601, Message: "no such toolPath: " + params.Target.ToolPath}
 	default:
-		return nil, &wire.RpcError{Code: -32603, Message: "failed to resolve tool target"}
+		return nil, &wire.RPCError{Code: -32603, Message: "failed to resolve tool target"}
 	}
 
 	forwardID := target.NextID()
@@ -95,16 +95,16 @@ func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (jso
 	select {
 	case <-caller.Done():
 		r.mu.Unlock()
-		return nil, &wire.RpcError{Code: -32000, Message: "caller connection closed"}
+		return nil, &wire.RPCError{Code: -32000, Message: "caller connection closed"}
 	case <-target.Done():
 		r.mu.Unlock()
-		return nil, &wire.RpcError{Code: -32000, Message: "forward failed: target connection closed"}
+		return nil, &wire.RPCError{Code: -32000, Message: "forward failed: target connection closed"}
 	default:
 	}
 	targetKey := routeKey(target, forwardID)
 	if r.byCaller[routeKey(caller, message.ID)] != nil {
 		r.mu.Unlock()
-		return nil, &wire.RpcError{Code: -32600, Message: "call ID is already in use"}
+		return nil, &wire.RPCError{Code: -32600, Message: "call ID is already in use"}
 	}
 	r.routes[targetKey] = route
 	r.byCaller[routeKey(caller, message.ID)] = route
@@ -121,9 +121,9 @@ func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (jso
 		// こちらが諦めても、相手側の購読・長時間callは実行され続けるため。
 		_ = target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: forwardID})
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, &wire.RpcError{Code: -32003, Message: "forward deadline exceeded"}
+			return nil, &wire.RPCError{Code: -32003, Message: "forward deadline exceeded"}
 		}
-		return nil, &wire.RpcError{Code: -32000, Message: "forward failed: " + err.Error()}
+		return nil, &wire.RPCError{Code: -32000, Message: "forward failed: " + err.Error()}
 	}
 
 	if kind == "sync" {
@@ -131,7 +131,7 @@ func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (jso
 		err := target.WaitNotifications(ctx)
 		r.removeRoute(route)
 		if err != nil {
-			return nil, &wire.RpcError{Code: -32000, Message: "forward failed: " + err.Error()}
+			return nil, &wire.RPCError{Code: -32000, Message: "forward failed: " + err.Error()}
 		}
 		return res.Result, res.Error
 	}
@@ -150,7 +150,7 @@ func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (jso
 	r.mu.Lock()
 	if r.routes[targetKey] != route {
 		r.mu.Unlock()
-		return nil, &wire.RpcError{Code: -32000, Message: "forward failed: connection closed before acceptance"}
+		return nil, &wire.RPCError{Code: -32000, Message: "forward failed: connection closed before acceptance"}
 	}
 	route.accepted = true
 	if route.cancelRequested {
@@ -285,7 +285,7 @@ func (r *Router) startCancelTimerLocked(route *Route) {
 		if r.removeRoute(route) {
 			_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
 				CallID: route.CallerID,
-				Error:  &wire.RpcError{Code: -32004, Message: "outcome unknown: no terminal result after cancellation request"},
+				Error:  &wire.RPCError{Code: -32004, Message: "outcome unknown: no terminal result after cancellation request"},
 			})
 		}
 	})
@@ -349,7 +349,7 @@ func (r *Router) notifyTargetClosed(route *Route) {
 	defer route.delivery.Unlock()
 	_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
 		CallID: route.CallerID,
-		Error:  &wire.RpcError{Code: -32000, Message: "target connection closed"},
+		Error:  &wire.RPCError{Code: -32000, Message: "target connection closed"},
 	})
 }
 

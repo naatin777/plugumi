@@ -83,3 +83,14 @@ pub struct ForwardCallParams {
     #[serde(default)]
     pub input: Value,
 }
+
+/// JSON-RPCのidをclose配送の照合キーへ正規化する。
+/// 文字列idは引用符なしの素の文字列、それ以外（数値等）はコンパクトな
+/// JSON表現にする。`Value::to_string`だと文字列が引用符付きになり、
+/// 表層のフォーマット仕様へ暗黙依存するため。
+pub fn call_key(id: &Value) -> String {
+    match id {
+        Value::String(text) => text.clone(),
+        other => other.to_string(),
+    }
+}

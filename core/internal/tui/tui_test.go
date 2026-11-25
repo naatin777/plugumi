@@ -102,11 +102,11 @@ func TestEventFromPreviousConnectionIsIgnored(t *testing.T) {
 	previous, current := &rpc.Connection{}, &rpc.Connection{}
 	ticket := &CallTicket{connection: current, ID: wire.Marshal("call-1")}
 	model := &Model{coreView: coreView{client: &Client{}}, detailMode: detailCall, callState: callActive, callTicket: ticket, callID: ticket.CallID()}
-	model.onEvent(Event{Kind: EventResult, conn: previous, CallID: ticket.CallID(), Result: json.RawMessage(`"stale"`)})
+	model.onEvent(Event{Kind: EventResult, connection: previous, CallID: ticket.CallID(), Result: json.RawMessage(`"stale"`)})
 	if model.callState != callActive || len(model.callLines) != 0 {
 		t.Fatal("a stale connection's result changed the active call")
 	}
-	model.onEvent(Event{Kind: EventResult, conn: current, CallID: ticket.CallID(), Result: json.RawMessage(`"fresh"`)})
+	model.onEvent(Event{Kind: EventResult, connection: current, CallID: ticket.CallID(), Result: json.RawMessage(`"fresh"`)})
 	if model.callState != callFinished || !strings.Contains(strings.Join(model.callLines, " "), "fresh") {
 		t.Fatal("the current connection's result was not displayed")
 	}
@@ -197,7 +197,7 @@ func TestCoreFocusShowsOnlyTheFocusedCoresLinksAndTools(t *testing.T) {
 	}
 	model.Update(oldSnapshot)
 	model.Update(setStatusMsg{client: firstPreview, text: "old status"})
-	model.Update(eventMsg{client: firstPreview, event: Event{Kind: EventConnClosed}})
+	model.Update(eventMsg{client: firstPreview, event: Event{Kind: EventConnectionClosed}})
 	if len(model.registrations) != 0 || len(model.rows) != 0 || model.confirmRemoveRegistrationID != "" || model.statusMsg != "" {
 		t.Fatal("the new preview should not retain state or accept late messages from the old Core")
 	}

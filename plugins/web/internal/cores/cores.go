@@ -1,6 +1,6 @@
 // Package cores は接続先Core一覧と、各Coreへの登録・Lease更新を管理する
 // （contracts/00004のPlugin側登録処理。WS・SSE購読は持たない）。
-// REST呼び出し自体はcoreclientが担う。
+// REST呼び出し自体はcorerestが担う。
 package cores
 
 import (
@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/internal/coreclient"
+	"github.com/naatin777/plugumi/plugins/web/internal/corerest"
 )
 
 // Source はCore一覧への追加経路。commandは起動引数由来でUIから削除できない。
@@ -112,7 +112,7 @@ func (m *Manager) Add(normalizedURL string, source Source) error {
 
 // SetInfo はPOST時の事前検査で取得済みの識別情報を記録する。
 // 登録完了時にもGET /v1/coreを取り直すため、ここは表示と重複検査の速さのためだけ。
-func (m *Manager) SetInfo(normalizedURL string, info coreclient.CoreInfo) {
+func (m *Manager) SetInfo(normalizedURL string, info corerest.CoreInfo) {
 	m.mu.Lock()
 	tracked, exists := m.cores[normalizedURL]
 	m.mu.Unlock()
@@ -252,7 +252,7 @@ func (t *trackedCore) run(ctx context.Context, m *Manager) {
 		if ctx.Err() != nil {
 			return
 		}
-		var httpErr *coreclient.StatusError
+		var httpErr *corerest.StatusError
 		if errors.As(err, &httpErr) && (httpErr.Status == http.StatusUnauthorized ||
 			httpErr.Status == http.StatusForbidden || httpErr.Status == http.StatusUpgradeRequired) {
 			t.setState(StatusRejected, "", "", err.Error())
@@ -274,14 +274,14 @@ func (t *trackedCore) run(ctx context.Context, m *Manager) {
 
 // session は登録からLease更新までの1区間。登録を失ったら戻って再登録する。
 func (t *trackedCore) session(ctx context.Context, m *Manager, connected func()) error {
-	lease, err := coreclient.CreateRegistration(ctx, m.client, m.token, t.url, "web", m.pluginInstanceID)
+	lease, err := corerest.CreateRegistration(ctx, m.client, m.token, t.url, "web", m.pluginInstanceID)
 	if err != nil {
 		return err
 	}
 	t.mu.Lock()
 	t.registrationID = lease.RegistrationID
 	t.mu.Unlock()
-	info, err := coreclient.FetchCoreInfo(ctx, m.client, m.token, t.url)
+	info, err := corerest.FetchCoreInfo(ctx, m.client, m.token, t.url)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func (t *trackedCore) session(ctx context.Context, m *Manager, connected func())
 			return ctx.Err()
 		case <-timer.C:
 		}
-		renewed, err := coreclient.RenewRegistration(ctx, m.client, m.token, t.url, t.registrationID)
+		renewed, err := corerest.RenewRegistration(ctx, m.client, m.token, t.url, t.registrationID)
 		if err != nil {
 			return err
 		}
@@ -317,5 +317,5 @@ func (t *trackedCore) deleteRegistration(m *Manager) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 	defer cancel()
-	_ = coreclient.DeleteRegistration(ctx, m.client, m.token, t.url, registrationID)
+	_ = corerest.DeleteRegistration(ctx, m.client, m.token, t.url, registrationID)
 }

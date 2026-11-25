@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/internal/coreclient"
+	"github.com/naatin777/plugumi/plugins/web/internal/corerest"
 	"github.com/naatin777/plugumi/plugins/web/internal/corerpc"
 	"github.com/naatin777/plugumi/plugins/web/internal/cores"
 	"github.com/naatin777/plugumi/plugins/web/internal/projects"
@@ -114,10 +114,10 @@ func (s *Server) addCore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	info, err := coreclient.FetchCoreInfo(ctx, s.probeClient(), s.token, normalized)
+	info, err := corerest.FetchCoreInfo(ctx, s.probeClient(), s.token, normalized)
 	cancel()
 	if err != nil {
-		var httpErr *coreclient.StatusError
+		var httpErr *corerest.StatusError
 		if errors.As(err, &httpErr) {
 			writeError(w, http.StatusBadGateway, fmt.Sprintf("Core at %s returned %s", normalized, err))
 		} else {
@@ -242,7 +242,7 @@ func (s *Server) listPanels(w http.ResponseWriter, r *http.Request) {
 	if !found {
 		return
 	}
-	snapshot, err := coreclient.FetchRegistry(r.Context(), s.coreHTTP, s.token, core.URL)
+	snapshot, err := corerest.FetchRegistry(r.Context(), s.coreHTTP, s.token, core.URL)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not read Core registry: %v", err))
 		return
@@ -308,7 +308,7 @@ func (s *Server) callTool(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "request body must be JSON with registrationId, toolPath and input")
 		return
 	}
-	snapshot, err := coreclient.FetchRegistry(r.Context(), s.coreHTTP, s.token, core.URL)
+	snapshot, err := corerest.FetchRegistry(r.Context(), s.coreHTTP, s.token, core.URL)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not read Core registry: %v", err))
 		return
@@ -408,7 +408,7 @@ func (s *Server) addProject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) addArea(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Parent []string `json:"parent"`
-		Title string   `json:"title"`
+		Title  string   `json:"title"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON")

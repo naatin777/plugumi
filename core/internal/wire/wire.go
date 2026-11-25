@@ -92,11 +92,11 @@ type Response struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
 	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *RpcError       `json:"error,omitempty"`
+	Error   *RPCError       `json:"error,omitempty"`
 }
 
-// RpcError はJSON-RPC 2.0のerror object。
-type RpcError struct {
+// RPCError はJSON-RPC 2.0のerror object。
+type RPCError struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data,omitempty"`
@@ -109,7 +109,7 @@ type Incoming struct {
 	Method  string          `json:"method,omitempty"`
 	Params  json.RawMessage `json:"params,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *RpcError       `json:"error,omitempty"`
+	Error   *RPCError       `json:"error,omitempty"`
 }
 
 func (in *Incoming) IsRequest() bool      { return in.Method != "" && len(in.ID) > 0 }
@@ -164,7 +164,7 @@ type CallChunkParams struct {
 type CallResultParams struct {
 	CallID json.RawMessage `json:"callId"`
 	Result json.RawMessage `json:"result,omitempty"`
-	Error  *RpcError       `json:"error,omitempty"`
+	Error  *RPCError       `json:"error,omitempty"`
 }
 
 type CallCloseParams struct {
