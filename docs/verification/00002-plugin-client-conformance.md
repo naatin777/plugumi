@@ -28,11 +28,11 @@ relations:
 
 ## 最初の縦断テスト
 
-1. 購読側がSSEに接続し、`registry.reset` 後の空Snapshotを読む。CLI PluginはCore URLを指定されて登録する。購読側が `plugin.added` を受け取る。Pluginは待受ソケットを作らず、CoreからPluginへの発信接続も発生しない。
+1. 購読側がSSEに接続し、`registry.reset` 後の空Snapshotを読む。CLI PluginはCore URLを指定されて登録する。購読側が `provider.added` を受け取る。Pluginは待受ソケットを作らず、CoreからPluginへの発信接続も発生しない。
 2. CLI PluginがRESTでechoのTool宣言を登録し、後から変更する。購読側が `tools.changed` と新しいSnapshotを観測する。途中でSSEを切断して更新しても、再購読後に最新内容へ収束する。
 3. CLI Pluginが同じ認証主体・登録でWSを開く。呼び出し元が `registrationId + toolPath` を指定してechoを実行し、Coreが対象の既存WSへ配送して結果を返す。Coreは別の対象を選ばない。
 4. UI Hostで最小のPanelを表示する。Panel専用のecho操作をBridgeから呼び、Coreが同じPluginへ配送した結果をPanelに表示する。その操作はTool一覧に出ない。UI Hostを閉じてもPlugin自体の接続と他の呼び出し元は継続する。
-5. Pluginが登録を取り消す。購読側が `plugin.removed` を受け、Snapshotから登録と宣言が消える。旧登録への呼び出しは失敗する。
+5. Pluginが登録を取り消す。購読側が `provider.removed` を受け、Snapshotから登録と宣言が消える。旧登録への呼び出しは失敗する。
 
 ## 適合シナリオと失敗条件
 
@@ -59,18 +59,18 @@ relations:
 
 ### ローカルで再実行する
 
-Agentの依存は事前に `pnpm install --frozen-lockfile` で用意する。リポジトリのルートから `pnpm --dir plugins/agent test` を実行するとAgentのテストが動く。実プロセステストも含める場合は、CoreとStandardをビルドして次のように実行する。
+Agentの依存は事前に `pnpm install --frozen-lockfile` で用意する。リポジトリのルートから `pnpm --dir plugins/agent test` を実行するとAgentのテストが動く。実プロセステストも含める場合は、CoreとEnvironment Providerをビルドして次のように実行する。
 
 ```sh
 (cd core && go build -o plugumi ./cmd/plugumi)
-(cd plugins/standard && cargo build --locked)
+(cd environment && cargo build --locked)
 (cd plugins/agent &&
   PLUGUMI_TEST_CORE="$PWD/../../core/plugumi" \
-  PLUGUMI_TEST_STANDARD="$PWD/../standard/target/debug/plugumi-standard" \
+  PLUGUMI_TEST_ENVIRONMENT="$PWD/../../environment/target/debug/plugumi-environment" \
   pnpm test)
 ```
 
-[実プロセステスト](../../plugins/agent/test/plugin-clients.integration.test.mjs)では、StandardとAgentをCore 2台に接続する。片方を再起動すると両Pluginが新しい登録で呼び出しを受け付け、もう片方では同じ登録で途中出力と取消が続くことを確認する。C4とC5の一部を検証するもので、TCP待受の不在や実行回数による再実行チェックはこのテストの対象外。
+[実プロセステスト](../../plugins/agent/test/plugin-clients.integration.test.mjs)では、Environment ProviderとAgentをCore 2台に接続する。片方を再起動すると両Pluginが新しい登録で呼び出しを受け付け、もう片方では同じ登録で途中出力と取消が続くことを確認する。C4とC5の一部を検証するもので、TCP待受の不在や実行回数による再実行チェックはこのテストの対象外。
 
 ### 実行記録
 
@@ -78,6 +78,6 @@ Registryの整理後、Coreのテストで、定期掃除前でも期限切れ�
 
 Coreの自動テストで、SSE通知、登録の冪等性、Toolの往復、WS切断後の登録維持と再接続、旧パスの拒否を確認する。Agentの自動テストでは、SSEからの一覧更新とWS再接続を確認する。Panel、Bundle、外部公開、WebRTC、RPC型生成の適合試験は未実施。
 
-2026-11-20、macOSで実プロセスのCore 2台に同じStandardとAgentを接続した。PluginにTCP待受がないこと、Toolのechoとticksの途中出力・取消、片方のCore再起動で両Pluginが再登録し、もう片方のRegistryが変わらないことを確認した。
+2026-11-20、macOSで実プロセスのCore 2台に同じEnvironment ProviderとAgentを接続した。PluginにTCP待受がないこと、Toolのechoとticksの途中出力・取消、片方のCore再起動で両Pluginが再登録し、もう片方のRegistryが変わらないことを確認した。
 
 同日、Coreが生成した `/openapi.json` をOpenAPI Generator 7.16.0で検証し、Go・TypeScript (`typescript-fetch`)・RustのRESTクライアントを生成した。Goのクライアント本体は `go build .`、TypeScriptは `tsc --strict --noEmit` に合格した。Goの生成テストとRustの生成物のビルドは、生成側の依存がローカルに揃わず未確認。生成クライアントを使った疎通は未実施。

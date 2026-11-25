@@ -23,7 +23,7 @@ relations:
 
 ## 決定
 
-- ブラウザ向けのUIは、`plugins/web/` のWeb Pluginが提供する。Web PluginはUI専用の特別な部品ではなく、他のPluginと同じく、起動コマンドの `--core` で指定されたCoreへ自ら接続・登録する。
+- ブラウザ向けのUIは、`apps/web/` のWeb Pluginが提供する。Web PluginはUI専用の特別な部品ではなく、他のPluginと同じく、起動コマンドの `--core` で指定されたCoreへ自ら接続・登録する。
 - Web Pluginはブラウザ向けのHTTPサーバーを持つ。ブラウザはWeb Pluginにだけ接続し、Coreへの通信はWeb Pluginのサーバーが代わりに行う。サーバーはGo、フロントエンドはSolidで実装する。
 - Web Pluginは接続先のCoreを、起動コマンドの `--core` と、画面から追加された一覧の両方から受け取る。画面から追加した一覧はWeb Pluginが保存する。
 - URLでCoreを指すときは、Coreが返すCore名を使う。Core名はCoreの設定（`core.name`）で決め、公開APIの `GET /v1/core` で返す。Web Pluginは独自の名前を付けない。

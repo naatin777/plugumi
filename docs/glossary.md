@@ -21,7 +21,7 @@ Web PluginやElectron Pluginが提供する。Tool実行やPluginプロセス自
 
 ### Web Plugin
 
-ブラウザ向けのUIを提供するPlugin（`plugins/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。
+ブラウザ向けのUIを提供するPlugin（`apps/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。
 
 ### Plugin Views
 
@@ -34,7 +34,7 @@ Pluginが提供する、画面にはめ込まれるUIの1つ1つ（Panel・Embed
 
 ### Plugin Shell
 
-Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWeb PluginとElectron Pluginが共有する（`shared/plugin-shell`、リポジトリの中だけで使う）。Plugin Shellは `ShellHost` というinterfaceを通してだけ外とやりとりし、Web PluginとElectron Pluginがそれぞれ実装する。Tokenの値はPlugin Shellが持つ。
+Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWeb PluginとElectron Pluginが共有する（`shared/workbench`、リポジトリの中だけで使う）。Plugin Shellは `ShellHost` というinterfaceを通してだけ外とやりとりし、Web PluginとElectron Pluginがそれぞれ実装する。Tokenの値はPlugin Shellが持つ。
 
 ### Panel
 

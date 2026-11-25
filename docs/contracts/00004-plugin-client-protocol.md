@@ -33,7 +33,8 @@ HTTP/1.1でREST・SSEとWS upgradeを利用できることを基準とする。H
 | 識別子 | 発行元・スコープ |
 |---|---|
 | `coreId` | Coreが起動ごとに発行する不透明な文字列。Snapshotと登録の世代を識別する。Core URLや接続先の認証を代替しない。 |
-| `pluginId`, `pluginInstanceId` | Pluginが宣言する実装名と、実行プロセスごとに発行する不透明なID。権限の証明にはならない。`pluginInstanceId` の登録時の一意性は認証主体とCoreの世代の内側で扱う。 |
+| `providerId`, `instanceId` | Pluginが宣言する実装名と、実行プロセスごとに発行する不透明なID。権限の証明にはならない。`instanceId` の登録時の一意性は認証主体とCoreの世代の内側で扱う。 |
+| `providerKind` | 登録者の種別。`plugin`（installable package、省略時の既定）、`environment`（環境capabilityのProvider）、`host`（Web / ElectronのWorkbench Host）。登録時にだけ指定し、あとから変更しない。Tool宣言の `kind`（`sync` / `async`）とは別の意味。 |
 | `registrationId` | Coreが発行する登録ID。Coreの世代内で一意。Toolの宛先はこれと `toolPath` で決まる。`toolPath` は登録内で一意な文字列で、階層として解釈しない。 |
 | `panelId` | Coreが認可済みUI Hostの接続に結び付ける表示インスタンスIDの候補。対象登録・Panel宣言・許可された操作を束縛する。表示終了、Host接続終了、対象登録の失効で無効。 |
 | JSON-RPC `id` / `callId` | WSと発信方向の内側で一意な文字列。Coreは中継先用のIDを別に割り当てる。`callId` は通知でその区間のRequest IDを参照するための名前で、永続的な実行IDではない。 |
@@ -50,7 +51,7 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 
 | 操作 | 意味 |
 |---|---|
-| `POST /v1/registrations` | `pluginId` と `pluginInstanceId` で登録。新規は `201`。同じ実装・インスタンスの存続中の登録には `200` を返す。登録ID・Tool宣言・WS接続状態は変えず、受理時点から `leaseSeconds` 分の有効期限を設定する。実装名が異なれば `409 registration_conflict`。 |
+| `POST /v1/registrations` | `providerId` と `instanceId`、任意で `providerKind` を指定して登録。新規は `201`。同じ実装・インスタンスの存続中の登録には `200` を返す。登録ID・Tool宣言・WS接続状態は変えず、受理時点から `leaseSeconds` 分の有効期限を設定する。実装名が異なれば `409 registration_conflict`。 |
 | `POST /v1/registrations/{registrationId}/renew` | 失効前に明示更新。登録操作と同じ型で期限を返す。 |
 | `DELETE /v1/registrations/{registrationId}` | 登録を取り消す。配送を止め、宣言を公開対象から外す。 |
 | `PUT /v1/registrations/{registrationId}/tools` | Tool宣言を全置換。空配列で全解除。パスの重複があれば全体を拒否。同じ内容の再送は変更通知を発生させない。 |
@@ -75,7 +76,7 @@ UIファイルとPanelの宣言は次節で定める。Signalingのワイヤー�
 | WSが切断され、登録解除が届かない | 登録と宣言は期限まで残り、配送不可に変わる。期限内なら同じ登録で再接続できる。PoCは登録につきWS一本、既存接続が有効なら二本目を拒否する。 |
 | SSEが一時切断 | 登録とWSは変化しない。購読側は再接続してSnapshotを取り直す。 |
 | 期限切れ・登録取消 | Coreは登録と宣言を公開対象から外し、関連WSを閉じる。旧登録は再開できず、有効な登録権限でのみ新規登録できる。管理者が再登録も止める場合は、登録取消とは別に登録権限を失効させる。 |
-| Core / Plugin 再起動 | Core再起動は登録を全消去。Pluginは再認証・再登録する。Plugin再起動は新しい `pluginInstanceId` で登録する。旧登録は配送不可になり、取消か期限切れで消える。 |
+| Core / Plugin 再起動 | Core再起動は登録を全消去。Pluginは再認証・再登録する。Plugin再起動は新しい `instanceId` で登録する。旧登録は配送不可になり、取消か期限切れで消える。 |
 
 ```mermaid
 sequenceDiagram
@@ -87,11 +88,11 @@ sequenceDiagram
     S->>C: GET registry
     P->>C: POST registrations（CLIの資格情報）
     C-->>P: coreId、registrationId、leaseSeconds、expiresAt
-    C-->>S: plugin.added
+    C-->>S: provider.added
     P->>C: PUT tools（宣言の全置換）
     C-->>S: tools.changed
     P->>C: GET rpc（同じ主体・登録でupgrade）
-    C-->>S: plugin.changed（配送可）
+    C-->>S: provider.changed（配送可）
     S->>C: GET registry（最新の状態を取得）
     P->>C: POST renew（期限前）
 ```
@@ -131,7 +132,7 @@ SnapshotはPanelの宣言を登録ごとの `panels` に含める。登録ごと
 
 ## SSE: 変更通知と復旧
 
-**推奨案:** SSEはPoCではRegistry通知専用とし、CommandやTool実行結果を載せない。`event` は `registry.reset`、`plugin.added`、`plugin.changed`（配送可否）、`plugin.removed`、`tools.changed`、`panels.changed`（UIの登録・置換・解除）。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
+**推奨案:** SSEはPoCではRegistry通知専用とし、CommandやTool実行結果を載せない。`event` は `registry.reset`、`provider.added`、`provider.changed`（配送可否）、`provider.removed`、`tools.changed`、`panels.changed`（UIの登録・置換・解除）。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
 
 ```text
 id: revision-7f

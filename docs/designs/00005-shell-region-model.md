@@ -39,7 +39,7 @@ relations:
 | Sub | Sub listで選択中のAreaを右に表示する。開閉でき、閉じるとMainが全幅になる（幅はResizerで調整） | shell |
 | center | 作業面。splitの木で区画に分けてパネルを配置する | Area |
 
-MainとSubの中身はどちらも同じ**AreaView**である。PanelにはCore経由のPlugin Panelのほか、Shell組み込みPanel（`pluginId` `"shell"`）がある — Coreを経由せずShellが直接mountし、picker・配置・workspace保存は同じ扱い（テーマ切替Panelなど）。同じAreaをMainとSubに同時に出してもよい。Areaの中身はcenterのsplit treeだけ — 「縁に置く」（旧left・bottom・rightのdockに相当する配置）は利用者がtreeの端にleafを作ることで表現し、固定の縁領域は存在しない。Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
+MainとSubの中身はどちらも同じ**AreaView**である。PanelにはCore経由のPlugin Panelのほか、Shell組み込みPanel（`providerId` `"shell"`）がある — Coreを経由せずShellが直接mountし、picker・配置・workspace保存は同じ扱い（テーマ切替Panelなど）。同じAreaをMainとSubに同時に出してもよい。Areaの中身はcenterのsplit treeだけ — 「縁に置く」（旧left・bottom・rightのdockに相当する配置）は利用者がtreeの端にleafを作ることで表現し、固定の縁領域は存在しない。Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
 
 **Area list**: 今のProjectの全AreaをMain・Subの2セクションで一覧する（Areaを隠すことはできない）。行のメニューから「Mainへ / Subへ」の移動、「子Areaを追加」「Areaを削除」（確認あり）を行う。
 
@@ -136,7 +136,7 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web PluginのサーバーとElectron Pluginは中身を解釈せずに保存し、そのまま返す。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
 
 ```ts
-type PanelRef = { instanceId: string; pluginId: string; panelId: string };
+type PanelRef = { instanceId: string; providerId: string; panelId: string };
 
 // leaf: tab切替の1区画
 type Leaf = { kind: "leaf"; id: string; panels: PanelRef[]; selected: string | null };
