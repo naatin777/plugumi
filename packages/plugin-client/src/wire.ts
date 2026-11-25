@@ -19,13 +19,14 @@ const toolDeclarationSchema = z.object({
 });
 export type ToolDeclaration = z.infer<typeof toolDeclarationSchema>;
 
-export type ListedTool = ToolDeclaration & { registrationId: string; pluginId: string };
+export type ListedTool = ToolDeclaration & { registrationId: string; providerId: string };
 export const registrySnapshotSchema = z.object({
   coreId: z.string().min(1),
   revision: z.string().min(1),
   registrations: z.array(z.object({
     registrationId: z.string().min(1),
-    pluginId: z.string().min(1),
+    providerId: z.string().min(1),
+    providerKind: z.string().optional(),
     rpcAvailable: z.boolean(),
     tools: z.array(toolDeclarationSchema),
   })),

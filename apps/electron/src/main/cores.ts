@@ -14,7 +14,7 @@ interface CoreEntry {
 // 取得に失敗した回は既存clientを維持する（host再起動中の瞬断で
 // 登録を落とさないため）。
 export function followHostCores(
-  hostURL: string, pluginInstanceId: string, tools: Tool[], ui: UI | undefined,
+  hostURL: string, instanceId: string, tools: Tool[], ui: UI | undefined,
   signal: AbortSignal,
 ): void {
   const clients = new Map<string, AbortController>();
@@ -52,8 +52,8 @@ export function followHostCores(
       clients.set(origin, abort);
       const client = new PluginClient({
         url: coreURL(origin),
-        pluginId: "electron",
-        pluginInstanceId,
+        providerId: "electron",
+        instanceId,
         token: process.env.PLUGUMI_TOKEN,
         tools,
         ui,

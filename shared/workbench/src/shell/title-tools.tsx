@@ -112,7 +112,7 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
                 }}
               >
                 {entry.title}
-                <span class={controlStyles["picker-plugin"]}>{entry.pluginId}</span>
+                <span class={controlStyles["picker-plugin"]}>{entry.providerId}</span>
               </button>
             )}
           </For>

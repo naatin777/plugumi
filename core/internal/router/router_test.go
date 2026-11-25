@@ -183,7 +183,7 @@ func writeMessage(t *testing.T, connection *websocket.Conn, message any) {
 func registerTarget(t *testing.T, target *rpc.Connection, tools ...wire.ToolDeclaration) (*Router, string) {
 	t.Helper()
 	pluginRegistry := registry.New("test-core")
-	lease, _, err := pluginRegistry.Create(wire.PluginIdentity{PluginID: "test-plugin", PluginInstanceID: "instance"})
+	lease, _, err := pluginRegistry.Create(wire.ProviderIdentity{ProviderID: "test-plugin", InstanceID: "instance"})
 	if err != nil {
 		t.Fatal(err)
 	}

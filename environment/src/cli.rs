@@ -1,10 +1,10 @@
-use plugumi_standard::{core_client::CoreClient, registration};
+use plugumi_environment::{core_client::CoreClient, registration};
 use std::collections::HashSet;
 use std::process::ExitCode;
 use std::time::Duration;
 use tokio::sync::watch;
 
-const USAGE: &str = "Usage: plugumi-standard [--core <url>]... [<url>...]";
+const USAGE: &str = "Usage: plugumi-environment [--core <url>]... [<url>...]";
 
 fn clients() -> Result<Vec<CoreClient>, String> {
     let mut arguments = std::env::args().skip(1);
@@ -48,7 +48,7 @@ async fn main() -> ExitCode {
         }
     };
     let id = registration::new_instance_id();
-    let local = registration::register("standard", &id, env!("CARGO_PKG_VERSION"));
+    let local = registration::register("environment", &id, env!("CARGO_PKG_VERSION"));
     let (stop, receiver) = watch::channel(false);
     let mut tasks = tokio::task::JoinSet::new();
     for client in clients {
@@ -66,7 +66,7 @@ async fn main() -> ExitCode {
             }
             finished = tasks.join_next() => {
                 if let Some(Err(error)) = finished {
-                    eprintln!("[standard] Core client task failed: {error}");
+                    eprintln!("[environment] Core client task failed: {error}");
                 }
             }
             _ = heartbeat.tick() => {

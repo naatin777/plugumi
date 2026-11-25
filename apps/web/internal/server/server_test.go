@@ -260,10 +260,10 @@ func fakeUICore(t *testing.T, name string) *httptest.Server {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"coreId": "fake-ui", "revision": "r1",
 			"registrations": []map[string]any{
-				{"registrationId": "reg-1", "pluginId": "standard", "rpcAvailable": true, "uiSha256": "deadbeef",
+				{"registrationId": "reg-1", "providerId": "standard", "rpcAvailable": true, "uiSha256": "deadbeef",
 					"tools":  []map[string]string{{"toolPath": "fs/list", "kind": "sync"}, {"toolPath": "exec", "kind": "async"}},
 					"panels": []map[string]any{{"panelId": "files", "title": "Files", "entry": "panel.js", "styles": []string{"panel.css"}}}},
-				{"registrationId": "reg-2", "pluginId": "other", "rpcAvailable": false, "tools": []map[string]string{}},
+				{"registrationId": "reg-2", "providerId": "other", "rpcAvailable": false, "tools": []map[string]string{}},
 			},
 		})
 	})
@@ -300,7 +300,7 @@ func TestListPanels(t *testing.T) {
 	}
 	var panels []struct {
 		RegistrationID string   `json:"registrationId"`
-		PluginID       string   `json:"pluginId"`
+		ProviderID       string   `json:"providerId"`
 		PanelID        string   `json:"panelId"`
 		Title          string   `json:"title"`
 		Entry          string   `json:"entry"`
@@ -310,7 +310,7 @@ func TestListPanels(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &panels); err != nil {
 		t.Fatal(err)
 	}
-	if len(panels) != 1 || panels[0].PanelID != "files" || panels[0].PluginID != "standard" ||
+	if len(panels) != 1 || panels[0].PanelID != "files" || panels[0].ProviderID != "standard" ||
 		panels[0].RegistrationID != "reg-1" || panels[0].Entry != "panel.js" || panels[0].Title != "Files" ||
 		panels[0].UISHA256 != "deadbeef" || len(panels[0].Styles) != 1 || panels[0].Styles[0] != "panel.css" {
 		t.Fatalf("unexpected panels: %+v", panels)
@@ -363,7 +363,7 @@ func fakeRPCCore(t *testing.T, respond func(params json.RawMessage) (any, any)) 
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"coreId": "fake-rpc", "revision": "r1",
 			"registrations": []map[string]any{
-				{"registrationId": "reg-1", "pluginId": "standard", "rpcAvailable": true,
+				{"registrationId": "reg-1", "providerId": "standard", "rpcAvailable": true,
 					"tools": []map[string]string{{"toolPath": "fs/list", "kind": "sync"}, {"toolPath": "exec", "kind": "async"}}},
 			},
 		})
@@ -487,7 +487,7 @@ func TestProjectAPIs(t *testing.T) {
 		t.Fatalf("missing parent: %d", response.Code)
 	}
 	// workspaceのPUT/GET。
-	docks := `{"version":1,"center":{"root":{"kind":"leaf","id":"leaf-a","panels":[{"instanceId":"panel-a1","pluginId":"standard","panelId":"files"}],"selected":"panel-a1"}}}`
+	docks := `{"version":1,"center":{"root":{"kind":"leaf","id":"leaf-a","panels":[{"instanceId":"panel-a1","providerId":"standard","panelId":"files"}],"selected":"panel-a1"}}}`
 	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", docks); response.Code != http.StatusNoContent {
 		t.Fatalf("put workspace: %d %s", response.Code, response.Body)
 	}

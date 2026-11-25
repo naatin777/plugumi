@@ -88,7 +88,7 @@ test("both Plugin clients recover independently after one Core restarts", {
     const ready = snapshot.registrations.filter(({ rpcAvailable }) => rpcAvailable);
     return ready.length === 2 && {
       coreId: snapshot.coreId,
-      registrations: Object.fromEntries(ready.map(({ pluginId, registrationId }) => [pluginId, registrationId])),
+      registrations: Object.fromEntries(ready.map(({ providerId, registrationId }) => [providerId, registrationId])),
     };
   }
   async function caller(core) {

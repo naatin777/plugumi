@@ -8,7 +8,7 @@ import {
 } from "./model.ts";
 
 const ref = (id: string): PanelRef => ({
-  instanceId: id, pluginId: "standard", panelId: "files",
+  instanceId: id, providerId: "standard", panelId: "files",
 });
 
 const withPanel = (state: WorkspaceState, id: string, target?: Parameters<typeof addPanel>[2]) =>

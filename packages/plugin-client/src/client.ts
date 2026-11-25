@@ -31,8 +31,8 @@ export function coreURL(value: string): URL {
 
 export interface PluginClientOptions {
   url: URL;
-  pluginId: string;
-  pluginInstanceId: string;
+  providerId: string;
+  instanceId: string;
   // PLUGUMI_TOKENに対応するBearer資格情報（Coreに設定されている場合必須）。
   token?: string;
   // 提供するTool。tools.callのdispatchはこれから自動で作る。
@@ -111,7 +111,7 @@ export class PluginClient {
     const signal = AbortSignal.any([stop, session.signal]);
     const requestSignal = () => AbortSignal.any([signal, AbortSignal.timeout(5_000)]);
     const registration = await this.request("POST", "/registrations", requestSignal(), {
-      pluginId: this.options.pluginId, pluginInstanceId: this.options.pluginInstanceId,
+      providerId: this.options.providerId, instanceId: this.options.instanceId,
     });
     const lease = registrationLeaseSchema.parse(await registration.json());
     this.registrationId = lease.registrationId;
@@ -241,7 +241,7 @@ export class PluginClient {
           const registry = registrySnapshotSchema.parse(await snapshot.json());
           signal.throwIfAborted();
           this.catalog = registry.registrations.filter((entry) => entry.rpcAvailable).flatMap((entry) =>
-            entry.tools.map((tool) => ({ ...tool, registrationId: entry.registrationId, pluginId: entry.pluginId })));
+            entry.tools.map((tool) => ({ ...tool, registrationId: entry.registrationId, providerId: entry.providerId })));
         }
       } catch (error) {
         if (!signal.aborted) subscription.abort(error);

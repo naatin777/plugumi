@@ -12,11 +12,11 @@ import { logDiagnostic } from "./log.js";
 export { coreURL } from "plugumi-plugin-client";
 
 export class CoreClient extends PluginClient {
-  constructor(url: URL, pluginInstanceId: string, token?: string) {
+  constructor(url: URL, instanceId: string, token?: string) {
     super({
       url,
-      pluginId: "agent",
-      pluginInstanceId,
+      providerId: "agent",
+      instanceId,
       token,
       tools: agentTools,
       // agentは呼び出し側にもなるのでRegistryを購読する。

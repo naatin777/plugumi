@@ -124,7 +124,7 @@ impl CoreClient {
                 break;
             }
             if let Err(error) = result {
-                crate::log::logln!("[standard] http://{}: {}", self.authority, error.message);
+                crate::log::logln!("[environment] http://{}: {}", self.authority, error.message);
                 if error.permanent {
                     return;
                 }
@@ -160,7 +160,7 @@ impl CoreClient {
                 Method::POST,
                 "/v1/registrations",
                 Some(json!({
-                    "pluginId": "standard", "pluginInstanceId": instance_id,
+                    "providerId": "environment", "instanceId": instance_id, "providerKind": "environment",
                 })),
             )
             .await?;
@@ -184,7 +184,7 @@ impl CoreClient {
         .await?;
         // UI登録に失敗してもTool提供は続ける（接続を落とさない）。
         if let Err(error) = self.push_ui(&path).await {
-            crate::log::logln!("[standard] could not publish UI: {}", error.message);
+            crate::log::logln!("[environment] could not publish UI: {}", error.message);
         }
         Ok(lease)
     }
@@ -220,7 +220,7 @@ impl CoreClient {
             on_message(handler_calls.clone(), message, connection);
         });
         crate::log::logln!(
-            "[standard] connected to http://{} ({})",
+            "[environment] connected to http://{} ({})",
             self.authority,
             lease.registration_id
         );
@@ -249,7 +249,7 @@ impl CoreClient {
     // （登録のたびに実行。内容アドレスなので2回目以降はPUTが空になる）。
     async fn push_ui(&self, registration_path: &str) -> Result<(), Failure> {
         let Some(manifest_file) = UI_DIST.get_file("plugumi-ui.json") else {
-            crate::log::logln!("[standard] ui/dist is not built; skipping UI registration");
+            crate::log::logln!("[environment] ui/dist is not built; skipping UI registration");
             return Ok(());
         };
         let manifest: Value =

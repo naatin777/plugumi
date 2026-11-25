@@ -22,7 +22,7 @@ export interface CoreEntry {
   error?: string;
 }
 
-// Shell組み込みPanel。pluginId "shell" のlocal PluginとしてShellの
+// Shell組み込みPanel。providerId "shell" のlocal PluginとしてShellの
 // bundleに同梱され、Pluginと同じくShadowRootへmountする
 // （contracts/00005のPanelMountと同じ形）。
 // contextはPluginと同じPanelContextに、Shell内部へ届くshellを足した
@@ -38,7 +38,7 @@ export type BuiltinPanelMount =
 export interface PluginPanelEntry {
   kind: "plugin";
   registrationId: string;
-  pluginId: string;
+  providerId: string;
   panelId: string;
   title: string;
   entry: string;
@@ -51,7 +51,7 @@ export interface PluginPanelEntry {
 
 export interface BuiltinPanelEntry {
   kind: "builtin";
-  pluginId: "shell";
+  providerId: "shell";
   panelId: string;
   title: string;
   mount: BuiltinPanelMount;

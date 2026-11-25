@@ -228,7 +228,7 @@ func (s *Server) coreByKey(w http.ResponseWriter, r *http.Request) (cores.Core, 
 // panelsを平らにして返す。
 type panelEntry struct {
 	RegistrationID string   `json:"registrationId"`
-	PluginID       string   `json:"pluginId"`
+	ProviderID     string   `json:"providerId"`
 	PanelID        string   `json:"panelId"`
 	Title          string   `json:"title"`
 	Entry          string   `json:"entry"`
@@ -251,7 +251,7 @@ func (s *Server) listPanels(w http.ResponseWriter, r *http.Request) {
 	for _, registration := range snapshot.Registrations {
 		for _, panel := range registration.Panels {
 			panels = append(panels, panelEntry{
-				RegistrationID: registration.RegistrationID, PluginID: registration.PluginID,
+				RegistrationID: registration.RegistrationID, ProviderID: registration.ProviderID,
 				PanelID: panel.PanelID, Title: panel.Title, Entry: panel.Entry,
 				Styles: panel.Styles, UISHA256: registration.UISHA256,
 				RPCAvailable: registration.RPCAvailable,

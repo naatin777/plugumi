@@ -9,7 +9,7 @@
 
 export type PanelRef = {
   instanceId: string;
-  pluginId: string;
+  providerId: string;
   panelId: string;
 };
 
@@ -123,11 +123,11 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 function decodePanelRef(value: unknown): PanelRef | null {
   if (!isObject(value)) return null;
-  const { instanceId, pluginId, panelId } = value;
+  const { instanceId, providerId, panelId } = value;
   if (typeof instanceId !== "string" || instanceId === "") return null;
-  if (typeof pluginId !== "string" || pluginId === "") return null;
+  if (typeof providerId !== "string" || providerId === "") return null;
   if (typeof panelId !== "string" || panelId === "") return null;
-  return { instanceId, pluginId, panelId };
+  return { instanceId, providerId, panelId };
 }
 
 function decodeStack(value: unknown): Stack | null {

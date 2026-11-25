@@ -417,7 +417,7 @@ func (m *Model) registrationTreeRows(width, height int) []paneRow {
 	for index := start; index < end; index++ {
 		row := m.rows[index]
 		if row.tool != nil {
-			label := "  " + selectableRow(toolLabel(row.tool, row.registration.PluginID), index == selection, focused)
+			label := "  " + selectableRow(toolLabel(row.tool, row.registration.ProviderID), index == selection, focused)
 			rows = append(rows, paneRow{text: label, target: mouseTarget{kind: hitTool, index: index}})
 			continue
 		}

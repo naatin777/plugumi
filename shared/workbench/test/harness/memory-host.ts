@@ -14,12 +14,12 @@ const CORE: CoreEntry = {
 
 const PANELS: PluginPanelEntry[] = [
   {
-    kind: "plugin", registrationId: "victim", pluginId: "victim",
+    kind: "plugin", registrationId: "victim", providerId: "victim",
     panelId: "panel", title: "Victim", entry: "panel.js",
     styles: ["panel.css"], uiSha256: "victim1",
   },
   {
-    kind: "plugin", registrationId: "hostile", pluginId: "hostile",
+    kind: "plugin", registrationId: "hostile", providerId: "hostile",
     panelId: "panel", title: "Hostile", entry: "panel.js",
     styles: ["panel.css"], uiSha256: "hostile1",
   },
@@ -32,10 +32,10 @@ interface Stored {
   workspaces: Record<string, unknown>;
 }
 
-const ref = (id: string, pluginId: string) =>
-  ({ instanceId: id, pluginId, panelId: "panel" });
+const ref = (id: string, providerId: string) =>
+  ({ instanceId: id, providerId, panelId: "panel" });
 const themeRef = (id: string) =>
-  ({ instanceId: id, pluginId: "shell", panelId: "theme" });
+  ({ instanceId: id, providerId: "shell", panelId: "theme" });
 
 const empty = (): WorkspaceState => ({
   version: 1,

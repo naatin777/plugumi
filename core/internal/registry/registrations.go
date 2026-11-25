@@ -39,7 +39,7 @@ var (
 )
 
 type registration struct {
-	identity    wire.PluginIdentity
+	identity    wire.ProviderIdentity
 	lease       wire.RegistrationLease
 	tools       []wire.ToolDeclaration
 	files       []wire.UIFile
@@ -76,13 +76,13 @@ func New(coreID string) *Registry {
 	}
 }
 
-func (r *Registry) Create(identity wire.PluginIdentity) (wire.RegistrationLease, bool, error) {
+func (r *Registry) Create(identity wire.ProviderIdentity) (wire.RegistrationLease, bool, error) {
 	r.mu.Lock()
 	now := r.now()
 	var expiredConnection *rpc.Connection
-	if previous := r.byInstance[identity.PluginInstanceID]; previous != nil {
+	if previous := r.byInstance[identity.InstanceID]; previous != nil {
 		if now.Before(previous.lease.ExpiresAt) {
-			if previous.identity.PluginID != identity.PluginID {
+			if previous.identity.ProviderID != identity.ProviderID {
 				r.mu.Unlock()
 				return wire.RegistrationLease{}, false, ErrRegistrationConflict
 			}
@@ -100,8 +100,8 @@ func (r *Registry) Create(identity wire.PluginIdentity) (wire.RegistrationLease,
 	}
 	record := &registration{identity: identity, lease: lease}
 	r.byID[lease.RegistrationID] = record
-	r.byInstance[identity.PluginInstanceID] = record
-	r.publishLocked("plugin.added")
+	r.byInstance[identity.InstanceID] = record
+	r.publishLocked("provider.added")
 	r.mu.Unlock()
 	if expiredConnection != nil {
 		expiredConnection.CloseNow()
@@ -217,7 +217,7 @@ func (reservation *ConnectionReservation) Complete(connection *rpc.Connection) b
 		return false
 	}
 	record.connection = connection
-	r.publishLocked("plugin.changed")
+	r.publishLocked("provider.changed")
 	return true
 }
 
@@ -227,7 +227,7 @@ func (r *Registry) Detach(registrationID string, connection *rpc.Connection) {
 	if record := r.byID[registrationID]; record != nil && record.connection == connection {
 		record.connection = nil
 		if r.now().Before(record.lease.ExpiresAt) {
-			r.publishLocked("plugin.changed")
+			r.publishLocked("provider.changed")
 		}
 	}
 }
@@ -249,9 +249,9 @@ func (r *Registry) Delete(registrationID string) bool {
 
 func (r *Registry) removeLocked(record *registration) *rpc.Connection {
 	delete(r.byID, record.lease.RegistrationID)
-	delete(r.byInstance, record.identity.PluginInstanceID)
+	delete(r.byInstance, record.identity.InstanceID)
 	r.releaseFilesLocked(record.files)
-	r.publishLocked("plugin.removed")
+	r.publishLocked("provider.removed")
 	return record.connection
 }
 
@@ -297,7 +297,8 @@ func (r *Registry) Snapshot() wire.RegistrySnapshot {
 	for _, record := range r.byID {
 		result.Registrations = append(result.Registrations, wire.RegistryRegistration{
 			RegistrationID: record.lease.RegistrationID,
-			PluginID:       record.identity.PluginID,
+			ProviderID:     record.identity.ProviderID,
+			Kind:           record.identity.Kind,
 			RPCAvailable:   record.connection != nil,
 			Tools:          append([]wire.ToolDeclaration{}, record.tools...),
 			Panels:         append([]wire.PanelDeclaration{}, record.panels...),

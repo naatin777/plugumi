@@ -38,7 +38,7 @@ async fn respond(socket: TcpStream, expected_request: &str, status: &str, body: 
 async fn assert_rejected(upgrade: bool) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
-    let child = Command::new(env!("CARGO_BIN_EXE_plugumi-standard"))
+    let child = Command::new(env!("CARGO_BIN_EXE_plugumi-environment"))
         .args(["--core", &format!("http://{address}")])
         .env_remove("HOME")
         .env_remove("XDG_CACHE_HOME")

@@ -117,7 +117,7 @@ export interface AreaController {
   applyLayout(mutate: (state: WorkspaceState) => WorkspaceState): void;
 
   instance(ref: PanelRef, input?: unknown): PanelInstance;
-  openPanel(pluginId: string, panelId: string, target?: MoveTarget, input?: unknown): void;
+  openPanel(providerId: string, panelId: string, target?: MoveTarget, input?: unknown): void;
   // 別AreaControllerへ移す: 元からPanelRefを取り出し（disposeしない）、
   // 先へInstanceごと入れる。移すと両方のlayoutがそれぞれ保存される。
   detach(instanceId: string): { instance: PanelInstance; ref: PanelRef } | null;
@@ -281,7 +281,7 @@ export function createShellController(
     if (anchor) placePopover(el, anchor, align);
   };
   const pickPanel = (entry: PanelEntry) => {
-    pickerArea()?.openPanel(entry.pluginId, entry.panelId, pickerTarget() ?? undefined);
+    pickerArea()?.openPanel(entry.providerId, entry.panelId, pickerTarget() ?? undefined);
   };
 
   // ---- project/area ----
@@ -400,7 +400,7 @@ export function createAreaController(
         const leaf = leafOf(layoutState.center.root, source.id);
         if (!leaf) return;
         const index = leaf.panels.findIndex((ref) => ref.instanceId === source.id);
-        openPanel(source.pluginId, panelId,
+        openPanel(source.providerId, panelId,
           { region: "leaf", leafId: leaf.id, index: index + 1 }, next);
       };
       instances.set(panelRef.instanceId, found);
@@ -447,12 +447,12 @@ export function createAreaController(
     }
   };
 
-  const openPanel = (pluginId: string, panelId: string, target?: MoveTarget, input?: unknown) => {
+  const openPanel = (providerId: string, panelId: string, target?: MoveTarget, input?: unknown) => {
     const declaration = shell.panels().find(
-      (entry) => entry.pluginId === pluginId && entry.panelId === panelId,
+      (entry) => entry.providerId === providerId && entry.panelId === panelId,
     );
     if (!declaration) return;
-    const panelRef: PanelRef = { instanceId: newInstanceId(), pluginId, panelId };
+    const panelRef: PanelRef = { instanceId: newInstanceId(), providerId, panelId };
     instance(panelRef, input); // mountを始めてからlayoutに入れる
     applyLayout((state) => addPanel(state, panelRef, target));
   };

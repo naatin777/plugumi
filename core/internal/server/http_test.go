@@ -53,9 +53,9 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 		return res
 	}
 
-	const identity = `{"pluginId":"test","pluginInstanceId":"instance-1"}`
+	const identity = `{"providerId":"test","instanceId":"instance-1"}`
 	request("POST", "/v1/registrations", identity, false, 401).Body.Close()
-	request("POST", "/v1/registrations", `{"pluginId":23}`, true, 400).Body.Close()
+	request("POST", "/v1/registrations", `{"providerId":23}`, true, 400).Body.Close()
 	request("POST", "/v1/link/hello", `{}`, true, 404).Body.Close()
 	request("GET", "/v2/registry", "", true, 426).Body.Close()
 	request("GET", "/docs", "", false, 200).Body.Close()
@@ -87,7 +87,7 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	if err != nil || lease.RegistrationID == "" || lease.CoreID != "test-core" {
 		t.Fatalf("unexpected lease: %+v %v", lease, err)
 	}
-	event("plugin.added")
+	event("provider.added")
 	var repeated wire.RegistrationLease
 	if err := json.NewDecoder(request("POST", "/v1/registrations", identity, true, 200).Body).Decode(&repeated); err != nil || repeated.RegistrationID != lease.RegistrationID {
 		t.Fatalf("retry did not return existing registration: %+v %v", repeated, err)
@@ -113,7 +113,7 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	}
 	pluginPath := "/v1/rpc?registrationId=" + lease.RegistrationID
 	plugin := connect(pluginPath)
-	event("plugin.changed")
+	event("provider.changed")
 	caller := connect("/v1/rpc")
 	send := func(conn *websocket.Conn, payload any) {
 		t.Helper()
@@ -147,7 +147,7 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	}
 
 	_ = plugin.CloseNow()
-	event("plugin.changed")
+	event("provider.changed")
 	var afterDisconnect wire.RegistrySnapshot
 	err = json.NewDecoder(request("GET", "/v1/registry", "", true, 200).Body).Decode(&afterDisconnect)
 	if err != nil || len(afterDisconnect.Registrations) != 1 || afterDisconnect.Registrations[0].RPCAvailable ||
@@ -155,9 +155,9 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 		t.Fatalf("WS disconnect should preserve the registration and tools: %+v %v", afterDisconnect, err)
 	}
 	_ = connect(pluginPath)
-	event("plugin.changed")
+	event("provider.changed")
 	request("DELETE", registrationPath, "", true, 204).Body.Close()
-	event("plugin.removed")
+	event("provider.removed")
 	request("POST", registrationPath+"/renew", "", true, 404).Body.Close()
 
 	eventStream.Body.Close()
@@ -326,7 +326,7 @@ func TestUIAssets(t *testing.T) {
 	}
 
 	// 登録してmanifest検証。
-	res = request("POST", "/v1/registrations", `{"pluginId":"standard","pluginInstanceId":"i-1"}`, 201)
+	res = request("POST", "/v1/registrations", `{"providerId":"standard","instanceId":"i-1"}`, 201)
 	var lease wire.RegistrationLease
 	if err := json.NewDecoder(res.Body).Decode(&lease); err != nil {
 		t.Fatal(err)

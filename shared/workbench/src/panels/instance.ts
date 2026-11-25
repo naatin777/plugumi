@@ -1,4 +1,4 @@
-// Panel Instanceの寿命（contracts/00005）。Instanceは{pluginId,panelId}と
+// Panel Instanceの寿命（contracts/00005）。Instanceは{providerId,panelId}と
 // 保存上のinstanceId（panel-…）を持ち、registrationIdは都度解決する
 // （Plugin再起動で変わるため保存しない。0件ならmissing、複数なら昇順の先頭）。
 import { createSignal } from "solid-js";
@@ -36,15 +36,15 @@ interface PanelModule {
   mount: PanelMount;
 }
 
-// pluginId+panelIdが同じ宣言を現在のpanels一覧から選ぶ。
+// providerId+panelIdが同じ宣言を現在のpanels一覧から選ぶ。
 // 0件ならundefined（missing）、複数ならRPCが生きている宣言を優先し、
 // 同じ条件ならregistrationId昇順の先頭。登録がWS切断で残っている
 // （rpcAvailable:false）間も代替があればそちらへ移れるようにする。
 export function resolvePanel(
-  ref: Pick<PanelRef, "pluginId" | "panelId">, panels: PanelEntry[],
+  ref: Pick<PanelRef, "providerId" | "panelId">, panels: PanelEntry[],
 ): PanelEntry | undefined {
   const candidates = panels
-    .filter((panel) => panel.pluginId === ref.pluginId && panel.panelId === ref.panelId)
+    .filter((panel) => panel.providerId === ref.providerId && panel.panelId === ref.panelId)
     .sort((a, b) => {
       if (a.kind !== "plugin" || b.kind !== "plugin") return 0;
       if (a.rpcAvailable !== b.rpcAvailable) return a.rpcAvailable ? -1 : 1;
@@ -55,7 +55,7 @@ export function resolvePanel(
 
 export class PanelInstance {
   readonly id: string;
-  readonly pluginId: string;
+  readonly providerId: string;
   readonly panelId: string;
   readonly host: HTMLDivElement;
   registrationId = "";
@@ -101,7 +101,7 @@ export class PanelInstance {
     this.kind = kind;
     this.coreKey = coreKey;
     this.id = ref.instanceId;
-    this.pluginId = ref.pluginId;
+    this.providerId = ref.providerId;
     this.panelId = ref.panelId;
     this.host = document.createElement("div");
     this.host.dataset.part = "panel-host";
@@ -121,7 +121,7 @@ export class PanelInstance {
   }
 
   ref(): PanelRef {
-    return { instanceId: this.id, pluginId: this.pluginId, panelId: this.panelId };
+    return { instanceId: this.id, providerId: this.providerId, panelId: this.panelId };
   }
 
   // mountを（再）実行する。失敗してもInstanceは残り、「再試行」で同じ
@@ -298,7 +298,7 @@ export class PanelInstance {
   }
 
   // panels一覧の更新を追従する。自分のregistrationIdが生きていれば
-  // uiSha256の変化だけ見る。無ければpluginId+panelIdで解決し直す。
+  // uiSha256の変化だけ見る。無ければproviderId+panelIdで解決し直す。
   update(panels: PanelEntry[]): void {
     // builtinは一覧から消えずUIの更新も無いので、一度mountしたら追わない。
     if (this.kind === "builtin") return;

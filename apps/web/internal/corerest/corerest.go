@@ -40,11 +40,11 @@ func FetchCoreInfo(ctx context.Context, client *http.Client, token, coreURL stri
 	return info, nil
 }
 
-// CreateRegistration はpluginIdとpluginInstanceIdで登録する（contracts/00004）。
+// CreateRegistration はproviderIdとinstanceIdで登録する（contracts/00004）。
 func CreateRegistration(ctx context.Context, client *http.Client, token, coreURL, pluginID, pluginInstanceID string) (Lease, error) {
 	var lease Lease
 	err := request(ctx, client, token, http.MethodPost, coreURL, "/registrations",
-		map[string]string{"pluginId": pluginID, "pluginInstanceId": pluginInstanceID}, &lease)
+		map[string]string{"providerId": pluginID, "instanceId": pluginInstanceID, "providerKind": "host"}, &lease)
 	return lease, err
 }
 
@@ -107,7 +107,8 @@ type PanelDeclaration struct {
 // RegistryRegistration はGET /v1/registryの1登録。panelsはUI manifest由来。
 type RegistryRegistration struct {
 	RegistrationID string             `json:"registrationId"`
-	PluginID       string             `json:"pluginId"`
+	ProviderID     string             `json:"providerId"`
+	Kind           string             `json:"providerKind"`
 	Panels         []PanelDeclaration `json:"panels"`
 	UISHA256       string             `json:"uiSha256"`
 	RPCAvailable   bool               `json:"rpcAvailable"`

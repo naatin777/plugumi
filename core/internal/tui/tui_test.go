@@ -40,7 +40,7 @@ func TestRegistryWatcherRefreshesOnCoreEvents(t *testing.T) {
 	}
 	waitForChange()
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, core.URL+"/v1/registrations",
-		strings.NewReader(`{"pluginId":"standard","pluginInstanceId":"instance-1"}`))
+		strings.NewReader(`{"providerId":"standard","instanceId":"instance-1"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestRegistryWatcherRefreshesOnCoreEvents(t *testing.T) {
 	}
 	waitForChange()
 	snapshot, err := client.Registry()
-	if err != nil || len(snapshot.Registrations) != 1 || snapshot.Registrations[0].PluginID != "standard" ||
+	if err != nil || len(snapshot.Registrations) != 1 || snapshot.Registrations[0].ProviderID != "standard" ||
 		len(snapshot.Registrations[0].Tools) != 0 {
 		t.Fatalf("unexpected Registry: %+v, %v", snapshot, err)
 	}
@@ -247,7 +247,7 @@ func TestStopConfirmationKeepsTheOriginallySelectedInstance(t *testing.T) {
 func TestDetailSelectionFollowsRowAcrossRefresh(t *testing.T) {
 	message := func(tools ...wire.ToolDeclaration) coreViewMsg {
 		return coreViewMsg{snapshot: wire.RegistrySnapshot{Registrations: []wire.RegistryRegistration{{
-			RegistrationID: "registration-1", PluginID: "standard", RPCAvailable: true, Tools: tools,
+			RegistrationID: "registration-1", ProviderID: "standard", RPCAvailable: true, Tools: tools,
 		}}}}
 	}
 	first := wire.ToolDeclaration{ToolPath: "echo"}

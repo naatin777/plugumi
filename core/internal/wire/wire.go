@@ -7,9 +7,18 @@ import (
 	"time"
 )
 
-type PluginIdentity struct {
-	PluginID         string `json:"pluginId" minLength:"1"`
-	PluginInstanceID string `json:"pluginInstanceId" minLength:"1"`
+// Providerのkind。pluginはinstallable package、environmentは環境capability、
+// hostはWeb / ElectronのWorkbench Host。空はpluginとして扱う。
+const (
+	KindPlugin      = "plugin"
+	KindEnvironment = "environment"
+	KindHost        = "host"
+)
+
+type ProviderIdentity struct {
+	ProviderID string `json:"providerId" minLength:"1"`
+	InstanceID string `json:"instanceId" minLength:"1"`
+	Kind       string `json:"providerKind,omitempty" enum:"plugin,environment,host"`
 }
 
 type RegistrationLease struct {
@@ -27,7 +36,8 @@ type RegistrySnapshot struct {
 
 type RegistryRegistration struct {
 	RegistrationID string             `json:"registrationId"`
-	PluginID       string             `json:"pluginId"`
+	ProviderID     string             `json:"providerId"`
+	Kind           string             `json:"providerKind"`
 	RPCAvailable   bool               `json:"rpcAvailable"`
 	Tools          []ToolDeclaration  `json:"tools"`
 	Panels         []PanelDeclaration `json:"panels,omitempty"`

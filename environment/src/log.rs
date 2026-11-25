@@ -20,7 +20,7 @@ fn open() -> Option<Mutex<LogFile>> {
         .join("plugumi")
         .join("logs");
     fs::create_dir_all(&directory).ok()?;
-    let path = directory.join(format!("standard-{}.log", std::process::id()));
+    let path = directory.join(format!("environment-{}.log", std::process::id()));
     let file = OpenOptions::new()
         .create(true)
         .append(true)

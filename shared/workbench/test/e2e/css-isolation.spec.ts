@@ -46,7 +46,7 @@ const ADD_HOSTILE = `
 (() => {
   const s = JSON.parse(sessionStorage.getItem('plugumi:e2e-host'));
   const root = s.workspaces['demo/a1'].center.root;
-  root.second.panels.push({ instanceId: 'ph', pluginId: 'hostile', panelId: 'panel' });
+  root.second.panels.push({ instanceId: 'ph', providerId: 'hostile', panelId: 'panel' });
   root.second.selected = 'ph';
   sessionStorage.setItem('plugumi:e2e-host', JSON.stringify(s));
   return true;
