@@ -82,6 +82,16 @@ export interface CallToolBody {
   input: unknown;
 }
 
+// Registryの1登録。Shell同梱Viewがcapability宣言から呼び出し先を
+// 選ぶために使う（file explorerがfs/listを探す等）。
+export interface RegistrationEntry {
+  registrationId: string;
+  providerId: string;
+  providerKind?: string;
+  rpcAvailable: boolean;
+  tools: { toolPath: string; kind?: string }[];
+}
+
 export interface ShellHost {
   listCores(): Promise<CoreEntry[]>;
   getCore(key: string): Promise<CoreEntry>;
@@ -89,6 +99,7 @@ export interface ShellHost {
   removeCore(url: string): Promise<void>;
 
   listPanels(key: string): Promise<PluginPanelEntry[]>;
+  listRegistrations(key: string): Promise<RegistrationEntry[]>;
   callTool(key: string, body: CallToolBody): Promise<unknown>;
 
   listProjects(key: string): Promise<ProjectTree[]>;

@@ -54,6 +54,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/cores", s.removeCore)
 	mux.HandleFunc("GET /api/cores/{key}", s.getCore)
 	mux.HandleFunc("GET /api/cores/{key}/panels", s.listPanels)
+	mux.HandleFunc("GET /api/cores/{key}/registrations", s.listRegistrations)
 	mux.HandleFunc("POST /api/cores/{key}/call", s.callTool)
 	mux.HandleFunc("GET /api/cores/{key}/projects", s.listProjects)
 	mux.HandleFunc("POST /api/cores/{key}/projects", s.addProject)
@@ -259,6 +260,22 @@ func (s *Server) listPanels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, panels)
+}
+
+// listRegistrations は/api/cores/{key}/registrationsでRegistryの登録を
+// そのまま返す。Shell同梱のfile explorerのように、capability（toolPath）から
+// 呼び出し先を選ぶHost側のViewがproviderIdやtool宣言を調べるために使う。
+func (s *Server) listRegistrations(w http.ResponseWriter, r *http.Request) {
+	core, found := s.coreByKey(w, r)
+	if !found {
+		return
+	}
+	snapshot, err := corerest.FetchRegistry(r.Context(), s.coreHTTP, s.token, core.URL)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not read Core registry: %v", err))
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot.Registrations)
 }
 
 // uiAsset はGET /ui/{key}/{registrationId}/{path...}をCoreのGET /v1/uiへ中継する。

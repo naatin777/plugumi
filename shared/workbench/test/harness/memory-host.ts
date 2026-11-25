@@ -2,7 +2,7 @@
 // Projects/Areas/workspaceはsessionStorageに保持する（reloadに耐え、
 // タブを閉じれば消える）。
 import type {
-  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree,
+  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree, RegistrationEntry,
   ShellHost, WorkspaceState,
 } from "../../src/host.tsx";
 import { pathKey } from "../../src/layout/area-list.ts";
@@ -107,6 +107,15 @@ export function createMemoryHost(): ShellHost {
     async removeCore() { throw new Error("not supported in test host"); },
 
     async listPanels() { return PANELS; },
+    async listRegistrations(): Promise<RegistrationEntry[]> {
+      // fs/listを持つ環境Providerのつもり。E2Eでfile explorerを開くときの
+      // 対象になる。callTool自体はnullを返すスタブ。
+      return [{
+        registrationId: "environment", providerId: "environment",
+        providerKind: "environment", rpcAvailable: true,
+        tools: [{ toolPath: "fs/list", kind: "sync" }],
+      }];
+    },
     async callTool(_key: string, _body: CallToolBody) { return null; },
 
     async listProjects() { return stored.projects; },

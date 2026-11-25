@@ -1,6 +1,6 @@
 // ShellHost の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
 import type {
-  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree,
+  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree, RegistrationEntry,
   ShellHost, WorkspaceState,
 } from "@plugumi/workbench";
 
@@ -53,6 +53,11 @@ export function httpShellHost(): ShellHost {
       // Coreが返すのはPlugin Panelだけ — kindを付けてdecodeする。
       const entries = (await response.json()) as Omit<PluginPanelEntry, "kind">[];
       return entries.map((entry) => ({ ...entry, kind: "plugin" as const }));
+    },
+    async listRegistrations(key: string): Promise<RegistrationEntry[]> {
+      const response = await fetch(`/api/cores/${encodeURIComponent(key)}/registrations`);
+      if (!response.ok) throw new Error(`GET registrations: HTTP ${response.status}`);
+      return response.json();
     },
     async callTool(key: string, body: CallToolBody): Promise<unknown> {
       const response = await fetch(`/api/cores/${encodeURIComponent(key)}/call`, {
