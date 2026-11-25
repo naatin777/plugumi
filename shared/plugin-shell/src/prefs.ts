@@ -20,6 +20,9 @@ export interface ShellPrefs {
   frameAlpha: number;
   // 選択tabの面の濃さ（%）。カードのblur越しに床が見える濃度。
   tabAlpha: number;
+  // monoフォントのfamily名。localに無ければsystem monoへすぐ
+  // fallbackする（font-family stackの先頭として使う）。
+  monoFont: string;
 }
 
 const KEY = "plugumi:shell:prefs";
@@ -35,6 +38,7 @@ const defaults = (): ShellPrefs => ({
   auroraVivid: 100,
   frameAlpha: 60,
   tabAlpha: 50,
+  monoFont: "IBM Plex Mono",
 });
 
 const clampWidth = (value: unknown, fallback: number): number =>
@@ -71,6 +75,7 @@ export function loadPrefs(): ShellPrefs {
     auroraVivid: clampPercent(saved.auroraVivid, 0, 200, base.auroraVivid),
     frameAlpha: clampPercent(saved.frameAlpha, 0, 100, base.frameAlpha),
     tabAlpha: clampPercent(saved.tabAlpha, 0, 100, base.tabAlpha),
+    monoFont: typeof saved.monoFont === "string" ? saved.monoFont : base.monoFont,
   };
 }
 

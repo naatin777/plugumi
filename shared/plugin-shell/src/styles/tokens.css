@@ -17,18 +17,11 @@
   --plugumi-radii-lg: 12px;
 
   --plugumi-font-family-sans: "IBM Plex Sans", "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif;
-  /* monoは同梱せずlocal/systemのみ（VSCode方式 — 上から順に
-     解決され、見つかった最初のものが使われる）。PlemolJPは
-     Plex Mono+Plex Sans JPのハーフでsansと同じ血統。BlexMonoは
-     Nerd Fonts版のIBM Plex Mono（OFLの改名義務でBlexと名乗る）。
-     和文グリフが無いmonoはglyphごとに後段へ落ちる。 */
+  /* monoは同梱しない — localに入っていればそのフォント、無ければ
+     すぐsystem monoへ落ちる（VSCode方式）。先頭のfamily名は
+     prefs.monoFontで上書きできる（テーマPanelの設定）。 */
   --plugumi-font-family-mono:
-    "PlemolJP", "PlemolJP Console", "Maple Mono NF", "Maple Mono",
-    /* Plex Monoだけ入ってる人は、和文がglyphごとにPlex Sans JPへ
-       落ちてPlemolJPに近い組み合わせになる。 */
-    "IBM Plex Mono", "BlexMono Nerd Font Mono", "BlexMono Nerd Font",
-    "IBM Plex Sans JP",
-    "M PLUS 1 Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --plugumi-font-size-2xs: 0.6875rem;
   --plugumi-font-size-xs: 0.75rem;
   --plugumi-font-size-sm: 0.8125rem;

@@ -109,6 +109,9 @@ export function ShellFrame(): JSX.Element {
         "--tab-fill": `${prefs().tabAlpha}%`,
         "--aurora-vivid": prefs().auroraVivid / 100,
         "--shell-frame-alpha": prefs().frameAlpha / 100,
+        // monoの先頭はpref — 無ければすぐsystem monoへ落ちる。
+        "--plugumi-font-family-mono":
+          `${prefs().monoFont.trim() || "IBM Plex Mono"}, ui-monospace, SFMono-Regular, Menlo, monospace`,
       }}
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/
