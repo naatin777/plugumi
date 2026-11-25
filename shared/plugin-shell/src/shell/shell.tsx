@@ -109,7 +109,10 @@ export function ShellFrame(): JSX.Element {
         "--tab-fill": `${prefs().tabAlpha}%`,
         "--aurora-vivid": prefs().auroraVivid / 100,
         "--shell-frame-alpha": prefs().frameAlpha / 100,
-        // monoの先頭はpref — 無ければすぐsystem monoへ落ちる。
+        // sans/monoの先頭はpref — sansは同梱のPlexへ、monoは
+        // すぐsystemへ落ちる。
+        "--plugumi-font-family-sans":
+          `${prefs().sansFont.trim() || "IBM Plex Sans"}, "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif`,
         "--plugumi-font-family-mono":
           `${prefs().monoFont.trim() || "IBM Plex Mono"}, ui-monospace, SFMono-Regular, Menlo, monospace`,
       }}
