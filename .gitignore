@@ -18,12 +18,9 @@ Thumbs.db
 node_modules/
 dist/
 # embed対象のdistは.gitkeepだけ残す。
-!/plugins/web/frontend/dist/
-/plugins/web/frontend/dist/*
-!/plugins/web/frontend/dist/.gitkeep
-!/plugins/standard/ui/dist/
-/plugins/standard/ui/dist/*
-!/plugins/standard/ui/dist/.gitkeep
+!/apps/web/frontend/dist/
+/apps/web/frontend/dist/*
+!/apps/web/frontend/dist/.gitkeep
 /plugins/agent/plugumi-agent-*.tgz
 
 # Rust
@@ -31,7 +28,7 @@ target/
 
 # Go binaries
 core/plugumi
-plugins/web/plugumi-web
+apps/web/plugumi-web
 
 # TypeScript incremental build
 *.tsbuildinfo

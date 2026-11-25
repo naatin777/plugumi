@@ -56,9 +56,11 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
   const [registrations, setRegistrations] = createSignal<RegistrationEntry[]>([], {
     equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
   });
+  const [registrationsLoaded, setRegistrationsLoaded] = createSignal(false);
   const refresh = async () => {
     try {
       setRegistrations(await props.shell.host.listRegistrations(props.shell.coreKey()));
+      setRegistrationsLoaded(true);
     } catch {
       // 巡回の失敗は握る — 次の巡回かTool呼び出しのerrorで分かる。
     }
@@ -132,7 +134,7 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
 
   return (
     <div class="files-panel">
-      <Show when={providers().length === 0 && registrations().length >= 0}>
+      <Show when={providers().length === 0 && registrationsLoaded()}>
         <p class="files-empty">fs/listを提供するProviderが接続されていません</p>
       </Show>
       <Show when={providers().length > 1}>
@@ -142,7 +144,11 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
           onChange={(event) => setChosen(event.currentTarget.value)}
         >
           <For each={providers()}>
-            {(entry) => <option value={entry.registrationId}>{entry.providerId}</option>}
+            {(entry) => (
+              <option value={entry.registrationId}>
+                {entry.providerId} {entry.registrationId}
+              </option>
+            )}
           </For>
         </select>
       </Show>

@@ -6,7 +6,7 @@
   "packageManager": "pnpm@12.21.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && svelte-check --tsconfig ./tsconfig.app.json && vite build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\""
+    "build": "tsc -b && svelte-check --tsconfig ./tsconfig.app.json && vite build"
   },
   "dependencies": {
     "svelte": "5.57.3"

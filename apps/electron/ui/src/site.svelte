@@ -4,7 +4,7 @@
   // （WebContentsViewをDOMの上に重ねる方式はrect同期が常に遅れ、
   // overlayがdrawer等を遮る不安定さがあった — ElectronのwebviewTagを
   // 有効にしたwindowでのみ動く）
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { PanelContext } from "@plugumi/plugin-view";
 
   interface Props {
@@ -26,7 +26,8 @@
   const supported = "loadURL" in document.createElement("webview");
 
   // 開き時の入力（context.openPanelで生えたPanelにだけ来る）。
-  const inputUrl = (context.input as { url?: unknown } | undefined)?.url;
+  // inputはmount時の引数なので、あとからcontextが差し替わっても追わない。
+  const inputUrl = untrack(() => (context.input as { url?: unknown } | undefined)?.url);
   const home = (typeof inputUrl === "string" ? validURL(inputUrl) : undefined)
     ?? "https://www.google.com";
   let draft = $state(home);

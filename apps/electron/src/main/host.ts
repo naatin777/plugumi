@@ -1,13 +1,10 @@
 // plugumi-web hostの発見と起動。hostは実行記録（<cache>/plugumi/plugins/
 // <id>.json）に待受URLをurlとして書くので、記録をscanして疎通できるものを
 // 再利用し、無ければplugumi-webを子プロセスとして起動する。
-import { execFile, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { promisify } from "node:util";
-import { cacheDirectory, recordsDirectory } from "plugumi-plugin-client";
-
-const execFileAsync = promisify(execFile);
+import { recordsDirectory } from "plugumi-plugin-client";
 
 // 実行記録のうち必要な部分だけ。urlを持つのは待受を立てるweb pluginだけ。
 interface InstanceRecord {
@@ -72,7 +69,7 @@ const PREFERRED_LISTEN = "127.0.0.1:48007";
 // 現れて疎通できるまで待つ。--coreは起動引数をそのまま転送し、
 // PLUGUMI_TOKEN・PLUGUMI_CORE_URLは環境変数ごと引き継がれる。
 export async function spawnHost(coreURLs: string[]): Promise<SpawnedHost> {
-  const binary = await hostBinary();
+  const binary = hostBinary();
   try {
     return await spawnWithListen(binary, PREFERRED_LISTEN, coreURLs);
   } catch {
@@ -125,27 +122,13 @@ function waitForRecord(child: ChildProcess): Promise<string> {
   });
 }
 
-// hostBinary はplugumi-webバイナリの位置を返す。PLUGUMI_HOST_BINがあれば
-// それを使い、無ければリポジトリからcacheへbuildする（開発用）。
-// リポジトリはPLUGUMI_REPO、無ければdist/mainからの相対位置で決める。
-async function hostBinary(): Promise<string> {
-  if (process.env.PLUGUMI_HOST_BIN) return process.env.PLUGUMI_HOST_BIN;
-  const repository = process.env.PLUGUMI_REPO ?? join(__dirname, "..", "..", "..", "..");
-  const webDirectory = join(repository, "plugins", "web");
-  if (!existsSync(join(webDirectory, "cmd", "plugumi-web", "main.go"))) {
-    throw new Error(
-      "plugumi-webのソースが見つかりません。PLUGUMI_HOST_BINかPLUGUMI_REPOを指定してください",
-    );
-  }
-  const directory = join(cacheDirectory(), "plugumi", "host");
-  mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const binary = join(directory, process.platform === "win32" ? "plugumi-web.exe" : "plugumi-web");
-  try {
-    await execFileAsync("go", ["build", "-o", binary, "./cmd/plugumi-web"], { cwd: webDirectory });
-  } catch (error) {
-    throw new Error(
-      `plugumi-webのbuildに失敗しました: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  return binary;
+// hostBinary はplugumi-webバイナリの位置を返す。リポジトリから暗黙に
+// buildはしない — 実行マシンにGo toolchainやソース配置がある前提を作ると、
+// 配布時の動作と開発時の動作が違って見えるため。
+function hostBinary(): string {
+  const binary = process.env.PLUGUMI_HOST_BIN;
+  if (binary) return binary;
+  throw new Error(
+    "plugumi-webバイナリが指定されていません。PLUGUMI_HOST_BINを指定するか、先にWeb Workbench Hostを起動してください",
+  );
 }
