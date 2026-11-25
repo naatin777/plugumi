@@ -109,12 +109,13 @@ export function ShellFrame(): JSX.Element {
         "--tab-fill": `${prefs().tabAlpha}%`,
         "--aurora-vivid": prefs().auroraVivid / 100,
         "--shell-frame-alpha": prefs().frameAlpha / 100,
-        // sans/monoの先頭はpref — sansは同梱のPlexへ、monoは
-        // すぐsystemへ落ちる。
+        // sans/monoとも「pref → 同梱のPlex → localのPlex Sans JP
+        // → system」の順で解決する。prefに無いfamily名を書かれても
+        // 同梱フォントへ戻るのでappの顔は保てる。
         "--plugumi-font-family-sans":
-          `${prefs().sansFont.trim() || "IBM Plex Sans"}, "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif`,
+          `${prefs().sansFont.trim() || "IBM Plex Sans"}, "IBM Plex Sans", "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif`,
         "--plugumi-font-family-mono":
-          `${prefs().monoFont.trim() || "IBM Plex Mono"}, ui-monospace, SFMono-Regular, Menlo, monospace`,
+          `${prefs().monoFont.trim() || "IBM Plex Mono"}, "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, SFMono-Regular, Menlo, monospace`,
       }}
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/

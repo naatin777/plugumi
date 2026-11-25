@@ -4,6 +4,10 @@ import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import "@fontsource/ibm-plex-sans/700.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/600.css";
+import "@fontsource/ibm-plex-mono/700.css";
 // cascade layerの宣言順は最初の読み込みが効くので、layerの宣言を先頭に置く。
 // componentの*.module.cssは描くcomponent自身がimportする。
 import "./styles/layers.css";

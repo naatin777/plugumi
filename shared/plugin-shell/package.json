@@ -8,6 +8,7 @@
     "./vite": "./src/vite.ts"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "5.3.0",
     "@plugumi/plugin-view": "workspace:*",
     "plugumi-theme-panel": "workspace:*"

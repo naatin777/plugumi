@@ -17,11 +17,11 @@
   --plugumi-radii-lg: 12px;
 
   --plugumi-font-family-sans: "IBM Plex Sans", "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif;
-  /* monoは同梱しない — localに入っていればそのフォント、無ければ
-     すぐsystem monoへ落ちる（VSCode方式）。先頭のfamily名は
+  /* sansと同じくPlex Monoを同梱する（Latinのみ。CJKは持たないので
+     PlemolJPのような和文同梱はしない）。先頭のfamily名は
      prefs.monoFontで上書きできる（テーマPanelの設定）。 */
   --plugumi-font-family-mono:
-    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, SFMono-Regular, Menlo, monospace;
   --plugumi-font-size-2xs: 0.6875rem;
   --plugumi-font-size-xs: 0.75rem;
   --plugumi-font-size-sm: 0.8125rem;
