@@ -321,9 +321,6 @@ importers:
       '@fontsource/ibm-plex-sans':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource/ibm-plex-sans-jp':
-        specifier: 5.3.1
-        version: 5.3.1
       '@fontsource/m-plus-1-code':
         specifier: 5.3.1
         version: 5.3.1
@@ -463,9 +460,6 @@ packages:
 
   '@emnapi/wasi-threads@2.2.0':
     resolution: {integrity: sha512-JP7OYH38Q7+pyTAe14raZHLQIK7BDKbdwji+Xi3pcd/6QkJYQH3SX4wu6EplGrGJWRepoNzedfm0G3B9Z4e9Rw==}
-
-  '@fontsource/ibm-plex-sans-jp@5.3.1':
-    resolution: {integrity: sha512-lFejXBGcWN/htaffKJryghb/zd2WKwFKyJWJRTcRP57/HUAGEdjNHI0UtIUN8pv4A5F9hPBxZ0dY8oILd88xIA==}
 
   '@fontsource/ibm-plex-sans@5.3.0':
     resolution: {integrity: sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w==}
@@ -1406,8 +1400,6 @@ snapshots:
     dependencies:
       tslib: 2.9.1
     optional: true
-
-  '@fontsource/ibm-plex-sans-jp@5.3.1': {}
 
   '@fontsource/ibm-plex-sans@5.3.0': {}
 

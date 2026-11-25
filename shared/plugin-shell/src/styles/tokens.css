@@ -23,8 +23,10 @@
      グリフが無いmonoはglyphごとにM PLUS 1 Codeへ落ちる。 */
   --plugumi-font-family-mono:
     "PlemolJP", "PlemolJP Console", "Maple Mono NF", "Maple Mono",
-    /* Plex Monoだけ入ってる人は、和文がglyphごとに同梱のPlex Sans JP
-       へ落ちてPlemolJPに近い組み合わせになる。 */
+    /* Plex Monoだけ入ってる人は、和文がglyphごとにPlex Sans JPへ
+       落ちてPlemolJPに近い組み合わせになる。和文の同梱フォントは
+       無い（Latin同梱・CJKはsystem/localの方針）ので、どれにも
+       当たらない和文はsystemの和文フォントへ落ちる。 */
     "IBM Plex Mono", "IBM Plex Sans JP",
     "M PLUS 1 Code", ui-monospace, SFMono-Regular, Menlo, monospace;
   --plugumi-font-size-2xs: 0.6875rem;
