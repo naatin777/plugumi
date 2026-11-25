@@ -59,7 +59,7 @@ async fn assert_rejected(upgrade: bool) {
                 r#"{"registrationId":"test-registration","leaseSeconds":60}"#,
             )
             .await;
-            // tools宣言と（UIがビルドされていれば）asset push・UI登録の後にupgradeする。
+            // tools宣言の後にupgradeする。Environment Providerはheadlessなのでasset pushやUI登録は行わない。
             loop {
                 let (socket, _) = listener.accept().await.unwrap();
                 let mut reader = BufReader::new(socket);
@@ -79,10 +79,6 @@ async fn assert_rejected(upgrade: bool) {
                 }
                 reader.read_exact(&mut vec![0; body_length]).await.unwrap();
                 let (status, body) = if request_line.starts_with("PUT /v1/registrations/test-registration/tools ") {
-                    ("204 No Content", "")
-                } else if request_line.starts_with("POST /v1/assets/missing ") {
-                    ("200 OK", r#"{"missing":[]}"#)
-                } else if request_line.starts_with("PUT /v1/registrations/test-registration/ui ") {
                     ("204 No Content", "")
                 } else if request_line.starts_with("GET /v1/rpc?") {
                     ("403 Forbidden", "")
@@ -110,11 +106,11 @@ async fn assert_rejected(upgrade: bool) {
 
         tokio::select! {
             output = child.wait_with_output() => output.unwrap(),
-            _ = listener.accept() => panic!("Standard retried a rejected Core"),
+            _ = listener.accept() => panic!("Environment Provider retried a rejected Core"),
         }
     })
     .await
-    .expect("Standard did not exit after Core rejected it");
+    .expect("Environment Provider did not exit after Core rejected it");
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     let diagnostic = if upgrade {

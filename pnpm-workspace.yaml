@@ -5,4 +5,3 @@ packages:
   - "apps/electron"
   - "apps/electron/ui"
   - "apps/web/frontend"
-  - "environment/ui"
