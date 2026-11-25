@@ -74,12 +74,12 @@ Web Workbench Hostは `[web] listening on http://127.0.0.1:<port>` を出力す�
 Electron Workbench HostはWeb Workbench Hostの配る画面をデスクトップアプリのwindowで開くviewerである。Coreへ自分で接続せず、動作中のWeb Workbench Hostを実行記録から見つけて再利用するか、無ければplugumi-webを子プロセスとして起動し、その待受URLを `BrowserWindow` で開く。
 
 ```sh
-pnpm --dir apps/electron start --core http://127.0.0.1:7700
+PLUGUMI_HOST_BIN="$PWD/apps/web/plugumi-web" pnpm --dir apps/electron start --core http://127.0.0.1:7700
 ```
 
 `--core` は起動するplugumi-webへ転送される。一つだけなら `PLUGUMI_CORE_URL` でも指定できる。`PLUGUMI_TOKEN` も環境変数として引き継がれる。CoreのURL追加やProject以下の保存はすべてWeb Workbench Host側で行われるため、画面から追加したCoreは `plugumi/web.json` に、Projectは `~/.plugumi/web/` に保存される。
 
-起動するplugumi-webバイナリは `PLUGUMI_HOST_BIN` で指定できる。無ければリポジトリ（`PLUGUMI_REPO`、未指定なら配置からの相対位置）の `apps/web` から `go build` してキャッシュへ置く。既に動いているWeb Workbench Hostがあれば子プロセスは起動せず、そちらを再利用する。
+起動するplugumi-webバイナリは `PLUGUMI_HOST_BIN` で指定する。未指定で、動作中のWeb Workbench Hostも見つからなければElectronは起動できない。既に動いているWeb Workbench Hostがあれば子プロセスは起動せず、そちらを再利用する。
 
 ## RESTクライアントの型生成
 

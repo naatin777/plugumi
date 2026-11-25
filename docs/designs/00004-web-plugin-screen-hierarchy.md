@@ -25,24 +25,24 @@ flowchart LR
     Project --> Area["Area（worktree・package・別repositoryなど）"]
     Area --> Child["子のArea（入れ子にできる）"]
     Area --> Workspace["Workspace（Areaに1つ）"]
-    Workspace --> Docks["Dock: left / bottom / center / right"]
-    Docks --> Panel["Panel"]
+    Workspace --> Center["centerのsplit tree"]
+    Center --> Leaf["leaf"]
+    Leaf --> Panel["Panel"]
 ```
 
 - Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
-- WorkspaceはAreaと1対1に対応し、left・bottom・center・rightのDockを持つ。rightは右の列で、Main（left・bottom・center）の脇に常時置くPanelの置き場。
-- 各DockはPanelのタブを並べる。center Dockは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分ける。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式（pages）と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
+- WorkspaceはAreaと1対1に対応し、centerのsplit treeだけを持つ。固定されたleft・bottom・rightのDockは存在しない。「縁に常設する」配置は、利用者がtreeの端にleafを作ることで表現する。
+- 各leafはPanelのタブを並べる。centerのsplit treeは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分かれる。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
 - 画面は左の**Area list**（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。上部にProject切替）と、右の**Main**（選択中Areaを表示、URLが正本）と**Sub**（別のAreaを右に表示、開閉できる）からなる。Detachは「別windowに出す」と印を付けたAreaで、Area listの行メニュー「別windowで開く」から移す（Electronのみ）。
 - Panelはregionをまたいでドラッグできる。Area内の全領域の相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。Areaをまたぐ移動はArea listの行で行う。Panelは同じwindowのMain・Subの間でもdragで移せる（Panel Instanceは作り直さず移譲する）。ただし同じAreaをMainとSubの両方に出しているときは移せない（両者が別々にworkspaceを保存するため）。
-- Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 
 ## 画面の構成
 
 Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
-- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にArea listの開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とleft/bottom/rightの開閉・Subの開閉、右端にSubの開閉を持つ（位置は固定）。テーマや背景の切替はSettingsのPanelへ移す予定。
-- **本体**: 左のArea list（今のProjectの全AreaをMain・Subの2セクションで一覧する。Areaの選択・作成・削除・Projectの切替と作成もここ）、中央のMain（選択中AreaのWorkspace）と右のSub（開閉できる2枚目）。
+- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にArea listの開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とSubの開閉を持つ（位置は固定）。テーマや背景の切替はSettingsのPanelへ移す予定。
+- **本体**: 左のArea list（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。Areaの選択・作成・削除・Projectの切替と作成もここ）、中央のMain（選択中AreaのWorkspace）と右のSub（開閉できる2枚目）。
 - **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
 
 Coreの切り替えを一番外側の帯に置くのは、Coreが接続先でありProject以下がCoreごとに分かれた状態だからである。`/<core>/` に移動すると、そのCoreでこの端末が最後に開いていた場所へ戻る。

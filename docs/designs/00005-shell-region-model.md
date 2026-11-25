@@ -34,14 +34,14 @@ relations:
 
 | 領域 | 役割 | スコープ |
 |---|---|---|
-| Area list | Shellのナビ中枢。AreaをMain・Subの2セクションに並べる（SigmaOSと同じ形）。行をPanelではなくAreaが占める | shell固有（Panelではない） |
+| Area list | Shellのナビ中枢。AreaをMain・Sub・Detachの3セクションに並べる（SigmaOSと同じ形）。行をPanelではなくAreaが占める | shell固有（Panelではない） |
 | Main | Main listで選択中のAreaを表示する。URLの`/<core>/<project>/<area>/…`が正本で、Main行のclickはそのURLへの移動になる | shell |
 | Sub | Sub listで選択中のAreaを右に表示する。開閉でき、閉じるとMainが全幅になる（幅はResizerで調整） | shell |
 | center | 作業面。splitの木で区画に分けてパネルを配置する | Area |
 
 MainとSubの中身はどちらも同じ**AreaView**である。PanelにはCore経由のPlugin Panelのほか、Shell組み込みPanel（`providerId` `"shell"`）がある — Coreを経由せずShellが直接mountし、picker・配置・workspace保存は同じ扱い（テーマ切替Panelなど）。同じAreaをMainとSubに同時に出してもよい。Areaの中身はcenterのsplit treeだけ — 「縁に置く」（旧left・bottom・rightのdockに相当する配置）は利用者がtreeの端にleafを作ることで表現し、固定の縁領域は存在しない。Panelの置き場所は全部Area-scopeである。「pin」や「widget」という別種のPanelは存在しない。
 
-**Area list**: 今のProjectの全AreaをMain・Subの2セクションで一覧する（Areaを隠すことはできない）。行のメニューから「Mainへ / Subへ」の移動、「子Areaを追加」「Areaを削除」（確認あり）を行う。
+**Area list**: 今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する（Areaを隠すことはできない）。行のメニューから「Mainへ / Subへ」の移動、「別windowで開く」（Detachへの移動）、「子Areaを追加」「Areaを削除」（確認あり）を行う。
 
 ## 領域のモデル
 
@@ -55,14 +55,15 @@ Panelの置き場所は全部Area-scopeで、Areaのレイアウトと一緒に�
 
 ### 表示モード
 
-表示方式は全leafで共通の**pages**だけである。並べて見たいPanelはsplitで区画を分けて並べる。
+表示方式はleafごとに**pages**か**deck**を選ぶ。並べて常時見せたいPanelはsplitで区画を分けて並べ、deckは1つのleaf内で列見出しを横に流し見する用途に使う。
 
-- **pages**（各leaf）: tab帯に全Panelのtabを並べ、中身は1つのPanelだけを見せる。Panelは画面外にも本来の大きさのまま横に並んでおり、切り替えると横にスライドする。見えていないPanelは大きさを保ったまま描画だけを止める（`content-visibility: hidden`）。
-- **切り替え**: tabの選択、tab帯・Panelの中身の上での横スワイプ、前後のキー、マウスの戻る・進むボタンで行う。中身は横scrollのcontainer（`overflow-x: auto`＋`scroll-snap-type: x mandatory`）なので、追従・momentum・端での跳ね返り・snap back・中身scroll優先（scroll chaining）はすべてネイティブに任せる。ブラウザの「戻る/進む」が発動しないよう`overscroll-behavior-x: contain`を付ける。
+- **pages**（各leafの既定）: tab帯に全Panelのtabを並べ、中身は1つのPanelだけを見せる。Panelは画面外にも本来の大きさのまま横に並んでおり、切り替えると横にスライドする。見えていないPanelは大きさを保ったまま描画だけを止める（`content-visibility: hidden`）。
+- **deck**: pagesと同じ横scroll containerを保ったまま、各Panelを固定幅の列として並べる。TweetDeckのように複数列を同時に見渡せる。列の境目をdragすると全列の幅をまとめて変え、その幅はleafに保存される。scroll中はviewportの中央に掛かる列を選択中として追従する。
+- **切り替え**: tab帯右端のトグルでpagesとdeckを切り替える。Panel自体の切り替えは、tabの選択、tab帯・Panelの中身の上での横スワイプ、前後のキー、マウスの戻る・進むボタンで行う。中身は横scrollのcontainer（`overflow-x: auto`＋`scroll-snap-type: x mandatory`）なので、追従・momentum・端での跳ね返り・snap back・中身scroll優先（scroll chaining）はすべてネイティブに任せる。ブラウザの「戻る/進む」が発動しないよう`overscroll-behavior-x: contain`を付ける。
 
 選択中（active）のPanelは各leafの`selected`だけで決まる。
 
-### Area list: Main/Subセクション
+### Area list: Main/Sub/Detachセクション
 
 Area listは**今のProjectの全Area**を**Main**・**Sub**・**Detach**の3セクションで一覧する（SigmaOSのsidebarと同じ形）。行はPanelではなくAreaである。上部にProjectの切替（現在のProject名を押すと一覧popover、ここから「Projectを追加」もできる）。
 
@@ -133,13 +134,20 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 
 ## 保存の形
 
-Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web PluginのサーバーとElectron Pluginは中身を解釈せずに保存し、そのまま返す。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
+Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web Pluginのサーバーは中身を解釈せずに保存し、そのまま返す。ElectronはWeb Pluginの画面を開くため、Workspaceの保存も同じWeb Pluginが担う。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
 
 ```ts
 type PanelRef = { instanceId: string; providerId: string; panelId: string };
 
-// leaf: tab切替の1区画
-type Leaf = { kind: "leaf"; id: string; panels: PanelRef[]; selected: string | null };
+// leaf: tab切替の1区画。layout省略時はpages。colWidthはdeckの列幅（px）
+type Leaf = {
+  kind: "leaf";
+  id: string;
+  panels: PanelRef[];
+  selected: string | null;
+  layout?: "pages" | "deck";
+  colWidth?: number;
+};
 type Split = { kind: "split"; id: string; axis: "x" | "y"; ratio: number; first: Node; second: Node };
 type Node = Leaf | Split;
 
@@ -176,17 +184,17 @@ panel.setActivity({
 ## 横スワイプの範囲
 
 - **tab帯**: 横スワイプでpageを1つずつ切り替える。tab帯はPanelの中身を持たないので、Panelのscrollと競合しない。tabはタイトルが数文字読める最小幅（`min(6em, 100%)`）までしか縮まず、溢れた分はtab帯自体の横scroll（縦ホイールでもscrollできる）。「×」は選択中のtabだけ常に出し、非選択tabはhover/focus時だけタイトルの上へ重ねて出す。
-- **Panelの中身**: pagesのviewport自体が横scroll containerなので、中身がその方向へ横scrollできる間は中身がscrollし、端まで行くとscroll chainingでそのままviewportへ流れてpageがずれる — 優先順位の判定コードは要らず、ネイティブのscroll chainingがそのまま目的の挙動になる。scroll中はscroll位置から選択中をliveにtabへ反映し、gesture由来でないscroll（Panel内の`scrollIntoView`など）は収まった時点で選択中のpageへ戻す（scroll container化の副作用として、`scrollIntoView`がviewportまでscrollさせてpageをずらすことがあるため）。
+- **Panelの中身**: pages・deckのviewportはどちらも横scroll containerなので、中身がその方向へ横scrollできる間は中身がscrollし、端まで行くとscroll chainingでそのままviewportへ流れてpageやdeckの列がずれる — 優先順位の判定コードは要らず、ネイティブのscroll chainingがそのまま目的の挙動になる。scroll中はscroll位置から選択中をliveにtabへ反映し、gesture由来でないscroll（Panel内の`scrollIntoView`など）は収まった時点で選択中のpageへ戻す（scroll container化の副作用として、`scrollIntoView`がviewportまでscrollさせてpageをずらすことがあるため）。
 
 ## 用語
 
 | 用語 | 意味 |
 |---|---|
 | leaf | Panelの配置先（split木の葉）。tab帯＋中身の1枚のカード |
-| Area list | 左の列。AreaをMain・Subの2セクションに並べる |
+| Area list | 左の列。AreaをMain・Sub・Detachの3セクションに並べる |
 | Main | 本体の広い領域。Main listの選択中Areaを表示する（URLが正本） |
 | Sub | 本体の右の領域。Sub listの選択中Areaを表示し、開閉できる |
-| 表示モード | leaf内のPanelの出し方。全leafでpagesの1つだけ |
+| 表示モード | leaf内のPanelの出し方。pagesまたはdeck |
 | Panel Frame | Panelの枠（radius）。leafに依らず同じ輪郭 |
 | frame | Shell固有の帯（topbar/statusbar/sidebar）。不透明slab面 |
 | activity | Panelの活動状態。Pluginが意味を通知、Shellが描く |
