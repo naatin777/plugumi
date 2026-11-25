@@ -13,8 +13,8 @@ import (
 	"github.com/coder/websocket"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/internal/corerest"
-	"github.com/naatin777/plugumi/plugins/web/internal/cores"
+	"github.com/naatin777/plugumi/apps/web/internal/corerest"
+	"github.com/naatin777/plugumi/apps/web/internal/cores"
 )
 
 // fakeCore はGET /v1/coreと登録だけを持つ偽のCore。

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { tokenNames } from "../dist/index.js";
 
-const css = readFileSync(new URL("../../../shared/plugin-shell/src/styles/tokens.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../../../shared/workbench/src/styles/tokens.css", import.meta.url), "utf8");
 const inCss = new Set(css.match(/--plugumi-[a-z0-9-]+/g));
 
 const flatten = (value) =>

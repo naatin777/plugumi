@@ -16,10 +16,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/internal/corerest"
-	"github.com/naatin777/plugumi/plugins/web/internal/corerpc"
-	"github.com/naatin777/plugumi/plugins/web/internal/cores"
-	"github.com/naatin777/plugumi/plugins/web/internal/projects"
+	"github.com/naatin777/plugumi/apps/web/internal/corerest"
+	"github.com/naatin777/plugumi/apps/web/internal/corerpc"
+	"github.com/naatin777/plugumi/apps/web/internal/cores"
+	"github.com/naatin777/plugumi/apps/web/internal/projects"
 )
 
 type Server struct {
@@ -189,7 +189,7 @@ func (s *Server) probeClient() *http.Client {
 func (s *Server) staticFile(w http.ResponseWriter, r *http.Request) {
 	if !s.hasIndex {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = fmt.Fprintln(w, "frontend が未ビルドです（pnpm --dir plugins/web/frontend build）")
+		_, _ = fmt.Fprintln(w, "frontend が未ビルドです（pnpm --dir apps/web/frontend build）")
 		return
 	}
 	name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")

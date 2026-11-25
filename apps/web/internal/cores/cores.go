@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/internal/corerest"
+	"github.com/naatin777/plugumi/apps/web/internal/corerest"
 )
 
 // Source はCore一覧への追加経路。commandは起動引数由来でUIから削除できない。

@@ -16,11 +16,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/naatin777/plugumi/plugins/web/frontend"
-	"github.com/naatin777/plugumi/plugins/web/internal/cores"
-	"github.com/naatin777/plugumi/plugins/web/internal/logfile"
-	"github.com/naatin777/plugumi/plugins/web/internal/plugininstances"
-	"github.com/naatin777/plugumi/plugins/web/internal/server"
+	"github.com/naatin777/plugumi/apps/web/frontend"
+	"github.com/naatin777/plugumi/apps/web/internal/cores"
+	"github.com/naatin777/plugumi/apps/web/internal/logfile"
+	"github.com/naatin777/plugumi/apps/web/internal/plugininstances"
+	"github.com/naatin777/plugumi/apps/web/internal/server"
 )
 
 const version = "0.1.0"

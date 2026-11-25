@@ -1,5 +1,5 @@
 {
-  "name": "@plugumi/plugin-shell",
+  "name": "@plugumi/workbench",
   "version": "0.1.0",
   "private": true,
   "type": "module",

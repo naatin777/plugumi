@@ -1,4 +1,4 @@
-module github.com/naatin777/plugumi/plugins/web
+module github.com/naatin777/plugumi/apps/web
 
 go 1.26.0
 

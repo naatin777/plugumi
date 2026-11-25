@@ -175,6 +175,100 @@ importers:
 
   .: {}
 
+  apps/electron:
+    dependencies:
+      plugumi-plugin-client:
+        specifier: workspace:*
+        version: link:../../packages/plugin-client
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      electron:
+        specifier: 45.3.2
+        version: 45.3.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  apps/electron/ui:
+    dependencies:
+      svelte:
+        specifier: 5.57.3
+        version: 5.57.3
+    devDependencies:
+      '@plugumi/plugin-view':
+        specifier: workspace:*
+        version: link:../../../packages/plugin-view
+      '@sveltejs/vite-plugin-svelte':
+        specifier: 7.3.1
+        version: 7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@24.19.2))
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      svelte-check:
+        specifier: 4.7.8
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.3.8
+        version: 8.3.8(@types/node@24.19.2)
+
+  apps/web/frontend:
+    dependencies:
+      '@plugumi/workbench':
+        specifier: workspace:*
+        version: link:../../../shared/workbench
+      '@solidjs/router':
+        specifier: 2.0.0
+        version: 2.0.0(@solidjs/web@2.0.0(solid-js@2.0.0))(solid-js@2.0.0)
+      '@solidjs/web':
+        specifier: 2.0.0
+        version: 2.0.0(solid-js@2.0.0)
+      solid-js:
+        specifier: 2.0.0
+        version: 2.0.0
+    devDependencies:
+      '@solidjs/vite-plugin':
+        specifier: 3.0.0
+        version: 3.0.0(@babel/core@7.29.13)(@solidjs/web@2.0.0(solid-js@2.0.0))(solid-js@2.0.0)(vite@8.3.8(@types/node@24.19.2))
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite:
+        specifier: 8.3.8
+        version: 8.3.8(@types/node@24.19.2)
+
+  environment/ui:
+    dependencies:
+      svelte:
+        specifier: 5.57.3
+        version: 5.57.3
+    devDependencies:
+      '@plugumi/plugin-view':
+        specifier: workspace:*
+        version: link:../../packages/plugin-view
+      '@sveltejs/vite-plugin-svelte':
+        specifier: 7.3.1
+        version: 7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@24.19.2))
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      svelte-check:
+        specifier: 4.7.8
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.3.8
+        version: 8.3.8(@types/node@24.19.2)
+
   packages/plugin-client:
     dependencies:
       ws:
@@ -222,101 +316,19 @@ importers:
         specifier: ^8.23.0
         version: 8.23.0
 
-  plugins/electron:
+  shared/theme:
     dependencies:
-      plugumi-plugin-client:
-        specifier: workspace:*
-        version: link:../../packages/plugin-client
-    devDependencies:
-      '@types/node':
-        specifier: 24.19.2
-        version: 24.19.2
-      electron:
-        specifier: 45.3.2
-        version: 45.3.2
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-
-  plugins/electron/ui:
-    dependencies:
-      svelte:
-        specifier: 5.57.3
-        version: 5.57.3
-    devDependencies:
       '@plugumi/plugin-view':
         specifier: workspace:*
-        version: link:../../../packages/plugin-view
-      '@sveltejs/vite-plugin-svelte':
-        specifier: 7.3.1
-        version: 7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@24.19.2))
-      '@types/node':
-        specifier: 24.19.2
-        version: 24.19.2
-      svelte-check:
-        specifier: 4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vite:
-        specifier: 8.3.8
-        version: 8.3.8(@types/node@24.19.2)
-
-  plugins/standard/ui:
-    dependencies:
-      svelte:
-        specifier: 5.57.3
-        version: 5.57.3
-    devDependencies:
-      '@plugumi/plugin-view':
-        specifier: workspace:*
-        version: link:../../../packages/plugin-view
-      '@sveltejs/vite-plugin-svelte':
-        specifier: 7.3.1
-        version: 7.3.1(svelte@5.57.3)(vite@8.3.8(@types/node@24.19.2))
-      '@types/node':
-        specifier: 24.19.2
-        version: 24.19.2
-      svelte-check:
-        specifier: 4.7.8
-        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vite:
-        specifier: 8.3.8
-        version: 8.3.8(@types/node@24.19.2)
-
-  plugins/web/frontend:
-    dependencies:
-      '@plugumi/plugin-shell':
-        specifier: workspace:*
-        version: link:../../../shared/plugin-shell
-      '@solidjs/router':
-        specifier: 2.0.0
-        version: 2.0.0(@solidjs/web@2.0.0(solid-js@2.0.0))(solid-js@2.0.0)
+        version: link:../../packages/plugin-view
       '@solidjs/web':
         specifier: 2.0.0
         version: 2.0.0(solid-js@2.0.0)
       solid-js:
         specifier: 2.0.0
         version: 2.0.0
-    devDependencies:
-      '@solidjs/vite-plugin':
-        specifier: 3.0.0
-        version: 3.0.0(@babel/core@7.29.13)(@solidjs/web@2.0.0(solid-js@2.0.0))(solid-js@2.0.0)(vite@8.3.8(@types/node@24.19.2))
-      '@types/node':
-        specifier: 24.19.2
-        version: 24.19.2
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-      vite:
-        specifier: 8.3.8
-        version: 8.3.8(@types/node@24.19.2)
 
-  shared/plugin-shell:
+  shared/workbench:
     dependencies:
       '@fontsource/ibm-plex-mono':
         specifier: ^5.3.0
@@ -349,18 +361,6 @@ importers:
       vite:
         specifier: 8.3.8
         version: 8.3.8(@types/node@24.19.2)
-
-  shared/theme:
-    dependencies:
-      '@plugumi/plugin-view':
-        specifier: workspace:*
-        version: link:../../packages/plugin-view
-      '@solidjs/web':
-        specifier: 2.0.0
-        version: 2.0.0(solid-js@2.0.0)
-      solid-js:
-        specifier: 2.0.0
-        version: 2.0.0
 
 packages:
 

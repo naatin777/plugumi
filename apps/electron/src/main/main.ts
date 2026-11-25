@@ -100,7 +100,7 @@ async function start(): Promise<void> {
   try {
     ui = loadUI(join(__dirname, "..", "..", "ui", "dist"));
   } catch {
-    console.error("[electron] UI bundleがありません（plugins/electron/uiでpnpm buildするとPanelが登録されます）");
+    console.error("[electron] UI bundleがありません（apps/electron/uiでpnpm buildするとPanelが登録されます）");
   }
   const cores = new AbortController();
   followHostCores(hostURL, instanceId, windowTools(windows), ui, cores.signal);
