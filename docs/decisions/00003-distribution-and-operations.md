@@ -16,7 +16,7 @@ Pluginエコシステムを育てるには「作る側の入口」と「使う�
 
 以下を採用する方向。
 
-- **既存CLIを活用**: GitHubなら `gh plugumi` のようにGitHub CLI Extensionとして実装できる。独自CLIは必須にしない
+- **既存CLIを活用**: 対象プラットフォームのCLI拡張機構として実装できる。独自CLIは必須にしない
 - **外部サービスの認証・設定はPluginに任せる**: `gh auth login` など既存の仕組みを利用する。PluginやブラウザをCoreが認証・認可する仕組みとは別にする（[Decision 00012](00012-plugin-initiated-connections.md)）。
 - **Coreは単体で管理可能**: CLI/TUIでPluginや設定を管理。独立したManagerは必須にしない
 - **web・electronは任意のUI Hostを提供するPlugin**: 複数Coreに接続でき、CoreのBuilt-in PanelやPluginのPanelを表示する

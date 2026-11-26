@@ -54,14 +54,14 @@ Plugumi本体はアプリケーション機能を持たず、協調のための�
 - **Node**: Pluginが宣言する実行環境の共有識別。LinkがどのNodeで動くかの対応をCoreが保持する
 
 つまり `Link ⊃ (Transport・Tool宣言・Node宣言)` の包含関係で、MVPではすべてlink-scoped（`docs/decisions/00004`）。用語の定義は `docs/glossary.md` を正本とする。
-- Plugin信頼モデルは VS Code型: インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
+- Plugin信頼モデル: インストール済みを信頼し、実行時隔離を持たない（`docs/decisions/00001`）
 - 接続はローカル基本。リモート接続は任意追加（Tailscale・Cloudflare Tunnel + Access等、`docs/decisions/00003`）
 
 ## ランタイム・デプロイモデル
 
 - CoreはCLI/TUIで単体管理可能。独立したManagerは必須にしない（`docs/decisions/00003`）
 - UI Host無しでもCore+Pluginは動作する
-- 静的ファイル: webはGoサーバーから配信、electronはアプリ同梱
+- 静的ファイル: webはGoサーバーから配信。electronはそのURLをwindowで開くviewer
 
 ## 旧実装からの継承・非継承
 

@@ -26,7 +26,7 @@ relations:
 
 | 論点 | 依頼時の文書・コードで確認した事実 | 移行先 |
 |---|---|---|
-| 接続・起動 | 旧Decision 00004・00007・00010はCoreからPluginへの接続を前提としていた。旧Connectorは設定・動的登録からPlugin Endpointを保持し、`hello → tools pull → WS dial` を試行していた。StandardとAgentはそれぞれ待受サーバーを持っていた。 | PluginにCore URLを渡し、Plugin側が登録・購読・WS・再接続を担う。起動補助は任意。 |
+| 接続・起動 | 旧Decision 00004・00007・00010はCoreからPluginへの接続を前提としていた。旧Connectorは設定・動的登録からPlugin Endpointを保持し、`hello → tools pull → WS dial` を試行していた。Environment ProviderとAgentはそれぞれ待受サーバーを持っていた。 | PluginにCore URLを渡し、Plugin側が登録・購読・WS・再接続を担う。起動補助は任意。 |
 | Registryと宣言 | 旧Design 00001・00002ではLinkに宛先と宣言を置いた。Coreは `GET /v1/tools` で取得し、`POST /v1/tools/catalog` でPluginに一覧をpushした。WS終了でLinkを外した。 | Pluginが宣言を書き込む。Coreの[Registry](../../core/internal/registry/registrations.go)がLease・宣言・RPC接続を管理し、SnapshotとSSEを提供する。WSが切れても、Leaseが有効な間は登録を保持する。 |
 | caller・RPC | 旧 `/v1/call` は非Plugin用のWSで、RouterがPlugin接続との間を中継していた。旧Decision 00011と旧Tool契約はLinkとcaller channelを区別する。 | Routerの相関・中継という責務を残し、宛先は `registrationId` に切り替える。Panel APIの限定配送は後続の検証対象。 |
 | Core管理・ローカル検出 | [TUI](../../core/internal/tui/plugins.go)はOSユーザーのローカル記録とprobeで実行中Pluginを検出し、選んだCoreへPlugin Endpointを追加する。ローカルカタログと起動コマンドも扱う。Plugin自身がローカル記録を書くことは、Coreへのプロトコル登録とは異なる。 | 接続一覧は選択中のCoreから取得する。Coreの起動・停止・ログ・ローカル設定は通信から独立して残せる。ローカルPluginの検出にHTTP待受を要求しない。 |
@@ -47,7 +47,7 @@ relations:
 | 段階 | 変更順・範囲 | 次へ進む条件 |
 |---|---|---|
 | 1. ローカル縦断PoC | Coreで受信側REST・SSE・WSを作る。新旧のRegistryを暗黙に混ぜない。待受を持たない小さなCLIを使い、`登録 → SSE受信 → RESTでTool宣言を更新 → WSでecho → 最小Panelに結果を表示` をつなぐ。Panelには固定の信頼境界内で、同じecho契約を使うPanel専用操作も一つ用意する。 | Plugin待受なしで一往復できる。SSE再接続で表示が収束し、Tool一覧にPanel APIが現れない。旧実装の公開範囲は変更しない。 |
-| 2. 実PluginとTUI | Go RPCのEnvelope処理と中継責務を再利用候補にし、登録・接続の責務を分離する。次にStandardのTool実装を保って通信面をClientに置き換え、Agentはcatalog pushの代わりにSnapshot＋SSEを使う。TUIのCore選択とログ操作を保ち、選択先のRegistryを表示する。 | 複数Core、再登録、スコープ分離、エラー、取消、順序・負荷試験に合格する。Streaming拡張を入れる場合は受理・出力・終端の順序を再検証する。 |
+| 2. 実PluginとTUI | Go RPCのEnvelope処理と中継責務を再利用候補にし、登録・接続の責務を分離する。次にEnvironment ProviderのTool実装を保って通信面をClientに置き換え、Agentはcatalog pushの代わりにSnapshot＋SSEを使う。TUIのCore選択とログ操作を保ち、選択先のRegistryを表示する。 | 複数Core、再登録、スコープ分離、エラー、取消、順序・負荷試験に合格する。Streaming拡張を入れる場合は受理・出力・終端の順序を再検証する。 |
 | 3. UI Bundle・型 | 複数ファイルのビルド成果物の受付と配信を追加。ブラウザの分離とBridgeを検証する。HTTP・RPCの型生成をGo・TypeScript・Rustで比較する。 | CSS・動的import・画像・フォントが動き、親や他Panelの権限には届かない。生成型と実行時Schemaの整合を確認する。 |
 | 4. 外部到達・Media | Docker/WSLから順に試し、LAN、VPN、認証付きTunnelへ進む。MediaはSignalingと別に直接・TURN経路を確認する。 | 成功経路だけでなく、未認証・未登録・失効、SSE/WSプロキシ、Media非到達を観測できる。認証・認可・監査の設計が済むまで外部公開しない。 |
 | 5. 切替 | 新しい利用手順を実測して更新する。旧試作は置換後に別変更で退役させる。 | 新しいクライアントとCoreの組合せで[適合シナリオ](../verification/00002-plugin-client-conformance.md)を実施。旧接続の手順・制約・証拠は履歴として残す。 |

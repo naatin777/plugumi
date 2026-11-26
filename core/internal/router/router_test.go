@@ -15,7 +15,7 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-func testConn(t *testing.T) (*rpc.Connection, *websocket.Conn) {
+func testConnection(t *testing.T) (*rpc.Connection, *websocket.Conn) {
 	t.Helper()
 	accepted := make(chan *websocket.Conn, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,8 +50,8 @@ func readMessage(t *testing.T, connection *websocket.Conn) wire.Incoming {
 }
 
 func TestCloseForwardsTerminalResult(t *testing.T) {
-	caller, callerPeer := testConn(t)
-	target, targetPeer := testConn(t)
+	caller, callerPeer := testConnection(t)
+	target, targetPeer := testConnection(t)
 	router := New(nil)
 	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", accepted: true, requestWritten: true, ready: make(chan struct{}), dropped: make(chan struct{})}
 	close(route.ready)
@@ -78,8 +78,8 @@ func TestCloseForwardsTerminalResult(t *testing.T) {
 // call のrequest書き込み前に届いたcloseは、callの後に送られなければならない。
 // 先に届くとtargetは未知callIdのcloseを捨て、callが取消なしで実行される。
 func TestCloseBeforeForwardWriteWaitsForCallWrite(t *testing.T) {
-	caller, _ := testConn(t)
-	target, targetPeer := testConn(t)
+	caller, _ := testConnection(t)
+	target, targetPeer := testConnection(t)
 	callRouter := New(nil)
 	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", ready: make(chan struct{}), dropped: make(chan struct{})}
 	callRouter.routes[routeKey(target, route.TargetID)] = route
@@ -121,11 +121,11 @@ func TestCloseBeforeForwardWriteWaitsForCallWrite(t *testing.T) {
 }
 
 func TestCancelBeforeAcceptanceReportsUnknownWhenTargetDoesNotFinish(t *testing.T) {
-	caller, callerPeer := testConn(t)
-	target, targetPeer := testConn(t)
+	caller, callerPeer := testConnection(t)
+	target, targetPeer := testConnection(t)
 	callRouter, registrationID := registerTarget(t, target, wire.ToolDeclaration{ToolPath: "ticks", Kind: "async"})
 	callRouter.cancelGrace = 20 * time.Millisecond
-	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
+	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
 		return callRouter.HandleCall(caller, message)
 	}
 	caller.OnNotification = func(message *wire.Incoming) { callRouter.DispatchNotification(caller, message) }
@@ -183,7 +183,7 @@ func writeMessage(t *testing.T, connection *websocket.Conn, message any) {
 func registerTarget(t *testing.T, target *rpc.Connection, tools ...wire.ToolDeclaration) (*Router, string) {
 	t.Helper()
 	pluginRegistry := registry.New("test-core")
-	lease, _, err := pluginRegistry.Create(wire.PluginIdentity{PluginID: "test-plugin", PluginInstanceID: "instance"})
+	lease, _, err := pluginRegistry.Create(wire.ProviderIdentity{ProviderID: "test-plugin", InstanceID: "instance"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,10 +198,10 @@ func registerTarget(t *testing.T, target *rpc.Connection, tools ...wire.ToolDecl
 }
 
 func TestSyncOutputArrivesBeforeResponse(t *testing.T) {
-	caller, callerPeer := testConn(t)
-	target, targetPeer := testConn(t)
+	caller, callerPeer := testConnection(t)
+	target, targetPeer := testConnection(t)
 	callRouter, registrationID := registerTarget(t, target, wire.ToolDeclaration{ToolPath: "echo", Kind: "sync"})
-	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
+	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
 		return callRouter.HandleCall(caller, message)
 	}
 	target.OnNotification = func(message *wire.Incoming) {
@@ -236,12 +236,12 @@ func TestSyncOutputArrivesBeforeResponse(t *testing.T) {
 }
 
 func TestTargetDisconnectWaitsForAcceptanceResponse(t *testing.T) {
-	caller, callerPeer := testConn(t)
-	target, targetPeer := testConn(t)
+	caller, callerPeer := testConnection(t)
+	target, targetPeer := testConnection(t)
 	callRouter, registrationID := registerTarget(t, target, wire.ToolDeclaration{ToolPath: "ticks", Kind: "async"})
 	caller.OnResponded = func(id json.RawMessage) { callRouter.NotifyResponded(caller, id) }
 	accepted, respond := make(chan struct{}), make(chan struct{})
-	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RpcError) {
+	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
 		result, rpcError := callRouter.HandleCall(caller, message)
 		close(accepted)
 		select {

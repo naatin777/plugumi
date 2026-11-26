@@ -1,0 +1,47 @@
+/* Core一覧（/）。shellの外の画面。 */
+@layer components {
+
+  .core-list-page {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: var(--plugumi-spacing-xl) var(--plugumi-spacing-md);
+    display: flex; flex-direction: column;
+    gap: var(--plugumi-spacing-md);
+  }
+  .core-list-page h1 { font-size: var(--plugumi-font-size-xl); margin: 0; }
+  .core-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--plugumi-spacing-xs); }
+  .core-list li { display: flex; align-items: center; gap: var(--plugumi-spacing-xs); }
+  .core-entry {
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-sm);
+    flex: 1;
+    padding: var(--plugumi-spacing-sm) var(--plugumi-spacing-md);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    background: var(--plugumi-colors-background-secondary);
+    color: var(--plugumi-colors-text);
+    text-decoration: none;
+    font: inherit;
+  }
+  a.core-entry:hover { background: var(--plugumi-colors-background-tertiary); }
+  .core-entry small { margin-left: auto; color: var(--plugumi-colors-text-muted); }
+  .core-add, .core-add-form button {
+    align-self: flex-start;
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font: inherit; cursor: pointer;
+  }
+  .core-add-form { display: flex; gap: var(--plugumi-spacing-xs); }
+  .core-add-form input {
+    flex: 1;
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font: inherit;
+  }
+  .core-error { color: var(--plugumi-colors-error); }
+}

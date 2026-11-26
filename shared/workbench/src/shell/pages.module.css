@@ -1,0 +1,38 @@
+/* pages — 全領域で同じ形。viewportは横scrollのcontainerで、切替えは
+   scroll-snap（追従・momentum・snap backはネイティブ）。scrollbarは
+   隠して、ブラウザの戻る/進むはoverscroll-behaviorで抑える。 */
+@layer components {
+
+  .pages-viewport {
+    height: 100%; min-height: 0;
+    overflow-x: auto;
+    overflow-y: clip;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .pages-viewport::-webkit-scrollbar { display: none; }
+  .pages-track { display: flex; height: 100%; }
+  .pages-page {
+    flex: none; width: 100%; min-width: 0; min-height: 0;
+    position: relative;
+    scroll-snap-align: start;
+  }
+
+  /* deck — 固定幅の列を横に並べて流し見する。幅をviewportの整数倍に
+     しないので右端に次の列が切れて見え、「まだある」の合図になる。
+     snapは付けない — 列は小さいので境目に揃える補助は要らず、
+     自由な位置で止まったほうが流し見しやすい。
+     列の区切りはhairline — 列同士はタイルではなく1枚のカードの中の
+     区画なので溝は付けない。 */
+  .pages-viewport[data-layout="deck"] { scroll-snap-type: none; }
+  .pages-viewport[data-layout="deck"] .pages-page {
+    width: var(--deck-col-w);
+    /* resizerを列の左辺へ出すためにclipしない（中身はPanelMount側が
+       収める）。 */
+    overflow: visible;
+  }
+  .pages-viewport[data-layout="deck"] .pages-page + .pages-page {
+    border-left: 1px solid var(--plugumi-colors-border);
+  }
+}

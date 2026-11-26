@@ -119,10 +119,10 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 	})
 }
 
-func (s *Server) createRegistration(_ context.Context, input *struct{ Body wire.PluginIdentity }) (*leaseResponse, error) {
+func (s *Server) createRegistration(_ context.Context, input *struct{ Body wire.ProviderIdentity }) (*leaseResponse, error) {
 	identity := input.Body
-	if strings.TrimSpace(identity.PluginID) == "" || strings.TrimSpace(identity.PluginInstanceID) == "" {
-		return nil, newAPIError(http.StatusBadRequest, "invalid_params", "pluginId and pluginInstanceId are required")
+	if strings.TrimSpace(identity.ProviderID) == "" || strings.TrimSpace(identity.InstanceID) == "" {
+		return nil, newAPIError(http.StatusBadRequest, "invalid_params", "pluginId and instanceId are required")
 	}
 	lease, created, err := s.registry.Create(identity)
 	if err != nil {

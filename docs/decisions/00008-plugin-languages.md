@@ -1,7 +1,7 @@
 ---
 type: decision
-title: "Pluginの実装言語: standard=Rust・agent=TypeScript"
-description: 各Pluginの実装言語と、その選定理由（ライブラリ直結・LLMエコシステム）。
+title: "Provider/Pluginの実装言語: Environment Provider=Rust・Agent=TypeScript"
+description: Environment ProviderとAgentの実装言語と、その選定理由（ライブラリ直結・LLMエコシステム）。
 status: draft
 relations:
   decision:
@@ -10,24 +10,24 @@ relations:
 
 ## コンテキスト
 
-`00005` でPluginを独立プロセス・任意言語で実装する方針を決めた。では各Pluginを何で書くか。
+`00005` でPluginを独立プロセス・任意言語で実装する方針を決めた。Environment Providerも同じ接続モデルの独立プロセスである。では各Provider/Pluginを何で書くか。
 
 ## 決定
 
-- **standard → Rust**
-- **agent → TypeScript（Node.js）**
+- **Environment Provider → Rust**
+- **Agent → TypeScript（Node.js）**
 
 ## 理由
 
-### standard: Rust
+### Environment Provider: Rust
 
-standard Pluginは、ファイル操作・ファイル探索・検索・置換・Terminalを提供する。
+Environment Providerは、ファイル操作・ファイル探索・検索・置換・Terminalを提供する。
 
 ファイル検索や置換では、外部CLIを起動して標準出力を解析する方式をできるだけ避け、ライブラリのAPIを直接利用したい。Rustにはripgrepを構成する `ignore` や `grep-searcher` などのライブラリがあり、これらを直接組み込める。また、PTYやファイル監視を扱うライブラリも利用できる。
 
-そのためstandard PluginにはRustを採用する。主な理由は実行速度ではなく、**ライブラリを直接利用できること**と、**外部CLIの出力形式に依存しない実装を好む**ことにある。
+そのためEnvironment ProviderにはRustを採用する。主な理由は実行速度ではなく、**ライブラリを直接利用できること**と、**外部CLIの出力形式に依存しない実装を好む**ことにある。
 
-### agent: TypeScript
+### Agent: TypeScript
 
 Agentの主な仕事は、OSを直接操作することではなく、LLM・Tool・Context・実行状態を組み合わせてAgentの動作を制御すること。
 
@@ -45,6 +45,6 @@ TypeScriptを選ぶ理由:
 
 ## トレードオフと帰結
 
-- 言語が分かれるためwire型は各Pluginが自分で持つ（共有SDKは作らない。Plugin独立の前提）
-- standardの検索系toolは、今後 `ignore`/`grep-searcher`/`notify`/PTY系crateの追加を検討する（規約どおり追加時は要許可）
-- agentのLLM SDK選定は `00009` に分離
+- wire型は接続契約を正本とし、TypeScript側ではAgentとElectronが使う接続SDKを `packages/plugin-client` として共有する
+- Environment Providerの検索系toolは、今後 `ignore`/`grep-searcher`/`notify`/PTY系crateの追加を検討する（規約どおり追加時は要許可）
+- AgentのLLM SDK選定は `00009` に分離

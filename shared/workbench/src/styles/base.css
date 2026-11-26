@@ -1,0 +1,23 @@
+/* 画面全体の土台。ページbodyはframe色。
+   color-schemeはdata-plugumi-themeに追従させる — shadow root内の
+   Panelにも継承され、popover・form controlのUA色（canvastext等）が
+   テーマ通りに解決される。 */
+@layer base {
+  :root { color-scheme: dark; }
+  :root[data-plugumi-theme="light"] { color-scheme: light; }
+
+  body {
+    margin: 0;
+    background: var(--shell-frame-color);
+    color: var(--plugumi-colors-text);
+    font-family: var(--plugumi-font-family-sans);
+    font-size: var(--plugumi-font-size-sm);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { height: 100vh; }
+
+  /* vibrancy宿主（Electron、preloadが属性を立てる）ではbodyを透かし、
+     main.shellの半透明なframe色の向こうにデスクトップを見せる。
+     ブラウザではこの属性が無くbodyは不透明のまま。 */
+  :root[data-plugumi-vibrancy] body { background: transparent; }
+}

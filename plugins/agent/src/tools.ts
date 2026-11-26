@@ -1,43 +1,11 @@
 // agent pluginが提供するTool群。
 // MVPは agent/echo のみ（自己呼び出しの疎通確認用）。
 
-import type { Connection } from "./rpc.js";
-import type { ForwardCallParams, RpcError, ToolDeclaration } from "./wire.js";
+import type { Tool } from "plugumi-plugin-client";
 
-type SyncHandler = (input: unknown) => unknown | Promise<unknown>;
-
-const tools = new Map<string, { declaration: ToolDeclaration; handler: SyncHandler }>([
-  [
-    "agent/echo",
-    {
-      declaration: { toolPath: "agent/echo", kind: "sync" },
-      handler: (input) => ({ echo: input, from: "agent" }),
-    },
-  ],
-]);
-
-export function toolDeclarations(): ToolDeclaration[] {
-  return [...tools.values()].map((t) => t.declaration);
-}
-
-// 着信 tools.call を捌く（同期返却のみ。async toolを足すときはCall機構を作る）。
-export async function dispatchCall(
-  _connection: Connection,
-  reqId: unknown,
-  params: ForwardCallParams,
-): Promise<{ result?: unknown; error?: RpcError }> {
-  if (params === null || typeof params !== "object" || typeof params.toolPath !== "string" || params.toolPath === "") {
-    return { error: { code: -32602, message: "invalid params" } };
-  }
-  const tool = tools.get(params.toolPath);
-  if (!tool) {
-    return {
-      error: { code: -32601, message: `unknown toolPath: ${params.toolPath}` },
-    };
-  }
-  try {
-    return { result: await tool.handler(params.input) };
-  } catch (error) {
-    return { error: { code: -32000, message: String(error) } };
-  }
-}
+export const agentTools: Tool[] = [
+  {
+    declaration: { toolPath: "agent/echo", kind: "sync" },
+    handler: (input) => ({ echo: input, from: "agent" }),
+  },
+];

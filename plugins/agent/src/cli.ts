@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { startCommandLoop } from "./command-loop.js";
 import { CoreClient, coreURL } from "./core-client.js";
 import { logPath } from "./log.js";
-import { newInstanceId, registerPlugin } from "./registration.js";
+import { newInstanceId, registerPlugin } from "plugumi-plugin-client";
 
 const usage = "Usage: plugumi-agent [--core <url>]... [<url>...]";
 

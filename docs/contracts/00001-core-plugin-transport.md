@@ -229,7 +229,7 @@ UI Host・人間・TUIが使う管理面。PluginはこのAPIを使わない・�
 |---|---|---|
 | `POST /v1/plugins` | `{"endpoint": "http://…"}` | `{"endpoint": "…"}`。受理のみで接続は非同期 |
 | `POST /v1/plugins/remove` | `{"endpoint": "http://…"}` | `{"endpoint": "…"}`。Link失効・再試行loop停止は非同期。未登録endpointは404 `unknown_endpoint` |
-| `POST /v1/plugins/list` | `{}` | `{"plugins": [{"endpoint","linkId"?,"pluginId"?}]}`。Link未確立の再試行中は `linkId`/`pluginId` を省略 |
+| `POST /v1/plugins/list` | `{}` | `{"plugins": [{"endpoint","linkId"?,"providerId"?}]}`。Link未確立の再試行中は `linkId`/`providerId` を省略 |
 | `POST /v1/tools/list` | `{}` | `{"tools": […]}`。各要素は `linkId` + Tool宣言（`toolPath`/`kind`/`description`?/`tags`?/`inputSchema`?/`outputSchema`?） |
 | `GET /v1/call` | — | caller向けTool呼び出しchannelのWS upgrade（後述） |
 | `GET /openapi.json`・`GET /docs` | — | OpenAPI 3.1と閲覧画面 |

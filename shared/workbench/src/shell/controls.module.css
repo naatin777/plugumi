@@ -1,0 +1,108 @@
+/* Shell共通の部品（icon-button・状態dot・名前入力・Core switcher・
+   picker・drag表示）。これらを描くcomponentがそれぞれこのmoduleを
+   importする。 */
+@layer components {
+
+  /* ---- 共通 ---- */
+  .icon-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px;
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer; padding: 0;
+  }
+  /* frame（title帯・sidebar）の上のbuttonは不透明 — 透けても見えるのは
+     無地のframe色だけで、塗りが薄くなるだけのため。透過fillはカードの
+     内側（blur・auroraが見える場所）だけで使う。 */
+  .icon-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
+  .icon-button[aria-pressed="true"] {
+    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%);
+    color: var(--plugumi-colors-text);
+  }
+  .icon-button.confirm-armed { color: var(--plugumi-colors-error); }
+  .confirm-text { font-size: var(--plugumi-font-size-2xs); white-space: nowrap; }
+
+  /* inlineの名前入力（promptを使わない） */
+  .name-form { display: flex; flex-wrap: wrap; gap: var(--plugumi-spacing-xs); align-items: center; }
+  .name-form input {
+    flex: 1; min-width: 100px;
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border-strong);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font: inherit; font-size: var(--plugumi-font-size-xs);
+  }
+  .name-form button {
+    padding: 2px var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
+  }
+  .name-form-error { flex-basis: 100%; margin: 0; color: var(--plugumi-colors-error); font-size: var(--plugumi-font-size-2xs); }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--plugumi-colors-text-muted);
+    flex: none;
+  }
+  .status-dot[data-status="connected"] { background: var(--plugumi-colors-success); }
+  .status-dot[data-status="connecting"] { background: var(--plugumi-colors-warning); }
+  .status-dot[data-status="error"] { background: var(--plugumi-colors-error); }
+
+  /* Core switcher（左区間は固定幅。名前はellipsisで収める） */
+  .core-switcher { display: flex; min-width: 0; }
+  .core-button {
+    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    max-width: 180px; height: 26px;
+    padding: 0 var(--plugumi-spacing-sm);
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: var(--plugumi-colors-text);
+    font: inherit; cursor: pointer;
+  }
+  .core-button:hover { background: var(--plugumi-colors-background-tertiary); }
+  .core-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* compactではcore名を畳んでアイコンだけにする（core名が出るのは
+     左tool群のswitcherとmenuだけ）。 */
+  [data-part="shell"][data-size="compact"] [data-part="titlebar"] .core-name {
+    display: none;
+  }
+
+  .core-menu, .panel-picker {
+    min-width: 200px; max-width: 280px;
+    padding: var(--plugumi-spacing-xs);
+    border: 1px solid var(--plugumi-colors-border);
+    border-radius: var(--plugumi-radii-lg);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    /* 位置はopenPopoverがanchorのrectからfixedで置く。 */
+    margin: 0; inset: auto;
+  }
+  .core-menu-item, .picker-item {
+    display: flex; align-items: center; gap: var(--plugumi-spacing-sm);
+    width: 100%;
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: none; border-radius: var(--plugumi-radii-md);
+    background: transparent; color: inherit;
+    font: inherit; text-align: left; text-decoration: none;
+    cursor: pointer;
+  }
+  .core-menu-item:hover, .picker-item:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
+  .picker-plugin { margin-left: auto; color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-2xs); }
+  .picker-empty { margin: var(--plugumi-spacing-sm); color: var(--plugumi-colors-text-muted); }
+
+  /* ---- drag ---- */
+  .drag-ghost {
+    position: fixed; z-index: var(--plugumi-z-ghost);
+    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+    border: 1px solid var(--plugumi-colors-border-strong);
+    border-radius: var(--plugumi-radii-md);
+    background: var(--plugumi-colors-background-tertiary);
+    color: var(--plugumi-colors-text);
+    font-size: var(--plugumi-font-size-xs);
+    pointer-events: none;
+  }
+  [data-drop-target] { outline: 2px solid var(--plugumi-colors-border-highlight); outline-offset: -2px; }
+}

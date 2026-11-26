@@ -1,0 +1,136 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import {
+  decodeAreaList, detachedAreas, emptyAreaList, flattenAreas, mainAreas, pathKey, pathFromKey,
+  selectSub, subAreas, toDetach, toMain, toSub,
+  type AreaNode,
+} from "./area-list.ts";
+
+const tree: AreaNode[] = [
+  { key: "main", title: "Main", areas: [
+    { key: "feature-a", title: "機能A", areas: [{ key: "jj", title: "JJ", areas: [] }] },
+    { key: "feature-b", title: "機能B", areas: [] },
+  ] },
+  { key: "other", title: "その他", areas: [] },
+];
+
+const paths = (list: { path: string[] }[]) => list.map((item) => pathKey(item.path));
+
+describe("導出", () => {
+  test("全Areaをtree順（親→子）で平坦化し、titleを運ぶ", () => {
+    const flat = flattenAreas(tree);
+    assert.deepEqual(paths(flat), [
+      "main", "main/feature-a", "main/feature-a/jj", "main/feature-b", "other",
+    ]);
+    assert.equal(flat[0].title, "Main");
+    assert.equal(flat[2].title, "JJ");
+  });
+
+  test("Mainは全Areaからsubを除いたもの、Subはsubの順で実在分だけ", () => {
+    let state = toSub(emptyAreaList(), "other");
+    state = toSub(state, "main/feature-a/jj");
+    state = { ...state, sub: [...state.sub, "gone/x"] };
+    assert.deepEqual(paths(mainAreas(state, tree)), [
+      "main", "main/feature-a", "main/feature-b",
+    ]);
+    // 保存順（other→jj）が保たれ、treeに無いkeyは出ない
+    const sub = subAreas(state, tree);
+    assert.deepEqual(paths(sub), ["other", "main/feature-a/jj"]);
+    assert.deepEqual(sub.map((area) => area.title), ["その他", "JJ"]);
+  });
+
+  test("keyはsegmentごとにencode/decodeする", () => {
+    assert.equal(pathKey(["a/b", "c"]), "a%2Fb/c");
+    assert.deepEqual(pathFromKey("a%2Fb/c"), ["a/b", "c"]);
+  });
+});
+
+describe("操作", () => {
+  test("toSubは末尾に足して選択する（重複は選択だけ）", () => {
+    let state = toSub(emptyAreaList(), "a");
+    state = toSub(state, "b");
+    assert.deepEqual(state.sub, ["a", "b"]);
+    assert.equal(state.selectedSub, "b");
+    state = toSub(state, "a");
+    assert.deepEqual(state.sub, ["a", "b"]);
+    assert.equal(state.selectedSub, "a");
+  });
+
+  test("toMainはsubから外し、選択中なら末尾へfallbackする", () => {
+    let state = toSub(emptyAreaList(), "a");
+    state = toSub(state, "b");
+    assert.deepEqual(toMain(state, "b").selectedSub, "a");
+    state = toMain(toMain(state, "b"), "a");
+    assert.equal(state.selectedSub, null);
+    assert.deepEqual(state.sub, []);
+  });
+
+  test("toDetachはsubから外してdetachedへ移し、toSubはdetachedから外す", () => {
+    let state = toSub(emptyAreaList(), "a");
+    state = toDetach(state, "a");
+    assert.deepEqual(state.detached, ["a"]);
+    assert.deepEqual(state.sub, []);
+    assert.equal(state.selectedSub, null);
+    state = toSub(state, "a");
+    assert.deepEqual(state.detached, []);
+    assert.deepEqual(state.sub, ["a"]);
+    assert.equal(state.selectedSub, "a");
+  });
+
+  test("toMainはdetachedからも外す", () => {
+    let state = toDetach(emptyAreaList(), "a");
+    state = toMain(state, "a");
+    assert.deepEqual(state.detached, []);
+  });
+
+  test("detachedのAreaはMainに出ずDetach節に出る", () => {
+    const state = toDetach(emptyAreaList(), "main/feature-b");
+    assert.deepEqual(paths(mainAreas(state, tree)), [
+      "main", "main/feature-a", "main/feature-a/jj", "other",
+    ]);
+    assert.deepEqual(paths(detachedAreas(state, tree)), ["main/feature-b"]);
+    // treeに無いkeyは出ない
+    assert.deepEqual(paths(detachedAreas(toDetach(state, "gone"), tree)), ["main/feature-b"]);
+  });
+
+  test("selectSubはsubに無いkeyや現在値では何もしない", () => {
+    const state = toSub(emptyAreaList(), "a");
+    assert.equal(selectSub(state, "z"), state);
+    assert.equal(selectSub(state, "a"), state);
+  });
+});
+
+describe("decode", () => {
+  test("正しい形をそのまま読める（displayキーが残っていても無視する）", () => {
+    const state = decodeAreaList({
+      version: 1,
+      sub: ["a", "b"],
+      selectedSub: "b",
+      display: { a: "center" },
+    });
+    assert.deepEqual(state.sub, ["a", "b"]);
+    assert.equal(state.selectedSub, "b");
+  });
+
+  test("壊れた形は空になる", () => {
+    for (const raw of [null, undefined, {}, "x", [], { version: 2 },
+      { version: 1, sub: "no", selectedSub: null },
+      { version: 1, sub: [], selectedSub: null, detached: "no" }]) {
+      assert.deepEqual(decodeAreaList(raw), emptyAreaList(), JSON.stringify(raw));
+    }
+  });
+
+  test("subに無いselectedSubはnullに落とす", () => {
+    const state = decodeAreaList({
+      version: 1, sub: ["a"], selectedSub: "gone",
+    });
+    assert.equal(state.selectedSub, null);
+  });
+
+  test("detachedが無い古い保存は空配列として読む", () => {
+    const state = decodeAreaList({
+      version: 1, sub: [], selectedSub: null,
+    });
+    assert.deepEqual(state.detached, []);
+  });
+});

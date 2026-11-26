@@ -4,7 +4,7 @@
 
 import * as readline from "node:readline";
 import type { CoreClient } from "./core-client.js";
-import { METHOD_CALL, METHOD_CALL_CLOSE } from "./wire.js";
+import { METHOD_CALL, METHOD_CALL_CLOSE } from "plugumi-plugin-client";
 
 export function startCommandLoop(clients: CoreClient[], input: NodeJS.ReadableStream = process.stdin): readline.Interface {
   const readlineInterface = readline.createInterface({ input });

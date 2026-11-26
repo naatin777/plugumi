@@ -42,7 +42,7 @@ flowchart LR
 
 ## Webの表示入口
 
-WebとElectronは独立したPluginとする。Webがどう配信されるかをElectronに強制しない。Electron PluginはGoもHTTPサーバーも使わず、画面だけをPlugin Shellとして、`ShellHost` を通してWeb Pluginと共有する（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)）。Coreが静的ファイルを配信する場合も、Panelの配置・実行・BridgeはUI Hostの責務とする。
+WebとElectronは独立したPluginとする。Webがどう配信されるかをElectronに強制しない。Electron PluginはWeb Pluginの配る画面をwindowで開くだけのviewerとし、CoreへはWeb Pluginが接続する（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)）。Coreが静的ファイルを配信する場合も、Panelの配置・実行・BridgeはUI Hostの責務とする。
 
 | 比較軸 | A: Coreが配信 | B: Web PluginがGatewayを提供 | C: 単一CoreはA、統合時のみGateway |
 |---|---|---|---|

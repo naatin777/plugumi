@@ -7,9 +7,18 @@ import (
 	"time"
 )
 
-type PluginIdentity struct {
-	PluginID         string `json:"pluginId" minLength:"1"`
-	PluginInstanceID string `json:"pluginInstanceId" minLength:"1"`
+// Providerのkind。pluginはinstallable package、environmentは環境capability、
+// hostはWeb / ElectronのWorkbench Host。空はpluginとして扱う。
+const (
+	KindPlugin      = "plugin"
+	KindEnvironment = "environment"
+	KindHost        = "host"
+)
+
+type ProviderIdentity struct {
+	ProviderID string `json:"providerId" minLength:"1"`
+	InstanceID string `json:"instanceId" minLength:"1"`
+	Kind       string `json:"providerKind,omitempty" enum:"plugin,environment,host"`
 }
 
 type RegistrationLease struct {
@@ -27,7 +36,8 @@ type RegistrySnapshot struct {
 
 type RegistryRegistration struct {
 	RegistrationID string             `json:"registrationId"`
-	PluginID       string             `json:"pluginId"`
+	ProviderID     string             `json:"providerId"`
+	Kind           string             `json:"providerKind"`
 	RPCAvailable   bool               `json:"rpcAvailable"`
 	Tools          []ToolDeclaration  `json:"tools"`
 	Panels         []PanelDeclaration `json:"panels,omitempty"`
@@ -92,11 +102,11 @@ type Response struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
 	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *RpcError       `json:"error,omitempty"`
+	Error   *RPCError       `json:"error,omitempty"`
 }
 
-// RpcError はJSON-RPC 2.0のerror object。
-type RpcError struct {
+// RPCError はJSON-RPC 2.0のerror object。
+type RPCError struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data,omitempty"`
@@ -109,7 +119,7 @@ type Incoming struct {
 	Method  string          `json:"method,omitempty"`
 	Params  json.RawMessage `json:"params,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *RpcError       `json:"error,omitempty"`
+	Error   *RPCError       `json:"error,omitempty"`
 }
 
 func (in *Incoming) IsRequest() bool      { return in.Method != "" && len(in.ID) > 0 }
@@ -164,7 +174,7 @@ type CallChunkParams struct {
 type CallResultParams struct {
 	CallID json.RawMessage `json:"callId"`
 	Result json.RawMessage `json:"result,omitempty"`
-	Error  *RpcError       `json:"error,omitempty"`
+	Error  *RPCError       `json:"error,omitempty"`
 }
 
 type CallCloseParams struct {

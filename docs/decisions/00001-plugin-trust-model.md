@@ -1,6 +1,6 @@
 ---
 type: decision
-title: "Plugin信頼モデル: VS Code型（インストール済みを信頼）"
+title: "Plugin信頼モデル: インストール済みを信頼"
 description: 実行時隔離を持たず、インストールしたPluginを信頼する方針。境界は「誰が作ったPluginか」。
 status: draft
 relations:
@@ -18,9 +18,9 @@ Pluginは好きな言語・好きなフロントエンドの任意コードと�
 
 ## 決定
 
-**A. VS Code型（インストールしたPluginを信頼する）** を採用する方向。
+**A. インストールしたPluginを信頼する** を採用する方向。
 
-- Pluginはホストと同等のOS権限を持つ任意コード（VS Codeの拡張機能モデルと同じ立場。類似の前例として参照する）
+- Pluginはホストと同等のOS権限を持つ任意コード（一般的な拡張機能モデルと同じ立場）
 - 悪意あるPluginからCoreのSecretやOS資源を保護する機構は持たない想定で進める
 - 信頼判断は実行時ではなく**採用時**に行う。他者Pluginのレビュー・選択を助けるskillを整備して補う（`docs/requirements/00003`）
 

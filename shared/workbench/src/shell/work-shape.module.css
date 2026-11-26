@@ -1,0 +1,191 @@
+/* work面の形（designs/00005「work面の形」）— title帯・tool群の区画・
+   body側の列・drawer台の骨組み。中身のcomponentは各moduleが持つ。 */
+@layer layout {
+
+  /* title帯の中でsegment（開閉区画）の端を決める変数。barの左端は
+     sidebar列の端に揃える（sidebarがtool群より狭い時だけtool群が優先）。
+     右端は窓の端 — 右列はmatの中の列なので揃える対象はtool群だけ。
+     data-partで拾う（classはcomponentごとにhashされるため）。 */
+  [data-part="shell"] {
+    /* env(titlebar-area-*)を読むのはここだけ（envは1箇所で変数へ
+       読み替えるのが公式の推奨形）。fallbackはenv未対応の表示向け。
+       inset-right = 窓の右端からtitlebar area右端までの距離
+       （macならtraffic lightが占める幅）。 */
+    --titlebar-x: env(titlebar-area-x, var(--os-inset-x, 0px));
+    --titlebar-h: env(titlebar-area-height, var(--os-inset-height, 40px));
+    --titlebar-w: env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)));
+    --titlebar-inset-right: calc(
+      var(--shell-viewport, 100vw) - var(--titlebar-x) - var(--titlebar-w));
+    /* tool群の端は中身の自然幅で決まる。列の開閉（--side-width）には
+       追従しない — sidebarを動かしてもtitleの区画は動かない。 */
+    --title-left: calc(var(--titlebar-x) + var(--title-tools-left));
+    --title-right: calc(
+      var(--titlebar-inset-right) + var(--title-tools-right));
+  }
+
+  /* ---- title帯: 枠・溝の無い平らな面。tool群とsegmentは位置決めの
+     ための見えない区画で、列の区切りは境界線（.col-divider）だけ。 ---- */
+  /* title帯の下端は全幅の横線。縦の境界線はこの線とstatus帯上の線の
+     間だけを通る。 */
+  .work-title {
+    position: relative;
+    app-region: drag;
+    -webkit-app-region: drag;
+    border-bottom: 1px solid var(--plugumi-colors-border);
+  }
+  .work-title .title-tools { app-region: drag; -webkit-app-region: drag; }
+  .work-title .work-segment { app-region: drag; -webkit-app-region: drag; }
+  /* 帯は全体drag、中の操作・popoverだけno-drag（segment区画ごと
+     no-dragにすると帯の大半が掴めなくなる）。 */
+  .work-title :is(button, a, input, [popovertarget], [popover]) {
+    app-region: no-drag; -webkit-app-region: no-drag;
+  }
+
+  .title-tools {
+    position: absolute;
+    top: 0; bottom: 0;
+    display: flex; align-items: center;
+    gap: var(--plugumi-spacing-xs);
+    padding: 0 var(--plugumi-spacing-sm);
+    /* footprintを--title-tools-*と一致させるため外寸をwidthで指定する
+       （content-boxだとpadding分だけはみ出して揃えが狂う）。 */
+    box-sizing: border-box;
+    overflow: clip;
+  }
+  /* tool群は内側をbarの端（=--title-left/right）まで伸ばすが、
+     中身の自然幅（min-width:max-content）を下限として割り込まない。
+     --title-tools-*にはwork-shapeが実測footprintを書くので、
+     bar側のmax()も実幅に追従する。 */
+  .title-tools.left {
+    left: calc(var(--titlebar-x) + var(--work-gap));
+    width: calc(var(--title-left) - var(--titlebar-x) - var(--work-gap));
+    min-width: max-content;
+  }
+  .title-tools.right {
+    right: calc(var(--titlebar-inset-right) + var(--work-gap));
+    width: calc(var(--title-right) - var(--titlebar-inset-right) - var(--work-gap));
+    min-width: max-content;
+    justify-content: flex-end;
+  }
+  /* pillの面から中身の自然幅を測るための内側の帯。 */
+  .tools-inner {
+    display: flex; align-items: center;
+    gap: var(--plugumi-spacing-xs);
+    width: max-content;
+    min-width: 0;
+  }
+
+  /* segmentはtool群の間の見えない区画。下はbodyのpaddingが溝になるので
+     行の下端まで伸ばす。 */
+  .work-segment {
+    position: absolute;
+    top: 0; bottom: 0;
+    display: flex; align-items: center;
+    justify-content: flex-end;
+    gap: var(--plugumi-spacing-xs);
+    padding: 0 var(--plugumi-spacing-sm);
+    box-sizing: border-box;
+    overflow: clip;
+  }
+  /* Mainのsegmentは左右のtool群の間。列の開閉には追従しない。 */
+  .work-segment[data-slot="main"] {
+    left: calc(var(--title-left));
+    right: var(--title-right);
+    min-width: 0;
+  }
+
+  /* body側の列。sidebar列は常時存在し、閉じると中身（aside）が
+     幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは
+     常時発生して空きレーンになるが、marginは閉じた側で0に畳め、
+     しかもtransitionできるため。上下のpaddingはタイルの周りの溝。 */
+  .work-body {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    /* 行をautoにすると中身の高さで行が伸び、全列がbodyをはみ出す。
+       bodyの高さに固定する。 */
+    grid-template-rows: minmax(0, 1fr);
+    column-gap: 0;
+    /* 外周の余白は各AreaViewの--area-padが持つ — body自体は窓端・
+       境界線まで全面に張る（Area listは平らな面のまま端まで使う）。 */
+    padding: 0;
+    min-height: 0;
+    background: transparent;
+  }
+  /* 列自体はasideの幅に追従。閉じると--side-widthが0になって消える。
+     面は枠・溝の無い平らなframe色で、区切りは境界線だけ。 */
+  .frame-side {
+    position: relative;
+    box-sizing: border-box;
+    min-width: 0;
+    overflow: clip;
+    /* resizerの帯が境界線をまたげるようclip領域を広げる。 */
+    overflow-clip-margin: 8px;
+    width: var(--side-width);
+  }
+  /* resizerの表示・帯の配置はresizer.module.cssが持つ（resizer自身に
+     効く規則はlayerを揃えるためそこへ集約）。drag中は変数transitionを
+     切る — 値が毎move更新されるとアニメがポインタに遅れて追従する。 */
+  .frame-side:has(> [data-part="resizer"][data-dragging]) {
+    transition: none;
+  }
+
+  .work-mat {
+    min-width: 0; min-height: 0;
+    position: relative;
+    /* [AreaView(main) flex:1 | Resizer | sub-pane(--sub-width)]。 */
+    display: flex;
+    overflow: clip;
+  }
+  .work-mat > [data-part="area-view"] { flex: 1; min-width: 0; }
+
+  /* scrim — Sub・Area listのdrawerが開いている間、作業域全体（app bar
+     下の線〜status bar上の線）を暗くする薄い幕。台(sub-pane・
+     frame-side)のすぐ下、col-dividerの上（線は一緒に暗くなる）。
+     pointerは通す（閉じるのは今の外click判定のまま）。 */
+  .shell-scrim {
+    position: absolute;
+    left: 0; right: 0;
+    top: var(--titlebar-h);
+    bottom: 40px;
+    z-index: var(--plugumi-z-scrim);
+    background: var(--plugumi-colors-scrim);
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity var(--work-anim) ease;
+  }
+  /* visibilityの遅延は閉じる側にだけ書く — base側に書くと開くときも
+     hiddenのまま遷移が進み、最後に一気に暗く見える。 */
+  .shell-scrim[data-closed] {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+  }
+
+  /* <800px: Area listもdrawer — title barの下からstatus帯の上まで、
+     左から重ねる。abs-posでもauto-placementの枠を消費するので、
+     matは明示的に全列を使う（frame-side側のauto列は0になる）。 */
+  [data-part="shell"][data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
+  [data-part="shell"][data-size="compact"] .frame-side {
+    position: absolute;
+    /* 画面左端にぴったりの四角い不透明の「台」。
+       上下はapp bar下の線〜status帯上の線、右辺にだけ1px線。 */
+    box-shadow: none;
+    background: var(--shell-frame-color);
+    border-right: 1px solid var(--plugumi-colors-border);
+    box-sizing: border-box;
+    left: 0;
+    top: var(--titlebar-h);
+    bottom: 40px;
+    width: min(var(--sidebar-raw-width, 260px), 85%);
+    z-index: var(--plugumi-z-side-drawer);
+    visibility: visible;
+    transition: transform var(--work-anim) ease, visibility 0s;
+  }
+  [data-part="shell"][data-size="compact"] .frame-side[data-closed] {
+    transform: translateX(calc(-100% - 16px));
+    visibility: hidden;
+    transition: transform var(--work-anim) ease,
+      visibility 0s var(--work-anim);
+  }
+}

@@ -46,7 +46,7 @@ test("Agent registers, reconnects without a listener, and refreshes its Core cat
         registryRequests++;
         const body = JSON.stringify({
           coreId: "core-test", revision: "revision-test",
-          registrations: [{ registrationId: "other", pluginId: "other-plugin", rpcAvailable: true, tools: [{ toolPath: announcedTool }] }],
+          registrations: [{ registrationId: "other", providerId: "other-plugin", rpcAvailable: true, tools: [{ toolPath: announcedTool }] }],
         });
         if (registryRequests === 2 || registryRequests === 4) delayedSnapshot = () => response.end(body);
         else response.end(body);
@@ -75,14 +75,14 @@ test("Agent registers, reconnects without a listener, and refreshes its Core cat
   };
   try {
     await until(() => client.catalog[0]?.toolPath === "one");
-    assert.deepEqual(identities[0], { pluginId: "agent", pluginInstanceId: "instance-test" });
+    assert.deepEqual(identities[0], { providerId: "agent", instanceId: "instance-test" });
     announcedTool = "two";
     notify("tools.changed");
     await until(() => delayedSnapshot !== undefined);
     announcedTool = "three";
     notify("tools.changed");
-    notify("plugin.added");
-    notify("plugin.changed");
+    notify("provider.added");
+    notify("provider.changed");
     // 一覧取得を保留している間に通知をまとめて届ける。
     await delay(50);
     assert.equal(registryRequests, 2, "only one snapshot request may be in flight");

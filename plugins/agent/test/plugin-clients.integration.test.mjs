@@ -10,10 +10,10 @@ import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
 
 const coreBinary = process.env.PLUGUMI_TEST_CORE;
-const standardBinary = process.env.PLUGUMI_TEST_STANDARD;
+const environmentBinary = process.env.PLUGUMI_TEST_ENVIRONMENT;
 
-test("both Plugin clients recover independently after one Core restarts", {
-  skip: !coreBinary || !standardBinary ? "set PLUGUMI_TEST_CORE and PLUGUMI_TEST_STANDARD to built binaries" : false,
+test("Environment Provider and Plugin client recover independently after one Core restarts", {
+  skip: !coreBinary || !environmentBinary ? "set PLUGUMI_TEST_CORE and PLUGUMI_TEST_ENVIRONMENT to built binaries" : false,
   timeout: 30_000,
 }, async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "plugumi-test-"));
@@ -88,7 +88,7 @@ test("both Plugin clients recover independently after one Core restarts", {
     const ready = snapshot.registrations.filter(({ rpcAvailable }) => rpcAvailable);
     return ready.length === 2 && {
       coreId: snapshot.coreId,
-      registrations: Object.fromEntries(ready.map(({ pluginId, registrationId }) => [pluginId, registrationId])),
+      registrations: Object.fromEntries(ready.map(({ providerId, registrationId }) => [providerId, registrationId])),
     };
   }
   async function caller(core) {
@@ -113,7 +113,7 @@ test("both Plugin clients recover independently after one Core restarts", {
     };
   }
   async function echo(caller, registrations) {
-    caller.call("echo", registrations.standard, "echo", "example");
+    caller.call("echo", registrations.environment, "echo", "example");
     assert.equal((await caller.next()).result, "example");
     caller.call("echo", registrations.agent, "agent/echo", "example");
     assert.deepEqual((await caller.next()).result, { echo: "example", from: "agent" });
@@ -122,7 +122,7 @@ test("both Plugin clients recover independently after one Core restarts", {
   const first = await startCore("first");
   const second = await startCore("second");
   const addresses = ["--core", first.url, "--core", second.url];
-  start(standardBinary, addresses);
+  start(environmentBinary, addresses);
   start(process.execPath, [fileURLToPath(new URL("../dist/cli.js", import.meta.url)), ...addresses]);
   const before = await eventually(() => registry(first));
   const unaffected = await eventually(() => registry(second));
@@ -131,7 +131,7 @@ test("both Plugin clients recover independently after one Core restarts", {
   await echo(firstCaller, before.registrations);
   await echo(secondCaller, unaffected.registrations);
   for (const [connection, { registrations }] of [[firstCaller, before], [secondCaller, unaffected]]) {
-    connection.call("ticks", registrations.standard, "ticks", { intervalMs: 50 });
+    connection.call("ticks", registrations.environment, "ticks", { intervalMs: 50 });
     assert.deepEqual((await connection.next()).result, { accepted: true });
     assert.equal((await connection.next()).method, "tools.call.chunk");
   }
@@ -142,12 +142,12 @@ test("both Plugin clients recover independently after one Core restarts", {
   const restarted = await startCore("restarted", new URL(first.url).port);
   const after = await eventually(() => registry(restarted));
   assert.notEqual(after.coreId, before.coreId);
-  for (const name of ["standard", "agent"]) {
+  for (const name of ["environment", "agent"]) {
     assert.ok(after.registrations[name]);
     assert.notEqual(after.registrations[name], before.registrations[name]);
   }
   const restartedCaller = await caller(restarted);
-  restartedCaller.call("old-registration", before.registrations.standard, "echo", null);
+  restartedCaller.call("old-registration", before.registrations.environment, "echo", null);
   assert.equal((await restartedCaller.next()).error?.code, -32007);
   await echo(restartedCaller, after.registrations);
   secondCaller.cancel("ticks");

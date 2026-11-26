@@ -1,0 +1,418 @@
+// Workspaceの保存モデルと純粋な操作群。
+// SolidやDOMには触れない。状態はプレーンなJSONの形だけで持ち、
+// 操作は新しい状態を返す（呼び出し側がstoreに置き直す）。
+// 不変条件（designs/00005「保存の形」）:
+// - 1つのPanel InstanceはWorkspaceのどこか1箇所にだけある
+// - centerのPanelは木のleafにだけ置く
+// - 空のleafはsplitを畳む（rootのleafは空でも残す）
+// - selectedはstring|nullで、panels内のinstanceIdかnull
+
+export type PanelRef = {
+  instanceId: string;
+  providerId: string;
+  panelId: string;
+};
+
+type Stack = {
+  panels: PanelRef[];
+  selected: string | null;
+};
+
+// leafの中身の並べ方。pagesは全幅で1枚ずつ、deckは固定幅の列を横に並べる
+// （designs/00005「表示モード」）。省略はpages。
+export type LeafLayout = "pages" | "deck";
+
+export type Leaf = {
+  kind: "leaf";
+  id: string;
+  panels: PanelRef[];
+  selected: string | null;
+  layout?: LeafLayout;
+  // deck表示の列幅（px）。全列で共通の値。省略はshellの既定幅。
+  colWidth?: number;
+};
+
+export type Split = {
+  kind: "split";
+  id: string;
+  axis: "x" | "y";
+  ratio: number;
+  first: Node;
+  second: Node;
+};
+
+export type Node = Leaf | Split;
+
+// workspace = centerのsplit treeだけ。縁領域は持たない — 「縁に置く」は
+// 利用者がtreeで左端・右端・下端にleafを作ることで表現する。
+export type WorkspaceState = {
+  version: 1;
+  center: { root: Node; focusedLeaf: string };
+};
+
+// leaf分割の向き。
+export type Edge = "left" | "right" | "top" | "bottom";
+
+// Panelが今いる場所。
+export type PanelLocation = { region: "leaf"; leafId: string };
+
+// 移動先。indexは挿入位置。splitはleafのedge側に新しいleafを作って入れる。
+export type MoveTarget =
+  | { region: "leaf"; leafId: string; index: number }
+  | { region: "split"; leafId: string; edge: Edge };
+
+const newId = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
+
+export const newInstanceId = (): string => newId("panel");
+
+export const emptyLeaf = (): Leaf => ({
+  kind: "leaf",
+  id: newId("leaf"),
+  panels: [],
+  selected: null,
+});
+
+// rootのleafはdecodeの壊れた入力・初期状態・全削除で共通して使うため、
+// 固定idを持つ（focusedLeafのfallback先）。
+export const rootLeaf = (): Leaf => ({
+  kind: "leaf",
+  id: "leaf-root",
+  panels: [],
+  selected: null,
+});
+
+export const emptyWorkspace = (): WorkspaceState => ({
+  version: 1,
+  center: { root: rootLeaf(), focusedLeaf: "leaf-root" },
+});
+
+// ---- 木の走査 ----
+
+export function findLeaf(node: Node, id: string): Leaf | undefined {
+  if (node.kind === "leaf") return node.id === id ? node : undefined;
+  return findLeaf(node.first, id) ?? findLeaf(node.second, id);
+}
+
+export function allLeaves(node: Node): Leaf[] {
+  if (node.kind === "leaf") return [node];
+  return [...allLeaves(node.first), ...allLeaves(node.second)];
+}
+
+export function leafOf(node: Node, instanceId: string): Leaf | undefined {
+  if (node.kind === "leaf") {
+    return node.panels.some((panel) => panel.instanceId === instanceId) ? node : undefined;
+  }
+  return leafOf(node.first, instanceId) ?? leafOf(node.second, instanceId);
+}
+
+export function locationOf(state: WorkspaceState, instanceId: string): PanelLocation | null {
+  const leaf = leafOf(state.center.root, instanceId);
+  if (leaf) return { region: "leaf", leafId: leaf.id };
+  return null;
+}
+
+export function panelRefOf(state: WorkspaceState, instanceId: string): PanelRef | undefined {
+  const leaf = leafOf(state.center.root, instanceId);
+  return leaf?.panels.find((panel) => panel.instanceId === instanceId);
+}
+
+// ---- decode ----
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+function decodePanelRef(value: unknown): PanelRef | null {
+  if (!isObject(value)) return null;
+  const { instanceId, providerId, panelId } = value;
+  if (typeof instanceId !== "string" || instanceId === "") return null;
+  if (typeof providerId !== "string" || providerId === "") return null;
+  if (typeof panelId !== "string" || panelId === "") return null;
+  return { instanceId, providerId, panelId };
+}
+
+function decodeStack(value: unknown): Stack | null {
+  if (!isObject(value) || !Array.isArray(value.panels)) return null;
+  const panels: PanelRef[] = [];
+  for (const item of value.panels) {
+    const ref = decodePanelRef(item);
+    if (!ref) return null;
+    panels.push(ref);
+  }
+  const selected = value.selected;
+  if (selected !== null && typeof selected !== "string") return null;
+  return { panels, selected: (selected as string | null) ?? null };
+}
+
+// leafの形は {kind,id,panels,selected} + 省略可のlayout に限る。余分な
+// キーを持つ（旧版のdisplay/columnWidthsなど）入力は丸ごと拒否する
+// （修復しない）。
+const leafKeys = ["id", "kind", "panels", "selected"];
+const leafOptionalKeys = ["layout", "colWidth"];
+
+function decodeNode(value: unknown): Node | null {
+  if (!isObject(value) || typeof value.id !== "string" || value.id === "") return null;
+  if (value.kind === "leaf") {
+    const keys = Object.keys(value);
+    if (!leafKeys.every((key) => key in value) ||
+        keys.some((key) => !leafKeys.includes(key) && !leafOptionalKeys.includes(key))) {
+      return null;
+    }
+    const stack = decodeStack({ panels: value.panels, selected: value.selected });
+    if (!stack) return null;
+    const layout = value.layout;
+    if (layout !== undefined && layout !== "pages" && layout !== "deck") return null;
+    const colWidth = value.colWidth;
+    if (colWidth !== undefined && typeof colWidth !== "number") return null;
+    const leaf: Leaf = { kind: "leaf", id: value.id, ...stack };
+    if (layout !== undefined) leaf.layout = layout;
+    if (colWidth !== undefined) leaf.colWidth = colWidth;
+    return leaf;
+  }
+  if (value.kind === "split") {
+    const first = decodeNode(value.first);
+    const second = decodeNode(value.second);
+    const axis = value.axis === "x" || value.axis === "y" ? value.axis : null;
+    const ratio = typeof value.ratio === "number" ? value.ratio : null;
+    if (!first || !second || !axis || ratio === null) return null;
+    return { kind: "split", id: value.id, axis, ratio, first, second };
+  }
+  return null;
+}
+
+// 形が合わない内容は空として扱う（移行・部分修復はしない）。
+// dock廃止前の保存（left/bottom/rightキーを持つ）も、centerさえ読めれば
+// そのまま採用する — dockにいたPanelは復元しない。
+export function decodeWorkspace(raw: unknown): WorkspaceState {
+  if (!isObject(raw) || raw.version !== 1 || !isObject(raw.center)) {
+    return emptyWorkspace();
+  }
+  const root = decodeNode(raw.center.root);
+  if (!root) return emptyWorkspace();
+  const focused = raw.center.focusedLeaf;
+  const leaves = allLeaves(root);
+  const focusedLeaf =
+    typeof focused === "string" && leaves.some((leaf) => leaf.id === focused)
+      ? focused
+      : leaves[0].id;
+  return { version: 1, center: { root, focusedLeaf } };
+}
+
+// ---- 操作 ----
+
+const clone = (state: WorkspaceState): WorkspaceState =>
+  JSON.parse(JSON.stringify(state)) as WorkspaceState;
+
+// leafIdのleafが空なら、その親splitを兄弟に置き換えて畳む。rootは畳まない。
+// 畳むのは「空になった」leafだけに絞る: splitで作った空leafはdrop先なので、
+// 全部の空leafを毎回畳むと分割直後の空leafが消えてdropが失敗する。
+function collapseLeaf(node: Node, leafId: string, workspace: WorkspaceState): Node {
+  if (node.kind === "leaf") return node;
+  const first = collapseLeaf(node.first, leafId, workspace);
+  const second = collapseLeaf(node.second, leafId, workspace);
+  const dropFirst = first.kind === "leaf" && first.id === leafId && first.panels.length === 0;
+  const dropSecond = second.kind === "leaf" && second.id === leafId && second.panels.length === 0;
+  if (dropFirst) {
+    refocus(workspace, leafId, second);
+    return second;
+  }
+  if (dropSecond) {
+    refocus(workspace, leafId, first);
+    return first;
+  }
+  return { ...node, first, second };
+}
+
+function refocus(workspace: WorkspaceState, droppedLeafId: string, survivor: Node): void {
+  if (workspace.center.focusedLeaf === droppedLeafId) {
+    // 消えるleafが焦点を持っていたら、残る側の先頭leafへ。
+    workspace.center.focusedLeaf =
+      survivor.kind === "leaf" ? survivor.id : allLeaves(survivor)[0].id;
+  }
+}
+
+// 選択のfallback: 消えたselectedは残りの末尾へ、無ければnull。
+function fixSelected(container: Stack | Leaf): void {
+  if (container.selected !== null &&
+      !container.panels.some((panel) => panel.instanceId === container.selected)) {
+    container.selected =
+      container.panels.length > 0
+        ? container.panels[container.panels.length - 1].instanceId
+        : null;
+  }
+}
+
+// Panelを取り出す。取り出したあとの片付け（split畳み・selected補正）込み。
+function take(state: WorkspaceState, instanceId: string): PanelRef | undefined {
+  const leaf = leafOf(state.center.root, instanceId);
+  if (!leaf) return undefined;
+  const index = leaf.panels.findIndex((panel) => panel.instanceId === instanceId);
+  const [ref] = leaf.panels.splice(index, 1);
+  fixSelected(leaf);
+  state.center.root = collapseLeaf(state.center.root, leaf.id, state);
+  return ref;
+}
+
+export function addPanel(
+  state: WorkspaceState, ref: PanelRef, target?: MoveTarget,
+): WorkspaceState {
+  const next = clone(state);
+  const effective: MoveTarget =
+    target ?? { region: "leaf", leafId: next.center.focusedLeaf, index: -1 };
+  // 既にどこかにある同じinstanceIdは移動として扱う（不変条件を守る）。
+  take(next, ref.instanceId);
+  insert(next, ref, effective);
+  return next;
+}
+
+function insert(state: WorkspaceState, ref: PanelRef, target: MoveTarget): void {
+  switch (target.region) {
+    case "leaf": {
+      const leaf = findLeaf(state.center.root, target.leafId);
+      if (!leaf) return;
+      leaf.panels.splice(at(leaf.panels, target.index), 0, ref);
+      leaf.selected = ref.instanceId;
+      state.center.focusedLeaf = leaf.id;
+      return;
+    }
+    case "split": {
+      const leaf = findLeaf(state.center.root, target.leafId);
+      if (!leaf) return;
+      const added = splitLeaf(state, leaf, target.edge);
+      added.panels.push(ref);
+      added.selected = ref.instanceId;
+      return;
+    }
+  }
+}
+
+// index -1 は末尾。
+const at = (list: unknown[], index: number): number =>
+  index < 0 ? list.length : Math.min(index, list.length);
+
+// nodeの中でidを持つleaf/splitをotherに置き換える。
+function replaceNode(workspace: WorkspaceState, id: string, other: Node): void {
+  const replace = (node: Node): Node => {
+    if (node.id === id) return other;
+    if (node.kind === "split") {
+      return { ...node, first: replace(node.first), second: replace(node.second) };
+    }
+    return node;
+  };
+  workspace.center.root = replace(workspace.center.root);
+}
+
+// PanelRefをstateから取り出す（別controllerへ移すArea間drop用）。
+// 片付けはclosePanelと同じ — 取り出したあとのlayoutはclosePanelと同じ形。
+export function detachPanel(
+  state: WorkspaceState, instanceId: string,
+): { state: WorkspaceState; ref: PanelRef } | null {
+  const next = clone(state);
+  const ref = take(next, instanceId);
+  if (!ref) return null;
+  return { state: next, ref };
+}
+
+export function closePanel(state: WorkspaceState, instanceId: string): WorkspaceState {
+  const next = clone(state);
+  take(next, instanceId);
+  return next;
+}
+
+export function selectPanel(state: WorkspaceState, instanceId: string): WorkspaceState {
+  const location = locationOf(state, instanceId);
+  if (!location) return state;
+  const next = clone(state);
+  findLeaf(next.center.root, location.leafId)!.selected = instanceId;
+  next.center.focusedLeaf = location.leafId;
+  return next;
+}
+
+export function movePanel(
+  state: WorkspaceState, instanceId: string, target: MoveTarget,
+): WorkspaceState {
+  const next = clone(state);
+  const ref = take(next, instanceId);
+  if (!ref) return state;
+  insert(next, ref, target);
+  return next;
+}
+
+// leafをedge方向に分割し、新しい（空の）leafをedge側に作って返す。
+// 焦点は新しいleafへ移す。
+function splitLeaf(workspace: WorkspaceState, leaf: Leaf, edge: Edge): Leaf {
+  const added = emptyLeaf();
+  const axis = edge === "left" || edge === "right" ? "x" : "y";
+  const after = edge === "right" || edge === "bottom";
+  const split: Split = {
+    kind: "split",
+    id: newId("split"),
+    axis,
+    ratio: 0.5,
+    first: after ? leaf : added,
+    second: after ? added : leaf,
+  };
+  replaceNode(workspace, leaf.id, split);
+  workspace.center.focusedLeaf = added.id;
+  return added;
+}
+
+// leafをedge方向に分割する。新しい（空の）leafがedge側に来る。
+export function splitAt(state: WorkspaceState, leafId: string, edge: Edge): WorkspaceState {
+  const next = clone(state);
+  const leaf = findLeaf(next.center.root, leafId);
+  if (!leaf) return state;
+  splitLeaf(next, leaf, edge);
+  return next;
+}
+
+export function setRatio(state: WorkspaceState, splitId: string, ratio: number): WorkspaceState {
+  const next = clone(state);
+  const apply = (node: Node): void => {
+    if (node.kind === "split") {
+      if (node.id === splitId) node.ratio = Math.min(0.9, Math.max(0.1, ratio));
+      apply(node.first);
+      apply(node.second);
+    }
+  };
+  apply(next.center.root);
+  return next;
+}
+
+// leafの中身の並べ方を変える。pages（既定）に戻すときはキーごと消す。
+export function setLeafLayout(
+  state: WorkspaceState, leafId: string, layout: LeafLayout,
+): WorkspaceState {
+  const next = clone(state);
+  const leaf = findLeaf(next.center.root, leafId);
+  if (!leaf) return state;
+  if (layout === "pages") delete leaf.layout;
+  else leaf.layout = layout;
+  return next;
+}
+
+// deckの列幅のclamp範囲（px）。
+export const DECK_COL_MIN = 120;
+export const DECK_COL_MAX = 960;
+
+// deckの列幅を変える。全列で共通の幅なので値はleafに1つだけ持つ。
+export function setLeafColWidth(
+  state: WorkspaceState, leafId: string, width: number,
+): WorkspaceState {
+  const next = clone(state);
+  const leaf = findLeaf(next.center.root, leafId);
+  if (!leaf) return state;
+  leaf.colWidth = Math.min(DECK_COL_MAX, Math.max(DECK_COL_MIN, Math.round(width)));
+  return next;
+}
+
+export function focusLeaf(state: WorkspaceState, leafId: string): WorkspaceState {
+  const next = clone(state);
+  if (!findLeaf(next.center.root, leafId)) return state;
+  next.center.focusedLeaf = leafId;
+  return next;
+}
+
+// 全PanelRefを列挙する（Instanceの生存管理に使う）。
+export function allPanelRefs(state: WorkspaceState): PanelRef[] {
+  return allLeaves(state.center.root).flatMap((leaf) => leaf.panels);
+}

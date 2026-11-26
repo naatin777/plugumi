@@ -11,7 +11,7 @@ import (
 
 func TestReplaceToolsNormalizesAndPublishesOnlyOnChange(t *testing.T) {
 	registry := New("test-core")
-	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	declarations := []wire.ToolDeclaration{
 		{ToolPath: "a/one"},
 		{ToolPath: "a/two", Kind: "async"},
@@ -36,7 +36,7 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	registry := New("test-core")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
-	identity := wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"}
+	identity := wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"}
 	lease, _, _ := registry.Create(identity)
 	if err := registry.ReplaceTools(lease.RegistrationID, []wire.ToolDeclaration{{ToolPath: "echo"}}); err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	}
 	select {
 	case removed := <-events:
-		if removed.Name != "plugin.removed" || removed.Revision != snapshot.Revision {
+		if removed.Name != "provider.removed" || removed.Revision != snapshot.Revision {
 			t.Fatalf("unexpected expiration event: %+v", removed)
 		}
 	default:
@@ -85,7 +85,7 @@ func TestRepeatRegistrationRefreshesLeaseWithoutChangingTheRegistry(t *testing.T
 	registry := New("test-core")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
-	identity := wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"}
+	identity := wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"}
 	first, _, err := registry.Create(identity)
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func TestStaleReservationIsReclaimed(t *testing.T) {
 	registry := New("test-core")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
-	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	stale, err := registry.ReserveConnection(lease.RegistrationID)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestStaleReservationIsReclaimed(t *testing.T) {
 
 func TestConnectionReservationDoesNotSurviveDeletion(t *testing.T) {
 	registry := New("test-core")
-	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	first, err := registry.ReserveConnection(lease.RegistrationID)
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +157,7 @@ func TestReplaceUIPublishesPanelsChanged(t *testing.T) {
 	registry := New("test-core")
 	events, unsubscribe := registry.Subscribe()
 	defer unsubscribe()
-	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	drain(events)
 	hash := strings.Repeat("a", 64)
 	registry.PutAsset(hash, []byte("x"))
@@ -187,7 +187,7 @@ func TestReleasedAssetSurvivesUntilTTL(t *testing.T) {
 	registry := New("test-core")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
-	lease, _, _ := registry.Create(wire.PluginIdentity{PluginID: "standard", PluginInstanceID: "instance"})
+	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	hash := strings.Repeat("b", 64)
 	registry.PutAsset(hash, []byte("x"))
 	manifest := wire.UIManifest{Files: []wire.UIFile{{Path: "panel.js", SHA256: hash}}}

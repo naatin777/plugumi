@@ -1,0 +1,21 @@
+{
+  "name": "plugumi-electron",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.21.0",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "pnpm --filter plugumi-electron-ui build && node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.node.json",
+    "typecheck": "tsc -p tsconfig.node.json",
+    "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
+    "test": "pnpm run typecheck && node --test"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "electron": "45.3.2",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "plugumi-plugin-client": "workspace:*"
+  }
+}

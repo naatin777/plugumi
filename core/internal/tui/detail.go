@@ -358,7 +358,7 @@ func (m *Model) catalogMessage(empty string) string {
 
 // registrationLabel は狭い表示でもPluginを識別できるようPlugin IDを先に出す。
 func registrationLabel(registration *wire.RegistryRegistration, width int) string {
-	return fitLine(strings.TrimSpace(registration.PluginID+"  "+registration.RegistrationID), width-8)
+	return fitLine(strings.TrimSpace(registration.ProviderID+"  "+registration.RegistrationID), width-8)
 }
 
 func toolLabel(tool *wire.ToolDeclaration, pluginID string) string {

@@ -20,12 +20,12 @@
     "test": "pnpm run build && node --test"
   },
   "dependencies": {
-    "ws": "^8.23.0",
-    "zod": "^4.6.7"
+    "plugumi-plugin-client": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/ws": "^8.18.2",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "ws": "^8.23.0"
   }
 }

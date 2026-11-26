@@ -25,33 +25,35 @@ flowchart LR
     Project --> Area["Area（worktree・package・別repositoryなど）"]
     Area --> Child["子のArea（入れ子にできる）"]
     Area --> Workspace["Workspace（Areaに1つ）"]
-    Workspace --> Dock["Dock: left / center / right / bottom"]
-    Project --> Pinned["Pinned Dock（Projectに1つ）"]
-    Dock --> Panel["Panel"]
-    Pinned --> Panel
+    Workspace --> Center["centerのsplit tree"]
+    Center --> Leaf["leaf"]
+    Leaf --> Panel["Panel"]
 ```
 
 - Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
-- WorkspaceはAreaと1対1に対応する。Workspaceは、left・center・right・bottomの4つのDockを持ち、各DockにPanelのタブを並べる。
-- PinnedのDockはProjectに属し、Areaを切り替えても閉じない。Areaの形が固まったら、Pinnedの扱いは見直す可能性がある。
+- WorkspaceはAreaと1対1に対応し、centerのsplit treeだけを持つ。固定されたleft・bottom・rightのDockは存在しない。「縁に常設する」配置は、利用者がtreeの端にleafを作ることで表現する。
+- 各leafはPanelのタブを並べる。centerのsplit treeは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分かれる。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
+- 画面は左の**Area list**（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。上部にProject切替）と、右の**Main**（選択中Areaを表示、URLが正本）と**Sub**（別のAreaを右に表示、開閉できる）からなる。Detachは「別windowに出す」と印を付けたAreaで、Area listの行メニュー「別windowで開く」から移す（Electronのみ）。
+- Panelはregionをまたいでドラッグできる。Area内の全領域の相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。Areaをまたぐ移動はArea listの行で行う。Panelは同じwindowのMain・Subの間でもdragで移せる（Panel Instanceは作り直さず移譲する）。ただし同じAreaをMainとSubの両方に出しているときは移せない（両者が別々にworkspaceを保存するため）。
 - Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
 
 ## 画面の構成
 
 Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
-- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にサイドバー（ProjectタブとAreaツリー）の開閉、Core switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、右端に検索・メニュー・設定の置き場所、テーマ切替（system/light/darkを順に回す。systemはOSの明暗に追従し、選択は端末に保存する）、Pinned列の開閉を持つ。検索・メニュー・設定の中身は未実装。
-- **本体**: 左のサイドバー（ProjectタブとAreaツリー）、中央のWorkspaceの4 Dock、右のPinned Dock。
+- **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にArea listの開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とSubの開閉を持つ（位置は固定）。テーマや背景の切替はSettingsのPanelへ移す予定。
+- **本体**: 左のArea list（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。Areaの選択・作成・削除・Projectの切替と作成もここ）、中央のMain（選択中AreaのWorkspace）と右のSub（開閉できる2枚目）。
 - **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
 
 Coreの切り替えを一番外側の帯に置くのは、Coreが接続先でありProject以下がCoreごとに分かれた状態だからである。`/<core>/` に移動すると、そのCoreでこの端末が最後に開いていた場所へ戻る。
 
 ## 保存
 
-Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
+Project・Area・Workspaceの状態は、Web Pluginのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
 
 - Core名をキーにする。`coreId` はCoreの再起動で変わるので、Core名のないCoreではProjectを作れない。
-- PanelはPanel InstanceのIDと、Pluginの識別子（`pluginId`）と `panelId` で保存する。登録の識別子（`registrationId`）はPluginの再起動で変わるので保存しない。表示するときに、同じPluginの同じPanelを提供している登録を探す。
+- PanelはPanel InstanceのIDと、Pluginの識別子（`providerId`）と `panelId` で保存する。登録の識別子（`registrationId`）はPluginの再起動で変わるので保存しない。表示するときに、同じPluginの同じPanelを提供している登録を探す。
+- Workspaceの中身はPlugin Shellが所有するJSONで、Web Pluginのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
 - 同じWorkspaceを複数のタブで同時に編集した場合は、後から保存した内容が残る。
 - `~/.plugumi/` には旧リポジトリのファイルが残っている場合がある。Web Pluginは `~/.plugumi/web/` の下だけを使い、それ以外には触れない。
 
@@ -61,12 +63,12 @@ Project・Area・Workspace・Pinnedの状態は、Web Pluginのサーバーが `
 |---|---|
 | `/` | Core一覧。Coreの追加と削除もここで行う |
 | `/<core>/` | この端末で最後に開いた場所へ移動する。なければ先頭のProject、ProjectもなければPlugin Shellの画面 |
-| `/<core>/<project>/` | Projectの画面。Areaのツリーと、PinnedのDockを表示する |
+| `/<core>/<project>/` | Projectの画面。Areaのツリーを表示する |
 | `/<core>/<project>/<area>/<子のarea>/...` | そのAreaのWorkspace |
 
 `<core>` にはCore名を使う。Core名がないCoreは `coreId` で表すが、`coreId` はCoreの再起動で変わるため、ブックマークには使えない。
 
-ProjectとAreaは、名前をそのままURLの識別子にする。名前の形式はCore名と同じ（小文字の英数字とハイフン、1〜63文字）で、同じ親の中では重複できない。Projectの名前はCoreの中で、Areaの名前は同じ親のAreaの中で一意とする。
+ProjectとAreaは、表示名（title）とURLの識別子（key）を分ける。titleは日本語・大文字・記号を含む自由な表示名（空・制御文字・64文字以上のみ不可）で、識別子ではないため重複を許す。keyはserverが作成時に発行する8文字のランダムな識別子（小文字英数）で、ProjectはCore内で、Areaは同じ親のArea内で一意とする。URLの `<project>` ・ `<area>` にはkeyを使う。
 
 Web Plugin自身も、APIの `/api/`、ビルド済みファイルの `/assets/`、PanelのUIファイルを中継する `/ui/` をパスの先頭に使う。そのため、Web Pluginは `api`・`assets`・`ui` をCore名として予約し、URLには使わない。これらはWeb Plugin側の都合なので、Coreの設定では禁止しない。Core名が予約名と同じCoreは、画面から追加できない。`--core` で指定されている場合は一覧に表示するが、リンクは作らない。
 
@@ -112,8 +114,6 @@ Core名を返すAPIは[接続契約 00004](../contracts/00004-plugin-client-prot
 ## 未解決の問い
 
 - Areaが入れ子の構造のほかに持つ内容
-- Areaの形が固まったあとのPinnedの扱い
-- 名前に日本語などを使えるようにするか（表示名とURLの識別子を分けるか）
 - 同時編集を後勝ちより丁寧に扱う必要があるか
 - 同じマシンで動いているCoreを、URLを入力せずに一覧から選べるようにするか
 - 別のマシンのCoreを扱うときの、Core名の重複と認証

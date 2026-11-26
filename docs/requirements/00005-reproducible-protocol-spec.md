@@ -12,7 +12,7 @@ relations:
 
 PlugumiのPluginは任意言語で独立に実装される。実装者（人間・AI）は既存のCoreやPluginのコードを読まずに、docsの仕様だけで相互運用可能な実装を書けなければならない。仕様が曖昧だと実装ごとに解釈が分かれ、「つながるはず」の実装同士が食い違う。
 
-`docs/requirements/00004` の受入基準「新しいPluginが既存Pluginの実装を参照せず、共通契約のみでToolを公開・呼び出せる」を、docsの品質基準として固定する。
+`docs/requirements/00004` の受入基準「新しいPluginが既存Pluginの実装を参照せず、共通契約のみでoperationを公開・呼び出せる」を、docsの品質基準として固定する。
 
 ## 要求事項
 

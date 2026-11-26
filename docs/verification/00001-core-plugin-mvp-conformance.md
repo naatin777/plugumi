@@ -18,7 +18,7 @@ relations:
 
 ## 前提条件と環境
 
-- Core・検証用Pluginがloopbackで起動できること（現実装なら `cd core && ./plugumi serve`、`plugins/standard`・`plugins/agent`）
+- Core・検証用Pluginがloopbackで起動できること（現実装なら `cd core && ./plugumi serve`、`environment`・`plugins/agent`）
 - 2つ以上のPlugin Endpointが使えること（複数Core・複数Pluginのシナリオ用）
 
 ## テストシナリオ
@@ -31,7 +31,7 @@ relations:
 |---|---|---|
 | L1-1 | Core起動（plugins[]に未到達endpoint） | 接続の再試行が走る（3秒程度間隔） |
 | L1-2 | Plugin起動 | `POST /v1/link/hello` が200、`GET /v1/tools` が200、`GET /v1/transport` が101、`POST /v1/tools/catalog` が200を順に返す |
-| L1-3 | `POST /v1/plugins/list`（管理REST） | endpoint・`linkId`・`pluginId` が返る |
+| L1-3 | `POST /v1/plugins/list`（管理REST） | endpoint・`linkId`・`providerId` が返る |
 | L1-4 | 異常: サポート外version（`/v2/…`）へのrequest | `426 protocol_mismatch`、Link未成立 |
 | L1-5 | 異常: 未知pathへのrequest | `404 unknown_endpoint`、Link未成立 |
 | L1-6 | `GET /v1/transport?linkId=<不正>` へのupgrade | `404 unknown_link`、upgrade失敗 |
@@ -101,7 +101,7 @@ PluginでないcallerがToolを呼ぶ経路。`docs/decisions/00011`・`docs/con
 |---|---|---|
 | L1-1 | PASS | Core起動時に未到達endpointへ `[core] plugin … unreachable … (retrying)` が3秒間隔で出る |
 | L1-2 | PASS | Coreログに `link:` → `catalog push` が順に出る。standard/agent両方で `POST /v1/link/hello`→`GET /v1/tools`→`GET /v1/transport`→`POST /v1/tools/catalog` が成功 |
-| L1-3 | PASS | `POST /v1/plugins/list` が endpoint・`linkId`・`pluginId` を返す |
+| L1-3 | PASS | `POST /v1/plugins/list` が endpoint・`linkId`・`providerId` を返す |
 | L1-4 | PASS | `/v2/…` へ `426 protocol_mismatch` |
 | L1-5 | PASS | 未知pathへ `404 unknown_endpoint` |
 | L1-6 | PASS | `GET /v1/transport?linkId=link-bad` へ `404` |
@@ -141,7 +141,7 @@ PluginでないcallerがToolを呼ぶ経路。`docs/decisions/00011`・`docs/con
 |---|---|---|
 | L2-10 | PASS | Coreの `go test -race ./internal/router`。模擬Pluginが最終応答を保留しても、呼び出し元で途中出力を受信できた |
 | L2-11 | PASS | 同テストで受理応答の書き込み直前に対象の切断処理を挟み、呼び出し元のWebSocketで受理応答、`-32000` の終端通知を順に受信した |
-| L4-9 | PASS | StandardとAgentを実プロセスで起動した。同一 `core.id` で再helloすると、旧WebSocketが切断し、旧Linkへのpingは `404 unknown_link`、新Linkのupgradeは成功した |
+| L4-9 | PASS | Environment ProviderとAgentを実プロセスで起動した。同一 `core.id` で再helloすると、旧WebSocketが切断し、旧Linkへのpingは `404 unknown_link`、新Linkのupgradeは成功した |
 
 ## 制限
 

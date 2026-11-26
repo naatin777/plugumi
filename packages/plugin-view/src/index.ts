@@ -3,25 +3,58 @@
 
 // Panel の mount に渡される宿主コンテキスト。
 export interface PanelContext {
+  // このPanelのShadowRoot（mountに渡すhostと同じもの）。
+  // popover・tooltip・dialogなど、Panelの見た目の一部だがPanelの
+  // 並びの外に置きたい要素はここへappendする — documentやbody直下へ
+  // 出すとPanel自身のCSSが届かない。
+  root: ShadowRoot;
   callTool(toolPath: string, input: unknown): Promise<unknown>;
+  // Panelの活動状態をShellへ通知する。Pluginは意味だけ渡し、
+  // 色・速度・太さなどの表現はShell側のtokenが決める。
+  // 呼ぶたびに全体を置き換える。永続化されず再mountで消える。
+  setActivity(activity: PanelActivity | null): void;
+  // このPanelを開いたときの初期入力。context.openPanelの第2引数が
+  // 新しいPanelのcontext.inputとして届く。永続化はされない。
+  input?: unknown;
+  // 同じleafの自分の隣に、同じPluginの別Panelを開く。
+  openPanel(panelId: string, input?: unknown): void;
+}
+
+export type PanelActivityTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type PanelActivitySurface = "header" | "border" | "divider" | "content";
+export type PanelActivityEffect = "static" | "flow" | "glow";
+
+// determinateのvalueは0〜1の割合。範囲外はShell側で丸める。
+export type PanelActivityProgress =
+  | { kind: "determinate"; value: number }
+  | { kind: "indeterminate" };
+
+export interface PanelActivityLayer {
+  surface: PanelActivitySurface;
+  tone: PanelActivityTone;
+  effect?: PanelActivityEffect;
+}
+
+export interface PanelActivity {
+  busy?: boolean;
+  progress?: PanelActivityProgress;
+  layers?: PanelActivityLayer[];
 }
 
 export interface PanelHandle {
   destroy(): void;
 }
 
-export type PanelMount = (host: HTMLElement, context: PanelContext) => PanelHandle | Promise<PanelHandle>;
+// hostはそのPanel Instance専用のShadowRoot。Panelはこの中だけにDOMを作る。
+export type PanelMount = (host: ShadowRoot, context: PanelContext) => PanelHandle | Promise<PanelHandle>;
 
 // plugin-shell の styles/tokens.css が定義するCSS変数名の正本。
 // 値はここには持たない。test/tokens.test.mjs が tokens.css と一致を検査する。
 export const tokenNames = {
   colors: {
-    canvas: "--plugumi-colors-canvas",
-    surface: "--plugumi-colors-surface",
-    surfaceSubtle: "--plugumi-colors-surface-subtle",
-    surfaceRaised: "--plugumi-colors-surface-raised",
-    surfaceHover: "--plugumi-colors-surface-hover",
-    surfaceActive: "--plugumi-colors-surface-active",
+    backgroundPrimary: "--plugumi-colors-background-primary",
+    backgroundSecondary: "--plugumi-colors-background-secondary",
+    backgroundTertiary: "--plugumi-colors-background-tertiary",
     text: "--plugumi-colors-text",
     textStrong: "--plugumi-colors-text-strong",
     textMuted: "--plugumi-colors-text-muted",
@@ -30,6 +63,11 @@ export const tokenNames = {
     border: "--plugumi-colors-border",
     borderStrong: "--plugumi-colors-border-strong",
     borderHighlight: "--plugumi-colors-border-highlight",
+    raised: "--plugumi-colors-raised",
+    raisedEdge: "--plugumi-colors-raised-edge",
+    fill: "--plugumi-colors-fill",
+    fillStrong: "--plugumi-colors-fill-strong",
+    scrim: "--plugumi-colors-scrim",
     accent: "--plugumi-colors-accent",
     accentContrast: "--plugumi-colors-accent-contrast",
     accentSurface: "--plugumi-colors-accent-surface",
@@ -51,6 +89,11 @@ export const tokenNames = {
     infoContrast: "--plugumi-colors-info-contrast",
     infoSurface: "--plugumi-colors-info-surface",
     infoBorder: "--plugumi-colors-info-border",
+    activity1: "--plugumi-colors-activity-1",
+    activity2: "--plugumi-colors-activity-2",
+    activity3: "--plugumi-colors-activity-3",
+    activity4: "--plugumi-colors-activity-4",
+    activity5: "--plugumi-colors-activity-5",
   },
   fontFamily: {
     sans: "--plugumi-font-family-sans",
@@ -96,6 +139,19 @@ export const tokenNames = {
     md: "--plugumi-spacing-md",
     lg: "--plugumi-spacing-lg",
     xl: "--plugumi-spacing-xl",
+  },
+  zIndex: {
+    floor: "--plugumi-z-floor",
+    panelState: "--plugumi-z-panel-state",
+    resizer: "--plugumi-z-resizer",
+    activity: "--plugumi-z-activity",
+    drawerResizer: "--plugumi-z-drawer-resizer",
+    divider: "--plugumi-z-divider",
+    scrim: "--plugumi-z-scrim",
+    subDrawer: "--plugumi-z-sub-drawer",
+    sideDrawer: "--plugumi-z-side-drawer",
+    subResizer: "--plugumi-z-sub-resizer",
+    ghost: "--plugumi-z-ghost",
   },
 } as const;
 

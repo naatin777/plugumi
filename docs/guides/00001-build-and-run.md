@@ -20,7 +20,7 @@ MVP実装をローカルで動かす開発者。Go 1.26以上、Rust（Cargo）�
 
 ```sh
 (cd core && go build -o plugumi ./cmd/plugumi)
-(cd plugins/standard && cargo build --locked)
+(cd environment && cargo build --locked)
 (cd plugins/agent && pnpm install --frozen-lockfile && pnpm run build)
 ```
 
@@ -47,7 +47,7 @@ cd core
 ./plugumi tui       # 管理TUI（後述）
 ./plugumi stop      # 起動中のローカルCoreが1台の場合に停止を要求
 ./plugumi plugins   # 登録済みと起動中のローカルPluginを一覧
-./plugumi plugins add standard --command "cd plugins/standard && cargo run"
+./plugumi plugins add standard --command "cd environment && cargo run"
 ./plugumi plugins start standard    # catalogのcommandをバックグラウンド起動
 ./plugumi plugins rm standard       # 登録だけ消す（プロセスは止めない）
 ```
@@ -80,7 +80,7 @@ cd core
 |---|---|
 | `POST /v1/plugins` `{endpoint}` | Plugin Endpointを動的登録（Link確立は非同期） |
 | `POST /v1/plugins/remove` `{endpoint}` | Plugin Endpointの登録解除（Link失効・再試行停止） |
-| `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId/pluginId付き） |
+| `POST /v1/plugins/list` | 登録済みEndpoint一覧（linkId/providerId付き） |
 | `POST /v1/tools/list` | 登録中の全Tool（人間・UI Host向け確認用） |
 | `GET /v1/call` | Tool呼び出し用WS接続（caller向け。後述） |
 | `GET /openapi.json` | OpenAPI 3.1 spec（`/openapi.yaml`も） |
@@ -140,7 +140,7 @@ caller channel（`GET /v1/call`）はcontracts/00003のcaller側プロトコル�
 ## 手順
 
 1. Core を起動: `cd core && ./plugumi serve --port 7700`（後続のREST例で同じURLを使うため固定）
-2. standard Plugin を起動: `cd plugins/standard && cargo run`
+2. standard Plugin を起動: `cd environment && cargo run`
 3. agent Plugin を起動: `cd plugins/agent && pnpm start`（グローバルにインストール済みなら `plugumi-agent`）。待ち受け開始後にstdinコマンドループが開く。
 4. 各Pluginが `listening on` に表示したURLをCoreに登録する。TUIでは `1 Cores` でCoreをフォーカスしてから `2 Plugins` で対象を `enter`、または `a` でURLを入力する。起動中のPluginはローカルregistryに登録されるので、URLをコピーしなくても一覧から選べる。
 
@@ -182,7 +182,7 @@ curl -X POST http://127.0.0.1:7700/v1/plugins \
 
 ## 期待される結果
 
-`POST /v1/plugins/list` の応答で、各Pluginの `linkId` と `pluginId` を確認する。agentのコマンドループでは、次の操作でcatalog受信とTool呼び出しを確認できる。
+`POST /v1/plugins/list` の応答で、各Pluginの `linkId` と `providerId` を確認する。agentのコマンドループでは、次の操作でcatalog受信とTool呼び出しを確認できる。
 
 ```
 list                                        # POST /v1/tools/catalogで受け取った全Tool（linkId + toolPath）

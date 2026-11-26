@@ -1,0 +1,29 @@
+/* 1つのAreaの表示。中身はcenterのsplit treeだけ（Subにも同じ形を使う）。 */
+@layer layout {
+
+  .area-view {
+    position: relative;
+    min-width: 0; min-height: 0;
+    /* scrollしない箱はclip（hiddenだとscroll containerになって
+       中のscrollIntoViewで面ごとずれる）。 */
+    overflow: clip;
+    display: grid;
+    grid-template: "center" minmax(0, 1fr) / minmax(0, 1fr);
+    /* タイル群と境界線・横線・窓端の間の余白（Subも同じ。Main|Sub間は
+       縦線の左右それぞれにこの余白が付く）。 */
+    padding: var(--area-pad);
+    box-sizing: border-box;
+  }
+  [data-part="main-slot"] > .area-view { flex: 1; min-width: 0; }
+  [data-part="sub-slot"] > .area-view,
+  [data-part="sub-slot"] > .area-view-empty { flex: 1; min-width: 0; }
+
+  .area-view-empty {
+    grid-area: 1 / 1 / -1 / -1;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0;
+    color: var(--plugumi-colors-text-muted);
+    font-size: var(--plugumi-font-size-xs);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}

@@ -1,0 +1,92 @@
+/* テーマPanelの中身。ShadowRootへadoptされるので、外（document）の
+   規則は届かない — 見た目はこのファイルだけで決める。CSS変数
+   （--plugumi-*）はShadow境界を越えて継承されるのでそのまま使える。
+   Panel hostに追従し、固定の大きさは持たない。 */
+
+.theme-panel {
+  width: 100%; height: 100%;
+  box-sizing: border-box;
+  container-type: inline-size;
+  display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
+  align-items: stretch; justify-content: flex-start;
+  padding: var(--plugumi-spacing-sm);
+  overflow: auto;
+  color: var(--plugumi-colors-text);
+  font: inherit;
+}
+.theme-seg {
+  display: flex; width: 100%;
+  /* 低いPanelでは縮めずPanel内スクロールに任せる。 */
+  flex: none;
+  box-sizing: border-box;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-background-secondary);
+}
+.theme-item {
+  flex: 1 1 0; min-width: 0;
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+  border: none; border-radius: var(--plugumi-radii-sm);
+  background: transparent;
+  color: var(--plugumi-colors-text-muted);
+  font: inherit; font-size: var(--plugumi-font-size-xs);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+}
+/* 狭いPanelでは項目を縦積みにしてはみ出さない。 */
+@container (width < 220px) {
+  .theme-seg { flex-direction: column; }
+  /* 縦積みでflex-basis 0のままだと高さが0に潰れる。 */
+  .theme-item { flex: none; }
+}
+.theme-item:hover { color: var(--plugumi-colors-text); }
+/* 選択セグメントはtabと同じ「面」 — raisedのfill＋輪郭＋上端ハイライト。
+   trackの上に乗る小さなカードとして読ませる。透過fillなので
+   darkではtrackの上で明るいカードに見える。 */
+.theme-item.selected {
+  background: color-mix(in oklab, var(--plugumi-colors-raised) 70%, transparent);
+  color: var(--plugumi-colors-text);
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 1px var(--plugumi-colors-raised-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.theme-note {
+  margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-2xs);
+}
+/* 濃度スライダー。label＋rangeの1行で、rangeは残り幅を使う。 */
+.theme-slider {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-sm);
+  flex: none;
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-muted);
+}
+.theme-slider-label { flex: none; white-space: nowrap; }
+.theme-slider input[type="range"] {
+  flex: 1; min-width: 0;
+  accent-color: var(--plugumi-colors-text-muted);
+}
+/* オンオフ項目。checkbox＋labelの1行。 */
+.theme-check {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+  flex: none;
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-muted);
+  cursor: pointer;
+}
+.theme-check input[type="checkbox"] { accent-color: var(--plugumi-colors-text-muted); }
+/* monoフォント名の自由入力。localに無ければsystem monoへ落ちる。 */
+.theme-text {
+  flex: 1; min-width: 0;
+  padding: 2px var(--plugumi-spacing-xs);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-sm);
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+  font: inherit; font-size: var(--plugumi-font-size-xs);
+}
