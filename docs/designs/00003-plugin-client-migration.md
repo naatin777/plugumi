@@ -1,7 +1,7 @@
 ---
 type: design
-title: Core起点の試作からPlugin起点への移行
-description: 現行コードと旧契約の差分、互換性を切る範囲、移行順と切替条件を記録する。
+title: 現行試作からProvider接続・operation / Executionへの移行
+description: registrationId + toolPath / tools.callの現行実装を、Provider接続とoperation invocation / Execution modelへ移す順序と合格条件を定める。
 status: draft
 relations:
   requirement:
@@ -10,50 +10,71 @@ relations:
     - '00004'
     - '00005'
   architecture:
-    - '00002'
+    - '00003'
   decision:
     - '00012'
+    - '00016'
+    - '00019'
+    - '00024'
+    - '00027'
   contract:
     - '00004'
-  design:
-    - '00001'
+  verification:
     - '00002'
 ---
 
-## 現行調査と差分（2026-11-20）
+## 対応するrequirement
 
-対象は本リポジトリのREADME・SpecbookとGo Core、Rust Standard、TypeScript Agent、および作業ツリーにあるTUI・プロセス管理の変更。旧PlugumiやSlopDockの実験結果はこの調査の証拠に含めない。旧[システム構成 00001](../architecture/00001-system-structure.md)と旧[契約 00001–00003](../contracts/00001-core-plugin-transport.md)は、今回までの試作を説明する資料として残す。
+[Requirement 00003](../requirements/00003-plugin-ecosystem-support.md)はPlugin開発・採用環境を求め、[Requirement 00004](../requirements/00004-common-protocol-contracts.md)はoperation呼び出し・実行状態・通知を扱う共通契約を求めている。このdesignは、現行実装を[Architecture 00003](../architecture/00003-daemon-centric-workbench-platform.md)と[Contract 00004](../contracts/00004-plugin-client-protocol.md)へ寄せる順序を定める。
 
-| 論点 | 依頼時の文書・コードで確認した事実 | 移行先 |
-|---|---|---|
-| 接続・起動 | 旧Decision 00004・00007・00010はCoreからPluginへの接続を前提としていた。旧Connectorは設定・動的登録からPlugin Endpointを保持し、`hello → tools pull → WS dial` を試行していた。Environment ProviderとAgentはそれぞれ待受サーバーを持っていた。 | PluginにCore URLを渡し、Plugin側が登録・購読・WS・再接続を担う。起動補助は任意。 |
-| Registryと宣言 | 旧Design 00001・00002ではLinkに宛先と宣言を置いた。Coreは `GET /v1/tools` で取得し、`POST /v1/tools/catalog` でPluginに一覧をpushした。WS終了でLinkを外した。 | Pluginが宣言を書き込む。Coreの[Registry](../../core/internal/registry/registrations.go)がLease・宣言・RPC接続を管理し、SnapshotとSSEを提供する。WSが切れても、Leaseが有効な間は登録を保持する。 |
-| caller・RPC | 旧 `/v1/call` は非Plugin用のWSで、RouterがPlugin接続との間を中継していた。旧Decision 00011と旧Tool契約はLinkとcaller channelを区別する。 | Routerの相関・中継という責務を残し、宛先は `registrationId` に切り替える。Panel APIの限定配送は後続の検証対象。 |
-| Core管理・ローカル検出 | [TUI](../../core/internal/tui/plugins.go)はOSユーザーのローカル記録とprobeで実行中Pluginを検出し、選んだCoreへPlugin Endpointを追加する。ローカルカタログと起動コマンドも扱う。Plugin自身がローカル記録を書くことは、Coreへのプロトコル登録とは異なる。 | 接続一覧は選択中のCoreから取得する。Coreの起動・停止・ログ・ローカル設定は通信から独立して残せる。ローカルPluginの検出にHTTP待受を要求しない。 |
-| Panel・外部アクセス | 旧接続契約はPanel通信を対象外としていた。Bundle配信、Panel認可、WebRTCの共通経路はない。 | [新構成](../architecture/00002-plugin-client-system.md)の候補を別々に検証する。Coreはloopback限定を維持する。 |
+## 現行実装の位置づけ（2026-11-26時点）
 
-[旧検証記録](../verification/00001-core-plugin-mvp-conformance.md)には旧 `hello`、WSとLink失効、catalog push、TUIのcaller経路の手動結果がある。新方式の観測は新しい[適合シナリオ](../verification/00002-plugin-client-conformance.md)に分ける。
+ProviderがCoreへ登録・接続する方向自体は、旧revisionの `registrationId + toolPath` modelで試作済みである。Core 2台への接続、SSE、再接続、途中出力、取消の一部は[Verification 00002](../verification/00002-plugin-client-conformance.md)に記録されている。
 
-## 合意済みの変更と互換性
+一方で、少なくとも `core/internal`、`environment/src`、`apps/web/internal`、`packages/plugin-client`、`plugins/agent` には `toolPath` / `tools.call` / `sync` / `async` のmodelが残っている。Contract 00004のoperation invocation / Execution modelは、まだ実装へ十分に反映されていない。
 
-[Decision 00012](../decisions/00012-plugin-initiated-connections.md)が接続の方向と責務を決める。この移行計画は旧Tool登録設計・Link Registry設計を置き換える。
+`packages/plugin-client` は現行のTypeScript / Node.js向け接続実装だが、Core接続、Tool dispatch、UI bundle読込、process recordが混在したlegacyである。新しいclient libraryへ責務を分けて置き換える（[Decision 00027](../decisions/00027-client-library-languages-and-framework-bindings.md)）。
 
-**切替方針:** 開発中の `/v1/` を直接置き換える。旧 `hello`・`ping`・`transport`・`tools/catalog`、Endpoint登録API、`/v1/call` の互換層は作らない。旧・新バイナリを混ぜず、Core・Standard・Agent・TUIを一緒に更新する。
+## 位置づけ
 
-`plugins[].endpoint`、ローカルカタログのEndpoint、`--listen` 等をCore URLに自動変換しない。Endpointは逆向きの宛先なので変換できない。新しいPluginにはCore URLを改めて指定する。旧 `linkId` や保存済み宛先を新登録に引き継がず、Snapshotを取り直す。Coreの起動設定・ログ・TUIの表示操作など、v1 wireに依存しない操作は維持する。起動コマンドからの資格情報の渡し方は別途設計し、URL・ログ・コマンド履歴へ入れない。
+この文書は実装着手の承認ではなく、議論を進めるための移行順の検討案である。operation / Execution、lifecycle、client library、UI App operationの個別論点がまだ残っているため、この順序をそのまま実装計画として確定しない。
+
+## 移行の原則
+
+- 縦切りで移行する。Coreだけ、UIだけを先に新contractへ見せかけて終わらせない。
+- 開発中の旧 `/v1/` と互換を保たない。旧 `registrationId + toolPath` caller contractと新しいoperation invocationを恒久的に併用しない。
+- transport移行とprocess lifecycle移行を分ける。ProviderがCoreへ接続する方向は変えず、operation / Executionとmanaged lifecycleを別段階で実装する。
+- 名称変更だけの大規模rewriteをしない。実装の移行に合わせて責務ごとに分解する。
+- 旧revisionで通った検証は、operation / Execution modelへそのまま転用しない。同じ観点を新しいcontractで再検証する。
 
 ## 段階と合格条件
 
 | 段階 | 変更順・範囲 | 次へ進む条件 |
 |---|---|---|
-| 1. ローカル縦断PoC | Coreで受信側REST・SSE・WSを作る。新旧のRegistryを暗黙に混ぜない。待受を持たない小さなCLIを使い、`登録 → SSE受信 → RESTでTool宣言を更新 → WSでecho → 最小Panelに結果を表示` をつなぐ。Panelには固定の信頼境界内で、同じecho契約を使うPanel専用操作も一つ用意する。 | Plugin待受なしで一往復できる。SSE再接続で表示が収束し、Tool一覧にPanel APIが現れない。旧実装の公開範囲は変更しない。 |
-| 2. 実PluginとTUI | Go RPCのEnvelope処理と中継責務を再利用候補にし、登録・接続の責務を分離する。次にEnvironment ProviderのTool実装を保って通信面をClientに置き換え、Agentはcatalog pushの代わりにSnapshot＋SSEを使う。TUIのCore選択とログ操作を保ち、選択先のRegistryを表示する。 | 複数Core、再登録、スコープ分離、エラー、取消、順序・負荷試験に合格する。Streaming拡張を入れる場合は受理・出力・終端の順序を再検証する。 |
-| 3. UI Bundle・型 | 複数ファイルのビルド成果物の受付と配信を追加。ブラウザの分離とBridgeを検証する。HTTP・RPCの型生成をGo・TypeScript・Rustで比較する。 | CSS・動的import・画像・フォントが動き、親や他Panelの権限には届かない。生成型と実行時Schemaの整合を確認する。 |
-| 4. 外部到達・Media | Docker/WSLから順に試し、LAN、VPN、認証付きTunnelへ進む。MediaはSignalingと別に直接・TURN経路を確認する。 | 成功経路だけでなく、未認証・未登録・失効、SSE/WSプロキシ、Media非到達を観測できる。認証・認可・監査の設計が済むまで外部公開しない。 |
-| 5. 切替 | 新しい利用手順を実測して更新する。旧試作は置換後に別変更で退役させる。 | 新しいクライアントとCoreの組合せで[適合シナリオ](../verification/00002-plugin-client-conformance.md)を実施。旧接続の手順・制約・証拠は履歴として残す。 |
+| 1. Coreのoperation / Execution化 | Coreでoperation宣言、operation catalog、context解決、`operations.invoke`、Execution record / event / cancelを実装する。テスト用の小さなProviderでechoを通す。 | `operations.invoke` がterminal状態のExecutionを返す。running実行のevent、cancel、provider切断時の `failed` / `unknown` を観測できる。 |
+| 2. TypeScript client libraryとagentの移行 | `packages/plugin-client` を直接renameせず、Core接続 / RPC / operation dispatch / UI bundle登録の責務を持つ新しいTypeScript / Node.js向けlibraryへ分解する。agent pluginを最初の利用者にする。 | agentが `tools.call` を使わずoperationを登録・実行できる。複数Coreで登録、event、cancelが混ざらない。 |
+| 3. Environment Providerの移行 | RustのEnvironment Providerをoperation / Execution modelへ移す。filesystem / shell / processなどbuilt-in environment operationをsemanticなoperation pathで登録する。 | 代表operationがUI非依存のExecutionとして動く。long-running shell / terminal相当の処理をUIのcloseなしで継続できる。 |
+| 4. Web app / Electron appの移行 | Web appのcaller経路、Panelからの呼び出し、Electron appのUI App operation登録をoperation / Execution modelへ移す。`callTool` / `toolPath` をPanel contractから外す。 | UI AppがExecutionを開始・購読・一覧・cancelできる。UIを閉じてもdurable Executionが残り、host-session operationは例外として扱える。 |
+| 5. lifecycle / Daemon managementの実装 | Core Daemonのlocal process manager、Daemon management API、Plugumi管理のPlugin runtime processのenable / disable / stop、remote-side supervisorへの委譲契約を実装する。`plugumi` CLIとUI Appを操作面として接続する。 | UI AppとCLIがPlugin runtime processを直接所有せずにPluginをenable / disableできる。localとremoteでspawn主体が分かれていることを観測できる。 |
+| 6. legacyの除去とdocs確定 | 旧 `tools.call`、旧caller contract、`registrationId + toolPath` caller指定、legacy `packages/plugin-client` を消す。Verification 00002を新contractで再実行し、結果を更新する。 | 旧method / fieldが実装から除去される。新しい適合シナリオが通り、glossaryの旧用語が実装読解用の歴史語だけになる。 |
 
-## 未決事項・検証が必要な仮説
+## 移行順の理由
 
-TUIが従来の「選んだPluginを選んだCoreへ接続する」操作をどこまで提供するかは未決定。既に動くPluginへ任意のCore URLを渡す共通プロトコルは設けず、まずPlugin側で操作できることを確かめる。任意の起動支援を残す場合も、接続先を明示できるローカルコマンドに限って評価する。
+最初にCoreへExecutionを置くのは、UI非依存の実行とcancel / subscribeの正本がCoreだからである。UIやProviderを先に変えると、実行状態の所有者が分かれたままになる。
 
-PoCで、既存のTool実装・RPC中継・TUIの実行管理を保ったまま、Plugin待受とCoreのEndpoint取得ループを外せるかを確認する。互換層や抽象化を先に増やさない。契約の未決事項は[接続契約](../contracts/00004-plugin-client-protocol.md)、運用・UI・Mediaの未決事項は[システム構成](../architecture/00002-plugin-client-system.md)を正本とする。
+TypeScript libraryを先に作るのは、agentが最初の利用者であり、WebSocket RPC、reconnect、operation dispatch、cancelを各Pluginへ分散させないためである。Environment ProviderはRust実装だが、built-in operationとして重要なので、TypeScript側の縦切りが通った後に続けて移行する。
+
+Web app / Electron appはcallerとUI App operationの両方を持つため、Provider側のoperation modelが動いてから移行する。lifecycle / Daemon managementは、operation / Executionがない状態で作るとprocess管理だけが先行し、実行状態と結び付かないため後段に置く。
+
+## 未解決の問い
+
+- 新しいTypeScript / Node.js向けlibraryのpackage名と責務分割。
+- Rust向けclient libraryをどこまで共通化するか。最初はEnvironment Provider内の実装で十分かを検証する。
+- Execution recordの永続化範囲、保存期間、Core再起動後の復元範囲。
+- remote-side supervisorへ起動・停止を委譲するwire contract。Environment Providerが持つ範囲と外部systemに任せる範囲。
+- Panel専用APIとoperation catalogの権限分離をどう実装へ落とすか。
+- UI App operationのhost-session終了時に、running Executionを `failed` / `cancelled` / `unknown` のどれへ進めるか。
+
+## 検証への示唆
+
+各段階は[Verification 00002](../verification/00002-plugin-client-conformance.md)の対応するシナリオで確認する。特にC2（登録と期限）、C4（複数Core）、C5（RPC障害）、C7（Bundle・Panel）は、段階2〜4の合格条件に直結する。段階5のlifecycle検証は、現行のVerification 00002だけでは足りないため、Daemon managementとPlugumi管理のPlugin runtime processのシナリオを追加する必要がある。

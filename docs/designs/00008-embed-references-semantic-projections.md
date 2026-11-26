@@ -40,7 +40,7 @@ virtual embedはDOM、event listener、timer、background処理を持たない�
 
 virtual embedには2つの動機がある。
 
-1. Host capabilityが違うため、同じEmbedでも表示できるrepresentationがHostごとに変わる。
+1. UI App operationが違うため、同じEmbedでも表示できるrepresentationがHostごとに変わる。
 2. chat、timeline、historyに多数のEmbedがあると、全部を同時にmountするのは重い。
 
 したがって、表示可能かどうかと、実際にmountするかどうかを分ける。
@@ -135,7 +135,7 @@ AIはcomponent treeを読んで意味を推測しない。人間向けの表示�
     └── declarative component / custom component / native component
 ```
 
-AIは通常、左側を見る。人間は右側を見る。componentはcapabilityの正本ではない。
+AIは通常、左側を見る。人間は右側を見る。componentはoperationの正本ではない。
 
 ### Interaction
 
@@ -180,7 +180,7 @@ UI上のactionをすべてtool呼び出しにしない。
 | operation action | apply、reject、cancel、save、open | Core経由のoperation / tool呼び出しにする |
 | intent event | `この方針で進めて`、`この候補で修正して` | Agentまたはbackendへの意味eventにする |
 
-componentのclickは、AI向けのcapabilityではない。人間がbuttonを押した結果としてoperationが呼ばれてよいが、AIは通常、UI componentを経由せず同じoperationを呼ぶ。
+componentのclickは、AI向けのoperationそのものではない。人間がbuttonを押した結果としてoperationが呼ばれてよいが、AIは通常、UI componentを経由せず同じoperationを呼ぶ。
 
 ## tool resultと表示
 

@@ -41,7 +41,7 @@ HTTP/1.1でREST・SSEとWS upgradeを利用できることを基準とする。H
 |---|---|
 | `coreId` | Coreが起動ごとに発行する不透明な文字列。Snapshot、登録、Executionの世代を識別する。Core URLや接続先の認証を代替しない。 |
 | `providerId`, `instanceId` | Providerが宣言する実装名と、実行プロセスごとに発行する不透明なID。権限の証明にはならない。`instanceId` の登録時の一意性は認証主体とCoreの世代の内側で扱う。 |
-| `providerKind` | 登録者の種別。`plugin`（installable package、省略時の既定）、`environment`（環境capabilityのProvider）、`host`（Web app / Electron appとして動くUI App）。登録時にだけ指定し、あとから変更しない。 |
+| `providerKind` | 登録者の種別。`plugin`（installable package、省略時の既定）、`environment`（環境operationのProvider）、`host`（Web app / Electron appとして動くUI App）。登録時にだけ指定し、あとから変更しない。 |
 | `registrationId` | Coreが発行する登録ID。Coreの世代内で一意。Lease・WS接続・内部配送を結び付ける。callerはoperation routingの宛先としてこれを指定しない。 |
 | operation path | Providerが宣言するsemanticな操作名。`filesystem/list` のようなslash区切りpath。CLI・MCP・HTTP API・AI tool catalogのcanonical名。 |
 | `executionId` | Coreがoperation invocationごとに発行するExecution ID。接続やUI sessionから独立し、Execution保持期間内は状態・結果・cancelの参照に使う。 |
@@ -69,6 +69,10 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 | `GET /v1/events` | Registry通知のSSE購読。詳細は次節。 |
 | `GET /v1/rpc` | WS upgrade。Providerは `registrationId` をクエリで指定し、資格情報はヘッダーで送る。呼び出し専用接続は登録IDを指定しない。 |
 
+### Plugin manifest
+
+Pluginの場合、`POST /v1/registrations`、`PUT /v1/registrations/{registrationId}/operations`、`PUT /v1/registrations/{registrationId}/ui` などでPlugin runtimeが登録時に送る宣言情報の論理集合をPlugin manifestと呼ぶ。Plugin manifestはファイルではなく、Coreへの登録時に送られるwire上の宣言情報である。wire上は複数のREST操作に分かれるため、単一のmanifest endpointやmanifest fileを前提にしない。
+
 ### Provider scope
 
 `scope` はprovider sessionが属する実行場所・提供範囲を表す登録時の属性である。operationごとの `targetAxes` ではない。初期のkeyは次の通り。
@@ -76,7 +80,7 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 | key | 意味 |
 |---|---|
 | `environment` | Environment Providerが担当するenvironment ref。例: `env/local`。 |
-| `hostSession` | UI App capabilityが属するhost session ref。例: `host-session/electron-1`。 |
+| `hostSession` | UI App operationが属するhost session ref。例: `host-session/electron-1`。 |
 
 Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal / service scopeとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
 
@@ -93,7 +97,9 @@ Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal /
       "path": "filesystem/list",
       "description": "List directory entries",
       "inputSchema": {},
-      "outputSchema": {}
+      "acceptSchema": {},
+      "streamSchema": {},
+      "resultSchema": {}
     }
   ]
 }
@@ -101,7 +107,7 @@ Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal /
 
 `path` は登録内で一意とする。空のsegment、先頭・末尾の `/`、`/` 以外の空白、`.` / `..` segmentを拒否する。`kind`（`sync` / `async`）、`targetAxes`、`lifetime` は宣言しない。実行時間や途中出力の有無はoperation宣言では固定せず、実際のExecutionが状態を持つ。providerの寿命はprovider sessionと `providerKind` / `scope` からCoreが導出する。
 
-`inputSchema` / `outputSchema` はJSON Schemaとする。CoreがSchema検証を行う場合は登録時にSchema自体を検査し、invocation時に外部URLへ参照を取りに行かない。現行実装はCoreによる厳密なSchema検証を保証しない。Schemaの検証・型生成は後続の検証対象である。
+`inputSchema` / `acceptSchema` / `streamSchema` / `resultSchema` はJSON Schemaとする。`outputSchema` という曖昧な名前は使わない。CoreがSchema検証を行う場合は登録時にSchema自体を検査し、invocation時に外部URLへ参照を取りに行かない。現行実装はCoreによる厳密なSchema検証を保証しない。Schemaの検証・型生成は後続の検証対象である。
 
 UIファイルとPanelの宣言は後節で定める。Signalingのワイヤーは拡張候補で、メディア本体はこのAPIのデータではない。
 
@@ -211,7 +217,7 @@ Coreは次の順で配送先を解決する。
 
 ### operation catalogとAI tool schema
 
-callerは `operations.list` で、指定または接続から導出したcontextで利用できるoperation catalogを取得できる。catalog entryは `path`、`description`、`inputSchema`、`outputSchema` を持ち、`registrationId` やprovider固有の宛先を含めない。provider寿命などのmetadataはCoreが導出した値として含めてよい。
+callerは `operations.list` で、指定または接続から導出したcontextで利用できるoperation catalogを取得できる。catalog entryは `path`、`description`、`inputSchema`、`acceptSchema`、`streamSchema`、`resultSchema` を持ち、`registrationId` やprovider固有の宛先を含めない。provider寿命などのmetadataはCoreが導出した値として含めてよい。
 
 ```json
 {"jsonrpc":"2.0","id":"7","method":"operations.list","params":{"context":{"project":"project/plugumi"}}}
@@ -247,12 +253,13 @@ Executionは少なくとも次を持つ。
 | `createdAt` / `updatedAt` | Coreが記録した時刻。 |
 | `context` | Coreが解決した実行文脈。少なくともprojectなど、解決に使った公開可能なrefを含める。 |
 | `input` | 保存する場合はoperation input。秘密や大きな値をそのまま保存しない方針は別途定める。 |
+| `accept` | 受理・開始時に返るoperation固有のデータ。session ref、page ref、購読受理結果など。`executionId` などの共通fieldは含めない。 |
 | `progress` | 進行中の任意の構造化情報。 |
 | `result` / `error` | terminal状態の結果またはエラー。`error` は `{"code":"…","message":"…","data":{}}` の形で、JSON-RPCの数値コードではなくExecution内では安定した文字列codeを使う。 |
 | `resourceRefs` | 実行に関連するresource ref。 |
 | `parentExecution` | 親Executionがある場合のref。 |
 
-`operations.invoke` のResponseはExecutionを返す。既にterminalなら `result` / `error` を含めてよい。runningなら含めない。operation検証・context解決・認可の失敗など、Executionを作る前の失敗だけをJSON-RPC errorで返す。Executionを作った後のprovider timeoutや追跡不能はJSON-RPC errorではなく、Executionの `failed` / `unknown` 状態と `error` として表す。
+`operations.invoke` のResponseはExecutionを返す。既にterminalなら `result` / `error` を含めてよい。runningなら含めず、受理・開始時のoperation固有データがある場合は `accept` を含める。operation検証・context解決・認可の失敗など、Executionを作る前の失敗だけをJSON-RPC errorで返す。Executionを作った後のprovider timeoutや追跡不能はJSON-RPC errorではなく、Executionの `failed` / `unknown` 状態と `error` として表す。
 
 ```json
 {"jsonrpc":"2.0","id":"42","result":{"execution":{"id":"execution/123","operation":"filesystem/list","status":"succeeded","createdAt":"…","updatedAt":"…","context":{"project":"project/plugumi"},"result":{"entries":[]}}}}

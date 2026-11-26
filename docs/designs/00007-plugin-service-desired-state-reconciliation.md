@@ -1,7 +1,7 @@
 ---
 type: design
 title: self-managed / external Plugin serviceのdesired stateとreconciliation
-description: multi-core対応のself-managed / external Plugin serviceが利用し得るdesired stateとreconciliationの検討。managed runtimeの標準lifecycleには採用しない。
+description: multi-core対応のself-managed / external Plugin serviceが利用し得るdesired stateとreconciliationの検討。Plugumi管理のPlugin runtime processの標準lifecycleには採用しない。
 status: deprecated
 relations:
   requirement:
@@ -12,7 +12,7 @@ relations:
     - '00019'
 ---
 
-> managed plugin runtimeは[Decision 00019](../decisions/00019-multicore-plugin-process-ownership.md)により `1 Core : 1 provider session : 1 runtime process` に割り切る。managedなuser-level multi-core serviceは持たないため、このdesignはPlugumiの標準managed lifecycleには採用しない。self-managed / externalなmulti-core serviceを作る作者向けの参考として残す。
+> Plugumi管理のPlugin runtime processは[Decision 00019](../decisions/00019-multicore-plugin-process-ownership.md)により `1 Core : 1 provider session : 1 Plugin runtime process` に割り切る。managedなuser-level multi-core serviceは持たないため、このdesignはPlugumiの標準managed lifecycleには採用しない。self-managed / externalなmulti-core serviceを作る作者向けの参考として残す。
 
 ## 対応するrequirement
 
@@ -66,7 +66,7 @@ desired stateは「接続中か」ではなく「接続してほしいか」を�
 
 ## 複数Coreへの起動シーケンス
 
-このdesignは、真にmulti-core serviceが必要なPluginだけを対象にする。通常のPluginはCoreごとのprocess / sessionで起動し、重いruntimeを共有したい場合は `Coreごとのlightweight adapter + shared runtime` を優先する。利用者はその内部構成を選ばず、CoreごとにPluginをenable / disableするだけにする。
+このdesignは、真にmulti-core serviceが必要なPluginだけを対象にする。通常のPluginはCoreごとのprocess / sessionで起動し、重いruntimeを共有したい場合は `Coreごとのlightweight adapter + Plugin内部の共有service` を優先する。利用者はその内部構成を選ばず、CoreごとにPluginをenable / disableするだけにする。
 
 ### desired stateと起動control planeを分ける
 
@@ -125,7 +125,7 @@ disableを、いきなりrecord削除だけで表さない。最初は `enabled=
 
 1. controllerが `enabled=false` を書く。
 2. Plugin serviceが検知し、対象Coreへのsessionをdrainする。
-3. 実行中のものがあれば、Executionの所有者とcapability寿命に従ってcancel、中断、または完了待ちを記録する。
+3. 実行中のものがあれば、Executionの所有者とprovider / operationの利用可能期間に従ってcancel、中断、または完了待ちを記録する。
 4. Plugin serviceがstatusへ `observedGeneration` を書く。
 5. その後のrecord削除またはcleanupは、反映を確認してから行う。
 

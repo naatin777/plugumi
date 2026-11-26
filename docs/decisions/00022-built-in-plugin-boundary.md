@@ -14,7 +14,7 @@ relations:
 
 ## コンテキスト
 
-modstrataの「全部Plugin」は実験として有用だったが、寿命・trust level・targetの異なるものが同じ枠に入り扱いづらかった。Plugumiはcapability-centric workbenchとし、内部のoperation / execution / event機構はuniformにしつつ、概念と寿命とUXはuniformにしない方向で検討してきた（[Architecture 00003](../architecture/00003-daemon-centric-workbench-platform.md)、[Decision 00021](00021-plugin-narrowed-definition-and-naming.md)）。
+modstrataの「全部Plugin」は実験として有用だったが、寿命・trust level・targetの異なるものが同じ枠に入り扱いづらかった。Plugumiはoperation / Execution中心のworkbenchとし、内部のoperation / execution / event機構はuniformにしつつ、概念と寿命とUXはuniformにしない方向で検討してきた（[Architecture 00003](../architecture/00003-daemon-centric-workbench-platform.md)、[Decision 00021](00021-plugin-narrowed-definition-and-naming.md)）。
 
 その場合に必要なのが「どこまでを製品の基本体験に入れ、どこからをpluginにするか」の判断基準である。以前はこれを「標準装備」「標準搭載」と呼んでいたが、語が分かりにくく、bundled / first-class / baselineなどの分類語を増やすと配布前の現段階では過剰である。
 
@@ -29,12 +29,12 @@ modstrataの「全部Plugin」は実験として有用だったが、寿命・tr
 **個別caseの帰属**:
 
 - **terminal** — built-in。PTYはenvironmentでdurableに生き、viewはplatformが持つ
-- **file explorer** — built-in view。plugin systemの外で起動できる基本体験とする。filesystem capabilityそのものはEnvironment Providerに置く
+- **file explorer** — built-in view。plugin systemの外で起動できる基本体験とする。filesystem operationそのものはEnvironment Providerに置く
 - **DiffViewer** — built-in。テキストdiffで動き、gitの意味を必要としない
-- **Electronのbrowser automation** — Electron appのbuilt-in capability。durable service化しない
-- **filesystem / shell / process** — built-in environment capability。Coreへ内蔵せず、Environment Providerが実装する
-- **git** — built-inにしない。shellにgit専用UIを置かず、capabilityはplugin寄りとする。jjなど別VCSも存在し、DiffViewerはgitなしで成立する
-- **docker / ssh remote** — provisioning driverはplugin。主な仕事はenvironmentを外部で起動することで、接続後は「リモートのenvironmentバイナリへポートで接続する」共通経路に収束する。設定画面に出る由来（docker経由、ssh/url）はopaqueな文字列メタデータとしてgenericに表示し、appsはdocker固有のUIロジックを持たない。なお接続後のremote environment protocolはcore側の責務である
+- **Electronのbrowser automation** — Electron appのbuilt-in operation。durable service化しない
+- **filesystem / shell / terminal / process / network接続** — built-in environment operation。Coreへ内蔵せず、Environmentが実装し、Environment Provider経由でCoreへ提供する
+- **git** — built-inにしない。shellにgit専用UIを置かず、operationはplugin寄りとする。jjなど別VCSも存在し、DiffViewerはgitなしで成立する
+- **docker / ssh remote** — provisioning driverはplugin。主な仕事はenvironmentを外部で起動することで、接続後は同じremote environmentの経路へ収束する。SSH経由ではSSH先でremote Environmentを起動し、そのremote EnvironmentがCoreへ接続する。設定画面に出る由来（docker経由、ssh/url）はopaqueな文字列メタデータとしてgenericに表示し、appsはdocker固有のUIロジックを持たない
 - **AI agent** — 一旦built-inにはせず、pluginとして扱う。built-inへ格上げするかはMVPの検証後に見直す
 
 ## 代替案
@@ -47,7 +47,7 @@ modstrataの「全部Plugin」は実験として有用だったが、寿命・tr
 
 ## トレードオフと帰結
 
-得るもの: 判断が「製品の基本体験に何を入れるか」という問いに還元され、迷ったときの基準が明確になる。built-inでもcapability機構はuniformなので、plugin側の拡張性を失わない。
+得るもの: 判断が「製品の基本体験に何を入れるか」という問いに還元され、迷ったときの基準が明確になる。built-inでもoperation / Execution機構はuniformなので、plugin側の拡張性を失わない。
 
 失うもの・残課題:
 

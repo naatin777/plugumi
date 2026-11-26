@@ -47,4 +47,4 @@ relations:
 - 実行時権限検証を最小限（hello済み呼び出しのみ）以上に広げるか
 - 呼び出し元identityを対象Pluginへ伝えるか
 - linkId の永続化を将来導入する場合の再登録キー（実装ID+任意ラベル等）
-- Node宣言の粒度（NodeごとのCapability差分を表現するか）
+- Node宣言の粒度（Nodeごとのoperation差分を表現するか）

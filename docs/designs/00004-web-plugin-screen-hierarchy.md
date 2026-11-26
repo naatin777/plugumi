@@ -1,7 +1,7 @@
 ---
 type: design
-title: Web Pluginの画面階層とCoreの選択
-description: Web PluginのURL構成、Core > Project > Area > Workspaceの階層、Coreの追加と名前の解決を定める。
+title: Web appの画面階層とCoreの選択
+description: Web appのURL構成、Core > Project > Area > Workspaceの階層、Coreの追加と名前の解決を定める。
 status: draft
 relations:
   requirement:
@@ -15,7 +15,11 @@ relations:
 
 ## 対応するrequirement
 
-[Requirement 00003](../requirements/00003-plugin-ecosystem-support.md)は、同じPluginプロセスが複数のCoreへ独立に接続できることを求めている。[Requirement 00004](../requirements/00004-common-protocol-contracts.md)は、人間がPluginの機能や結果を画面から利用できることを求めている。本書は、[Decision 00013](../decisions/00013-web-plugin-gateway.md)で決めたWeb Pluginについて、複数のCoreを1つのブラウザ画面で切り替える方法と、画面の階層を定める。
+[Requirement 00003](../requirements/00003-plugin-ecosystem-support.md)は、同じPluginプロセスが複数のCoreへ独立に接続できることを求めている。[Requirement 00004](../requirements/00004-common-protocol-contracts.md)は、人間がPluginの機能や結果を画面から利用できることを求めている。本書は、[Decision 00013](../decisions/00013-web-plugin-gateway.md)で決めたWeb appについて、複数のCoreを1つのブラウザ画面で切り替える方法と、画面の階層を定める。
+
+## 概念階層の前提
+
+[Decision 00030](../decisions/00030-environment-and-project-model.md)に従い、概念階層は Project > Area > Workspace > Panel とする。AreaとWorkspaceの対応関係は現時点では確定しない。このdesignのURL・保存・操作設計は実装時に詳細を決める。
 
 ## 画面の階層
 
@@ -23,23 +27,23 @@ relations:
 flowchart LR
     Core["Core（組織）"] --> Project["Project"]
     Project --> Area["Area（worktree・package・別repositoryなど）"]
-    Area --> Child["子のArea（入れ子にできる）"]
-    Area --> Workspace["Workspace（Areaに1つ）"]
+    Area --> Workspace["Workspace"]
     Workspace --> Center["centerのsplit tree"]
     Center --> Leaf["leaf"]
     Leaf --> Panel["Panel"]
 ```
 
-- Areaは入れ子にでき、フォルダのようなツリーになる。親のAreaも子のAreaも、それぞれWorkspaceを1つずつ持つ。
-- WorkspaceはAreaと1対1に対応し、centerのsplit treeだけを持つ。固定されたleft・bottom・rightのDockは存在しない。「縁に常設する」配置は、利用者がtreeの端にleafを作ることで表現する。
+- 概念階層は Project > Area > Workspace > Panel とする。ProjectはAreaをまとめ、AreaはWorkspaceをまとめ、WorkspaceはPanelとそのtab構成をまとめる。Areaは以前Collectionと呼ばれていたものに相当する。
+- AreaとWorkspaceの対応関係は現時点では確定しない。いまは「1つのAreaを開くとWorkspaceという領域が開き、その中にPanelがtabや分割で並ぶ」という理解に留め、詳細は実装時に決める。
+- Workspaceはcenterのsplit treeだけを持つ。固定されたleft・bottom・rightのDockは存在しない。「縁に常設する」配置は、利用者がtreeの端にleafを作ることで表現する。
 - 各leafはPanelのタブを並べる。centerのsplit treeは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分かれる。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
 - 画面は左の**Area list**（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。上部にProject切替）と、右の**Main**（選択中Areaを表示、URLが正本）と**Sub**（別のAreaを右に表示、開閉できる）からなる。Detachは「別windowに出す」と印を付けたAreaで、Area listの行メニュー「別windowで開く」から移す（Electronのみ）。
 - Panelはregionをまたいでドラッグできる。Area内の全領域の相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。Areaをまたぐ移動はArea listの行で行う。Panelは同じwindowのMain・Subの間でもdragで移せる（Panel Instanceは作り直さず移譲する）。ただし同じAreaをMainとSubの両方に出しているときは移せない（両者が別々にworkspaceを保存するため）。
-- Areaが何を持つか（参照するリソースや種類の表し方）は、入れ子の構造のほかは未決定。
+- AreaがWorkspace以外に何を持つか（参照するリソースや種類の表し方）、Areaが入れ子になるかは未決定。
 
 ## 画面の構成
 
-Plugin Shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb PluginとElectron Pluginが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
+Workbench shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb appとElectron appが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
 - **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にArea listの開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とSubの開閉を持つ（位置は固定）。テーマや背景の切替はSettingsのPanelへ移す予定。
 - **本体**: 左のArea list（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。Areaの選択・作成・削除・Projectの切替と作成もここ）、中央のMain（選択中AreaのWorkspace）と右のSub（開閉できる2枚目）。
@@ -49,44 +53,44 @@ Coreの切り替えを一番外側の帯に置くのは、Coreが接続先であ
 
 ## 保存
 
-Project・Area・Workspaceの状態は、Web Pluginのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
+Project・Area・Workspaceの状態は、Web appのサーバーが `~/.plugumi/web/<Core名>.json` に保存する。Coreはこれらの階層を扱わない。
 
 - Core名をキーにする。`coreId` はCoreの再起動で変わるので、Core名のないCoreではProjectを作れない。
 - PanelはPanel InstanceのIDと、Pluginの識別子（`providerId`）と `panelId` で保存する。登録の識別子（`registrationId`）はPluginの再起動で変わるので保存しない。表示するときに、同じPluginの同じPanelを提供している登録を探す。
-- Workspaceの中身はPlugin Shellが所有するJSONで、Web Pluginのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
+- Workspaceの中身はWorkbench shellが所有するJSONで、Web appのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
 - 同じWorkspaceを複数のタブで同時に編集した場合は、後から保存した内容が残る。
-- `~/.plugumi/` には旧リポジトリのファイルが残っている場合がある。Web Pluginは `~/.plugumi/web/` の下だけを使い、それ以外には触れない。
+- `~/.plugumi/` には旧リポジトリのファイルが残っている場合がある。Web appは `~/.plugumi/web/` の下だけを使い、それ以外には触れない。
 
 ## URL
 
 | パス | 画面 |
 |---|---|
 | `/` | Core一覧。Coreの追加と削除もここで行う |
-| `/<core>/` | この端末で最後に開いた場所へ移動する。なければ先頭のProject、ProjectもなければPlugin Shellの画面 |
+| `/<core>/` | この端末で最後に開いた場所へ移動する。なければ先頭のProject、ProjectもなければWorkbench shellの画面 |
 | `/<core>/<project>/` | Projectの画面。Areaのツリーを表示する |
-| `/<core>/<project>/<area>/<子のarea>/...` | そのAreaのWorkspace |
+| `/<core>/<project>/<area>/...` | そのAreaのWorkspace。複数Workspace化に伴うURLは未決定 |
 
 `<core>` にはCore名を使う。Core名がないCoreは `coreId` で表すが、`coreId` はCoreの再起動で変わるため、ブックマークには使えない。
 
 ProjectとAreaは、表示名（title）とURLの識別子（key）を分ける。titleは日本語・大文字・記号を含む自由な表示名（空・制御文字・64文字以上のみ不可）で、識別子ではないため重複を許す。keyはserverが作成時に発行する8文字のランダムな識別子（小文字英数）で、ProjectはCore内で、Areaは同じ親のArea内で一意とする。URLの `<project>` ・ `<area>` にはkeyを使う。
 
-Web Plugin自身も、APIの `/api/`、ビルド済みファイルの `/assets/`、PanelのUIファイルを中継する `/ui/` をパスの先頭に使う。そのため、Web Pluginは `api`・`assets`・`ui` をCore名として予約し、URLには使わない。これらはWeb Plugin側の都合なので、Coreの設定では禁止しない。Core名が予約名と同じCoreは、画面から追加できない。`--core` で指定されている場合は一覧に表示するが、リンクは作らない。
+Web app自身も、APIの `/api/`、ビルド済みファイルの `/assets/`、PanelのUIファイルを中継する `/ui/` をパスの先頭に使う。そのため、Web appは `api`・`assets`・`ui` をCore名として予約し、URLには使わない。これらはWeb app側の都合なので、Coreの設定では禁止しない。Core名が予約名と同じCoreは、画面から追加できない。`--core` で指定されている場合は一覧に表示するが、リンクは作らない。
 
 ## Coreの一覧と名前の解決
 
-Web Pluginは2種類の経路で接続先を受け取る。
+Web appは2種類の経路で接続先を受け取る。
 
 | 経路 | 保存 | 画面からの削除 |
 |---|---|---|
 | 起動コマンドの `--core`、または `PLUGUMI_CORE_URL` | しない（起動のたびに指定する） | できない |
-| `/` の画面から追加 | Web Pluginの設定ファイルに保存する | できる |
+| `/` の画面から追加 | Web appの設定ファイルに保存する | できる |
 
-同じoriginのURLは1つにまとめる。接続先が1つもない状態でも、Web Pluginは起動する。
+同じoriginのURLは1つにまとめる。接続先が1つもない状態でも、Web appは起動する。
 
 ```mermaid
 sequenceDiagram
     participant B as ブラウザ
-    participant W as Web Plugin
+    participant W as Web app
     participant C as Core
     B->>W: / でCore URLを追加
     W->>C: GET /v1/core
@@ -97,19 +101,19 @@ sequenceDiagram
     W-->>B: /<name>/ に移動できる
 ```
 
-- 画面から追加するときは、Core名が必須である。名前がなければ、Web Pluginは「`core.name` を設定してください」と返して追加を断る。
-- Web Pluginは、Coreに登録するたびに `GET /v1/core` を呼び、`coreId` とCore名を取り直す。Core名が変わった場合、Web Pluginは新しい名前でURLを作り、古いURLは使えなくなる。
+- 画面から追加するときは、Core名が必須である。名前がなければ、Web appは「`core.name` を設定してください」と返して追加を断る。
+- Web appは、Coreに登録するたびに `GET /v1/core` を呼び、`coreId` とCore名を取り直す。Core名が変わった場合、Web appは新しい名前でURLを作り、古いURLは使えなくなる。
 - 保存されるのはURLなので、Coreのポートは固定する必要がある。Coreの既定のポートは `0` で、起動のたびに変わる。
 
 ## Core名の一意性
 
 - Coreは起動時に、同じOSユーザーで動いている他のCoreを調べ、同じCore名のCoreがあれば起動しない。
-- Web Pluginは、画面から追加するCoreの名前が、接続中の他のCoreと重なれば追加を断る。
+- Web appは、画面から追加するCoreの名前が、接続中の他のCoreと重なれば追加を断る。
 - 別のマシンのCoreとの名前の重複は、まだ扱わない。現行のCoreはloopbackでだけ待ち受ける。
 
 ## インターフェース
 
-Core名を返すAPIは[接続契約 00004](../contracts/00004-plugin-client-protocol.md)の `GET /v1/core` を正本とする。ブラウザとWeb Pluginの間のAPIは、Web Plugin内部のものとして扱い、契約にはしない。
+Core名を返すAPIは[接続契約 00004](../contracts/00004-plugin-client-protocol.md)の `GET /v1/core` を正本とする。ブラウザとWeb appの間のAPIは、Web app内部のものとして扱い、契約にはしない。
 
 ## 未解決の問い
 

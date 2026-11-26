@@ -9,7 +9,7 @@ relations:
     - '00004'
     - '00005'
   architecture:
-    - '00002'
+    - '00003'
   contract:
     - '00004'
   design:
@@ -20,7 +20,7 @@ relations:
 
 ## 対象と前提
 
-[採用した接続方針](../decisions/00012-plugin-initiated-connections.md)の合格条件と、[接続契約](../contracts/00004-plugin-client-protocol.md)・[新構成](../architecture/00002-plugin-client-system.md)で比較する方式の検証計画。草案の候補を試すシナリオが通っても、方式を採用したことにはならない。
+[採用した接続方針](../decisions/00012-plugin-initiated-connections.md)の合格条件と、[接続契約](../contracts/00004-plugin-client-protocol.md)・[現行構成](../architecture/00003-daemon-centric-workbench-platform.md)で比較する方式の検証計画。草案の候補を試すシナリオが通っても、方式を採用したことにはならない。
 
 [旧方式の検証](00001-core-plugin-mvp-conformance.md)を置き換える。
 

@@ -2,7 +2,7 @@
 type: decision
 title: 動的Tool pathではなくstructured targetでoperationを振り分ける
 description: project / account / environment / hostをstructured contextとして扱い、dynamic path segmentではなくstructured invocation contextとresource refでroutingする方針を記録する。
-status: draft
+status: deprecated
 relations:
   architecture:
     - '00003'
@@ -14,7 +14,7 @@ relations:
 
 ## コンテキスト
 
-`standard` やElectron appのUI App capabilityが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
+`standard` やElectron appのUI App operationが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
 
 しかし、project、account、environment、hostは独立した軸である。同じprojectをlocalとWSLで開くこと、同じaccountを複数Electron hostで使うこと、projectごとにdefault account / profileを持つことがある。1本のdynamic pathに埋め込むと、これらの軸を表しにくい。
 
@@ -84,7 +84,7 @@ relations:
 | 案 | 採らない理由 |
 |---|---|
 | `standard/{project}/files/create` のようなdynamic path | project / environment / host / accountの独立した軸を1本の文字列へ潰す。Tool数も動的に増える |
-| `electron/{account}/browser/click` のような実装名入りpath | `electron` や `standard` はcapabilityの意味ではなく実装・提供元の名前である。Provider replacementと相性が悪い |
+| `electron/{account}/browser/click` のような実装名入りpath | `electron` や `standard` はoperationの意味ではなく実装・提供元の名前である。Provider replacementと相性が悪い |
 | 現在のUIやprojectから完全に暗黙推測する | 複数host・複数環境があるときに意図しない対象へ操作が行く。AI操作では特に危険である |
 | resource refを使わず毎回project / accountを指定する | pageやfileなどのinstanceが所属先を持つので冗長である。参照が矛盾する可能性がある |
 

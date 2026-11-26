@@ -1,7 +1,7 @@
 ---
 type: contract
-title: PanelのモジュールとWeb Pluginの接続
-description: Pluginが提供するPanelのentryがexportする関数、Web Pluginが渡すcontext、CSSの範囲、Panelのライフサイクルを定める。
+title: PanelのモジュールとWeb appの接続
+description: Pluginが提供するPanelのentryがexportする関数、Web appが渡すcontext、CSSの範囲、Panelのライフサイクルを定める。
 status: draft
 relations:
   decision:
@@ -15,9 +15,9 @@ relations:
 ## 当事者
 
 - **Panelのモジュール**: Pluginが提供するUI Bundleのentry。ESMのJavaScriptファイル。
-- **Web Plugin**: entryを読み込み、画面に表示する。
+- **Web app**: entryを読み込み、画面に表示する。
 
-Panelのモジュールは、Web Pluginと同じOriginで動き、Panel InstanceごとのShadowRootの中にDOMを作る（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）。Shadow DOMは見た目を分けるためのもので、信頼の境界ではない。entryのファイルと宣言の受け渡しは[Contract 00004](00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」に従う。
+Panelのモジュールは、Web appと同じOriginで動き、Panel InstanceごとのShadowRootの中にDOMを作る（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）。Shadow DOMは見た目を分けるためのもので、信頼の境界ではない。entryのファイルと宣言の受け渡しは[Contract 00004](00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」に従う。
 
 ## entryがexportするもの
 
@@ -51,9 +51,9 @@ interface PanelContext {
 
 ## Panelのライフサイクル
 
-Web Pluginは、開いている1つ1つのPanelをPanel Instanceとして扱う。Panel Instanceは、Panelの宣言（Pluginと `panelId`）とは別のもので、Web PluginがIDを振る。同じPanelを複数開くと、それぞれが別のPanel Instanceになる。
+Web appは、開いている1つ1つのPanelをPanel Instanceとして扱う。Panel Instanceは、Panelの宣言（Pluginと `panelId`）とは別のもので、Web appがIDを振る。同じPanelを複数開くと、それぞれが別のPanel Instanceになる。
 
-| できごと | Web Pluginが行うこと |
+| できごと | Web appが行うこと |
 |---|---|
 | Panelを開く | 新しいPanel Instanceを作り、`mount` を1回呼ぶ |
 | タブを切り替える | 表示を隠すだけで、`destroy` も `mount` も呼ばない。DOMはそのまま残る |
@@ -61,9 +61,9 @@ Web Pluginは、開いている1つ1つのPanelをPanel Instanceとして扱う�
 | UIが更新される（`uiSha256` が変わる） | `destroy` を呼んでから、新しい版のentryで `mount` し直す |
 | 提供元の登録がなくなる | 同じPluginの同じPanelの登録が1つだけあれば、それで `mount` し直す。なければ、その旨を表示してPanel Instanceは残す |
 
-Panelは `destroy` で購読やタイマーを片付ける。`mount` し直したとき、Web PluginはPanelの内部状態を復元しない。
+Panelは `destroy` で購読やタイマーを片付ける。`mount` し直したとき、Web appはPanelの内部状態を復元しない。
 
-Web Pluginは、表示に失敗した理由を次の3つに分けて示し、同じPanel Instanceのまま再試行できるようにする。
+Web appは、表示に失敗した理由を次の3つに分けて示し、同じPanel Instanceのまま再試行できるようにする。
 
 | 分類 | 意味 |
 |---|---|
@@ -75,10 +75,10 @@ Web Pluginは、表示に失敗した理由を次の3つに分けて示し、同
 
 Panelは専用のShadowRootの中に描かれるので、CSSはShadow DOMの境界で分かれる。この分離は見た目のためのもので、セキュリティの境界ではない — PanelのJSはdocumentを直接触れる。
 
-- **Web Plugin自身のCSS**: document側のCSSとして書く。Shadow DOMを越えないのでPanelには届かず、Panelに届くのはToken（CSS変数）と、文字色やフォントなどの継承される値だけである。
-- **PanelのCSS**: Panelの宣言の `styles` に、UI BundleのCSSファイルを書く。Web PluginはそれをそのPanelのShadowRootにだけ適用する（`adoptedStyleSheets`）。`@keyframes` もshadow内で閉じるため、他のPanelやWeb Pluginと名前が衝突しない。`@font-face` はshadow内では登録できないため、Web Pluginがdocument側へ出す — 画面全体で共有され、名前の衝突はPanel側が避ける。`@import` は使えない。
+- **Web app自身のCSS**: document側のCSSとして書く。Shadow DOMを越えないのでPanelには届かず、Panelに届くのはToken（CSS変数）と、文字色やフォントなどの継承される値だけである。
+- **PanelのCSS**: Panelの宣言の `styles` に、UI BundleのCSSファイルを書く。Web appはそれをそのPanelのShadowRootにだけ適用する（`adoptedStyleSheets`）。`@keyframes` もshadow内で閉じるため、他のPanelやWeb appと名前が衝突しない。`@font-face` はshadow内では登録できないため、Web appがdocument側へ出す — 画面全体で共有され、名前の衝突はPanel側が避ける。`@import` は使えない。
 
-Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照できる。値はWeb Pluginが決め、Dark/Lightは `:root` の `data-plugumi-theme` で切り替わる。
+Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照できる。値はWeb appが決め、Dark/Lightは `:root` の `data-plugumi-theme` で切り替わる。
 
 | 種別 | 名前の例 |
 |---|---|
@@ -86,7 +86,7 @@ Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照�
 | 文字 | `--plugumi-font-family-sans`、`--plugumi-font-family-mono`、`--plugumi-font-size-md`、`--plugumi-font-weight-semibold`、`--plugumi-line-height-md` |
 | 余白・角丸 | `--plugumi-spacing-xs` 〜 `--plugumi-spacing-xl`、`--plugumi-radii-sm` 〜 `--plugumi-radii-lg` |
 
-Tokenの名前は `@plugumi/plugin-view` の `tokenNames` でも参照できる。値の正本は、Plugin Shellの `shared/workbench/src/styles/tokens.css` とする。
+Tokenの名前は `@plugumi/plugin-view` の `tokenNames` でも参照できる。値の正本は、Workbench shellの `shared/workbench/src/styles/tokens.css` とする。
 
 Panelの最背面は透明にする。Panelの面はShellが領域によらず `--plugumi-colors-background-secondary` で敷く（Design 00005「面と縁」）。Panelが自分で最背面を塗る必要はなく、Tokenで面の色を塗るのはPanel内部で面を分けたい要素に限る。
 

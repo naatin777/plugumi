@@ -12,11 +12,11 @@ relations:
 
 ## コンテキスト
 
-capability-centric workbenchでは、AIやUIはprovider implementationではなくsemanticなoperationを選ぶ。一方、実際の実行にはproject、environment、host、service account / profileなどの文脈が必要になる。これを呼び出し元へ毎回入力させると、AIが誤った対象を選び、呼び出し契約も複雑になる。
+operation / Execution中心のworkbenchでは、AIやUIはprovider implementationではなくsemanticなoperationを選ぶ。一方、実際の実行にはproject、environment、host、service account / profileなどの文脈が必要になる。これを呼び出し元へ毎回入力させると、AIが誤った対象を選び、呼び出し契約も複雑になる。
 
 したがって、operation選択とprovider routingを分ける。callerはoperationとinputを選び、Coreはinvocation context、resource ref、project bindingからproviderを解決する。Coreは便利さのために曖昧な候補を黙って選んではならない。
 
-呼び出し元にはPluginと、TUI・UI Host・スクリプト・agent runtimeなどの非Pluginクライアントを含む。接続や識別子のwire表現はプロトコル版の契約で定義する。
+呼び出し元にはPluginと、TUI・UI App・スクリプト・agent runtimeなどの非Pluginクライアントを含む。接続や識別子のwire表現はプロトコル版の契約で定義する。
 
 ## 要求事項
 

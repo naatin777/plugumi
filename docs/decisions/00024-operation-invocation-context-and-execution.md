@@ -1,7 +1,7 @@
 ---
 type: decision
 title: operation呼び出しをpath・context自動解決・Executionへ統一する
-description: capability indirectionを採用し、toolPath分離・targetAxes・lifetime宣言・sync/async分類を廃止する。AIにはcontextを見せず、project-scoped sessionとExecutionで統一する方針を記録する。
+description: operation indirectionを採用し、toolPath分離・targetAxes・lifetime宣言・sync/async分類を廃止する。AIにはcontextを見せず、project-scoped sessionとExecutionで統一する方針を記録する。
 status: draft
 relations:
   architecture:
@@ -14,9 +14,9 @@ relations:
 
 ## コンテキスト
 
-改訂前の[Contract 00004](../contracts/00004-plugin-client-protocol.md)は、callerが `registrationId + toolPath` を直接指定してToolを呼ぶ形を取っていた。一方、capability-centric workbenchでは、AIやUIはprovider implementationではなくcapability / operationと実行対象を選ぶ必要がある。
+改訂前の[Contract 00004](../contracts/00004-plugin-client-protocol.md)は、callerが `registrationId + toolPath` を直接指定してToolを呼ぶ形を取っていた。一方、operation / Execution中心のworkbenchでは、AIやUIはprovider implementationではなくoperationと実行対象を選ぶ必要がある。
 
-ここで、`operation + target` を正本としつつ `registrationId + toolPath` もpublic APIとして残すhybrid案が出た。しかし、これは2つの呼び方を永久に保守し、provider実装を隠すというcapability indirectionの目的を弱める。移行を楽にする以上の複雑さを招くため採用しない。
+ここで、`operation + target` を正本としつつ `registrationId + toolPath` もpublic APIとして残すhybrid案が出た。しかし、これは2つの呼び方を永久に保守し、provider実装を隠すというoperation indirectionの目的を弱める。移行を楽にする以上の複雑さを招くため採用しない。
 
 ## 決定
 
@@ -158,12 +158,12 @@ AIへは毎回非同期の形で見せなくてよい。agent runtimeが短時�
 
 ### provider descriptorからtargetAxesとlifetimeを外す
 
-`targetAxes` はproviderごとに宣言しない。target / contextの意味はoperation定義側が持ち、providerは自分が属するscopeを持つ。例えばEnvironment Providerは `env/local`、Electron appのUI App capabilityは `host/electron-1` に属する。Coreはcontextからscopeを解決し、そのscopeでoperationを実装するproviderを選ぶ。
+`targetAxes` はproviderごとに宣言しない。target / contextの意味はoperation定義側が持ち、providerは自分が属するscopeを持つ。例えばEnvironment Providerは `env/local`、Electron appのUI App operationは `host/electron-1` に属する。Coreはcontextからscopeを解決し、そのscopeでoperationを実装するproviderを選ぶ。
 
 `lifetime` もproviderがoperationごとに自己申告する項目にはしない。Coreがprovider sessionの種類から導出する。
 
 - daemon-managed / external service provider → durable
-- hostから接続されたcapability provider → host-session
+- hostから接続されたUI App operation provider → host-session
 - Workbench UI内だけのもの → ui-session
 
 AIへ見せるcatalogには、この寿命をderived metadataとして表示してよい。ただしwire contractやprovider宣言の必須項目にはしない。
@@ -195,7 +195,7 @@ Coreはcaller executionのprojectを見て、`project/plugumi -> account/github/
 ## トレードオフと帰結
 
 - [Decision 00018](00018-operation-targeting-context.md)のstructured target object案は、このdecisionのinvocation contextとresource ref中心の解決へ置き換える。dynamic pathを避ける方向と、暗黙推測を避ける方向は維持する。
-- Contract 00004は `registrationId + toolPath` をcaller contractから外し、operation invocationとExecutionを正本に据えるよう改訂した。次はCore・Provider・UI Host実装をこのcontractへ移行し、縦切りで検証する必要がある。
+- Contract 00004は `registrationId + toolPath` をcaller contractから外し、operation invocationとExecutionを正本に据えるよう改訂した。次はCore・Provider・UI App実装をこのcontractへ移行し、縦切りで検証する必要がある。
 - contextを自動解決する分、ambiguous errorとchooserのUXが重要になる。Coreは黙ってproviderやaccountを選んではいけない。
 - すべての呼び出しがExecutionになるため、fastなoperationではExecution recordを軽量に保つ実装が必要になる。永続化範囲や保存期間は別途決める。
 - compositeなproject×environmentが必要になった場合は、target axisをcallerへ開くのではなく、binding resourceとして表す方向を先に検討する。

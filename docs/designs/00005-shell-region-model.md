@@ -13,6 +13,8 @@ relations:
     - '00005'
 ---
 
+> 注意: [Decision 00030](../decisions/00030-environment-and-project-model.md)に従い、概念階層は Project > Area > Workspace > Panel とする。AreaとWorkspaceの対応関係は現時点では確定しない。このdesignの保存形式とArea-scopeの記述は現行実装寄りの前提を含むため、詳細は実装時に見直す。
+
 ## 対応するrequirement
 
 [Requirement 00004](../requirements/00004-common-protocol-contracts.md)は人間がPluginの機能を画面から利用することを求めている。本書は[Design 00004](00004-web-plugin-screen-hierarchy.md)の階層（Core > Project > Area > Workspace）の下で、Shellがパネルをどの領域にどう配置するかを定める。
@@ -134,7 +136,7 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 
 ## 保存の形
 
-Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web Pluginのサーバーは中身を解釈せずに保存し、そのまま返す。ElectronはWeb Pluginの画面を開くため、Workspaceの保存も同じWeb Pluginが担う。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
+Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web appのサーバーは中身を解釈せずに保存し、そのまま返す。ElectronはWeb appの画面を開くため、Workspaceの保存も同じWeb appが担う。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
 
 ```ts
 type PanelRef = { instanceId: string; providerId: string; panelId: string };

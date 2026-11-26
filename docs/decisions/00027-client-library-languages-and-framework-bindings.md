@@ -37,15 +37,15 @@ Coreとの通信はREST / SSE / WebSocket RPCを使う。REST部分はOpenAPIか
 
 ## 命名の扱い
 
-TypeScript / Node.js向けlibraryの命名は確定しない。候補として `core-client`、`provider`、`core-transport` などがあるが、現行 `plugin-client` にはCore接続、Tool dispatch、UI bundle読込、process recordが混在しているため、責務を分ける前に名前だけ決めると実態と合わない。`core-client` は通信clientとしては自然だがprovider登録の役割を表しにくく、`provider` はruntime entry向けとしては自然だがcallerや低level通信まで含めると狭すぎる。
+TypeScript / Node.js向けlibraryの命名は確定しない。候補として `core-client`、`provider`、`core-transport` などがあるが、現行 `plugin-client` にはCore接続、Tool dispatch、UI bundle読込、process recordが混在しているため、責務を分ける前に名前だけ決めると実態と合わない。`core-client` は通信clientとしては自然だがprovider登録の役割を表しにくく、`provider` はPlugin runtime向けとしては自然だがcallerや低level通信まで含めると狭すぎる。
 
-責務の境界としては、Core接続、WebSocket RPC、tool / operation dispatch、UI bundle登録を通信library側の候補とする。一方、process record、heartbeat、cache path、host discoveryはCore通信libraryの責務にせず、process lifecycle / discovery側の責務として分ける。この境界を具体化するには、Core、Plugin runtime、Environment Provider、Workbench Host / appの起動・停止・所有関係を先に整理する必要がある。
+責務の境界としては、Core接続、WebSocket RPC、tool / operation dispatch、UI bundle登録を通信library側の候補とする。一方、process record、heartbeat、cache path、host discoveryはCore通信libraryの責務にせず、process lifecycle / discovery側の責務として分ける。この境界を具体化するには、Core、Plugin runtime、Environment Provider、UI Appの起動・停止・所有関係を先に整理する必要がある。
 
 npmのTypeScript / Node.js artifact名に `ts` を付ける必要はない。package自体がJavaScript / TypeScript ecosystemのartifactだからである。一方、Go・Rustなどの実装をrepository内で並べる場合は、directory名やartifact名を各言語のecosystemに合わせて区別する必要がある。ただし、その命名規則も最初の非TypeScript実装が必要になるまで確定しない。
 
 ## トレードオフと帰結
 
-得るもの: WebSocketまわりの複雑さを各Provider / client実装へ分散させず、言語ごとのlibraryへ集約できる。framework非依存のcommunication runtimeと、SolidなどのUI integrationを分けて検討できる。
+得るもの: WebSocketまわりの複雑さを各Provider / client実装へ分散させず、言語ごとのlibraryへ集約できる。framework非依存のcommunication layerと、SolidなどのUI integrationを分けて検討できる。
 
 失うもの: 複数言語のlibrary設計・conformance test・schema生成の費用が増える。公開予定で分類はしないが、libraryとしての品質は必要になる。
 

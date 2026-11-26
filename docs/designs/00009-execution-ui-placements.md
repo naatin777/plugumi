@@ -104,7 +104,7 @@ UI connectionはExecutionを所有しない。Electronを閉じたり、Web tab�
 
 別Hostから開いた場合、execution centerまたはWorkbench状態から同じExecutionを見つけられる。inline embedが元のHostでしか見えなくても、Executionへの参照が残っていれば状態を復元できる。
 
-host-session capabilityを使う実行は例外であり、Electron quitなどでruntimeが失われた場合は、Executionを失敗、中断、またはruntime unavailableとして記録する。詳細な記録方法は未決定である。
+host-session operationを使う実行は例外であり、Electron quitなどでruntimeが失われた場合は、Executionを失敗、中断、またはruntime unavailableとして記録する。詳細な記録方法は未決定である。
 
 ## cancel / retry / attention
 
