@@ -1,7 +1,7 @@
 ---
 type: decision
 title: 動的Tool pathではなくstructured targetでoperationを振り分ける
-description: project / account / environment / hostをfirst-class contextとして扱い、dynamic path segmentではなくstructured invocation contextとresource refでroutingする方針を記録する。
+description: project / account / environment / hostをstructured contextとして扱い、dynamic path segmentではなくstructured invocation contextとresource refでroutingする方針を記録する。
 status: draft
 relations:
   architecture:
@@ -14,13 +14,13 @@ relations:
 
 ## コンテキスト
 
-`standard` やElectronのHost Capability Providerが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
+`standard` やElectron appのUI App capabilityが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
 
 しかし、project、account、environment、hostは独立した軸である。同じprojectをlocalとWSLで開くこと、同じaccountを複数Electron hostで使うこと、projectごとにdefault account / profileを持つことがある。1本のdynamic pathに埋め込むと、これらの軸を表しにくい。
 
 ## 決定
 
-- project、account、environment、host、profileをfirst-classなinvocation contextとして扱う。
+- project、account、environment、host、profileをstructured invocation contextとして扱う。
 - operation名は `standard` や `electron` のような実装名ではなく、`filesystem/create` や `hostBrowser/click` のような意味単位にする。
 - project IDやaccount IDなどの動的な識別子をcanonicalなoperation pathへ埋め込まない。
 - invocationは `operation`、`target` / `context`、`input` を分ける。

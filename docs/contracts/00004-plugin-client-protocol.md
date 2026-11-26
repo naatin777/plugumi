@@ -25,11 +25,11 @@ relations:
 
 ## 当事者・バージョン
 
-**方針:** Coreがサーバー、ProviderとUI Hostはクライアント。REST・SSE・WSを同じCoreのHTTP入口で提供し、Providerへの着信はProviderが開始したWSで配送する。operation invocationとPanel専用APIは分ける。
+**方針:** Coreがサーバー、ProviderとUI Appはクライアント。REST・SSE・WSを同じCoreのHTTP入口で提供し、Providerへの着信はProviderが開始したWSで配送する。operation invocationとPanel専用APIは分ける。
 
 この版は[Decision 00024](../decisions/00024-operation-invocation-context-and-execution.md)に従い、callerが `registrationId + toolPath` を指定する形を廃止する。callerはsemanticなoperation pathとoperation inputを指定し、provider選択とscope解決はCoreが行う。`registrationId` はCore内部の登録・配送管理IDであり、callerが指定する宛先ではない。
 
-**移行:** 開発中の旧 `/v1/` と互換を保たない。旧[接続 00001](00001-core-plugin-transport.md)、[非同期チャネル 00002](00002-async-channel.md)、[Tool呼び出し 00003](00003-tool-call.md)、および旧revisionの `tools.call` / `PUT /tools` はこのcontractの正本ではない。Core・Provider・UI Hostを同時に更新する。未対応の版は `426 protocol_mismatch`、廃止された旧パスは `404 unknown_endpoint`。旧方向へのフォールバックはない。
+**移行:** 開発中の旧 `/v1/` と互換を保たない。旧[接続 00001](00001-core-plugin-transport.md)、[非同期チャネル 00002](00002-async-channel.md)、[Tool呼び出し 00003](00003-tool-call.md)、および旧revisionの `tools.call` / `PUT /tools` はこのcontractの正本ではない。Core・Provider・UI Appを同時に更新する。未対応の版は `426 protocol_mismatch`、廃止された旧パスは `404 unknown_endpoint`。旧方向へのフォールバックはない。
 
 **実装範囲:** 現行実装は旧revisionの `registrationId + toolPath` と `sync` / `async` Tool modelに基づく。この文書は改訂後のcontract案であり、実装は順次移行する。認証は引き続きloopback上のネイティブクライアントを前提とし、`PLUGUMI_TOKEN` をCoreに設定した場合は全操作に同じBearer資格情報が必要で、所有主体別の権限はない。ブラウザ、運用向け認可、動的なMethod Schema検証、Executionの永続化、credit型Streamingは草案または未実装のまま。
 
@@ -41,16 +41,16 @@ HTTP/1.1でREST・SSEとWS upgradeを利用できることを基準とする。H
 |---|---|
 | `coreId` | Coreが起動ごとに発行する不透明な文字列。Snapshot、登録、Executionの世代を識別する。Core URLや接続先の認証を代替しない。 |
 | `providerId`, `instanceId` | Providerが宣言する実装名と、実行プロセスごとに発行する不透明なID。権限の証明にはならない。`instanceId` の登録時の一意性は認証主体とCoreの世代の内側で扱う。 |
-| `providerKind` | 登録者の種別。`plugin`（installable package、省略時の既定）、`environment`（環境capabilityのProvider）、`host`（Web / ElectronのWorkbench Host）。登録時にだけ指定し、あとから変更しない。 |
+| `providerKind` | 登録者の種別。`plugin`（installable package、省略時の既定）、`environment`（環境capabilityのProvider）、`host`（Web app / Electron appとして動くUI App）。登録時にだけ指定し、あとから変更しない。 |
 | `registrationId` | Coreが発行する登録ID。Coreの世代内で一意。Lease・WS接続・内部配送を結び付ける。callerはoperation routingの宛先としてこれを指定しない。 |
 | operation path | Providerが宣言するsemanticな操作名。`filesystem/list` のようなslash区切りpath。CLI・MCP・HTTP API・AI tool catalogのcanonical名。 |
 | `executionId` | Coreがoperation invocationごとに発行するExecution ID。接続やUI sessionから独立し、Execution保持期間内は状態・結果・cancelの参照に使う。 |
-| `panelId` | Coreが認可済みUI Hostの接続に結び付ける表示インスタンスIDの候補。対象登録・Panel宣言・許可された操作を束縛する。表示終了、Host接続終了、対象登録の失効で無効。 |
+| `panelId` | Coreが認可済みUI Appの接続に結び付ける表示インスタンスIDの候補。対象登録・Panel宣言・許可された操作を束縛する。表示終了、UI App接続終了、対象登録の失効で無効。 |
 | JSON-RPC `id` | WSと発信方向の内側で一意なrequest-response相関ID。永続的な実行IDではない。Coreは中継先用のIDを別に割り当てる。 |
 
 PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSのヘッダーで送る（分離したloopback試験ではHTTP可）。Coreは登録の所有主体を記録し、申告IDだけで別主体を名乗らせない。登録変更・SSE購読・WS upgradeと各RPCを認可する。ProviderのWSと登録更新は同じ認証主体の登録に限る。SSEは認証主体に見えるRegistryだけを配信する。Coreを横断するクライアントはURL・資格情報・`coreId`・登録・RPC状態を別々に保持する。Providerが別Coreへ資格情報を転送しないよう、認証付きリクエストを別Originへ自動リダイレクトしない。
 
-ブラウザでは、信頼されたUI Host制御面がCoreと同一Originの場合、`HttpOnly` / `Secure` / `SameSite` のセッションCookieを候補とする。WSの `Origin` を許可リストで検証し、Cookieを使う書き込みにはCSRF対策を設ける。Coreの資格情報をPanelやURLに載せない。Panel操作はBridgeで絞り、Core側でもHostの認証、表示インスタンスの所有、対象・メソッドの権限を照合する。非Providerクライアントは登録なしでWSに接続できるが、operation実行には別の権限を要する。認証の期限切れ・失効時には新規操作を拒否し、関連WS/SSEを閉じる。登録用資格情報の失効・管理者の登録取消は更新を拒否するだけでなく配送資格も取り消す。
+ブラウザでは、信頼されたUI App制御面がCoreと同一Originの場合、`HttpOnly` / `Secure` / `SameSite` のセッションCookieを候補とする。WSの `Origin` を許可リストで検証し、Cookieを使う書き込みにはCSRF対策を設ける。Coreの資格情報をPanelやURLに載せない。Panel操作はBridgeで絞り、Core側でもUI Appの認証、表示インスタンスの所有、対象・メソッドの権限を照合する。非Providerクライアントは登録なしでWSに接続できるが、operation実行には別の権限を要する。認証の期限切れ・失効時には新規操作を拒否し、関連WS/SSEを閉じる。登録用資格情報の失効・管理者の登録取消は更新を拒否するだけでなく配送資格も取り消す。
 
 **未決事項:** 資格情報の発行・更新・組織スコープと監査、ブラウザの独立したOrigin構成、`panelId` の発行操作。外部サービス資格情報をCoreが集約する設計は対象外。
 
@@ -76,9 +76,11 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 | key | 意味 |
 |---|---|
 | `environment` | Environment Providerが担当するenvironment ref。例: `env/local`。 |
-| `hostSession` | Host Capability Providerが属するhost session ref。例: `host-session/electron-1`。 |
+| `hostSession` | UI App capabilityが属するhost session ref。例: `host-session/electron-1`。 |
 
 Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal / service scopeとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
+
+概念上の呼称はUI Appへ揃えるが、この版ではwire field / enumの `providerKind: "host"`、`hostSession`、`host-session` を改名しない。これらを `app` 系の名前へ変えるかは、wire compatibilityではなくcontract revisionを切るタイミングで決める。
 
 ### operation宣言
 
@@ -119,7 +121,7 @@ UIファイルとPanelの宣言は後節で定める。Signalingのワイヤー�
 sequenceDiagram
     participant P as Provider
     participant C as Core
-    participant S as 購読側 Provider / UI Host
+    participant S as 購読側 Provider / UI App
     S->>C: GET events
     C-->>S: registry.reset
     S->>C: GET registry
@@ -326,7 +328,7 @@ cancelはCoreからProviderへ `executions.cancel` Notificationで送る。`exec
 
 ```mermaid
 sequenceDiagram
-    participant A as caller / UI Host
+    participant A as caller / UI App
     participant C as Core
     participant B as Provider
     B->>C: WS upgrade

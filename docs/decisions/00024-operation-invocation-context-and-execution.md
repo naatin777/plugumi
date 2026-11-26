@@ -158,7 +158,7 @@ AIへは毎回非同期の形で見せなくてよい。agent runtimeが短時�
 
 ### provider descriptorからtargetAxesとlifetimeを外す
 
-`targetAxes` はproviderごとに宣言しない。target / contextの意味はoperation定義側が持ち、providerは自分が属するscopeを持つ。例えばEnvironment Providerは `env/local`、ElectronのHost Capability Providerは `host/electron-1` に属する。Coreはcontextからscopeを解決し、そのscopeでoperationを実装するproviderを選ぶ。
+`targetAxes` はproviderごとに宣言しない。target / contextの意味はoperation定義側が持ち、providerは自分が属するscopeを持つ。例えばEnvironment Providerは `env/local`、Electron appのUI App capabilityは `host/electron-1` に属する。Coreはcontextからscopeを解決し、そのscopeでoperationを実装するproviderを選ぶ。
 
 `lifetime` もproviderがoperationごとに自己申告する項目にはしない。Coreがprovider sessionの種類から導出する。
 

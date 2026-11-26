@@ -12,7 +12,7 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ### Plugin
 
-capability / operationやViewなどのcontributionを束ねるinstallable package。公式・第三者のいずれにもなり得るが、Host / Environment / Core builtin capabilityはPluginではない。Pluginはruntime entryとview entryを持てる。runtime entryは利用者が指定したCoreへ自ら接続する。
+capability / operationやViewなどのcontributionを束ねるinstallable package。公式・第三者のいずれにもなり得るが、UI App / Environment / Core builtin capabilityはPluginではない。Pluginはruntime entryとview entryを持てる。runtime entryは利用者が指定したCoreへ自ら接続する。
 
 ### Environment Provider
 
@@ -25,12 +25,12 @@ Web PluginやElectron Pluginが提供する。operation実行やPluginプロセ�
 
 ### Web Plugin
 
-現行実装と旧docsを読むための用語。ブラウザ向けのUIを提供するPlugin（`apps/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。capability-centric modelではPluginではなくWorkbench Hostとして扱う。
+現行実装と旧docsを読むための用語。ブラウザ向けのUIを提供するPlugin（`apps/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。capability-centric modelではPluginではなくUI Appとして扱う。
 
 ### Plugin Views
 
 Panel・Embed・Indicator等を表示するための共通インターフェース（仕様）。
-実行環境ではなく、実行はUI Hostが担う。アセットの配信主体は構成によって異なる。
+実行環境ではなく、実行はUI Appが担う。アセットの配信主体は構成によって異なる。
 
 ### Plugin View
 
@@ -42,7 +42,7 @@ Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWe
 
 ### Panel
 
-UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはoperationと分ける。Web Pluginは、Panelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
+UI App上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはoperationと分ける。Web Pluginは、Panelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
 
 ### UI Bundle
 
@@ -156,7 +156,7 @@ Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内
 
 ### Provider
 
-capability / operationをCoreへ登録し、実行を受け付ける側。Environment Provider、Host Capability Provider、Pluginのruntime entryなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
+capability / operationをCoreへ登録し、実行を受け付ける側。Environment Provider、UI App capabilityの実装、Pluginのruntime entryなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
 
 ### Operation
 
@@ -176,19 +176,23 @@ operation inputとは別に、routingと記録のためにCoreが解決・付与
 
 ### Core Daemon
 
-UI appやWorkbench Hostの寿命から独立して動くCore。Execution、capability routing、provider lifecycleを管理する。検討案では、Electron appをquitしてもCore Daemonとdurable Executionは残る。
+UI Appの寿命から独立して動くCore。Execution、capability routing、provider lifecycleを管理する。検討案では、Electron appをquitしてもCore Daemonとdurable Executionは残る。
 
-### Workbench Host
+### UI App
 
-Web / Electronが提供する公式UI shell。Panel layout、Viewのmount、通知、tray、Daemon管理画面などを担う。検討案ではruntime installableなpluginとして差し替えず、構造改造はforkまたはdownstream hostとして扱う。
+Web app / Electron appとして提供される公式UIアプリ。Workbench shell、Panel layout、Viewのmount、通知、tray、Daemon管理画面などを担う。runtime installableなpluginとして差し替えず、構造改造はforkまたはdownstream hostとして扱う。
 
 ### Environment Provider
 
-filesystem / shell / terminal / processなどの環境標準capabilityを、local / WSL / remote / Dockerなどの環境へ提供するProvider。利用者へはPluginではなく環境として見せる方向で検討している。
+filesystem / shell / terminal / processなどのbuilt-in environment capabilityを、local / WSL / remote / Dockerなどの環境へ提供するProvider。利用者へはPluginではなく環境として見せる方向で検討している。
 
-### Host Capability Provider
+### UI App capability
 
-Workbench Hostが内蔵し、host-local capabilityをCoreへ登録するProvider。例はElectron native browser、native dialog、OS統合。寿命は原則としてhost-sessionであり、durable executionの対象にはしない。
+UI AppがCoreへ登録するapp-local capability。例はElectron native browser、native dialog、OS統合、browser clipboard、web-native file picker。installable pluginではなく、寿命は原則としてhost-sessionであり、durable executionの対象にはしない。内部実装ではprovider protocolを使うが、独立した第一級概念としては扱わない。
+
+### built-in
+
+利用者が追加installしなくても製品の基本体験として最初から使えるもの。実装場所を意味しない。`標準装備` / `標準搭載` という語は使わない。
 
 ### runtime entry
 

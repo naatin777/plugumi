@@ -32,7 +32,7 @@ modstrataの「全部Plugin」では、寿命・trust level・target・AIへ見�
 
 **AIへの見せ方の原則**（検討中）: AIはprovider implementationではなく**capabilityとtargetを選ぶ**。providerがbuiltinかhostかserviceかpluginかはrouting / policy / lifecycleの問題であり、AIの第一関心ではない。
 
-**environmentがUIを配信しない理由**: environment（旧standard）は標準capabilityなので、表現はplatformがbuilt-in viewとして持てる。environmentはheadlessでresource / state / eventだけ返す。Pluginだけが自分で表現（declarative surface / custom component）を供給する必要がある。
+**environmentがUIを配信しない理由**: environment（旧standard）はbuilt-in environment capabilityなので、表現はplatformがbuilt-in viewとして持てる。environmentはheadlessでresource / state / eventだけ返す。Pluginだけが自分で表現（declarative surface / custom component）を供給する必要がある。
 
 ## 代替案
 
@@ -44,4 +44,4 @@ modstrataから引き継ぐべきもの（host capabilityをremote operationと�
 
 - **capability descriptor**のうち、scopeとlifetimeは[Decision 00024](00024-operation-invocation-context-and-execution.md)に従いprovider sessionからCoreが導出する。user presence・risk・表示用metadataは未設計
 - **capability indirection**は[Decision 00024](00024-operation-invocation-context-and-execution.md)で、operation pathへの一本化・context自動解決・Execution統一として決めた。Contract 00004の改訂と実装検証を行ってから[Architecture 00003](../architecture/00003-daemon-centric-workbench-platform.md)等の復元draftをacceptedにする
-- capabilityの意味が標準化できるかどうかが、標準搭載とpluginの実際の境界線になる（[Decision 00022](00022-standard-inclusion-boundary.md)参照）
+- capabilityの意味が標準化できるかどうかが、built-inとpluginの実際の境界線になる（[Decision 00022](00022-built-in-plugin-boundary.md)参照）

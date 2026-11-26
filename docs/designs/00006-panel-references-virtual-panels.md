@@ -20,7 +20,7 @@ relations:
 
 ## 背景
 
-Electron native browserはWeb Hostでnative表示できない。しかし、Web UIやAIからCore経由で操作することはできる。このとき、Panel参照をそのままWebへ同期すると、Web側に対応するView実装がなく、表示が壊れる可能性がある。
+Electron native browserはWeb appでnative表示できない。しかし、Web UIやAIからCore経由で操作することはできる。このとき、Panel参照をそのままWebへ同期すると、Web側に対応するView実装がなく、表示が壊れる可能性がある。
 
 また、Workbench復元時に多数のPanelを一度にmountすると起動が重い。開かれるまでview runtimeを起動しない仕組みが必要である。
 
@@ -86,7 +86,7 @@ HostはPanel Referenceを受け取ると、次の順で解決する。
 2. preferredViewが利用可能なら優先する。
 3. requiredHostCapabilitiesを現在のHost capabilityと照合する。
 4. Pluginのview entryなら、必要なPluginをactivateしてentryをloadする。
-5. Host bundledなViewなら、必要になった時点でlazy importする。
+5. built-in viewなら、必要になった時点でlazy importする。
 6. fallback Viewがあるなら利用者へ提示するか、設定に従って開く。
 7. どれも使えないならunavailable panelを表示する。
 
@@ -111,7 +111,7 @@ Agent実行中のbadgeや進行状態は、Panel内部のJSが所有しない。
 
 ## unavailable panelの状態表示
 
-Web Hostで表示できない場合は、クラッシュや暗黙の削除をしない。理由を区別して表示する。
+Web appで表示できない場合は、クラッシュや暗黙の削除をしない。理由を区別して表示する。
 
 | 状態 | 意味 |
 |---|---|

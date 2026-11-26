@@ -132,7 +132,7 @@ presentation hintはあってよいが、最終的な表示はHostと呼び出�
 
 - fastなoperationの呼び出しをどこまで履歴へ残すか。
 - parent execution / child executionの関係をoperation側がどう宣言するか。
-- execution centerの標準UIをHost bundledにするか。
+- execution centerの標準UIをbuilt-inにするか。
 - inline embedを後から閉じた場合、同じExecutionを再表示する入口をどこへ置くか。
 - notificationとbadgeの条件、通知済み状態の保存場所。
 - artifact完成時に自動でpanelを開くことを許すか。

@@ -25,7 +25,7 @@ pnpm run build
 (cd environment && cargo build --locked)
 ```
 
-ルートはpnpm workspaceで、TypeScriptのパッケージ（`packages/*`、`shared/*`、Agent、Web Workbench Hostのフロントエンド、Electron Workbench Host）を `pnpm run build` でまとめてビルドする。Environment ProviderはheadlessなRustバイナリであり、UIをバイナリへ同梱しない。file explorerはWorkbenchに同梱されるbuiltin Panelで、`fs/list` を宣言した登録から呼び出す。各パッケージのビルドは生成先の `dist/` を作り直す。手書きのファイルは `dist/` に置かない。
+ルートはpnpm workspaceで、TypeScriptのパッケージ（`packages/*`、`shared/*`、Agent、Web appのフロントエンド、Electron app）を `pnpm run build` でまとめてビルドする。Environment ProviderはheadlessなRustバイナリであり、UIをバイナリへ同梱しない。file explorerはWorkbenchに同梱されるbuiltin Panelで、`fs/list` を宣言した登録から呼び出す。各パッケージのビルドは生成先の `dist/` を作り直す。手書きのファイルは `dist/` に置かない。
 
 別々の端末から次を実行する。
 
@@ -50,15 +50,15 @@ AgentはToolの出力を標準出力に表示し、自身の診断ログには�
 
 Pluginの接続先はPlugin側で指定する。Coreの `plugumi.json` に `plugins` が残っている場合は、その項目を削除する。ローカルカタログの `plugins.json` に `endpoint` が残っている場合は、その項目を削除し、起動定義には `name` と `command` を指定する。既存の設定は自動で変換・上書きしない。Core自身の `--port` と `core.url` は引き続き使える。
 
-## Web Workbench Host
+## Web app
 
-Web Workbench Hostはブラウザ向けの画面を提供する。フロントエンドを先にビルドし、Goのバイナリに同梱する。フロントエンドが未ビルドでも `go build` は通るが、画面の代わりに案内文が表示される。
+Web appはブラウザ向けの画面を提供する。フロントエンドを先にビルドし、Goのバイナリに同梱する。フロントエンドが未ビルドでも `go build` は通るが、画面の代わりに案内文が表示される。
 
 ```sh
 (cd apps/web && go build -o plugumi-web ./cmd/plugumi-web)
 ```
 
-フロントエンドは、上の `pnpm run build` でビルド済みになる。画面の本体はWorkbench（`shared/workbench`）にあり、Web Workbench Hostのフロントエンドは、それにHTTPでの通信（`ShellHost` の実装）を渡す入口だけを持つ。
+フロントエンドは、上の `pnpm run build` でビルド済みになる。画面の本体はWorkbench（`shared/workbench`）にあり、Web appのフロントエンドは、それにHTTPでの通信（`ShellHost` の実装）を渡す入口だけを持つ。
 
 URLでCoreを指すにはCore名が要る。Coreを `--name` 付きで起動する（`plugumi.json` の `core.name` でもよい）。名前には小文字の英数字とハイフンだけを使える。同じOSユーザーで、同じ名前のCoreを2つ起動することはできない。
 
@@ -67,21 +67,21 @@ URLでCoreを指すにはCore名が要る。Coreを `--name` 付きで起動す�
 ./apps/web/plugumi-web --core http://127.0.0.1:7700
 ```
 
-Web Workbench Hostは `[web] listening on http://127.0.0.1:<port>` を出力する。ブラウザで開くと、`/` にCoreの一覧が表示される。`--listen 127.0.0.1:7800` を指定すると、待受のポートを固定できる。
+Web appは `[web] listening on http://127.0.0.1:<port>` を出力する。ブラウザで開くと、`/` にCoreの一覧が表示される。`--listen 127.0.0.1:7800` を指定すると、待受のポートを固定できる。
 
-`/` の画面からCoreのURLを追加できる。追加したURLは設定ディレクトリの `plugumi/web.json` に保存され、次回の起動でも使われる。追加できるのは、Core名を設定してあり、他のCoreと名前が重ならないCoreだけである。Web Workbench Hostが自身のパスに使う `api`・`assets`・`ui` もCore名として使えない。保存されるのはURLなので、追加するCoreはポートを固定して起動する。`--core` で指定したCoreは画面から削除できない。
+`/` の画面からCoreのURLを追加できる。追加したURLは設定ディレクトリの `plugumi/web.json` に保存され、次回の起動でも使われる。追加できるのは、Core名を設定してあり、他のCoreと名前が重ならないCoreだけである。Web appが自身のパスに使う `api`・`assets`・`ui` もCore名として使えない。保存されるのはURLなので、追加するCoreはポートを固定して起動する。`--core` で指定したCoreは画面から削除できない。
 
-## Electron Workbench Host
+## Electron app
 
-Electron Workbench HostはWeb Workbench Hostの配る画面をデスクトップアプリのwindowで開くviewerである。Coreへ自分で接続せず、動作中のWeb Workbench Hostを実行記録から見つけて再利用するか、無ければplugumi-webを子プロセスとして起動し、その待受URLを `BrowserWindow` で開く。
+Electron appはWeb appの配る画面をデスクトップアプリのwindowで開くviewerである。Coreへ自分で接続せず、動作中のWeb appを実行記録から見つけて再利用するか、無ければplugumi-webを子プロセスとして起動し、その待受URLを `BrowserWindow` で開く。
 
 ```sh
 PLUGUMI_HOST_BIN="$PWD/apps/web/plugumi-web" pnpm --dir apps/electron start --core http://127.0.0.1:7700
 ```
 
-`--core` は起動するplugumi-webへ転送される。一つだけなら `PLUGUMI_CORE_URL` でも指定できる。`PLUGUMI_TOKEN` も環境変数として引き継がれる。CoreのURL追加やProject以下の保存はすべてWeb Workbench Host側で行われるため、画面から追加したCoreは `plugumi/web.json` に、Projectは `~/.plugumi/web/` に保存される。
+`--core` は起動するplugumi-webへ転送される。一つだけなら `PLUGUMI_CORE_URL` でも指定できる。`PLUGUMI_TOKEN` も環境変数として引き継がれる。CoreのURL追加やProject以下の保存はすべてWeb app側で行われるため、画面から追加したCoreは `plugumi/web.json` に、Projectは `~/.plugumi/web/` に保存される。
 
-起動するplugumi-webバイナリは `PLUGUMI_HOST_BIN` で指定する。未指定で、動作中のWeb Workbench Hostも見つからなければElectronは起動できない。既に動いているWeb Workbench Hostがあれば子プロセスは起動せず、そちらを再利用する。
+起動するplugumi-webバイナリは `PLUGUMI_HOST_BIN` で指定する。未指定で、動作中のWeb appも見つからなければElectronは起動できない。既に動いているWeb appがあれば子プロセスは起動せず、そちらを再利用する。
 
 ## RESTクライアントの型生成
 

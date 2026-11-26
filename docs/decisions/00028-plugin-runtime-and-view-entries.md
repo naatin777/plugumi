@@ -15,7 +15,7 @@ relations:
 
 Web / ElectronもPluginだった時代には、利用者がshellをpluginで改造できる構成を想定していた。そのため、Panelの中身を描くView entryとは別に、shellのcommand、menu、status、notificationなどを拡張するClient entry / workbench entryという概念があった。
 
-現在の方針では、Web / Electronの公式Workbench Hostはruntime installableなpluginとして差し替えない。shell構造そのものを変えたい場合はforkまたはdownstream hostとして扱う。公式shellに必要な共通実装は `shared/` 側へ置く。
+現在の方針では、Web app / Electron appの公式UI Appはruntime installableなpluginとして差し替えない。shell構造そのものを変えたい場合はforkまたはdownstream hostとして扱う。公式shellに必要な共通実装は `shared/` 側へ置く。
 
 ## 決定
 
@@ -33,7 +33,7 @@ Web / ElectronもPluginだった時代には、利用者がshellをpluginで改�
 
 ## トレードオフと帰結
 
-得るもの: Pluginの責務をoperation側のruntimeとPanel / Embed側のviewに絞れる。shell改造とPanel提供を区別でき、Web / Electron Hostをfork前提にする方針と一致する。
+得るもの: Pluginの責務をoperation側のruntimeとPanel / Embed側のviewに絞れる。shell改造とPanel提供を区別でき、Web app / Electron appをfork前提にする方針と一致する。
 
 失うもの: 利用者がinstallable pluginだけでshellのcommandやstatusを自由に拡張する仕組みは持たない。必要なshell標準機能は公式shellへ実装するか、forkで作る必要がある。
 
