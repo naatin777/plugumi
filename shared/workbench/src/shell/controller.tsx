@@ -6,7 +6,7 @@
 import { placePopover, type PopoverAlign } from "./popover.ts";
 import {
   createContext, createEffect, createMemo, createSignal, createStore,
-  flush, onCleanup, reconcile, useContext,
+  flush, onCleanup, reconcile, untrack, useContext,
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
@@ -511,7 +511,7 @@ export function createAreaController(
       // なく実行時のlayoutStateから取る — panels一覧とworkspaceの非同期
       // 解決順でcomputeが空を返した直後にInstanceが生えると、古い一覧で
       // 生きたInstanceを捨ててしまう。
-      queueMicrotask(syncInstances);
+      queueMicrotask(() => untrack(syncInstances));
     },
   );
 

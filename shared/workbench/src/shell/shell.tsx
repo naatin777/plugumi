@@ -17,6 +17,22 @@ import { Resizer } from "./resizer.tsx";
 import styles from "./shell.module.css";
 import areaStyles from "./area-view.module.css";
 
+// prefの既定値は同梱フォント自身なので、fallback連結の前に重複を除く。
+// 空白を含むfamily名はquoteしておき、generic familyはCSSのkeywordのままにする。
+const fontStack = (preferred: string, bundled: string, rest: string[]): string => {
+  const seen = new Set<string>();
+  return [preferred, bundled, ...rest]
+    .map((family) => family.trim().replace(/^["']|["']$/g, ""))
+    .filter((family) => {
+      const key = family.toLowerCase();
+      if (!family || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((family) => /^[a-zA-Z-]+$/.test(family) ? family : `"${family}"`)
+    .join(", ");
+};
+
 export function ShellFrame(): JSX.Element {
   const shell = useShell();
   const prefs = () => shell.prefs();
@@ -112,10 +128,14 @@ export function ShellFrame(): JSX.Element {
         // sans/monoとも「pref → 同梱のPlex → localのPlex Sans JP
         // → system」の順で解決する。prefに無いfamily名を書かれても
         // 同梱フォントへ戻るのでappの顔は保てる。
-        "--plugumi-font-family-sans":
-          `${prefs().sansFont.trim() || "IBM Plex Sans"}, "IBM Plex Sans", "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif`,
-        "--plugumi-font-family-mono":
-          `${prefs().monoFont.trim() || "IBM Plex Mono"}, "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, SFMono-Regular, Menlo, monospace`,
+        "--plugumi-font-family-sans": fontStack(
+          prefs().sansFont, "IBM Plex Sans",
+          ["IBM Plex Sans JP", "ui-sans-serif", "system-ui", "sans-serif"],
+        ),
+        "--plugumi-font-family-mono": fontStack(
+          prefs().monoFont, "IBM Plex Mono",
+          ["IBM Plex Sans JP", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        ),
       }}
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/

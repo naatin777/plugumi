@@ -81,30 +81,34 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
   const [error, setError] = createSignal("");
 
   createEffect(
-    () => ({ registrationId: provider()?.registrationId, directory: path() }),
-    ({ registrationId, directory }) => {
-    if (!registrationId) {
-      setListing([]);
-      return;
-    }
-    let stale = false;
-    setLoading(true);
-    setError("");
-    props.shell.host.callTool(props.shell.coreKey(), {
-      registrationId, toolPath: "fs/list", input: { path: directory },
-    }).then((result) => {
-      if (stale) return;
-      setListing((result as ListResult).entries ?? []);
-      setLoading(false);
-    }).catch((cause) => {
-      if (stale) return;
-      setError(String(cause));
-      setLoading(false);
-    });
-    onCleanup(() => {
-      stale = true;
-    });
-  },
+    () => ({
+      core: props.shell.coreKey(),
+      registrationId: provider()?.registrationId,
+      directory: path(),
+    }),
+    ({ core, registrationId, directory }) => {
+      if (!registrationId) {
+        setListing([]);
+        return;
+      }
+      let stale = false;
+      setLoading(true);
+      setError("");
+      props.shell.host.callTool(core, {
+        registrationId, toolPath: "fs/list", input: { path: directory },
+      }).then((result) => {
+        if (stale) return;
+        setListing((result as ListResult).entries ?? []);
+        setLoading(false);
+      }).catch((cause) => {
+        if (stale) return;
+        setError(String(cause));
+        setLoading(false);
+      });
+      onCleanup(() => {
+        stale = true;
+      });
+    },
   );
 
   const changePath = (next: string) => {

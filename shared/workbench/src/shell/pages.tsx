@@ -123,9 +123,11 @@ export function PagesTrack(props: {
   // deckは選択した列が見えていなければ最小限寄せるだけで、見えていれば
   // scroll位置に一切触らない（scroll位置は利用者のもの）。
   createEffect(
-    () => index(),
-    (i) => {
-      if (props.deck) {
+    // callbackはuntrackedなので、deck・列幅・selected/refsをcompute側で読む。
+    // colWidthはdeckのpitchへ効くので、変化時にも寄せ直しの判定を走らせる。
+    () => ({ i: index(), deck: props.deck === true, colWidth: props.colWidth }),
+    ({ i, deck }) => {
+      if (deck) {
         // gesture scrollの追従で選択が動いただけなら寄せない — 列の
         // 途中で止めたいのに選択した列へscrollが引っ張られる。
         if (gestureActive()) return;
