@@ -10,6 +10,8 @@ relations:
     - '00004'
 ---
 
+> 補足: この文書のstructured target object案は、[Decision 00024](00024-operation-invocation-context-and-execution.md)でinvocation contextとresource ref中心の自動解決へ置き換えた。dynamic pathを避ける方向と、暗黙に選ばない方向は00024にも引き継ぐ。
+
 ## コンテキスト
 
 `standard` やElectronのHost Capability Providerが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
