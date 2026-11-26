@@ -136,7 +136,7 @@ Agentやbackground executionは、durableなwork operationだけにbindする。
 
 ## capabilityの寿命とrouting metadata
 
-capabilityは、どこで・どのくらいの寿命で有効かをmetadataとして公開する。候補は `daemon`、`node`、`host-session`、`ui-session` である。複数のElectron hostやenvironmentがある場合は、host instance、node、project、account / profileなどのrouting情報も必要になる。これらはoperation名へ埋め込まず、structured targetとして扱う。
+capabilityは、どこで・どのくらいの寿命で有効かをmetadataとして公開する。候補は `daemon`、`node`、`host-session`、`ui-session` である。複数のElectron hostやenvironmentがある場合は、host instance、node、project、account / profileなどのrouting情報も必要になる。これらはoperation名へ埋め込まず、invocation context、resource ref、project bindingとして扱う。providerはoperationごとに `targetAxes` や `lifetime` を宣言せず、寿命はprovider sessionからCoreが導出する。
 
 ## 寿命モデル
 
@@ -158,11 +158,11 @@ Electronの操作は `Close Window`、`Quit Desktop UI`、`Shut Down Plugumi` �
 
 UIが実行を所有しないなら、`callId` のような接続相関IDだけでは足りない。長時間処理はCoreが管理するExecutionとして表す。
 
-Executionは少なくとも、ID、operation、status、caller、target、作成・更新時刻、progress、resource refs、parent executionを持ち得る。UIはExecutionを開始・購読・一覧・cancelするが、UI connectionはExecutionを所有しない。詳細は[Decision 00016](../decisions/00016-ui-independent-execution-daemon.md)を参照。
+Executionは少なくとも、ID、operation、status、caller、解決済みcontext、作成・更新時刻、progress、resource refs、parent executionを持ち得る。UIはExecutionを開始・購読・一覧・cancelするが、UI connectionはExecutionを所有しない。詳細は[Decision 00016](../decisions/00016-ui-independent-execution-daemon.md)を参照。
 
 ## operation targeting
 
-project、account、environment、hostはoperationの振り分けに必要な独立した軸である。これらをdynamic path segmentへ埋め込まず、structured target / invocation contextとして扱う。詳細は[Decision 00018](../decisions/00018-operation-targeting-context.md)を参照。
+project、environment、host、service account / profileはoperationの振り分けに必要な情報である。ただしAIやcallerへ毎回入力させるstructured targetは設けず、invocation context、resource ref、project bindingからCoreが解決する。genericな `account` axisはpublic contractへ出さない。詳細は[Decision 00024](../decisions/00024-operation-invocation-context-and-execution.md)を参照。
 
 ## multi-core Plugin processとprovider ownership
 
@@ -184,7 +184,7 @@ EmbedもPanelと同様に、実行中の実体ではなくEmbed Referenceを共�
 
 AIはcomponent treeを読んで意味を推測しない。人間向けのcomponentとは別に、machine-facingな意味投影としてInteractionとAffordanceを持つ。Interactionは人間またはAgentの入力待ちを表し、Affordanceはresource / executionに対して現在利用できる操作を表す。componentはこれらを描画するが、capabilityの正本にはしない。
 
-async operationは最終結果の前にExecution refを返し、UIは同じExecutionをinline embed、execution center / status area、panel、notificationなど複数のplacementから表示できる。低levelな子実行は記録しつつ、表示はparent executionやtaskへ集約する。詳細は[Design 00009](../designs/00009-execution-ui-placements.md)を参照。
+長時間のoperationは最終結果の前にrunning状態のExecutionを返し、UIは同じExecutionをinline embed、execution center / status area、panel、notificationなど複数のplacementから表示できる。低levelな子実行は記録しつつ、表示はparent executionやtaskへ集約する。詳細は[Design 00009](../designs/00009-execution-ui-placements.md)を参照。
 
 ## Workbench状態の共有
 

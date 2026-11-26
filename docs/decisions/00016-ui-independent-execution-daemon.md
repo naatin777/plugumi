@@ -6,6 +6,8 @@ status: draft
 relations:
   architecture:
     - '00003'
+  decision:
+    - '00024'
   requirement:
     - '00004'
 ---
@@ -14,7 +16,7 @@ relations:
 
 利用者は「UIは原則としてUIの状況によって処理に影響しない」「Electron appをquitしてもCore DaemonとExecutionは残る」を、プロジェクト開始以前からの前提として明示した。あわせて、コマンド1つでUIを開け、裏側に常駐基盤を持つDocker Desktop的なDaemon方式が候補になった。この検討案では、UI非依存原則をdurable executionへ適用し、host-session capabilityは寿命を明示した例外とする。
 
-現行の[Contract 00004](../contracts/00004-plugin-client-protocol.md)では、`callId` は呼び出しメッセージの相関IDであり、永続的な実行IDではない。UI connectionが切れたときに実行状態を後から参照したり、別のUIからcancelしたりするモデルはない。
+改訂前の[Contract 00004](../contracts/00004-plugin-client-protocol.md)では、`callId` は呼び出しメッセージの相関IDであり、永続的な実行IDではなかった。UI connectionが切れたときに実行状態を後から参照したり、別のUIからcancelしたりするモデルはなかった。
 
 DeepSeek Harnessは比較対象として参考になった。window closeでは処理を残す一方、Desktop app quitではHostとtaskも止まる。Plugumiがより強いUI非依存原則を採るなら、この構成では不足する。
 
@@ -41,6 +43,6 @@ DeepSeek Harnessから採りたい要素は、window closeとquitの区別、Hos
 ## トレードオフと帰結
 
 - CoreはExecutionの状態、途中出力、結果参照、cancel要求を保持する必要がある。保存期間、容量、再起動後の復元範囲を別途決める。
-- `callId` とExecution IDを分ける必要がある。Contract 00004を直接変更するか、新しいcontractへ分けるかは未決定である。
+- `callId` とExecution IDを分ける。[Decision 00024](00024-operation-invocation-context-and-execution.md)に従い、Contract 00004をoperation invocationとExecution中心へ直接改訂する。
 - Host Capability Provider上の処理はhost-sessionで終わる。UI非依存の原則を保つため、capability選択時に寿命を明示しなければならない。
 - 再検討のきっかけ: Electron app quit後も残す対象を、Executionの記録だけにするのか、managed processそのものにもするのかを具体化するとき。

@@ -12,6 +12,8 @@ relations:
 
 旧[起動手順](00001-build-and-run.md)を置き換える。Go、Rust、Node.js 24以上とpnpmが必要。
 
+> 移行メモ: このguideは現行実装の手順であり、`call <registrationId> <toolPath>` など旧revisionの呼び出し形を含む。改訂後の[Contract 00004](../contracts/00004-plugin-client-protocol.md)へ実装を移行するとき、operation pathとExecutionを使う手順へ更新する。
+
 ## 起動
 
 リポジトリのルートでビルドする。

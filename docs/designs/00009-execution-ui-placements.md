@@ -1,7 +1,7 @@
 ---
 type: design
-title: async Executionの即時表示と複数placement
-description: sync / async operationの違い、async実行の即時feedback、inline / status area / panel / notificationへの同じExecutionの投影、子実行の集約を定める検討案。
+title: running Executionの即時表示と複数placement
+description: fastなExecutionとrunning状態が続くExecutionの違い、running実行の即時feedback、inline / status area / panel / notificationへの同じExecutionの投影、子実行の集約を定める検討案。
 status: draft
 relations:
   requirement:
@@ -10,6 +10,7 @@ relations:
     - '00003'
   decision:
     - '00016'
+    - '00024'
     - '00020'
   design:
     - '00008'
@@ -17,11 +18,11 @@ relations:
 
 ## 対応するrequirement
 
-[Requirement 00004](../requirements/00004-common-protocol-contracts.md)は、Tool呼び出し・実行状態・通知を扱う共通の仕組みを求めている。このdesignは、async operationをUIへ即座に見せつつ、低levelな子実行で画面を埋めないための表示モデルを定める検討案である。
+[Requirement 00004](../requirements/00004-common-protocol-contracts.md)は、operation呼び出し・実行状態・通知を扱う共通の仕組みを求めている。このdesignは、running状態が続くoperationをUIへ即座に見せつつ、低levelな子実行で画面を埋めないための表示モデルを定める検討案である。
 
 ## 背景
 
-toolにはsyncとasyncがある。sync toolは結果だけ返ればよい場合が多い。一方、async toolは長時間動く可能性があるため、呼び出し時点で進行状態を見せる必要がある。
+operationに `sync` / `async` 種別はない。すべてのoperation invocationはExecutionになる。fastなoperationは最初からterminal状態のExecutionとして結果を返し、長時間動くoperationはrunning状態のExecutionとして進行状態を見せる。
 
 ただし、AIが内部で多数の低level toolを呼ぶたびに大きなUIを出すと、Workbenchがノイズで埋まる。実行はすべて記録しつつ、表示はparent executionやtaskへ集約する必要がある。
 
@@ -37,11 +38,11 @@ toolにはsyncとasyncがある。sync toolは結果だけ返ればよい場合�
 
 固定すべきなのはDOMやPanel実体ではなく、Executionへの参照である。同じExecutionは複数のplacementから表示できる。
 
-## syncとasync
+## fastな実行とrunningな実行
 
-sync toolは、基本的に結果を直接返す。小さなrecordとして履歴へ残ってもよいが、大きな進行UIは不要である。
+fastなoperationは、基本的にterminal状態のExecutionとして結果を直接返す。小さなrecordとして履歴へ残ってもよいが、大きな進行UIは不要である。
 
-async toolは、最終結果の前にExecution refを返す。UIはそのrefを使って進行状態を購読できる。
+長時間のoperationは、最終結果の前にrunning状態のExecutionを返す。UIはそのrefを使って進行状態を購読できる。
 
 ```text
 operation呼び出し
@@ -87,7 +88,7 @@ Agent task
 
 例として `tests/run` を使う。
 
-1. callerがasyncな `tests/run` を呼ぶ。
+1. callerが `tests/run` を呼ぶ。
 2. Coreは `execution/123` を作り、状態を `running` にする。
 3. 呼び出し文脈にinline cardを出し、execution centerにも同じExecutionを出す。
 4. 人間は必要に応じて詳細panelを開く。開かなくても実行は進む。
@@ -95,7 +96,7 @@ Agent task
 6. inline cardは結果summaryへ更新され、`結果を見る` affordanceが有効になる。
 7. `結果を見る` を選ぶと、artifact viewである `TestResultViewer` をpanelまたは大きなembedで開く。
 
-sync toolとは違い、async toolでは実行中UIと結果UIを分ける。実行中はExecution View、完了後の詳細はartifact viewを使う。
+fastな実行とは違い、running状態が続く実行では実行中UIと結果UIを分ける。実行中はExecution View、完了後の詳細はartifact viewを使う。
 
 ## UI切断とHost切り替え
 
@@ -119,7 +120,7 @@ presentation hintはあってよいが、最終的な表示はHostと呼び出�
 
 | 文脈 | 推奨される表示 |
 |---|---|
-| 人間が直接起動したasync tool | 即座にinline cardとexecution center entryを出す |
+| 人間が直接起動した長時間のoperation | 即座にinline cardとexecution center entryを出す |
 | Agentの親taskの一部 | 親taskへ集約し、子実行は詳細へ畳む |
 | background execution | 前面へは出さず、execution centerと必要時のnotificationに留める |
 | 入力待ち | Interactionとしてattentionを出す |
@@ -129,7 +130,7 @@ presentation hintはあってよいが、最終的な表示はHostと呼び出�
 
 ## 未解決の問い
 
-- sync toolの呼び出しをどこまで履歴へ残すか。
+- fastなoperationの呼び出しをどこまで履歴へ残すか。
 - parent execution / child executionの関係をoperation側がどう宣言するか。
 - execution centerの標準UIをHost bundledにするか。
 - inline embedを後から閉じた場合、同じExecutionを再表示する入口をどこへ置くか。

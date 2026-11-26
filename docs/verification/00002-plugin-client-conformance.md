@@ -24,14 +24,14 @@ relations:
 
 [旧方式の検証](00001-core-plugin-mvp-conformance.md)を置き換える。
 
-最初は分離したloopback環境でCoreを起動する。用意するのは待受のないCLI Plugin、読み取り専用の購読クライアント、認可済みUI Host、文字列echoのToolとPanel API。二つ目のCore、期限を短くできるテスト設定、接続を切れるテスト用Proxyを異常系で使う。テスト用資格情報と組織・実サービスの資格情報を共用しない。
+最初は分離したloopback環境でCoreを起動する。用意するのは待受のないCLI Plugin、読み取り専用の購読クライアント、認可済みUI Host、文字列echoのoperationとPanel API。二つ目のCore、期限を短くできるテスト設定、接続を切れるテスト用Proxyを異常系で使う。テスト用資格情報と組織・実サービスの資格情報を共用しない。
 
 ## 最初の縦断テスト
 
 1. 購読側がSSEに接続し、`registry.reset` 後の空Snapshotを読む。CLI PluginはCore URLを指定されて登録する。購読側が `provider.added` を受け取る。Pluginは待受ソケットを作らず、CoreからPluginへの発信接続も発生しない。
-2. CLI PluginがRESTでechoのTool宣言を登録し、後から変更する。購読側が `tools.changed` と新しいSnapshotを観測する。途中でSSEを切断して更新しても、再購読後に最新内容へ収束する。
-3. CLI Pluginが同じ認証主体・登録でWSを開く。呼び出し元が `registrationId + toolPath` を指定してechoを実行し、Coreが対象の既存WSへ配送して結果を返す。Coreは別の対象を選ばない。
-4. UI Hostで最小のPanelを表示する。Panel専用のecho操作をBridgeから呼び、Coreが同じPluginへ配送した結果をPanelに表示する。その操作はTool一覧に出ない。UI Hostを閉じてもPlugin自体の接続と他の呼び出し元は継続する。
+2. CLI PluginがRESTでechoのoperation宣言を登録し、後から変更する。購読側が `operations.changed` と新しいSnapshotを観測する。途中でSSEを切断して更新しても、再購読後に最新内容へ収束する。
+3. CLI Pluginが同じ認証主体・登録でWSを開く。呼び出し元が `operations.invoke` でoperation pathとinputを指定してechoを実行し、Coreがcontextから対象を解決して既存WSへ配送する。応答はterminal状態のExecutionとして結果を返す。Coreは別の対象を暗黙に選ばない。
+4. UI Hostで最小のPanelを表示する。Panel専用のecho操作をBridgeから呼び、Coreが同じPluginへ配送した結果をPanelに表示する。その操作はoperation catalogへ出ない。UI Hostを閉じてもPlugin自体の接続と他の呼び出し元は継続する。
 5. Pluginが登録を取り消す。購読側が `provider.removed` を受け、Snapshotから登録と宣言が消える。旧登録への呼び出しは失敗する。
 
 ## 適合シナリオと失敗条件
@@ -42,7 +42,7 @@ relations:
 | C2: 登録と期限 | 登録応答だけ失い再送する。WSとSSEを別々に切り、更新と期限満了を試す。さらにCore/Pluginを別々に再起動する | 再送は存続中の登録の期限を延長し、登録IDとRevisionは変えない。SSE切断は登録を消さない。WS切断で配送不可になり、期限内なら同じ登録で復旧。失効後は旧IDを使えず、Core再起動は新しい世代になる。 |
 | C3: 変更の競合 | SSE購読直後、Snapshot取得中、切断直後に宣言を更新。古い `Last-Event-ID` で再購読。購読を読み取れなくする | reset後の再読込で収束し、遅れて到着した旧接続のSnapshotで巻き戻らない。Coreが無制限にイベントを溜めない。 |
 | C4: 複数Core | 一つのPluginを二つのCoreにつなぎ、同名Tool、同じJSON-RPC IDを使う。片方のCoreだけ停止・再起動 | 資格情報、登録、Snapshot、結果・取消が混ざらない。もう一方のCoreでは呼び出しを継続する。 |
-| C5: RPCの障害 | 逆方向も同時に呼ぶ。不正Schema、未知の宛先、期限切れ、取消、配送後の切断や遅い応答を挟む | 区間・方向ごとの相関が保たれる。終端は一度だけ。結果が不明な呼び出しは自動再実行せず、Plugin側の実行回数でも確認する。 |
+| C5: RPCの障害 | 逆方向も同時に呼ぶ。不正Schema、未知のoperation、ambiguousなcontext、期限切れ、取消、配送後の切断や遅い応答を挟む | 区間・方向ごとの相関が保たれる。終端は一度だけ。Executionを作った後の障害は `failed` / `unknown` のExecutionとして観測でき、自動再実行しない。Plugin側の実行回数でも確認する。 |
 | C6: Streaming候補 | 受信側を止め、credit内外の出力、取消、終端を競合させる | 受理→順序付き出力→終端。メモリとキューが有界で、制御通知がデータ枠を消費しない。 |
 | C7: Bundle・Panel | 複数ファイルの同一版と不正なBundleを渡す。別Panel/他Core宛ての操作、無許可Origin、セッション失効を試す | CSS・画像・フォント・分割JSが解決される。未検証版は公開されない。Panelから親DOM・資格情報・他Panelへ届かず、秘密情報を混ぜない。 |
 | C8: 公開経路 | 同一OS、Docker、WSL、LAN、VPN、Tunnelの順にHTTP/1.1、HTTPSのHTTP/2 REST/SSE、WS upgradeを確認 | bindと案内URLを別々に記録し、各環境で到達・不達の理由が分かる。失効後に既存WS/SSEも閉じ、Gateway/Tunnelの経由・迂回で権限が広がらない。SSEの配信遅延も測る。 |
@@ -76,8 +76,8 @@ Agentの依存は事前に `pnpm install --frozen-lockfile` で用意する。�
 
 Registryの整理後、Coreのテストで、定期掃除前でも期限切れの登録に配送できないことと、Snapshotから除外する際にRevisionが進むことを確認した。上記の実プロセステストもmacOSで通過した。HumaのOpenAPI出力は整理前後で一致した。
 
-Coreの自動テストで、SSE通知、登録の冪等性、Toolの往復、WS切断後の登録維持と再接続、旧パスの拒否を確認する。Agentの自動テストでは、SSEからの一覧更新とWS再接続を確認する。Panel、Bundle、外部公開、WebRTC、RPC型生成の適合試験は未実施。
+旧revisionの自動テストでは、SSE通知、登録の冪等性、Toolの往復、WS切断後の登録維持と再接続、旧パスの拒否を確認した。Agentの自動テストでは、SSEからの一覧更新とWS再接続を確認した。これらは `registrationId + toolPath` modelの結果であり、operation / Execution modelへ移行した後は同じ観点を再実行する。Panel、Bundle、外部公開、WebRTC、RPC型生成の適合試験は未実施。
 
-2026-11-20、macOSで実プロセスのCore 2台に同じEnvironment ProviderとAgentを接続した。PluginにTCP待受がないこと、Toolのechoとticksの途中出力・取消、片方のCore再起動で両Pluginが再登録し、もう片方のRegistryが変わらないことを確認した。
+2026-11-20、macOSで実プロセスのCore 2台に同じEnvironment ProviderとAgentを接続した。PluginにTCP待受がないこと、旧revisionのTool echoとticksの途中出力・取消、片方のCore再起動で両Pluginが再登録し、もう片方のRegistryが変わらないことを確認した。この結果はoperation / Execution modelへそのまま転用せず、移行後に再検証する。
 
 同日、Coreが生成した `/openapi.json` をOpenAPI Generator 7.16.0で検証し、Go・TypeScript (`typescript-fetch`)・RustのRESTクライアントを生成した。Goのクライアント本体は `go build .`、TypeScriptは `tsc --strict --noEmit` に合格した。Goの生成テストとRustの生成物のビルドは、生成側の依存がローカルに揃わず未確認。生成クライアントを使った疎通は未実施。

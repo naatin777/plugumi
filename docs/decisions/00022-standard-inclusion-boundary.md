@@ -8,6 +8,7 @@ relations:
     - '00003'
   decision:
     - '00017'
+    - '00024'
 ---
 
 ## コンテキスト
@@ -46,7 +47,7 @@ modstrataの「全部Plugin」は実験として有用だったが、寿命・tr
 
 失うもの・残課題:
 
-- **capability indirection**は未解決。「capability + targetで呼ぶ」なら呼び出しの正本がregistrationId + toolPathから変わり、Contract 00004の呼び出し契約に影響する。復元draftをacceptedにする前にここを決める必要がある
+- **capability indirection**は[Decision 00024](00024-operation-invocation-context-and-execution.md)で決めた。operation pathへの一本化、context自動解決、Execution統一に従ってContract 00004を改訂し、実装検証してから復元draftをacceptedにする
 - **AI agentの標準搭載は未確定**。native UIによるパフォーマンス利点、そもそもカスタマイズ性が要るか（forkとAIがある）という論点があり、MVPの検討で決める
 - **MVPの範囲は未決定**。関心はagent / A2UI周りで、design 00007-00009が材料になる
 - 細部は実装してから決める方針

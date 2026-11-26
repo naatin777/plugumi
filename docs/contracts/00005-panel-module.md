@@ -21,6 +21,8 @@ Panelのモジュールは、Web Pluginと同じOriginで動き、Panel Instance
 
 ## entryがexportするもの
 
+> 移行メモ: この節の `callTool` は旧revisionの `registrationId + toolPath` modelに対応する。[Contract 00004](00004-plugin-client-protocol.md)のoperation / Execution modelへ実装を移行するとき、Panelからの呼び出しAPIも `callTool` からoperation pathを使う形へ改訂する。それまでは現行実装の記述として残す。
+
 ```ts
 export function mount(host: ShadowRoot, context: PanelContext): PanelHandle | Promise<PanelHandle>;
 

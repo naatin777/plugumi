@@ -14,7 +14,7 @@ relations:
 
 ## コンテキスト
 
-現行の[Contract 00004](../contracts/00004-plugin-client-protocol.md)は、callerが `registrationId + toolPath` を直接指定してToolを呼ぶ形を取る。一方、capability-centric workbenchでは、AIやUIはprovider implementationではなくcapability / operationと実行対象を選ぶ必要がある。
+改訂前の[Contract 00004](../contracts/00004-plugin-client-protocol.md)は、callerが `registrationId + toolPath` を直接指定してToolを呼ぶ形を取っていた。一方、capability-centric workbenchでは、AIやUIはprovider implementationではなくcapability / operationと実行対象を選ぶ必要がある。
 
 ここで、`operation + target` を正本としつつ `registrationId + toolPath` もpublic APIとして残すhybrid案が出た。しかし、これは2つの呼び方を永久に保守し、provider実装を隠すというcapability indirectionの目的を弱める。移行を楽にする以上の複雑さを招くため採用しない。
 
@@ -195,7 +195,7 @@ Coreはcaller executionのprojectを見て、`project/plugumi -> account/github/
 ## トレードオフと帰結
 
 - [Decision 00018](00018-operation-targeting-context.md)のstructured target object案は、このdecisionのinvocation contextとresource ref中心の解決へ置き換える。dynamic pathを避ける方向と、暗黙推測を避ける方向は維持する。
-- Contract 00004は `registrationId + toolPath` をcaller contractから外し、operation invocationとExecutionを正本に据えるよう改訂が必要になる。
+- Contract 00004は `registrationId + toolPath` をcaller contractから外し、operation invocationとExecutionを正本に据えるよう改訂した。次はCore・Provider・UI Host実装をこのcontractへ移行し、縦切りで検証する必要がある。
 - contextを自動解決する分、ambiguous errorとchooserのUXが重要になる。Coreは黙ってproviderやaccountを選んではいけない。
 - すべての呼び出しがExecutionになるため、fastなoperationではExecution recordを軽量に保つ実装が必要になる。永続化範囲や保存期間は別途決める。
 - compositeなproject×environmentが必要になった場合は、target axisをcallerへ開くのではなく、binding resourceとして表す方向を先に検討する。

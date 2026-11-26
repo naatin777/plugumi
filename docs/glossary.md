@@ -16,12 +16,12 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ### Environment Provider
 
-ファイルシステムやプロセス実行など、実行環境のcapabilityをToolとして提供するProvider（`environment/`、Rust実装）。installable packageとして配布されるPluginとは区別し、登録時の`providerKind`は`environment`を使う。
+ファイルシステムやプロセス実行など、実行環境のcapabilityをoperationとして提供するProvider（`environment/`、Rust実装）。installable packageとして配布されるPluginとは区別し、登録時の`providerKind`は`environment`を使う。
 
 ### UI Host
 
 Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
-Web PluginやElectron Pluginが提供する。Tool実行やPluginプロセス自体の寿命を管理しない。
+Web PluginやElectron Pluginが提供する。operation実行やPluginプロセス自体の寿命を管理しない。
 
 ### Web Plugin
 
@@ -42,7 +42,7 @@ Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWe
 
 ### Panel
 
-UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはToolと分ける。Web Pluginは、Panelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
+UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはoperationと分ける。Web Pluginは、Panelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
 
 ### UI Bundle
 
@@ -110,15 +110,17 @@ Areaの中でファイルを見るなどの作業をする画面。Areaと1対1�
 
 旧画面モデルでPanelを置いていた固定領域（left・bottom・center・right）。現行モデルでは固定Dockを持たず、Workspaceはcenterのsplit treeだけを持つ。旧ドキュメントを読むときの用語として残している。
 
-## Tool・作業
+## 旧revisionのTool用語
+
+以下のTool、toolPath、Discovery、Tool Call、kindは、改訂前の `registrationId + toolPath` modelを読む場合の定義。新しいdocsではoperation / Executionの用語を使う。現行実装は移行前のため、実装読解ではこの旧用語が残る。
 
 ### Tool
 
-Pluginが呼び出し元へ公開する機能単位。対象Core内のPlugin登録と `toolPath` で厳格に指定する。Panel専用操作はToolとは別に扱う。
+Pluginが呼び出し元へ公開する機能単位。対象Core内のPlugin登録と `toolPath` で厳格に指定した。Panel専用操作はToolとは別に扱う。
 
 ### toolPath
 
-登録内で一意なTool識別子（構造は未確定）。
+登録内で一意なTool識別子。operation pathへ一本化した新しいmodelでは使わない。
 
 ### Tag
 
@@ -126,11 +128,11 @@ Toolに設定する検索用ラベル。
 
 ### Discovery
 
-Tag・Schema等でTool候補を検索する仕組み。結果は対象Core内のPlugin登録と `toolPath` の組を基本とする。
+Tag・Schema等でTool候補を検索する仕組み。結果は対象Core内のPlugin登録と `toolPath` の組を基本とした。
 
 ### Tool Call（invoke）
 
-Toolの実行呼び出し。呼び出し元はPluginに限らず、Coreが指定された対象Pluginへ仲介する。wireの形態はプロトコル版の契約で定義する。
+Toolの実行呼び出し。呼び出し元はPluginに限らず、Coreが指定された対象Pluginへ仲介した。wireの形態はプロトコル版の契約で定義する。
 
 ### callId
 
@@ -138,7 +140,7 @@ Toolの実行呼び出し。呼び出し元はPluginに限らず、Coreが指定
 
 ### kind
 
-旧v1のTool宣言に付ける形態ラベル（`sync` / `async`）。
+旧revisionのTool宣言に付ける形態ラベル（`sync` / `async`）。operation / Execution modelでは使わない。
 
 ### Queue
 
@@ -148,9 +150,29 @@ Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内
 
 変更を継続的に受け取ること。旧v1では長時間の `kind: async` callを指す場合がある。現行契約のRegistry購読はSSEで行う。
 
-## 検討中の再編案の用語
+## capability-centric modelの用語
 
-以下は[Architecture 00003](architecture/00003-daemon-centric-workbench-platform.md)で検討している再編案の用語である。現行accepted構成の用語を直ちに置き換えるものではない。
+以下は[Architecture 00003](architecture/00003-daemon-centric-workbench-platform.md)、[Decision 00024](decisions/00024-operation-invocation-context-and-execution.md)、改訂後の[Contract 00004](contracts/00004-plugin-client-protocol.md)で使う用語である。実装は移行中だが、新しいdocsではこちらの用語を使う。
+
+### Provider
+
+capability / operationをCoreへ登録し、実行を受け付ける側。Environment Provider、Host Capability Provider、Extensionのbackend entryなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
+
+### Operation
+
+Providerが公開するsemanticな操作単位。`filesystem/list` のようなoperation pathで識別し、callerも同じpathで呼ぶ。Toolとoperationを別名で持たない。
+
+### operation path
+
+Operationのcanonicalな識別子。slash区切りpathとし、CLI・MCP・HTTP API・AI tool catalogで共通に使う。slashを扱えない外部実装向けのencode/decodeはadapterだけで行う。
+
+### operation invocation
+
+Operationの実行呼び出し。callerはoperation pathとoperation inputを指定し、project / account / hostなどのrouting情報はinvocation context、resource ref、project bindingからCoreが解決する。AIへ見せるtool schemaにはoperation inputだけを含める。
+
+### invocation context
+
+operation inputとは別に、routingと記録のためにCoreが解決・付与する実行文脈。project、caller execution、host sessionなどを含み得る。AIに毎回入力させる項目ではない。
 
 ### Core Daemon
 
@@ -174,7 +196,7 @@ capability、View、shell contributionをまとめるinstall / enable / disable 
 
 ### Backend entry
 
-Extensionのうち、UIと独立して長時間動くentry。Core-managedなextension hostまたはprovider processで実行し、capability提供、Tool / Operation実装、状態保持、event処理を行う。
+Extensionのうち、UIと独立して長時間動くentry。Core-managedなextension hostまたはprovider processで実行し、capability提供、operation実装、状態保持、event処理を行う。
 
 ### Client entry
 
@@ -186,7 +208,7 @@ Extensionのうち、Panel / Embed内で描画とUI操作を担うentry。View i
 
 ### Execution
 
-Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から独立し、状態・途中出力・結果参照・cancelの対象になる。検討案では、`callId` のような接続相関IDとは区別する。
+Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から独立し、状態・途中出力・結果参照・cancelの対象になる。すべてのoperation invocationはExecutionとして記録し、`callId` のような接続相関IDとは区別する。fastなoperationは最初からterminal状態のExecutionになる。
 
 ### Capability
 

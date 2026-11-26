@@ -42,6 +42,6 @@ modstrataから引き継ぐべきもの（host capabilityをremote operationと�
 
 未解決の帰結:
 
-- **capability descriptor**（scope・lifetime・target・user presence・risk）は検討要素であり未設計
+- **capability descriptor**のうち、scopeとlifetimeは[Decision 00024](00024-operation-invocation-context-and-execution.md)に従いprovider sessionからCoreが導出する。user presence・risk・表示用metadataは未設計
 - **capability indirection**は[Decision 00024](00024-operation-invocation-context-and-execution.md)で、operation pathへの一本化・context自動解決・Execution統一として決めた。Contract 00004の改訂と実装検証を行ってから[Architecture 00003](../architecture/00003-daemon-centric-workbench-platform.md)等の復元draftをacceptedにする
 - capabilityの意味が標準化できるかどうかが、標準搭載とpluginの実際の境界線になる（[Decision 00022](00022-standard-inclusion-boundary.md)参照）
