@@ -24,6 +24,8 @@ Electron native browserはWeb Hostでnative表示できない。しかし、Web 
 
 また、Workbench復元時に多数のPanelを一度にmountすると起動が重い。開かれるまでview runtimeを起動しない仕組みが必要である。
 
+Panel Instance、Mount寿命、Layout Snapshot、writer claimなどの基本設計は、modstrataの `docs/design/ui/panel.md`、`docs/design/workbench/ui-state.md`、`docs/design/workbench/multi-view.md` を参照し、再発明しない。特に、Panelのclose / move /表示切替と業務処理の停止を結び付けない前提を引き継ぐ。
+
 ## モデル
 
 このdesignでは次の概念を分ける。
@@ -83,7 +85,7 @@ HostはPanel Referenceを受け取ると、次の順で解決する。
 1. resource + intentから利用可能なView候補を探す。
 2. preferredViewが利用可能なら優先する。
 3. requiredHostCapabilitiesを現在のHost capabilityと照合する。
-4. external extensionのViewなら、必要なextensionをactivateしてentryをloadする。
+4. Pluginのview entryなら、必要なPluginをactivateしてentryをloadする。
 5. Host bundledなViewなら、必要になった時点でlazy importする。
 6. fallback Viewがあるなら利用者へ提示するか、設定に従って開く。
 7. どれも使えないならunavailable panelを表示する。
@@ -99,11 +101,11 @@ virtual panelはinertである。
 
 virtual panelに保存してよいのは、ID、view type、resource ref、intent、params、title、layout位置、restore stateなどのserializableな情報である。closure、DOM node、live objectは保存しない。
 
-裏で動く処理はvirtual panelへ置かない。長時間動く処理はExtensionのbackend entryまたはProviderへ置く。shell全体へ効くcustomizationはclient entryへ置く。
+裏で動く処理はvirtual panelへ置かない。長時間動く処理はPluginのruntime entryまたはProviderへ置く。shell全体へ効くcustomizationはPluginのentryへ置かず、公式shellの `shared/` 実装またはforkで扱う。
 
 ## badge / activityの扱い
 
-Agent実行中のbadgeや進行状態は、Panel内部のJSが所有しない。Executionやbackend eventをWorkbench shellが購読し、Panel metadataへ反映する。view runtimeがmountされているときは、その状態を詳しく表示する。
+Agent実行中のbadgeや進行状態は、Panel内部のJSが所有しない。Executionやruntime eventをWorkbench shellが購読し、Panel metadataへ反映する。view runtimeがmountされているときは、その状態を詳しく表示する。
 
 この分離により、Panelがvirtualでも実行状態を失わない。
 
@@ -114,7 +116,7 @@ Web Hostで表示できない場合は、クラッシュや暗黙の削除をし
 | 状態 | 意味 |
 |---|---|
 | `unsupported` | このHostには必要なcapabilityがない |
-| `missing-view` | Viewを提供するextensionが入っていない |
+| `missing-view` | Viewを提供するPluginが入っていない |
 | `runtime-unavailable` | 元のHostまたはProviderが動いていない |
 | `fallback-available` | 別Viewなら表示できる |
 

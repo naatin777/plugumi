@@ -25,14 +25,14 @@ modstrataの「全部Plugin」では、寿命・trust level・target・AIへ見�
 1. **Core Builtin Capability** — workspace state、execution registry、interaction state、operation routingなど。常に存在するCore機能
 2. **Host Capability** — notification、clipboard、file picker、native browser viewportなど。host sessionに属し、hostが閉じたら使えない。durable desired stateにせず、plugin listに出さない
 3. **Environment / Service Capability** — filesystem、shell、terminalなど。hostが閉じても生きている必要がある
-4. **Extension Plugin** — GitHub、Slackなど利用者が追加する外部拡張パッケージ。本来のPlugin
+4. **Plugin** — GitHub、Slackなど利用者が追加する外部拡張パッケージ
 5. **Representation Provider** — DiffViewer、TerminalViewなど「どう見せるか」。capability（何ができるか）とは分ける
 
 **hostの扱い**: Hostをplugin registrationとして見せず、**host session**（host kind、device identity、user presence、available host capabilities、trusted状態）として登場させる。host capabilityはsessionの属性である。
 
 **AIへの見せ方の原則**（検討中）: AIはprovider implementationではなく**capabilityとtargetを選ぶ**。providerがbuiltinかhostかserviceかpluginかはrouting / policy / lifecycleの問題であり、AIの第一関心ではない。
 
-**environmentがUIを配信しない理由**: environment（旧standard）は標準capabilityなので、表現はplatformがbuilt-in viewとして持てる。environmentはheadlessでresource / state / eventだけ返す。extension pluginだけが自分で表現（declarative surface / custom component）を供給する必要がある。
+**environmentがUIを配信しない理由**: environment（旧standard）は標準capabilityなので、表現はplatformがbuilt-in viewとして持てる。environmentはheadlessでresource / state / eventだけ返す。Pluginだけが自分で表現（declarative surface / custom component）を供給する必要がある。
 
 ## 代替案
 

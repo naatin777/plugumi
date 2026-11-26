@@ -1,8 +1,8 @@
 ---
 type: design
-title: user-level Plugin serviceのdesired stateとreconciliation
-description: multi-core対応のuser-level Plugin serviceが、machine-managedなdesired stateをfull scanと冪等なreconcileで反映する方法を定める検討案。
-status: draft
+title: self-managed / external Plugin serviceのdesired stateとreconciliation
+description: multi-core対応のself-managed / external Plugin serviceが利用し得るdesired stateとreconciliationの検討。managed runtimeの標準lifecycleには採用しない。
+status: deprecated
 relations:
   requirement:
     - '00003'
@@ -12,9 +12,11 @@ relations:
     - '00019'
 ---
 
+> managed plugin runtimeは[Decision 00019](../decisions/00019-multicore-plugin-process-ownership.md)により `1 Core : 1 provider session : 1 runtime process` に割り切る。managedなuser-level multi-core serviceは持たないため、このdesignはPlugumiの標準managed lifecycleには採用しない。self-managed / externalなmulti-core serviceを作る作者向けの参考として残す。
+
 ## 対応するrequirement
 
-[Requirement 00003](../requirements/00003-plugin-ecosystem-support.md)は、同じPluginプロセスが複数Coreへ独立に接続できることを求めている。このdesignは、multi-core対応のuser-level Plugin serviceへ、Coreの追加・無効化・再接続指示を安全に届ける方法を定める検討案である。
+[Requirement 00003](../requirements/00003-plugin-ecosystem-support.md)は、self-managed / externalなPluginプロセスが複数Coreへ独立に接続できることを求めている。このdesignは、multi-core対応のself-managed / external Plugin serviceへ、Coreの追加・無効化・再接続指示を届ける方法を検討したものである。Plugumiの標準managed lifecycleには採用しない。
 
 ## 背景
 
@@ -61,6 +63,34 @@ desired stateは「接続中か」ではなく「接続してほしいか」を�
 - `generation` または同等の版を持ち、新しい意思と古い意思を区別する。
 - `enabled` を明示し、recordがないこととdisableを区別できるようにする。
 - credentialそのものではなく、短期間のbootstrap credentialまたはcredential refを扱う。
+
+## 複数Coreへの起動シーケンス
+
+このdesignは、真にmulti-core serviceが必要なPluginだけを対象にする。通常のPluginはCoreごとのprocess / sessionで起動し、重いruntimeを共有したい場合は `Coreごとのlightweight adapter + shared runtime` を優先する。利用者はその内部構成を選ばず、CoreごとにPluginをenable / disableするだけにする。
+
+### desired stateと起動control planeを分ける
+
+desired stateファイルは、起動や停止の命令そのものではない。これは「どのCoreへ接続しているべきか」を表す永続的な意思であり、再起動後の復元とreconciliationの正本である。ファイルだけではprocessを起動できず、変更を即時実行する仕組みにもならない。したがって、desired stateとは別に起動control planeが必要である。
+
+起動control planeは `ensure` 型にする。`start` / `restart` ではなく、「このPlugin serviceが、このmachine上で、desired stateどおりに動いていることを確認する」操作にする。enable / disable操作を受けたcontrollerは、desired recordを書いたあとでensureを呼ぶ。
+
+user-level serviceの起動は次の順で行う。
+
+1. 利用者がCore AでPluginをenableにする。
+2. controllerは、Plugin serviceがCore Aへ接続してほしいことを表すdesired recordを書く。
+3. controllerはmachine-localなlauncher / supervisorに対してensureを実行する。
+4. launcherはsingleton lockやprocess recordを確認し、serviceが未起動なら起動する。既に起動していればprocessを再起動しない。
+5. serviceは起動時にdesired stateをfull scanし、enabledなCoreごとに独立したprovider sessionを開始する。
+6. 利用者が同じPluginをCore Bでもenableにすると、controllerはCore B向けのdesired recordを追加し、再度ensureを実行する。
+7. service processは既に起動しているため、launcherは再起動しない。serviceはwatch、optionalな起動通知、または定期full scanでCore B向けrecordを検出し、Core B向けのprovider sessionだけを追加する。
+8. 利用者がCore Aでdisableにすると、controllerはCore A向けrecordの `enabled=false` と新しいgenerationを書く。serviceはCore A向けsessionだけをdrainして閉じ、Core B向けsessionには影響しない。
+9. serviceが落ちたり再起動したりした場合は、起動時のfull scanで全Core分のdesired stateを読み直す。実行中だったsession状態を正本にはしない。
+
+serviceへHTTP fetchするAPIだけを正本にしない。service未起動時にはfetch先が存在せず、起動不能になるためである。起動の正本はmachine-localなprocess spawn / supervisor制御とし、service内HTTP APIやsocketへの通知は、既に動いているserviceへ素早くreconcileさせるためのoptionalなfast pathに留める。
+
+同じprocess内でも、Core A向けとCore B向けのregistration、session、event stream、storage namespace、Execution contextは混ぜない。共有してよいのは、Pluginが明示的に共有すると決めたruntime process pool、cache、model client、hardware handleなどだけである。
+
+launcher / supervisorを誰が呼ぶか、およびその実体をCore Daemonのlocal process manager、Web / ElectronからのCLI invocation、Plugin package付属のlauncherのどれにするかは未決定である。ただし、user-level serviceのprocess所有権を最初にenableしたCoreへ縛ってはいけない。
 
 ## reconciliationの不変条件
 
@@ -138,6 +168,7 @@ user-level serviceは、最初に必要になったCoreが起動トリガにな�
 
 - 必要になったCoreは、singleton lockを確認し、未起動ならserviceを起動する。
 - 起動後のserviceはdesired stateをfull scanし、必要なsessionを張る。
+- active / inactiveや「起動してほしいか」はfile-basedなdesired stateとして扱う。実際に動いているかはruntime statusとheartbeatで表し、同じrecordへ混ぜない。
 - 全sessionが不要になった場合、idle timeout後に終了してよいかは未決定である。
 - Core Daemon shutdown時にuser-level serviceを止めるかは、managed pluginと別に決める。
 

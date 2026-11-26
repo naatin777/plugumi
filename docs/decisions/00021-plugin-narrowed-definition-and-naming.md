@@ -33,4 +33,4 @@ modstrataではHost・Environment・連携・UI componentまで全てがPlugin�
 
 失うもの: modstrataの「全部Plugin」という語感との距離が名前の上では取れないこと。概念の再定義で対処する。
 
-帰結: Plugin capabilityの対象範囲はこのdecisionでは決めない。capabilityの分類（Core builtin / Host / Environment・service / Extension / Representation）と、AIがprovider実装ではなくcapabilityとtargetを選ぶ原則は、Architecture 00003と今後のdecisionで扱う。glossaryの「Extension」節はこのdecisionに沿って見直す必要がある。
+帰結: Plugin capabilityの対象範囲はこのdecisionでは決めない。capabilityの分類（Core builtin / Host / Environment・service / Plugin / Representation）と、AIがprovider実装ではなくcapabilityとtargetを選ぶ原則は、Architecture 00003と今後のdecisionで扱う。glossaryではinstallable packageをPluginとし、runtime entry / view entryの用語へ揃える。

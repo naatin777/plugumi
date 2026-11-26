@@ -31,9 +31,9 @@ modstrataの「全部Plugin」は実験として有用だったが、寿命・tr
 - **terminal** — 標準environment統合。PTYはenvironmentでdurableに生き、viewはplatformが持つ
 - **DiffViewer** — 標準。テキストdiffで動き、gitの意味を必要としない
 - **Electronのbrowser automation** — Electronでしか実現できないためhost capability。durable service化しない
-- **git** — 標準搭載しない。shellにgit専用UIを置かず、capabilityはplugin / domain寄りとする。jjなど別VCSも存在し、DiffViewerはgitなしで成立する
+- **git** — 標準搭載しない。shellにgit専用UIを置かず、capabilityはplugin寄りとする。jjなど別VCSも存在し、DiffViewerはgitなしで成立する
 - **docker / ssh remote** — provisioning driverはplugin。主な仕事はenvironmentを外部で起動することで、接続後は「リモートのenvironmentバイナリへポートで接続する」共通経路に収束する。設定画面に出る由来（docker経由、ssh/url）はopaqueな文字列メタデータとしてgenericに表示し、appsはdocker固有のUIロジックを持たない。なお接続後のremote environment protocolはcore側の責務である
-- **AI agent** — appsが知るのは特定の実装ではなく「agentという概念」（chat UI、presence、interaction提示）とする方向。実装の帰属はMVP検討で決める（後述）
+- **AI agent** — 一旦標準搭載せず、公式pluginとして扱う。agent conceptをshellの標準概念にし、implementationだけをpluginへ分ける案は、shellがagentを知るかどうかの責務が曖昧になり破綻しやすいため採用しない。標準装備へ格上げするかはMVPの検証後に見直す
 
 ## 代替案
 
@@ -48,7 +48,7 @@ modstrataの「全部Plugin」は実験として有用だったが、寿命・tr
 失うもの・残課題:
 
 - **capability indirection**は[Decision 00024](00024-operation-invocation-context-and-execution.md)で決めた。operation pathへの一本化、context自動解決、Execution統一に従ってContract 00004を改訂し、実装検証してから復元draftをacceptedにする
-- **AI agentの標準搭載は未確定**。native UIによるパフォーマンス利点、そもそもカスタマイズ性が要るか（forkとAIがある）という論点があり、MVPの検討で決める
+- **AI agentは一旦公式plugin**。native UIによるパフォーマンス利点、そもそもカスタマイズ性が要るか（forkとAIがある）という論点があり、標準装備へ格上げするかはMVPの検証後に見直す
 - **MVPの範囲は未決定**。関心はagent / A2UI周りで、design 00007-00009が材料になる
 - 細部は実装してから決める方針
 - files.tsxの「provider側にUIは置かない（Decision 00017）」という参照は00017（host境界）の主旨とずれている可能性があり、根拠の確認と参照修正が必要

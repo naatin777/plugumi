@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: Daemon中心のVisual Workbench Platform構成（検討案）
-description: UI非依存のCore Daemon、Workbench Host、Environment / Capability Provider、Extension、Host-local capabilityの境界と寿命を整理した検討案。
+description: UI非依存のCore Daemon、Workbench Host、Environment / Capability Provider、Plugin、Host-local capabilityの境界と寿命を整理した検討案。
 status: draft
 relations:
   architecture:
@@ -18,7 +18,6 @@ relations:
     - '00020'
   design:
     - '00006'
-    - '00007'
     - '00008'
     - '00009'
   requirement:
@@ -36,6 +35,7 @@ relations:
 
 - UIの状態はdurableな処理へ影響しない。renderer reload、Panel close、window close、UI app quitのいずれも、durableな実行中の作業を暗に停止しない。host-sessionなcapabilityは寿命を明示した例外とする。
 - Electron appをquitしてもCore DaemonとExecutionは残る。これは利用者が長期間前提としてきた原則である。
+- ユーザーへ見せる操作は内部実装の区別ではなく、分かりやすい単位へ寄せる。managed / self-managed / externalの区別はlifecycleとownershipを正しく実装するための内部モデルとし、不要に操作や状態表示へ露出しない。
 - PlugumiはMCP Appsへ乗るものではなく、独立したvisual workbench protocol / platformを目指す。
 - 「何でもPlugin」とはしない。Pluginという語を、Host、Provider、View、capability、environmentのすべてへ使わない。第一級概念はPluginではなく、Capability / Operation / Resource / Execution / Viewとして整理する。
 - MCPとの差は、ToolにUIを持たせること、Panel、UIアプリ導入、Event / 可視化、HostとViewの自由度にある。
@@ -48,11 +48,11 @@ relations:
 | Workbench Host | Web / Electronの公式UI shell。Panel layout、Viewのmount、通知、tray、Daemon管理画面、Host固有のOS統合 | installable pluginとしての差し替え、Executionの所有 |
 | Environment Provider | filesystem / shell / terminal / processなどの環境標準capabilityをlocal / WSL / remote / Dockerなどへ提供する | 利用者向けの拡張機能という扱い、Coreへの内蔵 |
 | Capability Provider | browser / agent / git / 外部serviceなどのcapabilityを提供する | CoreをbypassしたProvider間通信、UIの所有 |
-| Extension | capability・View・shell contributionをまとめるinstall / enable / disable / replace可能な配布単位 | Platform起動や修復そのもの |
-| Host Capability Provider | ElectronやWeb Hostが持つhost-local capabilityをCoreへ登録する。例はElectron native browser、native dialog、OS統合 | daemon寿命の実行、UIに依存しない長時間処理 |
+| Plugin | capability / operation・View contributionをまとめるinstall / enable / disable / replace可能な配布単位 | Platform起動や修復そのもの |
+| Host Capability Provider | Workbench Hostが内蔵するprovider roleとして、host-local capabilityをCoreへ登録する。独立したuser-facing processではない。例はElectron native browser、native dialog、OS統合 | daemon寿命の実行、UIに依存しない長時間処理 |
 | View | Panel / Embedなどの人間向けUI。resourceやExecutionを表示・操作する | capabilityやruntimeの所有 |
 
-重要なのは、**配布単位**と**実行時の役割**を分けることである。Extensionは配布単位であり、ProviderやViewはその中の役割である。Environment Providerは実装上はprovider protocolを使っても、利用者へは「Plugin」ではなく「環境」として見せる。
+重要なのは、**配布単位**と**実行時の役割**を分けることである。Pluginは配布単位であり、ProviderやViewはその中の役割である。Environment Providerは実装上はprovider protocolを使っても、利用者へは「Plugin」ではなく「環境」として見せる。
 
 ## Workbench Hostとforkの境界
 
@@ -60,38 +60,37 @@ Web / Electron Workbench Hostはruntime installableなpluginとして差し替�
 
 downstream hostはCore Daemonや公開protocolを使って技術的には作れるが、公式に互換性を保証する対象ではない。安定させるのはCore protocol、capability contract、Execution model、Daemon management APIなどの公開境界であり、Workbench内部のcomponent、Layout Store、DOM構造ではない。
 
-公式Hostはfork前提なので、Core Daemonの状態、managed provider、Execution件数、ログ、extension管理、trayなどと密に統合してよい。ただし、process ownershipはCore Daemonへ寄せる。ElectronやWeb UIはmanagement APIを呼ぶcontroller / displayであり、個別processを直接所有しない。
+公式Hostはfork前提なので、Core Daemonの状態、managed provider、Execution件数、ログ、Plugin管理、trayなどと密に統合してよい。ただし、process ownershipはCore Daemonへ寄せる。ElectronやWeb UIはmanagement APIを呼ぶcontroller / displayであり、個別processを直接所有しない。
 
-## Extensionの実行entry
+## Pluginの実行entry
 
-Extensionは最大3種類のentryを持てる。
+Pluginは最大2種類のentryを持てる。
 
 | Entry | 実行場所 | 寿命 | 役割 |
 |---|---|---|---|
-| Backend entry | Core-managedなextension host / provider process | UIと独立して長時間動く | capability提供、Tool / Operation実装、状態保持、event処理 |
-| Client entry | Web / ElectronのWorkbench内 | Host document / session | shellの小さな拡張、command / menu / status / notification、Execution状態の表示反映 |
-| View entry | Panel / Embed内 | View instance | 画面描画とUI操作 |
+| runtime entry | Core-managedなplugin runtime host / provider process | UIと独立して長時間動く | capability提供、Operation実装、状態保持、event処理 |
+| view entry | Panel / Embed内 | View instance | 画面描画とUI操作 |
 
-browser tabやElectron rendererの中で動くclient / view entryは、UIを閉じれば終わる。UIを閉じても動き続ける必要があるJSはbackend entryとしてCore-managed processで動かす。
+browser tabやElectron rendererの中で動くview entryは、UIを閉じれば終わる。UIを閉じても動き続ける必要がある処理はruntime entryとしてCore-managed processで動かす。
 
-Extension packageはmanifestでcontributionとactivation eventを宣言し、必要になるまでbackend / client / viewのentryを起動しないようにできる。最終的なview bundleが1つのJSファイルであっても、差し替え対象はJSファイルパスではなくmanifest付きのcontributionとする。
+Plugin packageはmanifestでcontributionとactivation eventを宣言し、必要になるまでruntime / viewのentryを起動しないようにできる。最終的なview bundleが1つのJSファイルであっても、差し替え対象はJSファイルパスではなくmanifest付きのcontributionとする。
 
-client entryへはWorkbench内部DOMや内部componentではなく、意味のあるAPIを公開する。候補はcommand、menu、status item、notification、Panelのopen / reveal / close、resourceを開く操作、Execution状態の購読である。
+shell自体を拡張するentryはPluginに持たせない。command、menu、status item、notificationなどのshell標準機能は公式shellの実装として `shared/` に置き、shell構造そのものを変えたい場合はforkまたはdownstream hostで対応する。Web / ElectronがPluginだった時代に想定していたClient entry / workbench entryは、[Decision 00028](../decisions/00028-plugin-runtime-and-view-entries.md)により廃止する。
 
 ## contextをAPI surfaceにする
 
-entryごとに渡すcontextを分ける。Backend entryへはcapability / operation登録、他capabilityの呼び出し、Execution、event、storage、loggingを持つcontextを渡す。Client entryへはworkbench customization用のcontextを渡す。View entryへはhost element、params、panel操作、operation呼び出しなどの狭いcontextを渡す。
+entryごとに渡すcontextを分ける。runtime entryへはcapability / operation登録、他capabilityの呼び出し、Execution、event、storage、loggingを持つcontextを渡す。view entryへはhost element、params、panel操作、operation呼び出しなどの狭いcontextを渡す。
 
-context上のcapability操作はCoreをbypassする裏口ではなく、Core経由のroutingとExecution記録に乗る便利APIとする。これにより、extensionからはtyped / semanticな操作として見せつつ、Provider間の直接通信や権限回避を防ぐ。
+context上のcapability操作はCoreをbypassする裏口ではなく、Core経由のroutingとExecution記録に乗る便利APIとする。これにより、Pluginからはtyped / semanticな操作として見せつつ、Provider間の直接通信や権限回避を防ぐ。
 
 ## capabilityとViewの差し替え
 
 capabilityの差し替えとViewの差し替えは分ける。
 
 - filesystem / shell / terminalは環境標準capabilityのcontractとする。Coreには内蔵せず、Environment Providerが実装する。
-- browserは環境標準capabilityとは別にし、公式bundleに入る既定extension / provider候補とする。
-- file explorerの既定実装はHost bundledなViewとする。extension systemの外で起動できる基本体験とする。
-- custom file explorerはExtensionのView contributionとして提供し、`file` / `directory` resourceと `open` / `reveal` などのintentでresolutionする。
+- browserは環境標準capabilityとは別にし、公式bundleに入る既定Plugin / provider候補とする。
+- file explorerの既定実装はHost bundledなViewとする。plugin systemの外で起動できる基本体験とする。
+- custom file explorerはPluginのview contributionとして提供し、`file` / `directory` resourceと `open` / `reveal` などのintentでresolutionする。
 
 公式のfile explorerはHost内部の状態やUIと密に統合してよい。公式と第三者の完全な対等性は目標にしない。ただし、第三者が意味のある代替Viewを作れるだけの公開APIは用意する。
 
@@ -126,7 +125,7 @@ Electron app
 └── Host Capability Provider
 ```
 
-Host Capability Providerはhost-local capabilityをCoreへ登録する。Web UIやAIはElectronが接続している間、そのcapabilityをCore経由で呼べる。Electronをquitすればcapabilityはoffline / unavailableになり、host-sessionな実行は継続できない。Web Hostも同じ枠組みでbrowser clipboard、browser notification、web-native file pickerなどのhost-local capabilityを提供し得る。
+Host Capability Providerは、Hostとは別のprocessや配布単位ではなく、Host process内でhost-local capabilityをCoreへ登録する役割である。Web UIやAIはElectronが接続している間、そのcapabilityをCore経由で呼べる。Electronをquitすればcapabilityはoffline / unavailableになり、host-sessionな実行は継続できない。Web Hostも同じ枠組みでbrowser clipboard、browser notification、web-native file pickerなどのhost-local capabilityを提供し得る。
 
 ## UI operationとwork operation
 
@@ -136,7 +135,7 @@ Agentやbackground executionは、durableなwork operationだけにbindする。
 
 ## capabilityの寿命とrouting metadata
 
-capabilityは、どこで・どのくらいの寿命で有効かをmetadataとして公開する。候補は `daemon`、`node`、`host-session`、`ui-session` である。複数のElectron hostやenvironmentがある場合は、host instance、node、project、account / profileなどのrouting情報も必要になる。これらはoperation名へ埋め込まず、invocation context、resource ref、project bindingとして扱う。providerはoperationごとに `targetAxes` や `lifetime` を宣言せず、寿命はprovider sessionからCoreが導出する。
+capabilityは、どこで・どのくらいの寿命で有効かをmetadataとして公開する。候補は `daemon`、`node`、`host-session`、`ui-session` である。Environment Providerは静的なplugin一覧ではなく、local / remote / Dockerなどのenvironmentの追加・消失に応じてregistrationとsessionが動的に変わるものとして扱う。複数のElectron hostやenvironmentがある場合は、host instance、node、project、account / profileなどのrouting情報も必要になる。これらはoperation名へ埋め込まず、invocation context、resource ref、project bindingとして扱う。providerはoperationごとに `targetAxes` や `lifetime` を宣言せず、寿命はprovider sessionからCoreが導出する。
 
 ## 寿命モデル
 
@@ -144,12 +143,10 @@ capabilityは、どこで・どのくらいの寿命で有効かをmetadataと�
 |---|---|
 | View / renderer | 表示のたびに作り直してよい |
 | Panel instance | mount / unmount / virtual化できる。実行を所有しない |
-| Electron window | 閉じても処理へ影響しない |
-| Electron app | quitしてもCore Daemonとdurable Executionは残す |
-| Host Capability Provider | Host app / sessionの寿命 |
-| Web Host | UIアクセス用。落ちてもdurable Executionは残るのが理想 |
+| Web / Electron Host | close・quit・停止してもCoreとの通信が途切れるだけ。Executionやprovider lifecycleを所有しない |
+| Host Capability Provider | Host app / sessionの寿命。HostがCoreへ登録するcapabilityであり、独立したuser-facing processではない |
 | Core Daemon | Executionとmanaged provider lifecycleの所有者 |
-| managed provider | Core Daemonに管理される |
+| managed plugin runtime / provider | Core Daemonまたはその委譲先に管理される。`1 Core : 1 provider session : 1 runtime process` に割り切る |
 | 外部接続provider | 自分で生きる。Coreは管理しない |
 
 Electronの操作は `Close Window`、`Quit Desktop UI`、`Shut Down Plugumi` を分ける。`Shut Down Plugumi` だけがCore Daemonとmanaged providerを止める操作であり、実行中の作業がある場合は確認する。
@@ -166,9 +163,11 @@ project、environment、host、service account / profileはoperationの振り分
 
 ## multi-core Plugin processとprovider ownership
 
-1つのPlugin processが複数Coreへ接続することを禁止しない。ただし、logical provider instanceは原則としてCoreごとに分け、Execution / project context / event stream / credentialをCore間で混ぜない。通常のPluginはCoreごとのmanaged processまたはmanaged sessionを標準形とし、重いruntimeは `Coreごとのadapter + shared runtime` に分ける。真のmulti-core serviceはuser-level serviceとして扱い、最初に起動したCoreの所有物にしない。詳細は[Decision 00019](../decisions/00019-multicore-plugin-process-ownership.md)を参照。
+managed plugin runtimeは `1 Core : 1 provider session : 1 runtime process` に割り切る。同じPluginを複数Coreでenableにした場合は、既存processへ接続を追加せず、Coreごとに独立したruntime processを起動する。これにより、incrementalなCore追加通知、process ownership、障害分離を簡単にする。
 
-user-level serviceへ後からCoreを追加する場合は、人間が編集する設定ファイルではなく、machine-managedなdesired stateと冪等なreconciliationを使う。詳細は[Design 00007](../designs/00007-plugin-service-desired-state-reconciliation.md)を参照。
+重いbrowser runtime、LLM runtime、hardware handleなどをPlugin内部で共有するかは、Plugin作者の自由である。Plugumiがmanaged lifecycleとして見るのはCoreごとのruntime processだけであり、そのprocessが全機能を持つか、既に起動しているbackend / shared runtimeへ接続する薄いadapterかをplatformは規定しない。典型的には `Coreごとのlightweight adapter + shared runtime` に分けられる。shared runtime自体がCoreへ直接接続する場合は、それはPlugin内部の私有resourceではなくself-managed / externalなmulti-core serviceとして扱う。
+
+protocolレベルでは1つのPlugin processが複数Coreへ接続することを禁止しない。ただし、そのようなprocessはself-managed / externalなserviceとして扱い、Plugumiのmanaged runtime lifecycleでは起動・停止・接続先追加を管理しない。managedなuser-level multi-core serviceは持たない。詳細は[Decision 00019](../decisions/00019-multicore-plugin-process-ownership.md)を参照。
 
 ## Panel Referenceと仮想Panel
 
@@ -192,11 +191,12 @@ Workbench状態はHost間で共有する方向で検討する。少なくとも�
 
 ## 用語の方向
 
-ユーザー向けのinstall単位はPluginと呼んでよい。問題なのはPluginという語そのものではなく、Host、Provider、View、capability、environmentのすべてを同じ語で説明していたことである。Provider、View、Host、Environmentは役割として分けつつ、install単位の名称はPlugumiというproduct名と整合するPluginを優先する。Extensionという語への統一は必須ではない。
+ユーザー向けのinstall単位はPluginと呼んでよい。問題なのはPluginという語そのものではなく、Host、Provider、View、capability、environmentのすべてを同じ語で説明していたことである。Provider、View、Host、Environmentは役割として分けつつ、install単位の名称はPlugumiというproduct名と整合するPluginを優先する。Extensionという語は使わず、install単位はPluginに統一する。
 
 ## 未解決の問い
 
-- JS系extensionを共有extension hostで動かすか、extensionごとにprocessを分けるか。共有hostは軽いが障害分離が弱く、per-extension processは分離しやすいが重い。
+- Core Daemon、Environment Provider、Plugin runtime、self-managed / external service、Web / Electron Hostの起動・停止・再起動・所有関係をどう分けるか。process record、heartbeat、cache path、service discoveryを誰が持ち、誰が読むかを含めて整理する。managed plugin runtimeの操作面をWeb / ElectronからCLI invocationへ寄せるか、Core Daemonのprocess manager APIにするかもここで決める。
+- JS系Pluginを共有plugin runtime hostで動かすか、Pluginごとにprocessを分けるか。共有hostは軽いが障害分離が弱く、per-plugin processは分離しやすいが重い。
 - Daemon management APIの認証・権限分離をどこまで公開contractにするか。
 - Workbench状態のうち、layoutの配置までHost間で共有するか、配置だけHost sessionごとに持つか。
 - Electron native browserの映像をstreamやscreenshotでWebへ出すか。
@@ -205,4 +205,4 @@ Workbench状態はHost間で共有する方向で検討する。少なくとも�
 - 公式Hostの小さな改造APIとして、menu / command / status以外に何を公開するか。
 - A2UI v1.0へどこまでwire compatibleにするか、Plugumi独自profileにする範囲。
 - Embed Reference / surface state / Interaction / AffordanceをResource modelへどう統合するか。
-- user-level Plugin serviceのdesired stateを置く場所、stable core identity、bootstrap credentialの形式。
+- self-managed / external serviceが複数Coreへ接続するときの登録UX、credential配布、危険性表示。

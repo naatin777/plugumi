@@ -12,7 +12,7 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ### Plugin
 
-機能を提供する任意言語のソフトウェア。Plugumi専用プロセスでも、既存CLI・アプリの拡張としても作れる。新方式では利用者が指定したCoreへ自ら接続する。
+capability / operationやViewなどのcontributionを束ねるinstallable package。公式・第三者のいずれにもなり得るが、Host / Environment / Core builtin capabilityはPluginではない。Pluginはruntime entryとview entryを持てる。runtime entryは利用者が指定したCoreへ自ら接続する。
 
 ### Environment Provider
 
@@ -20,12 +20,12 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ### UI Host
 
-Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
+現行実装と旧docsを読むための用語。Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
 Web PluginやElectron Pluginが提供する。operation実行やPluginプロセス自体の寿命を管理しない。
 
 ### Web Plugin
 
-ブラウザ向けのUIを提供するPlugin（`apps/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。
+現行実装と旧docsを読むための用語。ブラウザ向けのUIを提供するPlugin（`apps/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。capability-centric modelではPluginではなくWorkbench Hostとして扱う。
 
 ### Plugin Views
 
@@ -38,7 +38,7 @@ Pluginが提供する、画面にはめ込まれるUIの1つ1つ（Panel・Embed
 
 ### Plugin Shell
 
-Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWeb PluginとElectron Pluginが共有する（`shared/workbench`、リポジトリの中だけで使う）。Plugin Shellは `ShellHost` というinterfaceを通してだけ外とやりとりし、Web PluginとElectron Pluginがそれぞれ実装する。Tokenの値はPlugin Shellが持つ。
+Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWeb PluginとElectron Pluginが共有する（`shared/workbench`、リポジトリの中だけで使う）。Plugin Shellは `ShellHost` というinterfaceを通してだけ外とやりとりし、Web PluginとElectron Pluginがそれぞれ実装する。Tokenの値はPlugin Shellが持つ。capability-centric modelでは、これをinstallable pluginの仕組みではなく `shared/workbench` の公式shell共有実装として扱う。
 
 ### Panel
 
@@ -156,7 +156,7 @@ Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内
 
 ### Provider
 
-capability / operationをCoreへ登録し、実行を受け付ける側。Environment Provider、Host Capability Provider、Extensionのbackend entryなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
+capability / operationをCoreへ登録し、実行を受け付ける側。Environment Provider、Host Capability Provider、Pluginのruntime entryなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
 
 ### Operation
 
@@ -190,21 +190,13 @@ filesystem / shell / terminal / processなどの環境標準capabilityを、loca
 
 Workbench Hostが内蔵し、host-local capabilityをCoreへ登録するProvider。例はElectron native browser、native dialog、OS統合。寿命は原則としてhost-sessionであり、durable executionの対象にはしない。
 
-### Extension
+### runtime entry
 
-capability、View、shell contributionをまとめるinstall / enable / disable / replace可能な配布単位。利用者向けの名称はPluginでよいという方向であり、重要なのは名称ではなくProvider / View / Host / Environmentと区別することである。Extensionという語への統一は必須ではない。
+Pluginのうち、UIと独立して長時間動くentry。Core-managedなplugin runtime processまたはprovider processで実行し、capability提供、operation実装、状態保持、event処理を行う。transport上はCoreへのWebSocket clientとして振る舞うことがあるが、概念名としてはWS clientと呼ばない。
 
-### Backend entry
+### view entry
 
-Extensionのうち、UIと独立して長時間動くentry。Core-managedなextension hostまたはprovider processで実行し、capability提供、operation実装、状態保持、event処理を行う。
-
-### Client entry
-
-Extensionのうち、Web / Electron Workbench内で動き、shellの小さな拡張を行うentry。command、menu、status item、notification、Execution状態の表示反映などを担う。
-
-### View entry
-
-Extensionのうち、Panel / Embed内で描画とUI操作を担うentry。View instanceと同じ寿命を持つ。
+Pluginのうち、Panel / Embed内で描画とUI操作を担うentry。View instanceと同じ寿命を持つ。shell自体を拡張するentryはPluginに持たせない。
 
 ### Execution
 
@@ -227,13 +219,13 @@ Panel instanceとして存在するが、view runtimeをまだmountしていな�
 現在のHostでは表示できないが、Panel Referenceとして存在する状態。`unsupported`、`missing-view`、`runtime-unavailable`、`fallback-available` などの理由を区別する。
 
 
-### user-level Plugin service
+### self-managed / external Plugin service
 
-どのCoreも所有者ではないmulti-core対応のPlugin service。最初に必要になったCoreが起動トリガになっても、起動後はuser-levelのserviceとして扱う。managed pluginとは寿命と停止の意味を区別する。
+1つのprocessが複数Coreへ接続し得る、Plugumiのmanaged runtime lifecycleで管理しないPlugin service。起動・停止・接続先Coreの追加は、利用者、外部system、またはそのservice自身が管理する。managed plugin runtimeは `1 Core : 1 provider session : 1 runtime process` に割り切る。
 
 ### desired session state
 
-user-level Plugin serviceがどのCoreへ接続してほしいかを表す、machine-managedな状態。人間が直接編集する設定ファイルとは区別し、runtime statusやdiscovery stateと混ぜない。
+self-managed / externalなmulti-core serviceが利用し得る、「どのCoreへ接続してほしいか」を表す状態。Plugumiの標準managed lifecycleには採用しない。人間が直接編集する設定ファイルとは区別し、runtime statusやdiscovery stateと混ぜない。
 
 ### reconciliation
 

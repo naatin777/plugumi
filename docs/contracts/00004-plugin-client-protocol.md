@@ -78,7 +78,7 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 | `environment` | Environment Providerが担当するenvironment ref。例: `env/local`。 |
 | `hostSession` | Host Capability Providerが属するhost session ref。例: `host-session/electron-1`。 |
 
-Extension Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal / service scopeとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
+Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal / service scopeとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
 
 ### operation宣言
 
