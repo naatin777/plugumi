@@ -1,13 +1,12 @@
 // Site Panelのentry。web側がdynamic importしてmount(host, context)を呼ぶ。
-import { mount as mountComponent, unmount } from "svelte";
+import { render } from "@solidjs/web";
 import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
-import Panel from "./site.svelte";
+import { SitePanel } from "./site.tsx";
+import "./site.css";
 
 export function mount(host: ShadowRoot, context: PanelContext): PanelHandle {
-  const component = mountComponent(Panel, { target: host, props: { context } });
+  const dispose = render(() => <SitePanel context={context} />, host);
   return {
-    destroy: () => {
-      void unmount(component);
-    },
+    destroy: () => dispose(),
   };
 }

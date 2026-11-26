@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { defineConfig, type Plugin } from "vite";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
+import solid from "@solidjs/vite-plugin";
 
 // ビルド成果物のmanifest（plugumi-ui.json）を生成する。
 // mainプロセス側はこれを読み、filesをCoreへpushしてmanifestを登録する。
@@ -43,13 +43,13 @@ function uiManifest(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [svelte(), uiManifest()],
+  plugins: [solid(), uiManifest()],
   build: {
     // mount(host, context)をexportするESM 1ファイルにまとめる。
     // CSSはsite.cssとして分けて出し、manifestのstylesで宣言する
     // （Clientがentryより先に読み、自分の登録のscope内に限定して適用する）。
     lib: {
-      entry: { site: "src/site.ts" },
+      entry: { site: "src/site-entry.tsx" },
       formats: ["es"],
       fileName: (_format, name) => `${name}.js`,
       cssFileName: "site",
