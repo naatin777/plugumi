@@ -32,7 +32,8 @@ test("Agent registers, reconnects without a listener, and refreshes its Core cat
         renewalRequests++;
         response.end("{}");
         break;
-      case "PUT /v1/registrations/registration-test/tools":
+      case "PUT /v1/registrations/registration-test/operations":
+      case "POST /v1/registrations/registration-test/ready":
       case "DELETE /v1/registrations/registration-test":
         response.writeHead(204).end();
         break;
@@ -46,7 +47,7 @@ test("Agent registers, reconnects without a listener, and refreshes its Core cat
         registryRequests++;
         const body = JSON.stringify({
           coreId: "core-test", revision: "revision-test",
-          registrations: [{ registrationId: "other", providerId: "other-plugin", rpcAvailable: true, tools: [{ toolPath: announcedTool }] }],
+          registrations: [{ registrationId: "other", providerId: "other-plugin", rpcAvailable: true, ready: true, operations: [{ path: announcedTool }] }],
         });
         if (registryRequests === 2 || registryRequests === 4) delayedSnapshot = () => response.end(body);
         else response.end(body);
@@ -74,36 +75,39 @@ test("Agent registers, reconnects without a listener, and refreshes its Core cat
     while (!condition()) await delay(10, undefined, { signal: deadline });
   };
   try {
-    await until(() => client.catalog[0]?.toolPath === "one");
+    await until(() => client.catalog[0]?.path === "one");
+    // catalog初期取得はSSE接続より先に終わりうるので、通知を送る前に
+    // SSE接続の確立を待つ。
+    await until(() => notify !== undefined);
     assert.deepEqual(identities[0], { providerId: "agent", instanceId: "instance-test" });
     announcedTool = "two";
-    notify("tools.changed");
+    notify("operations.changed");
     await until(() => delayedSnapshot !== undefined);
     announcedTool = "three";
-    notify("tools.changed");
+    notify("operations.changed");
     notify("provider.added");
     notify("provider.changed");
     // 一覧取得を保留している間に通知をまとめて届ける。
     await delay(50);
     assert.equal(registryRequests, 2, "only one snapshot request may be in flight");
     delayedSnapshot();
-    await until(() => client.catalog[0]?.toolPath === "three");
+    await until(() => client.catalog[0]?.path === "three");
     await delay(50);
     assert.equal(registryRequests, 3, "changes during the request need only one follow-up snapshot");
 
     delayedSnapshot = undefined;
     announcedTool = "stale";
-    notify("tools.changed");
+    notify("operations.changed");
     await until(() => delayedSnapshot !== undefined);
     announcedTool = "two";
     endEvents();
     await until(() => client.catalog.length === 0);
     delayedSnapshot();
-    await until(() => client.catalog[0]?.toolPath === "two");
+    await until(() => client.catalog[0]?.path === "two");
     assert.equal(identities.length, 1, "ending SSE should not reopen RPC");
 
     for (const connection of websocket.clients) connection.terminate();
-    await until(() => identities.length === 2 && client.catalog[0]?.toolPath === "two");
+    await until(() => identities.length === 2 && client.catalog[0]?.path === "two");
     assert.deepEqual(identities[1], identities[0]);
     assert.equal(renewalRequests, 0, "registration already starts a fresh lease");
   } finally {

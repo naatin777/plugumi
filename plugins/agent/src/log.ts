@@ -5,7 +5,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { cacheDirectory } from "plugumi-plugin-client";
+import { cacheDirectory } from "@plugumi/runtime";
 
 let logFile: string | undefined;
 

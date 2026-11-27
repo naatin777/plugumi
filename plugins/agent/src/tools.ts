@@ -1,11 +1,12 @@
-// agent pluginが提供するTool群。
+// agent pluginが提供するoperation群。
 // MVPは agent/echo のみ（自己呼び出しの疎通確認用）。
 
-import type { Tool } from "plugumi-plugin-client";
+import type { Operation } from "@plugumi/runtime";
 
-export const agentTools: Tool[] = [
+export const agentOperations: Operation[] = [
   {
-    declaration: { toolPath: "agent/echo", kind: "sync" },
-    handler: (input) => ({ echo: input, from: "agent" }),
+    path: "agent/echo",
+    description: "疎通確認用。入力をそのまま返す。",
+    handle: (input) => ({ echo: input, from: "agent" }),
   },
 ];

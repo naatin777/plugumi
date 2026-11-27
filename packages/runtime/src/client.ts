@@ -7,6 +7,10 @@ import WebSocket from "ws";
 import { scanUI, serveAsset, validatePanels } from "./assets.js";
 import type { UI, UIManifest, UIFileEntry } from "./assets.js";
 import { ActiveExecutions } from "./execution.js";
+import { InvocationEvents, invokeOperation, cancelExecution } from "./caller.js";
+import type { ExecutionRecord, ExecutionsEventParams } from "./caller.js";
+import { Catalog } from "./catalog.js";
+import type { CatalogOperation } from "./catalog.js";
 import { declarations, dispatchInvoke, invalidParams } from "./operations.js";
 import type { Operation } from "./operations.js";
 import { Connection } from "./rpc.js";
@@ -53,6 +57,9 @@ export interface PluginRuntimeOptions {
   operations?: readonly Operation[];
   // 提供するUI。manifestの宣言とassets.get応答を自動で行う。
   ui?: UI;
+  // trueならSSE+Snapshotでcatalogを追跡しthis.catalogを最新に保つ。
+  // 呼び出し側にもなるpluginだけ有効にすればよい。
+  catalog?: boolean;
   log?: (message: string) => void;
 }
 
@@ -62,6 +69,9 @@ export class PluginRuntime {
   private readonly headers: Record<string, string>;
   private readonly log: (message: string) => void;
   private readonly active = new ActiveExecutions();
+  private readonly invocationEvents = new InvocationEvents();
+  // catalog追跡。options.catalogがtrueのときrunで起動する。
+  readonly catalogTracker?: Catalog;
   private uiFiles?: Map<string, UIFileEntry>;
   private uiManifest?: UIManifest;
 
@@ -71,6 +81,35 @@ export class PluginRuntime {
     }
     this.headers = options.token ? { Authorization: `Bearer ${options.token}` } : {};
     this.log = options.log ?? (() => {});
+    if (options.catalog) {
+      this.catalogTracker = new Catalog({
+        url: options.url,
+        headers: this.headers,
+        log: this.log,
+      });
+    }
+  }
+
+  // catalog追跡中なら現在のoperation一覧。未追跡なら空。
+  get catalog(): CatalogOperation[] {
+    return this.catalogTracker?.operations ?? [];
+  }
+
+  // operations.invokeを送り、応答のExecutionを返す。
+  // onEventを渡すと以降のexecutions.eventがterminalまで届く。
+  async invoke(
+    operation: string,
+    input?: unknown,
+    onEvent?: (event: ExecutionsEventParams) => void,
+  ): Promise<ExecutionRecord> {
+    if (!this.connection) throw new Error("not connected");
+    return invokeOperation(this.connection, this.invocationEvents, operation, input, onEvent);
+  }
+
+  // executions.cancelを送り、受理時点のExecutionを返す。
+  async cancel(executionId: string): Promise<ExecutionRecord> {
+    if (!this.connection) throw new Error("not connected");
+    return cancelExecution(this.connection, executionId);
   }
 
   get url(): URL {
@@ -92,6 +131,15 @@ export class PluginRuntime {
 
   async run(signal: AbortSignal): Promise<"stopped" | "rejected"> {
     let backoff = 250;
+    // catalog追跡はsessionではなくrunの寿命に紐付ける。
+    // sessionごとに起動すると再接続で重複し、signalだけに紐付けると
+    // rejectedでrunが終わってもtrackerが残ってprocessの終了を妨げる。
+    const catalogStop = new AbortController();
+    const stopCatalog = () => catalogStop.abort();
+    signal.addEventListener("abort", stopCatalog);
+    if (this.catalogTracker) {
+      void this.catalogTracker.run(catalogStop.signal).catch(() => {});
+    }
     try {
       while (!signal.aborted) {
         try {
@@ -108,6 +156,8 @@ export class PluginRuntime {
         }
       }
     } finally {
+      catalogStop.abort();
+      signal.removeEventListener("abort", stopCatalog);
       if (this.registrationId) {
         await this.request("DELETE", `/registrations/${this.registrationId}`, signal).catch(() => {});
       }
@@ -149,6 +199,20 @@ export class PluginRuntime {
     const wsURL = new URL(`${API}/rpc?registrationId=${lease.registrationId}`, this.url);
     wsURL.protocol = wsURL.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(wsURL, { headers: this.headers });
+    // upgradeの応答を待ち、HTTP拒否（401/403/426）は永続エラーとして
+    // 上位のrejected判定へ載せる。待たないとerror eventに埋もれて
+    // 無限retryになる。
+    await new Promise<void>((resolve, reject) => {
+      socket.once("open", () => {
+        socket.removeAllListeners("unexpected-response");
+        socket.removeAllListeners("error");
+        resolve();
+      });
+      socket.once("unexpected-response", (_request, response) => {
+        reject(new CoreHTTPError(response.statusCode ?? 500, "GET", "/rpc"));
+      });
+      socket.once("error", (error) => reject(error));
+    });
     const connection = Connection.attach(wrapSocket(socket));
     this.connection = connection;
     connection.onRequest = (message) => this.handleRequest(message);
@@ -198,6 +262,11 @@ export class PluginRuntime {
     if (message.method === METHOD_EXECUTIONS_CANCEL) {
       const params = message.params as { executionId?: string } | undefined;
       if (params?.executionId) this.active.cancel(params.executionId);
+      return;
+    }
+    // 呼んだinvocationへのevent配送。providerとcallerを兼ねるpluginもある。
+    if (message.method === "executions.event") {
+      this.invocationEvents.route(message.params as ExecutionsEventParams);
     }
   }
 }

@@ -290,9 +290,9 @@ importers:
 
   plugins/agent:
     dependencies:
-      plugumi-plugin-client:
+      '@plugumi/runtime':
         specifier: workspace:*
-        version: link:../../packages/plugin-client
+        version: link:../../packages/runtime
     devDependencies:
       '@types/node':
         specifier: ^24.19.2

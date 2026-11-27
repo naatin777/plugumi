@@ -20,7 +20,7 @@
     "test": "pnpm run build && node --test"
   },
   "dependencies": {
-    "plugumi-plugin-client": "workspace:*"
+    "@plugumi/runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
