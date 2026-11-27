@@ -104,7 +104,13 @@ export function createDragController(
               overArea = found.area;
               overTarget = hit.target;
             }
-            pieces.push(...hit.preview);
+            // 挿入が確定したあとに祖先が返すsplit pieceは拾わない —
+            // dropは挿入になるのにsplitの半分塗りが出ると嘘になる
+            // （stripの縁: stripは挿入、leafはsplitと判定する）。
+            const insertion = overTarget?.region === "leaf";
+            pieces.push(...hit.preview.filter(
+              (piece) => !(insertion && piece.kind === "region" && piece.split),
+            ));
           }
         }
       }
@@ -191,20 +197,12 @@ const insertIndex = (element: HTMLElement, pos: number, axis: "x" | "y"): number
 };
 
 // 横strip（leafのtab帯）のdrop判定。previewは挿入位置のcaret。
-// 左右の縁に近いときはnullを返す — 祖先に登録されたleaf全体の
-// 判定へfall throughし、splitが選ばれるようにする（stripはleafの
-// 全幅に渡るので、strip上の左右の縁はleafの左右の縁と同じ意味）。
-// 上下の縁はここではsplitにしない: stripはleafの上端の縁に
-// まるごと含まれるので、縦も対象にするとcaretが出せなくなる。
+// strip上ではsplitにしない — tab列は左詰めなので縁のzoneは実際の
+// tabが並ぶ場所と重なり、「tabにdropしたい」のにsplitになる。
+// splitはleaf bodyの縁だけで行う。
 export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
   (element, x, y) => {
     if (!inside(element, x, y)) return null;
-    {
-      const rect = element.getBoundingClientRect();
-      const edgeX = Math.max(EDGE_MIN_PX, rect.width * EDGE_FRACTION);
-      const nearEdge = x - rect.left < edgeX || rect.right - x < edgeX;
-      if (nearEdge && rect.width >= SPLIT_MIN_SIZE) return null;
-    }
     const index = insertIndex(element, x, "x");
     const rect = element.getBoundingClientRect();
     // caret位置: indexの子の左端。末尾なら最後の子の右端。
@@ -226,9 +224,9 @@ export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
   };
 
 // leafのdrop判定。縁に近ければsplit、中央なら末尾挿入。
-// 登録対象はleafのsection全体（tab帯のheaderを含む） — strip上は
-// strip自身のtesterが先に当たるが、左右の縁ではfall throughして
-// こちらのsplitが選ばれる。
+// 登録対象はleafのsection全体（tab帯のheaderを含む）。strip上では
+// strip自身のtesterが先に当たって挿入になる — その場合こちらが
+// splitと判定してもsplit pieceはpick側で捨てられる。
 // leafIdはdrop時点の値を読む（leafはloadで差し替わるため値渡しだと腐る）。
 export const leafTest = (leafId: () => string): DropTester =>
   (element, x, y) => {
