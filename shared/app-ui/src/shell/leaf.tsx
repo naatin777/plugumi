@@ -6,7 +6,7 @@ import type { Leaf } from "../layout/model.ts";
 import { useArea } from "./controller.tsx";
 import { TabStrip } from "./tab-strip.tsx";
 import { PagesTrack, flipPage, pageNavProps } from "./pages.tsx";
-import { leafBodyTest } from "./drag.ts";
+import { leafTest } from "./drag.ts";
 import { focusLeaf, selectPanel, setLeafLayout, setLeafColWidth } from "../layout/model.ts";
 import { dividerAttr, surfaceAttrs, busyAttr } from "./activity.ts";
 import { IconPlus, IconDeck } from "../icons.tsx";
@@ -18,10 +18,13 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
   const focused = () => area.layout().center.focusedLeaf === props.leaf.id;
   let unregister: (() => void) | undefined;
   onCleanup(() => unregister?.());
-  const registerBody = (node: HTMLElement) => {
+  // drop判定はleaf全体（section）に登録する — tab帯のheaderを含む
+  // どこでも縁へのdropがsplitになる。strip上はstripのtesterが先に
+  // 当たり、左右の縁だけfall throughしてこちらに届く。
+  const registerLeaf = (node: HTMLElement) => {
     unregister?.();
     // props.leafはlive getter（loadで差し替わる）なのでidはdrop時に読む
-    unregister = area.drag.register(area, node, leafBodyTest(() => props.leaf.id));
+    unregister = area.drag.register(area, node, leafTest(() => props.leaf.id));
   };
   const markFocus = () => {
     // leafのどこを触っても、「+」の足し先・前後キーの対象はこの区画になる
@@ -44,6 +47,7 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
     <section
       class={{ [styles["leaf"]]: true, [styles["focused"]]: focused() }}
       data-part="leaf"
+      ref={registerLeaf}
       onPointerDown={markFocus}
       {...pageNavProps(flip)}
       {...surfaceAttrs(selectedInstance()?.activity(), "border")}
@@ -70,7 +74,7 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
           <IconDeck size={13} />
         </button>
       </header>
-      <div class={styles["leaf-body"]} ref={registerBody}>
+      <div class={styles["leaf-body"]}>
         <Show
           when={props.leaf.panels.length > 0}
           fallback={<LeafEmpty leafId={props.leaf.id} />}
