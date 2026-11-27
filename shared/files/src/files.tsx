@@ -42,8 +42,16 @@ interface ListResult {
 }
 
 export function mount(host: ShadowRoot, context: FilesPanelContext): ViewHandle {
+  const saved = context.state as { path?: string } | undefined;
   const dispose = render(
-    () => <FilesPanel shell={context.shell} openPanelAcross={context.openPanelAcross} />,
+    () => (
+      <FilesPanel
+        shell={context.shell}
+        openPanelAcross={context.openPanelAcross}
+        initialPath={typeof saved?.path === "string" ? saved.path : undefined}
+        saveState={context.saveState}
+      />
+    ),
     host,
   );
   return { destroy: () => dispose() };
@@ -60,6 +68,8 @@ function fsProviders(registrations: RegistrationEntry[]): RegistrationEntry[] {
 function FilesPanel(props: {
   shell: FilesShell;
   openPanelAcross?: (providerId: string, panelId: string, input?: unknown) => void;
+  initialPath?: string;
+  saveState?: (state: unknown) => void;
 }): JSX.Element {
   // providerは接続・切断しうるので3秒ごとに取り直す。中身が変わらなければ
   // 通知しない（shellのpollと同じ作法）。
@@ -84,8 +94,10 @@ function FilesPanel(props: {
   const provider = () =>
     providers().find((entry) => entry.registrationId === chosen()) ?? providers()[0];
 
-  const [path, setPath] = createSignal(".");
-  const [draft, setDraft] = createSignal(".");
+  // 初期pathはrestorable stateから。directoryの移動はすべてchangePathを
+  // 通るので、そこでsaveStateへ書けばreloadで同じ場所へ戻れる。
+  const [path, setPath] = createSignal(props.initialPath ?? ".");
+  const [draft, setDraft] = createSignal(props.initialPath ?? ".");
   const [listing, setListing] = createSignal<Entry[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
@@ -128,6 +140,7 @@ function FilesPanel(props: {
   const changePath = (next: string) => {
     setPath(next);
     setDraft(next);
+    props.saveState?.({ path: next });
   };
 
   const join = (name: string) => path() === "/" ? `/${name}` : `${path()}/${name}`;
