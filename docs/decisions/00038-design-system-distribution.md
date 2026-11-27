@@ -52,3 +52,18 @@ CSS-only（adoptable stylesheet + class名）で始める。Web Components（`<p
 失うもの: view-coreの責務が「接続機械」に「視覚言語の契約と部品」を加えて2つになる。CSS-onlyの部品は振る舞いを持たないので、選択状態やインタラクションは現状view作者の責任のまま。
 
 package名の決定（2026-11-27）: `shared/app-ui`。検討の過程で、shellは業界用例（GNOME Shell / Windows shell / PWA app shell）では常に「実行時の全体」を指す語であり、plugumiではそれはUI App自身に相当するため部品の共有物の名前としては不適という指摘が決定的になった。`app-components`は機械部分が漏れ、`app-design`はchromeが漏れ、`ui-shell`はplugin UI bundleの「UI」と二重意味になる。`app-ui`は「appのUI実装」という素材の名前として全内容を漏れなくカバーし、app-の修飾によりplugin UIとの混同も避けられるため採用した。
+
+## カタログはin-appのStyle Labとする（Storybookを採らない）
+
+tokenとcomponentの公開カタログは、shell同梱のbuiltin panel「Style Lab」
+（shared/style-lab）とする。Storybookは採らない。理由はカタログの正しさの
+根拠が描画環境にあるため — plugin viewと同じShadowRoot +
+adoptedStyleSheets + token継承の経路で描かれて初めて、plugin作者が
+見るものと同じ見え方を保証できる。Storybookのisolatedな描画環境では
+この経路を再現できず、見た目が正しくても実環境とずれ得る。
+
+token一覧はcontract object（@plugumi/viewのtokens）をruntimeに走査して
+生成する。既存カテゴリへのtoken追加は自動でカタログに並ぶ。一方
+カテゴリの判別はcamelCaseのkeyからは分解不能（fontSizeはfont+Sizeか
+fontSize+1語か判断できない）なので、カテゴリごとの見せ方は明示prefixで
+sectionを書く — 新カテゴリの追加は見せ方の設計を伴うので、これでよい。

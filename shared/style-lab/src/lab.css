@@ -2,14 +2,14 @@
    tokenに任せ、ここには並べ方だけを書く。 */
 .lab {
   padding: var(--plugumi-spacing-md);
-  font-family: var(--plugumi-font-family-sans, sans-serif);
+  font-family: var(--plugumi-font-family-sans);
   color: var(--plugumi-colors-text);
   overflow: auto;
   height: 100%;
   box-sizing: border-box;
 }
 .lab h2 {
-  font-size: var(--plugumi-font-size-md, 1rem);
+  font-size: var(--plugumi-font-size-md);
   margin: var(--plugumi-spacing-md) 0 var(--plugumi-spacing-sm);
   border-bottom: 1px solid var(--plugumi-colors-border);
   padding-bottom: var(--plugumi-spacing-xs);
@@ -29,7 +29,7 @@
   flex-wrap: wrap;
 }
 .lab-key {
-  font-family: var(--plugumi-font-family-mono, monospace);
+  font-family: var(--plugumi-font-family-mono);
   font-size: var(--plugumi-font-size-xs);
   color: var(--plugumi-colors-text-subtle);
   min-width: 12em;
@@ -46,7 +46,7 @@
   border: 1px solid var(--plugumi-colors-border);
 }
 .lab-swatch-name {
-  font-family: var(--plugumi-font-family-mono, monospace);
+  font-family: var(--plugumi-font-family-mono);
   font-size: var(--plugumi-font-size-xs);
   color: var(--plugumi-colors-text-subtle);
   word-break: break-all;
