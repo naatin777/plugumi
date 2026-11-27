@@ -114,3 +114,8 @@
   color: var(--plugumi-colors-text-subtle);
   margin-bottom: var(--plugumi-spacing-sm);
 }
+
+.lab-note {
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-subtle);
+}

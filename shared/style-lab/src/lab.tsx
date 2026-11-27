@@ -78,6 +78,44 @@ function Typography(): JSX.Element {
 // ここに足す — 追加するとnavにも自動で出る。
 const SECTIONS: { id: string; title: string; render: () => JSX.Element }[] = [
   {
+    id: "chrome", title: "Chrome",
+    render: () => (
+      <section class="lab-section">
+        <h3>icon-button — 26×26、radius md、borderなし</h3>
+        <div class="lab-row">
+          <span class="lab-key">off</span>
+          <button class="icon-button" aria-label="off example">
+            <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
+          </button>
+          <span class="lab-key">on (aria-pressed)</span>
+          <button class="icon-button" aria-label="on example" aria-pressed="true">
+            <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
+          </button>
+          <span class="lab-note">hoverは実際に触って確認 — transparent→background-tertiary</span>
+        </div>
+        <h3>tab — radius sm、輪郭はinset shadow（raised-edge 35%）</h3>
+        <div class="tab-strip" style={{ border: "none", padding: 0 }}>
+          <button class="tab">
+            <span class="tab-title">非選択</span>
+          </button>
+          <button class="tab selected">
+            <span class="tab-title">選択中</span>
+            <span class="tab-close">×</span>
+          </button>
+        </div>
+        <h3>picker item — menuの1行</h3>
+        <div class="lab-row">
+          <div class="panel-picker" style={{ position: "static", border: "none" }}>
+            <button class="picker-item">
+              <span>Files</span>
+              <span class="picker-plugin">shell</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    ),
+  },
+  {
     id: "components", title: "Components",
     render: () => (
       <section class="lab-section">
