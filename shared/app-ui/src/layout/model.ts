@@ -11,6 +11,9 @@ export type PanelRef = {
   instanceId: string;
   providerId: string;
   panelId: string;
+  // 開き時の入力（editorのfile pathなど）。workspaceと一緒に永続化され、
+  // reloadで復元される。JSON直列化できる値に限る。
+  input?: unknown;
 };
 
 type Stack = {
@@ -127,7 +130,9 @@ function decodePanelRef(value: unknown): PanelRef | null {
   if (typeof instanceId !== "string" || instanceId === "") return null;
   if (typeof providerId !== "string" || providerId === "") return null;
   if (typeof panelId !== "string" || panelId === "") return null;
-  return { instanceId, providerId, panelId };
+  const ref: PanelRef = { instanceId, providerId, panelId };
+  if ("input" in value) ref.input = value.input;
+  return ref;
 }
 
 function decodeStack(value: unknown): Stack | null {

@@ -388,7 +388,8 @@ export function createAreaController(
       found = new PanelInstance(host, shell.coreKey(), panelRef,
         declaration?.title ?? panelRef.panelId, shell,
         declaration?.kind ?? "plugin");
-      found.input = input;
+      // 復元時はinput引数が来ない — 永続化されたPanelRef側を使う。
+      found.input = input !== undefined ? input : panelRef.input;
       // context.openPanel — 呼び出し時点のlayoutから自分が居るleafを
       // 探して、隣に同じPluginの別Panelを足す。leafから外れていれば無視。
       const source = found;
@@ -451,7 +452,7 @@ export function createAreaController(
       (entry) => entry.providerId === providerId && entry.panelId === panelId,
     );
     if (!declaration) return;
-    const panelRef: PanelRef = { instanceId: newInstanceId(), providerId, panelId };
+    const panelRef: PanelRef = { instanceId: newInstanceId(), providerId, panelId, input };
     instance(panelRef, input); // mountを始めてからlayoutに入れる
     applyLayout((state) => addPanel(state, panelRef, target));
   };

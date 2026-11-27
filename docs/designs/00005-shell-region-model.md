@@ -139,7 +139,11 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web appのサーバーは中身を解釈せずに保存し、そのまま返す。ElectronはWeb appの画面を開くため、Workspaceの保存も同じWeb appが担う。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
 
 ```ts
-type PanelRef = { instanceId: string; providerId: string; panelId: string };
+// inputは開き時の入力（editorのfile pathなど）。Workspaceと一緒に永続化され、
+// reloadで復元される。JSON直列化できる値に限る。なおinputは「同じものを
+// もう一度開くための情報」であって編集中の状態ではない — dirtyな編集内容
+// などの復元はこの仕組みの対象外とする。
+type PanelRef = { instanceId: string; providerId: string; panelId: string; input?: unknown };
 
 // leaf: tab切替の1区画。layout省略時はpages。colWidthはdeckの列幅（px）
 type Leaf = {

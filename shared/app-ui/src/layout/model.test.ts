@@ -35,6 +35,26 @@ describe("decode", () => {
     assert.equal(allLeaves(state.center.root).length, 2);
   });
 
+  test("PanelRefのinputはdecodeで引き継がれる（editorのfile pathなど永続化したい開き時入力）", () => {
+    const input = { path: "./hello.txt" };
+    const state = decodeWorkspace({
+      version: 1,
+      center: {
+        root: {
+          kind: "leaf", id: "l1",
+          panels: [{ instanceId: "a", providerId: "filesystem", panelId: "editor", input }],
+          selected: "a",
+        },
+        focusedLeaf: "l1",
+      },
+    });
+    const panel = allLeaves(state.center.root)[0].panels[0];
+    assert.deepEqual(panel.input, input);
+    // 永続化の実態であるJSON round tripを通しても残ることを確認する。
+    const roundTripped = decodeWorkspace(JSON.parse(JSON.stringify(state)));
+    assert.deepEqual(allLeaves(roundTripped.center.root)[0].panels[0].input, input);
+  });
+
   test("dock時代の保存（left/bottom/rightキー）はcenterだけ読んでdockを捨てる", () => {
     const raw = {
       version: 1,
