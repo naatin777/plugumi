@@ -5,7 +5,7 @@
 // 色はliveのvar()参照なのでテーマ切替に追従する。
 import { For, createSignal, onCleanup } from "solid-js";
 import { render, type JSX } from "@solidjs/web";
-import { tokens, type ViewContext, type ViewHandle } from "@plugumi/view";
+import { tokens, widths, type ViewContext, type ViewHandle } from "@plugumi/view";
 import { usedTokens } from "./usage.ts";
 
 const entries = Object.entries(tokens) as [string, string][];
@@ -91,6 +91,86 @@ const circleIcon = (
 );
 
 // ---- entry定義。sidebarにはこの順で並ぶ ----
+// 自分自身の幅を表示する箱。ResizeObserverで実測する —
+// container queryが効かない「数値としての幅」はこうやって取る。
+function WidthProbe(): JSX.Element {
+  const [width, setWidth] = createSignal(0);
+  const observer = new ResizeObserver((records) => {
+    for (const record of records) setWidth(Math.round(record.contentRect.width));
+  });
+  onCleanup(() => observer.disconnect());
+  return (
+    <div class="lab-rq-probe" ref={(node) => observer.observe(node)}>
+      この箱の幅: {width()}px {width() < widths.compact ? "→ compact" : ""}
+    </div>
+  );
+}
+
+// Responsive entryの本体。panelはsplitで幅が変わるのでviewportではなく
+// containerの幅が基準、というplugumiのresponsiveの原則をカタログする。
+function ResponsiveEntry(): JSX.Element {
+  return (
+    <>
+      <p class="lab-note">
+        panelはsplitやwindow resizeで幅が変わる。つまりresponsiveの基準は
+        viewportではなくpanel（container）の幅 — viewport基準のmedia queryは
+        panelに対してはほぼ誤りで、splitで狭くなったpanelに気付けない。
+      </p>
+
+      <h3>widths — 幅の契約</h3>
+      <p class="lab-note">
+        実証された境界だけを置く。CSS変数はqueryの条件式で使えないため、
+        値はTSの数値としてexportされる（view-coreのwidths）。
+      </p>
+      <table class="lab-spec">
+        <tbody>
+          <tr>
+            <td class="lab-spec-prop">widths.compact</td>
+            <td class="lab-spec-value">560px — これ未満ではsidebar等の副構造を畳む。Style Lab自身のsidebarで実証</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="lab-rq-widthbar" style={{ width: "560px" }}>compact境界 = 560px（実寸）</div>
+
+      <h3>機構の使い分け</h3>
+      <table class="lab-spec">
+        <tbody>
+          <tr>
+            <td class="lab-spec-prop">container query</td>
+            <td class="lab-spec-value">既定。CSSだけで完結し、部品が置かれた幅に反応する。下のdemoが実例</td>
+          </tr>
+          <tr>
+            <td class="lab-spec-prop">ResizeObserver</td>
+            <td class="lab-spec-value">DOM構造やJS stateが変わる場合（sidebarのhamburger化など）。境界にはwidthsの値を使う</td>
+          </tr>
+          <tr>
+            <td class="lab-spec-prop">media query</td>
+            <td class="lab-spec-value">viewport基準。panelにはほぼ誤り — window全体に関係するshellレベルだけ</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>demo — container query（panelを狭くすると反応する）</h3>
+      <div class="lab-rq-demo">
+        <div class="lab-rq-card">
+          <div class="lab-rq-visual" />
+          <div>
+            <div>container queryのdemo。</div>
+            <div class="lab-note">
+              このカードは自分のcontainerの幅がcompact未満だと縦積みになる —
+              CSSだけで書かれ、JSは介在しない。panelをsplitで狭くするか、
+              sidebarを広げると反応が見える。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>demo — 実測（ResizeObserver）</h3>
+      <WidthProbe />
+    </>
+  );
+}
+
 const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Element }[] = [
   {
     group: "foundations", id: "color", title: "Color",
@@ -166,6 +246,10 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
         )}
       </For>
     ),
+  },
+  {
+    group: "foundations", id: "responsive", title: "Responsive",
+    render: () => <ResponsiveEntry />,
   },
   {
     group: "components", id: "buttons", title: "Buttons",
@@ -284,7 +368,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
   const [navOpen, setNavOpen] = createSignal(false);
   const current = () => ENTRIES.find((entry) => entry.id === active()) ?? ENTRIES[0];
   const observer = new ResizeObserver((records) => {
-    for (const record of records) setNarrow(record.contentRect.width < 560);
+    for (const record of records) setNarrow(record.contentRect.width < widths.compact);
   });
   onCleanup(() => observer.disconnect());
   const select = (id: string) => {

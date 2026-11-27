@@ -12,6 +12,7 @@ export type {
 } from "./types.js";
 export { ChannelClosedError, ViewConnectError } from "./channel.js";
 export { tokens, cssVar } from "./design/tokens.js";
+export { widths } from "./design/widths.js";
 export type { TokenKey, TokenName } from "./design/tokens.js";
 
 // 作者のmount関数。hostはShadowRoot、channelは接続済み・型付きで渡る。

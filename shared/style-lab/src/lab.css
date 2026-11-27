@@ -209,3 +209,50 @@
   color: var(--plugumi-colors-text);
   border-bottom-style: solid;
 }
+
+/* Responsive entryのdemo。container queryの実例 — カードは自分の
+   containerの幅がcompact未満だと縦積みになる。条件式の560pxは
+   widths.compactのリテラル — CSS変数はquery条件で使えないため
+   値を直書きする（view-coreのwidths.ts参照）。 */
+.lab-rq-demo {
+  container-type: inline-size;
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  padding: var(--plugumi-spacing-sm);
+  margin-bottom: var(--plugumi-spacing-md);
+}
+.lab-rq-card {
+  display: flex;
+  gap: var(--plugumi-spacing-sm);
+  align-items: center;
+}
+.lab-rq-visual {
+  width: 4em;
+  height: 4em;
+  flex-shrink: 0;
+  background: var(--plugumi-colors-fill-strong);
+  border-radius: var(--plugumi-radii-md);
+}
+@container (max-width: 560px) {
+  .lab-rq-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.lab-rq-widthbar {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--plugumi-font-size-2xs);
+  color: var(--plugumi-colors-text-subtle);
+  border-bottom: 2px solid var(--plugumi-colors-border-strong);
+  margin: var(--plugumi-spacing-xs) 0 var(--plugumi-spacing-md);
+  padding-bottom: 2px;
+}
+.lab-rq-probe {
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  padding: var(--plugumi-spacing-sm);
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-muted);
+}
