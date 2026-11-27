@@ -122,7 +122,6 @@ export function ShellFrame(): JSX.Element {
         "--sub-width": `${subInline() ? prefs().subWidth : 0}px`,
         "--sub-raw-width": `${prefs().subWidth}px`,
         // テーマPanelのスライダーが動かす表示設定。
-        "--tab-fill": `${prefs().tabAlpha}%`,
         "--aurora-vivid": prefs().auroraVivid / 100,
         "--shell-frame-alpha": prefs().frameAlpha / 100,
         // sans/monoとも「pref → 同梱のPlex → localのPlex Sans JP

@@ -5,6 +5,7 @@
 import { For, createSignal } from "solid-js";
 import { render, type JSX } from "@solidjs/web";
 import { tokens, type ViewContext, type ViewHandle } from "@plugumi/view";
+import { usedTokens } from "./usage.ts";
 
 // カテゴリはkeyのprefixで判定する。fontSizeはfont+Size+Smと分解不能な
 // camelCaseなのでregex groupingは不可能 — 明示prefixのstartsWithで
@@ -19,7 +20,7 @@ function Swatches(): JSX.Element {
     <div class="lab-swatches">
       <For each={colorGroups()}>
         {([key, cssVar]) => (
-          <div class="lab-swatch" title={cssVar}>
+          <div class={{ "lab-swatch": true, unused: !usedTokens.has(key) }} title={cssVar}>
             <div class="lab-chip" style={{ background: `var(${cssVar})` }} />
             <div class="lab-swatch-name">{key}</div>
           </div>
@@ -35,7 +36,7 @@ function Scale(props: { title: string; prefix: string; sample: (cssVar: string) 
       <h3>{props.title}</h3>
       <For each={prefixed(props.prefix)}>
         {([key, cssVar]) => (
-          <div class="lab-row">
+          <div class={{ "lab-row": true, unused: !usedTokens.has(key) }}>
             <span class="lab-key">{key}</span>
             {props.sample(cssVar)}
           </div>
@@ -83,8 +84,6 @@ const SECTIONS: { id: string; title: string; render: () => JSX.Element }[] = [
         <h3>button</h3>
         <div class="lab-row">
           <button class="plugumi-button">default</button>
-          <button class="plugumi-button plugumi-button--accent">accent</button>
-          <button class="plugumi-button plugumi-button--danger">danger</button>
           <button class="plugumi-button" disabled>disabled</button>
         </div>
         <h3>input</h3>
@@ -144,6 +143,7 @@ function Lab(): JSX.Element {
         </For>
       </nav>
       <div class="lab-content">
+        <div class="lab-summary">{usedTokens.size} / {entries.length} tokens in use — 薄いものは未使用</div>
         <h2>{current().title}</h2>
         {current().render()}
       </div>

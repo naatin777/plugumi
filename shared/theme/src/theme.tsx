@@ -70,16 +70,6 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
         <span>オーロラ</span>
       </label>
       <label class="theme-slider">
-        <span class="theme-slider-label">tabの濃さ</span>
-        <input
-          type="range" min={0} max={100}
-          value={props.shell.prefs().tabAlpha}
-          onInput={(event) => props.shell.updatePrefs((prefs) => {
-            prefs.tabAlpha = Number(event.currentTarget.value);
-          })}
-        />
-      </label>
-      <label class="theme-slider">
         <span class="theme-slider-label">背景の濃さ</span>
         <input
           type="range" min={0} max={100}
