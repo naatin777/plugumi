@@ -18,6 +18,7 @@ const tokenEntryOf = (hyphenated: string): string | null => {
   if (hyphenated.startsWith("radii-")) return "shape";
   if (hyphenated.startsWith("spacing-")) return "spacing";
   if (hyphenated.startsWith("font")) return "typography";
+  if (hyphenated.startsWith("motion")) return "motion";
   return null;
 };
 
@@ -304,6 +305,31 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
   {
     group: "foundations", id: "responsive", title: "Responsive",
     render: () => <ResponsiveEntry />,
+  },
+  {
+    group: "foundations", id: "motion", title: "Motion",
+    render: () => (
+      <>
+        <p class="lab-note">
+          shellの--work-anim（180ms）が昇格したもの。panelがアニメーション
+          するときも同じ感覚を使う — hoverのchipに触れるとこの速度で動く。
+        </p>
+        <For each={prefixed("motion")}>
+          {([key, cssVar]) => (
+            <div class={{ "lab-row": true, unused: !usedTokens.has(key) }}>
+              <span class="lab-key">{key}</span>
+              <span class="lab-motionchip" style={{ "transition-duration": `var(${cssVar})` }} />
+            </div>
+          )}
+        </For>
+        <table class="lab-spec">
+          <tbody>
+            <tr><td class="lab-spec-prop">easing</td><td class="lab-spec-value">ease（css keyword）— 専用のbezierはまだ実績がない</td></tr>
+            <tr><td class="lab-spec-prop">visibilityの遅延</td><td class="lab-spec-value">閉じる側にだけ書く — drawer/scrimの開閉で使われている技法</td></tr>
+          </tbody>
+        </table>
+      </>
+    ),
   },
   {
     group: "components", id: "buttons", title: "Buttons",

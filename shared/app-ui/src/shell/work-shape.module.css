@@ -151,15 +151,15 @@
     background: var(--plugumi-colors-scrim);
     opacity: 1;
     pointer-events: none;
-    transition: opacity var(--work-anim) ease;
+    transition: opacity var(--plugumi-motion-duration-md) ease;
   }
   /* visibilityの遅延は閉じる側にだけ書く — base側に書くと開くときも
      hiddenのまま遷移が進み、最後に一気に暗く見える。 */
   .shell-scrim[data-closed] {
     opacity: 0;
     visibility: hidden;
-    transition: opacity var(--work-anim) ease,
-      visibility 0s var(--work-anim);
+    transition: opacity var(--plugumi-motion-duration-md) ease,
+      visibility 0s var(--plugumi-motion-duration-md);
   }
 
   /* <800px: Area listもdrawer — title barの下からstatus帯の上まで、
@@ -180,12 +180,12 @@
     width: min(var(--sidebar-raw-width, 260px), 85%);
     z-index: var(--plugumi-z-side-drawer);
     visibility: visible;
-    transition: transform var(--work-anim) ease, visibility 0s;
+    transition: transform var(--plugumi-motion-duration-md) ease, visibility 0s;
   }
   [data-part="shell"][data-size="compact"] .frame-side[data-closed] {
     transform: translateX(calc(-100% - 16px));
     visibility: hidden;
-    transition: transform var(--work-anim) ease,
-      visibility 0s var(--work-anim);
+    transition: transform var(--plugumi-motion-duration-md) ease,
+      visibility 0s var(--plugumi-motion-duration-md);
   }
 }

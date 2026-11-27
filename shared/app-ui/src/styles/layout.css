@@ -20,8 +20,6 @@
     --area-pad: var(--plugumi-spacing-sm);
     /* AreaView内のタイル同士（left|center|right、上段|bottom）の溝。 */
     --area-gap: var(--plugumi-spacing-sm);
-    /* 領域の開閉（畳み込み）のアニメ時間。 */
-    --work-anim: 180ms;
     /* frame（土台・title左右・sidebar・status帯）は全てこの1色。
        work面（canvas）と明確に分ける色を決定済みのtokenから引く。 */
     --shell-frame-color: var(--plugumi-colors-background-primary);

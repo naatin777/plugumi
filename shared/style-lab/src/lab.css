@@ -317,3 +317,17 @@
   cursor: col-resize;
   z-index: 1;
 }
+
+/* Motion entryのchip — hoverで幅が変わり、tokenのdurationで動く */
+.lab-motionchip {
+  width: 3em;
+  height: 1.2em;
+  background: var(--plugumi-colors-fill-strong);
+  border-radius: var(--plugumi-radii-sm);
+  transition-property: width, background;
+  transition-timing-function: ease;
+}
+.lab-motionchip:hover {
+  width: 8em;
+  background: var(--plugumi-colors-fill);
+}

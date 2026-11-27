@@ -14,8 +14,8 @@
     /* 登録済み変数の値が変わると補間される。これを参照する列幅・
        margin・title barの端がまとめて滑る。drag中は遅延になるので
        別途transitionを無効化する。 */
-    transition: --side-width var(--work-anim) ease,
-      --sub-width var(--work-anim) ease;
+    transition: --side-width var(--plugumi-motion-duration-md) ease,
+      --sub-width var(--plugumi-motion-duration-md) ease;
     height: 100vh;
     /* 窓が透過な宿主（Electronのvibrancy）ではデスクトップが見える。
        濃度は--shell-frame-alpha（0で完全透過）。ブラウザ上では
@@ -79,8 +79,8 @@
     width: var(--sub-width, 0px);
     min-width: 0;
     overflow: clip;
-    transition: width var(--work-anim) ease,
-      transform var(--work-anim) ease;
+    transition: width var(--plugumi-motion-duration-md) ease,
+      transform var(--plugumi-motion-duration-md) ease;
   }
   .sub-pane[data-closed] { width: 0; pointer-events: none; }
   .sub-pane > [data-part="area-view"] { flex: 1; min-width: 0; }
@@ -112,8 +112,8 @@
     width: min(var(--sub-raw-width, 480px), 90%);
     transform: translateX(calc(100% + 16px));
     visibility: hidden;
-    transition: transform var(--work-anim) ease,
-      visibility 0s var(--work-anim);
+    transition: transform var(--plugumi-motion-duration-md) ease,
+      visibility 0s var(--plugumi-motion-duration-md);
   }
 
   /* detached window: AreaView1個だけを全面に出す。 */

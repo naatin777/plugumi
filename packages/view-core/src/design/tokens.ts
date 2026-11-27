@@ -69,6 +69,7 @@ export const tokens = {
   lineHeightSm: "--plugumi-line-height-sm",
   lineHeightXl: "--plugumi-line-height-xl",
   lineHeightXs: "--plugumi-line-height-xs",
+  motionDurationMd: "--plugumi-motion-duration-md",
   radiiLg: "--plugumi-radii-lg",
   radiiMd: "--plugumi-radii-md",
   radiiSm: "--plugumi-radii-sm",
