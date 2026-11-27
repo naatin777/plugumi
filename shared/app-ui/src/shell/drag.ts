@@ -104,13 +104,19 @@ export function createDragController(
               overArea = found.area;
               overTarget = hit.target;
             }
-            // 挿入が確定したあとに祖先が返すsplit pieceは拾わない —
-            // dropは挿入になるのにsplitの半分塗りが出ると嘘になる
-            // （stripの縁: stripは挿入、leafはsplitと判定する）。
+            // 挿入が確定したあとに祖先が返すsplit pieceは、そのままでは
+            // 嘘（dropは挿入なのに半分塗りが出る）なので、leaf全体の
+            // 挿入regionに置き換える — 挿入なら全体は常に光る。
             const insertion = overTarget?.region === "leaf";
-            pieces.push(...hit.preview.filter(
-              (piece) => !(insertion && piece.kind === "region" && piece.split),
-            ));
+            for (const piece of hit.preview) {
+              if (insertion && piece.kind === "region" && piece.split) {
+                const r = (node as HTMLElement).getBoundingClientRect();
+                pieces.push({ kind: "region", split: false,
+                  x: r.left, y: r.top, width: r.width, height: r.height });
+              } else {
+                pieces.push(piece);
+              }
+            }
           }
         }
       }
