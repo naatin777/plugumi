@@ -113,6 +113,7 @@ function WidthProbe(): JSX.Element {
 // ずれたら嘘になるので、shell側を変えたらここも更新する。
 function DrawerDemo(): JSX.Element {
   const [open, setOpen] = createSignal(false);
+  const [drawerWidth, setDrawerWidth] = createSignal(180);
   // 外をpointerdownしたら畳む — shellと同じ作法。drawer自身と
   // toggle buttonは「内側」扱い。
   const outsideDown = (event: PointerEvent) => {
@@ -120,17 +121,40 @@ function DrawerDemo(): JSX.Element {
     if (target?.closest("[data-drawer-keep]")) return;
     setOpen(false);
   };
+  // drawerのresizer — 内側の辺を掴んで動かす。実物はinline表示と
+  // 幅prefを共有する設計だが、miniatureにはinline側がないので
+  // demo内で閉じた値として持つ。
+  const startDrawerResize = (event: PointerEvent) => {
+    const startX = event.clientX;
+    const startWidth = drawerWidth();
+    const move = (moveEvent: PointerEvent) => {
+      // 右端のdrawerなので、左へ動かすと広がる
+      setDrawerWidth(Math.min(320, Math.max(100, startWidth + startX - moveEvent.clientX)));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    event.preventDefault();
+    event.stopPropagation();
+  };
   return (
     <div class="lab-drawer-frame" onPointerDown={outsideDown}>
       <div class="lab-drawer-behind">
-        <p class="lab-note" style={{ margin: "0 0 0.5em" }}>背後のcontent — drawerはこの上に重なる</p>
+        <p class="lab-note" style={{ margin: "0 0 0.5em" }}>背後のcontent — scrimで薄く暗くなる</p>
         <button class="plugumi-button" data-drawer-keep onClick={() => setOpen(!open())}>
           {open() ? "drawerを畳む" : "drawerを開く"}
         </button>
       </div>
-      <div class="lab-drawer" data-drawer-keep data-closed={open() ? undefined : ""}>
+      {/* scrim — drawerが開いている間、背後を暗くする薄い幕。
+          pointer-eventsは通す（畳むのは外click判定の仕事） */}
+      <div class="lab-drawer-scrim" data-closed={open() ? undefined : ""} />
+      <div class="lab-drawer" data-drawer-keep data-closed={open() ? undefined : ""} style={{ width: `${drawerWidth()}px` }}>
+        <div class="lab-drawer-resizer" onPointerDown={startDrawerResize} />
         <p class="lab-note" style={{ margin: 0 }}>drawer</p>
-        <p class="lab-note">端にぴったり・不透明・影なし。外をclickすると畳まれる。</p>
+        <p class="lab-note">端にぴったり・不透明・影なし。左辺をdragするとresizeできる。</p>
       </div>
     </div>
   );
@@ -402,7 +426,10 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
             <tr><td class="lab-spec-prop">幅</td><td class="lab-spec-value">min(raw幅, 85-90%) — 全面を覆わず背後を残す</td></tr>
             <tr><td class="lab-spec-prop">閉じ方</td><td class="lab-spec-value">transform: translateX(±100%+16px) + visibility — unmountせずstateを保つ</td></tr>
             <tr><td class="lab-spec-prop">畳み方</td><td class="lab-spec-value">Escape / 外をpointerdown（開くbuttonとdrawer自身はdata-drawer-keepで内側扱い）</td></tr>
-            <tr><td class="lab-spec-prop">重なり</td><td class="lab-spec-value">z-side-drawer / z-sub-drawer — 列線（z-divider）より上</td></tr>
+            <tr><td class="lab-spec-prop">重なり</td><td class="lab-spec-value">z-side-drawer / z-sub-drawer — scrim（z-scrim）の上、列線はscrimより下で一緒に暗くなる</td></tr>
+            <tr><td class="lab-spec-prop">scrim</td><td class="lab-spec-value">colors-scrim — 作業域を薄く暗くする幕。pointer-eventsは通す</td></tr>
+            <tr><td class="lab-spec-prop">resize</td><td class="lab-spec-value">幅prefはinline表示と共有 — drawerは別物ではなく同じ列が重なった姿</td></tr>
+            <tr><td class="lab-spec-prop">animation</td><td class="lab-spec-value">--work-anim 180ms ease — shell内部変数。visibilityの遅延は閉じる側にだけ書く</td></tr>
           </tbody>
         </table>
         <p class="lab-note">
