@@ -351,3 +351,106 @@ func TestViewChannelRejectsInvalidTickets(t *testing.T) {
 		t.Fatal("second bind must be rejected")
 	}
 }
+
+// 制限付きview endpoint（/v1/views/rpc）の検証。
+// browser Originを許容し、tokenを要求せず、view channel以外を受け付けない。
+func TestViewRPCEndpointRestrictions(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	server := New(ctx, "test-core", "", "test-token", t.TempDir())
+	httpServer := httptest.NewServer(server.Handler())
+	t.Cleanup(httpServer.Close)
+
+	// token付きserverなのでprovider登録はAuthorizationが必要。
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, httpServer.URL+"/v1/registrations",
+		strings.NewReader(`{"providerId":"test-provider","instanceId":"instance-1"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer test-token")
+	res, err := httpServer.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lease wire.RegistrationLease
+	if json.NewDecoder(res.Body).Decode(&lease) != nil {
+		t.Fatal("bad lease")
+	}
+	res.Body.Close()
+	panelManifest := `{"files":[{"path":"panel.js","sha256":"` + strings.Repeat("0", 64) +
+		`"}],"panels":[{"panelId":"chat","title":"Chat","entry":"panel.js"}]}`
+	req, err = http.NewRequestWithContext(ctx, http.MethodPut,
+		httpServer.URL+"/v1/registrations/"+lease.RegistrationID+"/ui", strings.NewReader(panelManifest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer test-token")
+	res, err = httpServer.Client().Do(req)
+	if err != nil || res.StatusCode != 204 {
+		t.Fatalf("put ui: %v", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// hostがinstance登録（これもtoken要）。
+	req, err = http.NewRequestWithContext(ctx, http.MethodPost, httpServer.URL+"/v1/views",
+		strings.NewReader(`{"registrationId":"`+lease.RegistrationID+`","panelId":"chat"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer test-token")
+	res, err = httpServer.Client().Do(req)
+	if err != nil || res.StatusCode != 201 {
+		t.Fatalf("create view: %v", res.StatusCode)
+	}
+	var ticket wire.ViewTicket
+	if json.NewDecoder(res.Body).Decode(&ticket) != nil {
+		t.Fatal("bad ticket")
+	}
+	res.Body.Close()
+
+	// browserを模したOrigin付き接続が通り、token無しでbindできる。
+	dialView := func() *websocket.Conn {
+		conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(httpServer.URL, "http")+"/v1/views/rpc", &websocket.DialOptions{
+			HTTPHeader: http.Header{"Origin": {"http://localhost:3000"}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { conn.CloseNow() })
+		return conn
+	}
+	viewConn := dialView()
+	writeRPC(t, ctx, viewConn, wire.Request{
+		JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: wire.MethodViewsConnect,
+		Params:  wire.Marshal(wire.ViewsConnectParams{Ticket: ticket.Ticket}),
+	})
+	if response := readRPC(t, ctx, viewConn); response.Error != nil {
+		t.Fatalf("browser-origin connect rejected: %+v", response.Error)
+	}
+
+	// view channel以外のmethodは受け付けない。
+	writeRPC(t, ctx, viewConn, wire.Request{
+		JSONRPC: "2.0", ID: json.RawMessage(`2`), Method: wire.MethodOperationsList,
+	})
+	if response := readRPC(t, ctx, viewConn); response.Error == nil {
+		t.Fatal("operations.list must not be available on the view endpoint")
+	}
+
+	// 非loopback origin（evil.com等の悪意あるwebページ）はview endpointでも拒否。
+	if _, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(httpServer.URL, "http")+"/v1/views/rpc", &websocket.DialOptions{
+		HTTPHeader: http.Header{"Origin": {"https://evil.example.com"}},
+	}); err == nil {
+		t.Fatal("non-loopback origin must be rejected on the view endpoint")
+	}
+
+	// 同じOrigin付き接続は本家/v1/rpcでは拒否される（従来どおり）。
+	if _, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(httpServer.URL, "http")+"/v1/rpc", &websocket.DialOptions{
+		HTTPHeader: http.Header{"Origin": {"http://localhost:3000"}},
+	}); err == nil {
+		t.Fatal("origin-bearing connection must be rejected on /v1/rpc")
+	}
+	// token無しの/v1/rpcも拒否される（view endpointと認証が別物）。
+	if _, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(httpServer.URL, "http")+"/v1/rpc", nil); err == nil {
+		t.Fatal("unauthenticated connection must be rejected on /v1/rpc")
+	}
+}

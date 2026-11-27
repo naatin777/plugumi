@@ -424,7 +424,9 @@ declarative surfaceのpayload仕様はA2UIとする（[Decision 00035](../decisi
 
 view channelはplugin runtimeと自分のview instanceの間の私的な双方向channelである。operationとは別種別で、Executionとして記録されず、catalogにも出ず、routingはinstance単位で自明である。payloadはopaqueでCoreは解釈しない。
 
-viewはUI Appやshellの仲介なしに自分でCoreへWS接続する。bindingはhost事前登録 + ticket方式:
+viewはUI Appやshellの仲介なしに自分でCoreへWS接続する。接続先はbrowser内view専用の制限付きendpoint `GET /v1/views/rpc` で、本家 `/v1/rpc` とは別物である。このendpointはbrowserが必ず送るOriginをloopback起源に限り許容し（非loopback originは拒否）、token認証を要求しない。代わりに `views.connect` / `views.message` 以外のmethodを一切受け付けず、ticketがcapabilityとなる。bindされない接続は30秒で閉じる。browserのWebSocketはAuthorization headerを送れないため、token方式はviewには使えない。
+
+bindingはhost事前登録 + ticket方式:
 
 1. hostが `POST /v1/views` に `{registrationId, panelId}` を送り、instance idと `ticket` を受け取る。instanceは `pending` 状態。
 2. hostはviewをmountし、contextにCore URLとticketを渡す。hostの通信への関与はここまで。

@@ -57,11 +57,18 @@ func (s *Server) Handler() http.Handler {
 	s.registerREST(mux)
 	mux.HandleFunc("GET "+prefix+"/events", s.events)
 	mux.HandleFunc("GET "+prefix+"/rpc", s.websocket)
+	mux.HandleFunc("GET "+prefix+"/views/rpc", s.viewWebsocket)
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		writeAPIError(w, http.StatusNotFound, "unknown_endpoint", "unknown endpoint")
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !loopbackHost(r.Host) || r.Header.Get("Origin") != "" {
+		// view endpointはbrowser内のview JSが直接繋ぐための制限付き入口。
+		// browserは必ずOriginを送りAuthorizationを送れないので、
+		// このpathだけOrigin拒否とtoken認証を外す。代わりにendpoint側で
+		// views.connect/message以外を一切受け付けず、ticketをcapabilityとする
+		// （designs/00011）。loopback host制約は全endpointで維持する。
+		viewRPC := r.URL.Path == prefix+"/views/rpc"
+		if !loopbackHost(r.Host) || (r.Header.Get("Origin") != "" && !viewRPC) {
 			writeAPIError(w, http.StatusForbidden, "forbidden", "local native clients only")
 			return
 		}
@@ -69,7 +76,7 @@ func (s *Server) Handler() http.Handler {
 			writeAPIError(w, http.StatusUpgradeRequired, "protocol_mismatch", "unsupported protocol version")
 			return
 		}
-		if s.token != "" && !isDocsPath(r.URL.Path) && subtle.ConstantTimeCompare(
+		if s.token != "" && !viewRPC && !isDocsPath(r.URL.Path) && subtle.ConstantTimeCompare(
 			[]byte(r.Header.Get("Authorization")), []byte("Bearer "+s.token),
 		) != 1 {
 			w.Header().Set("WWW-Authenticate", "Bearer")
@@ -160,6 +167,78 @@ func (s *Server) broadcastExecutionEvent(params wire.OperationsEventParams) {
 		default:
 		}
 	}
+}
+
+// viewWebsocket はbrowser内view専用の制限付きWS endpoint（designs/00011）。
+// views.connectによるticket bindとviews.messageだけを受け付け、
+// operationsやexecutionsには触れない。ticketは推測不能なcapabilityで、
+// bind前の接続は何もできない。悪意あるwebページからの接続放置を防ぐため、
+// bindされない接続は一定時間で閉じる。
+func (s *Server) viewWebsocket(w http.ResponseWriter, request *http.Request) {
+	if !strings.EqualFold(request.Header.Get("Upgrade"), "websocket") {
+		writeAPIError(w, http.StatusBadRequest, "invalid_params", "websocket upgrade required")
+		return
+	}
+	// browserのOriginはloopback起源だけ許可する。悪意あるwebサイト
+	// （evil.com等）のoriginはここで弾かれ、loopbackのshellからの
+	// 接続だけが通る。ticketのcapabilityと併せて多層防御。
+	// Originのないclient（Node等）にはこの検査はかからない。
+	socket, err := websocket.Accept(w, request, &websocket.AcceptOptions{
+		OriginPatterns: []string{"localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*", "[::1]", "[::1]:*"},
+	})
+	if err != nil {
+		return
+	}
+	socket.SetReadLimit(1 << 20)
+	connection := rpc.NewConnection(socket, "view-")
+	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+		if message.Method == wire.MethodViewsConnect {
+			return s.views.HandleConnect(connection, message)
+		}
+		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
+	}
+	connection.OnNotification = func(message *wire.Incoming) {
+		if message.Method == wire.MethodViewsMessage {
+			s.views.HandleMessage(connection, message)
+		}
+	}
+	defer connection.Close()
+	heartbeatContext, stopHeartbeat := context.WithCancel(s.ctx)
+	defer stopHeartbeat()
+	go func() {
+		heartbeat := time.NewTicker(15 * time.Second)
+		defer heartbeat.Stop()
+		for {
+			select {
+			case <-heartbeatContext.Done():
+				return
+			case <-heartbeat.C:
+				pingContext, cancel := context.WithTimeout(heartbeatContext, 5*time.Second)
+				err := socket.Ping(pingContext)
+				cancel()
+				if err != nil {
+					connection.CloseNow()
+					return
+				}
+			}
+		}
+	}()
+	// bind期限。ticketを持つ正規のviewは接続後すぐbindするので、
+	// この時間内にbindされない接続は放置された悪意ある接続とみなす。
+	go func() {
+		timer := time.NewTimer(30 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-heartbeatContext.Done():
+		case <-connection.Done():
+		case <-timer.C:
+			if s.views.Store().BoundInstance(connection.ID) == nil {
+				connection.CloseNow()
+			}
+		}
+	}()
+	_ = connection.Run(s.ctx)
+	s.views.DropViewConnection(connection)
 }
 
 func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {

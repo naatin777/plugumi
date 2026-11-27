@@ -116,7 +116,9 @@ export class ChannelImpl {
 // CoreへWS接続しviews.connectでinstanceへbindする。
 // 失敗（接続不可・ticket拒否）はViewConnectErrorでrejectする。
 export async function connectChannel(connection: ViewConnectionInfo): Promise<ChannelImpl> {
-  const url = new URL("/v1/rpc", connection.coreUrl);
+  // browser内view専用の制限付きendpoint。Originを送るbrowserでも接続でき、
+  // ticketがcapabilityになるのでAuthorizationは要らない。
+  const url = new URL("/v1/views/rpc", connection.coreUrl);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(url);
 

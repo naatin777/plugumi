@@ -107,6 +107,17 @@ func (s *Store) ConnectionFor(instanceID string) *rpc.Connection {
 	return nil
 }
 
+// BoundInstance は接続がbindされているinstanceを返す。未bindならnil。
+func (s *Store) BoundInstance(connectionID string) *wire.ViewInstance {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if entry := s.byConnection[connectionID]; entry != nil {
+		result := entry.ViewInstance
+		return &result
+	}
+	return nil
+}
+
 // Close はinstanceをclosedにし、bindされていたview接続を返す。
 // 既にclosedならnilを返す。
 func (s *Store) Close(id string) (*wire.ViewInstance, *rpc.Connection) {
