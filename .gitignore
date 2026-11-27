@@ -34,3 +34,4 @@ apps/web/plugumi-web
 
 # TypeScript incremental build
 *.tsbuildinfo
+plugins/filesystem/dist

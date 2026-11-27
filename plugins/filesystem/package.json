@@ -1,0 +1,17 @@
+{
+  "name": "plugumi-filesystem",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
+    "start": "node dist/runtime.js"
+  },
+  "dependencies": {
+    "@plugumi/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

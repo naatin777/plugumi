@@ -3,6 +3,7 @@ packages:
   - "shared/*"
   - "plugins/agent"
   - "plugins/demo"
+  - "plugins/filesystem"
   - "apps/electron"
   - "apps/electron/ui"
   - "apps/web/frontend"
