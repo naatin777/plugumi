@@ -12,13 +12,19 @@ import { areaKey } from "../layout/area-list.ts";
 // 末尾挿入ならleaf全体、stripへの挿入なら caret（挿入位置の縦線）。
 // getBoundingClientRectはこのファイル内だけで使う約束なので、
 // 幾何はtesterが計算して返す。
-export type DropPreview =
+export type DropPreviewPiece =
   | { kind: "region"; x: number; y: number; width: number; height: number; split: boolean }
   | { kind: "caret"; x: number; y: number; height: number };
 
+// previewはpieceの列 — drop先は「どのleafに入るか」（region）と
+// 「tab列のどこに入るか」（caret）が独立した情報なので、strip上では
+// 両方が同時に出る。drop位置の確定は最も内側のtesterが決めるが、
+// previewは祖先のtester全員が足せる（pickのwalk参照）。
+export type DropPreview = DropPreviewPiece[];
+
 export type DropTester = (
   element: HTMLElement, x: number, y: number, session: DragSession,
-) => { target: MoveTarget; preview: DropPreview } | null;
+) => { target: MoveTarget; preview: DropPreviewPiece } | null;
 
 export interface DragSession {
   instanceId: string;
@@ -69,13 +75,15 @@ export function createDragController(
   let active = false;
 
   // pointer直下の要素から祖先を辿り、登録済みでtesterが非nullを返す
-  // 最も内側をdrop先にする。
+  // 最も内側をdrop先にする。walkはそこで止めず、祖先のtesterが返す
+  // previewも集める — strip上ではstripのcaretにleafのregionが重なる。
   const pick = (x: number, y: number): void => {
     over = null;
     overArea = null;
     overTarget = null;
     overPreview = null;
     if (!session) return;
+    const pieces: DropPreviewPiece[] = [];
     let node = document.elementFromPoint(x, y);
     while (node) {
       const found = targets.get(node as HTMLElement);
@@ -91,16 +99,18 @@ export function createDragController(
         if (!sameRef) {
           const hit = found.test(node as HTMLElement, x, y, session);
           if (hit) {
-            over = node as HTMLElement;
-            overArea = found.area;
-            overTarget = hit.target;
-            overPreview = hit.preview;
-            break;
+            if (!overTarget) {
+              over = node as HTMLElement;
+              overArea = found.area;
+              overTarget = hit.target;
+            }
+            pieces.push(hit.preview);
           }
         }
       }
       node = node.parentElement;
     }
+    overPreview = pieces.length > 0 ? pieces : null;
     setPreview(overPreview);
   };
 
@@ -243,7 +253,7 @@ export const leafTest = (leafId: () => string): DropTester =>
         y: edge === "bottom" ? rect.top + halfH : rect.top,
         width: edge === "left" || edge === "right" ? halfW : rect.width,
         height: edge === "top" || edge === "bottom" ? halfH : rect.height,
-      } as DropPreview,
+      } as DropPreviewPiece,
     });
     if (nearLeft && rect.width >= SPLIT_MIN_SIZE) return splitTarget("left");
     if (nearRight && rect.width >= SPLIT_MIN_SIZE) return splitTarget("right");

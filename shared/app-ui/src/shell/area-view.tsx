@@ -1,6 +1,6 @@
 // 1つのAreaの表示（designs/00005「Areaの中身」）。左の列で選ばれたAreaの
 // workspaceをcenterのsplit treeで描く。MainもSubも同じ形。
-import { Show } from "solid-js";
+import { Show, For } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { AreaController } from "./controller.tsx";
 import { AreaContext, useShell } from "./controller.tsx";
@@ -57,32 +57,37 @@ export function DragGhost(): JSX.Element {
   );
 }
 
-// drop previewの形状。regionはsplit/挿入を色の強さで分ける。
+// drop previewの形状。pieceの列をそのまま描く — regionはsplit/挿入を
+// 色の強さで分ける。caretはregionの上に重なることがある（strip上では
+// leafのregionとstripのcaretが同時に出る）。
 function PreviewShape(props: { preview: DropPreview }): JSX.Element {
-  const preview = () => props.preview;
   return (
-    <Show
-      when={preview().kind === "region"}
-      fallback={
-        <div
-          class={controlStyles["drop-caret"]}
-          style={{
-            left: `${(preview() as { x: number }).x - 1}px`,
-            top: `${(preview() as { y: number }).y}px`,
-            height: `${(preview() as { height: number }).height}px`,
-          }}
-        />
-      }
-    >
-      <div
-        class={`${controlStyles["drop-region"]} ${(preview() as { split: boolean }).split ? controlStyles["split"] : ""}`}
-        style={{
-          left: `${(preview() as { x: number }).x}px`,
-          top: `${(preview() as { y: number }).y}px`,
-          width: `${(preview() as { width: number }).width}px`,
-          height: `${(preview() as { height: number }).height}px`,
-        }}
-      />
-    </Show>
+    <For each={props.preview}>
+      {(piece) => (
+        <Show
+          when={piece.kind === "region"}
+          fallback={
+            <div
+              class={controlStyles["drop-caret"]}
+              style={{
+                left: `${(piece as { x: number }).x - 1}px`,
+                top: `${(piece as { y: number }).y}px`,
+                height: `${(piece as { height: number }).height}px`,
+              }}
+            />
+          }
+        >
+          <div
+            class={`${controlStyles["drop-region"]} ${(piece as { split: boolean }).split ? controlStyles["split"] : ""}`}
+            style={{
+              left: `${piece.x}px`,
+              top: `${piece.y}px`,
+              width: `${(piece as { width: number }).width}px`,
+              height: `${piece.height}px`,
+            }}
+          />
+        </Show>
+      )}
+    </For>
   );
 }
