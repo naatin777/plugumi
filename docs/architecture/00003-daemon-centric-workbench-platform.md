@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: Daemon中心のVisual Workbench Platform構成
-description: UI非依存のCore Daemon、UI App、Environment / Provider、Plugin、UI App operationの境界と寿命を定める現行構成。
+description: UI非依存のCore Daemon、UI App、Environment / Provider、Pluginの境界と寿命を定める現行構成。
 status: accepted
 relations:
   architecture:
@@ -58,10 +58,10 @@ PlugumiはMCP Appsの上に乗るものではなく、独立したvisual workben
 | Environment Provider | local / SSH先 / WSL / containerなどのEnvironmentが持つfilesystem / shell / terminal / process / network接続などの標準operationをCoreへ提供する | 利用者向けのinstallable pluginという扱い、Coreへの内蔵 |
 | Provider | browser / agent / git / 外部serviceなどのoperationを提供する | CoreをbypassしたProvider間通信、UIの所有 |
 | Plugin | operation・View contributionをまとめるinstall / enable / disable / replace可能な配布単位 | Platform起動や修復そのもの |
-| UI App operation | UI Appがapp-local operationをCoreへ登録する。独立したuser-facing processではない。例はElectron native browser、native dialog、OS統合 | daemon寿命の実行、UIに依存しない長時間処理 |
+| UI Appが登録するoperation | UI Appがapp-local operationをCoreへ登録する。独立したuser-facing processではない。例はElectron native browser、native dialog、OS統合 | daemon寿命の実行、UIに依存しない長時間処理 |
 | View | Panel / Embedなどの人間向けUI。resourceやExecutionを表示・操作する | operationやPlugin runtimeの所有 |
 
-Environment Providerは実装上はprovider protocolを使っても、利用者へは「Plugin」ではなく「環境」として見せる。Environmentは製品の前提インフラであり、Environmentがない構成は基本構成として考えない。CoreはEnvironmentを第一級の概念として知ってよく、標準的な環境操作のUIはUI Appのbuilt-in UIとして実装してよい。UI App operationもprovider protocolを使うが、installable pluginではない。
+Environment Providerは実装上はprovider protocolを使っても、利用者へは「Plugin」ではなく「環境」として見せる。Environmentは製品の前提インフラであり、Environmentがない構成は基本構成として考えない。CoreはEnvironmentを第一級の概念として知ってよく、標準的な環境操作のUIはUI Appのbuilt-in UIとして実装してよい。UI Appのoperation登録にもprovider protocolを使うが、installable pluginではない。
 
 ## 起動と管理操作の入口
 
@@ -83,7 +83,7 @@ Plugumi管理のPlugin runtime processのlifecycle制御はCore Daemonが担う�
 
 UI AppとCLIはspawn ownerではない。これらはCore Daemonへenable / disable / stopを依頼する操作面である。Core Daemonはlifecycleの制御面として状態を追跡し、必要に応じてremote-side supervisorへ起動・停止を委譲する。
 
-Plugumi管理のPlugin runtime processは `1 Core : 1 provider session : 1 Plugin runtime process` に割り切る。同じPluginを複数Coreでenableにした場合は、既存processへCore接続を追加せず、Coreごとに独立したPlugin runtime processを起動する。重いbrowser process、LLM service、hardware handleなどをPlugin内部で共有するかはPlugin作者の自由である。Plugumiがmanaged lifecycleとして見るのはCoreごとのPlugin runtime processだけであり、そのprocessが全機能を持つか、既に起動しているPlugin内部の共有serviceへ接続する薄いadapterかをplatformは規定しない。
+Plugumi管理のPlugin runtime processは、同じPluginを複数Coreでenableにした場合に既存processへCore接続を追加せず、Coreごとに独立したPlugin runtime processを起動する。一方でprocessとprovider sessionは分離し、1つのPlugin runtime processが1つのCoreへ向けて設定の異なる複数のprovider session（例: github/workとgithub/personal）を登録してよい。重いbrowser process、LLM service、hardware handleなどをPlugin内部で共有するかはPlugin作者の自由である。Plugumiがmanaged lifecycleとして見るのはCoreごとのPlugin runtime processだけであり、そのprocessが全機能を持つか、既に起動しているPlugin内部の共有serviceへ接続する薄いadapterかをplatformは規定しない。
 
 Plugin内部の共有service自体が複数Coreへ直接接続する場合は、Plugin内部の私有resourceではなくself-managed / externalなmulti-core serviceとして扱う。Plugumiのmanaged lifecycleでは起動・停止・接続先追加を管理しない。詳細は[Decision 00019](../decisions/00019-multicore-plugin-process-ownership.md)を参照。
 
@@ -118,12 +118,16 @@ Plugin runtimeとPlugin viewで渡すcontextを分ける。Plugin runtimeへはo
 
 context上のoperation呼び出しはCoreをbypassする裏口ではなく、Core経由のroutingとExecution記録に乗る便利APIとする。これにより、Pluginからはtyped / semanticな操作として見せつつ、Provider間の直接通信や権限回避を防ぐ。
 
+## caller / providerはcomponent分類ではない
+
+caller（operationを呼ぶ側）とprovider（operationを登録・実行する側）は、componentの種別ではなくinteractionごとの役割である。1つのcomponentは両方の役割を同時に持ち得る。例えばAI agent runtimeは、fs / terminal / browserのoperationを呼ぶcallerであると同時に、`agent/message/send` や `agent/run` のようなoperationを登録するproviderにもなり得る。これにより、AIをtoolとして他のpluginやautomationから呼ぶ構成が成立する。呼び出しは常にCoreを経由し、provider間を直接接続しない。
+
 ## operationとViewの差し替え
 
 operationの差し替えとViewの差し替えは分ける。
 
 - filesystem / shell / terminal / process / network接続はbuilt-in environment operationのcontractとする。Coreには内蔵せず、Environmentが実装し、Environment Provider経由でCoreへ提供する。
-- browserはenvironmentのbuilt-in operationとは別にし、用途に応じてUI App operationまたはplugin / providerとして提供する。
+- browserはenvironmentのbuilt-in operationとは別にし、用途に応じてUI Appが登録するoperationまたはplugin / providerとして提供する。
 - file explorerの既定実装はbuilt-in viewとする。plugin systemの外で起動できる基本体験とする。
 - custom file explorerはPluginのview contributionとして提供し、`file` / `directory` resourceと `open` / `reveal` などのintentでresolutionする。
 
@@ -154,7 +158,7 @@ browserとelectron-native browserで、page / profile / navigate / inputなど�
 
 Electronのnative browser operationは、Web UIやAIからCore経由で操作できる。ただし、画面のnative presentationはElectronでだけ利用できる。Webではplaceholder、stream viewer、screenshot、control-only viewなど、そのUI AppとProviderが対応する範囲で表示する。
 
-## UI App operation
+## UI Appが登録するoperation
 
 ElectronがPluginだった理由の1つは、native browserなどのAI操作可能なToolをCoreへ登録していたからである。この事実は維持するが、概念は分ける。
 
@@ -164,13 +168,13 @@ Electron app（UI App）
 └── app-local operation implementations
 ```
 
-UI App operationは、UI App process内のapp-local operationをCoreへ登録したものである。別processや配布単位ではない。Web UIやAIはElectronが接続している間、そのoperationをCore経由で呼べる。Electronをquitすればoperationはoffline / unavailableになり、host-sessionな実行は継続できない。Web appも同じ枠組みでbrowser clipboard、browser notification、web-native file pickerなどのapp-local operationを提供し得る。
+UI Appは、process内のapp-local operationをCoreへ登録できる。これらは別processや配布単位ではない。Web UIやAIはElectronが接続している間、そのoperationをCore経由で呼べる。Electronをquitすればoperationはoffline / unavailableになり、host-sessionな実行は継続できない。Web appも同じ枠組みでbrowser clipboard、browser notification、web-native file pickerなどのapp-local operationを提供し得る。
 
 ## UI operationとwork operation
 
 UIを操作するoperationと、UIに依存しない作業を進めるoperationを分ける。例えばPanelを開く、Panelをrevealする、native browserを表示するようなoperationはhost-scopedなUI operationである。一方、fileを読む、shellを実行する、durable browser pageをnavigateするようなoperationはProviderが持つwork operationである。
 
-Agentやbackground executionは、durableなwork operationだけにbindする。host-scopedなUI operationは人間やUI連携のために存在してよいが、UIがなければ実行できないoperationとして明示する。UI App名で分岐せず、UI App operationの有無でpresentationや操作可否を判断する。
+Agentやbackground executionは、durableなwork operationだけにbindする。host-scopedなUI operationは人間やUI連携のために存在してよいが、UIがなければ実行できないoperationとして明示する。UI App名で分岐せず、UI Appが登録するoperationの有無でpresentationや操作可否を判断する。
 
 ## operation / providerの利用可能期間とrouting metadata
 
@@ -183,9 +187,9 @@ operationは、どこで・どのくらいの期間利用できるかをmetadata
 | View / renderer | 表示のたびに作り直してよい |
 | Panel instance | mount / unmount / virtual化できる。実行を所有しない |
 | Web app / Electron app | close・quit・停止してもCoreとの通信が途切れるだけ。Executionやprovider lifecycleを所有しない |
-| UI App operation | UI App / sessionの寿命。UI AppがCoreへ登録するoperationであり、独立したuser-facing processではない |
+| UI Appが登録するoperation | UI App / sessionの寿命。UI AppがCoreへ登録するoperationであり、独立したuser-facing processではない |
 | Core Daemon | Executionとmanaged provider lifecycleの所有者 |
-| Plugumi管理のPlugin runtime process / provider | Core Daemonがlifecycleを制御し、実行場所に応じたspawn主体が起動する。`1 Core : 1 provider session : 1 Plugin runtime process` に割り切る |
+| Plugumi管理のPlugin runtime process / provider | Core Daemonがlifecycleを制御し、実行場所に応じたspawn主体が起動する。Coreごとに独立したprocessとし、1 processが複数provider sessionを登録できる（[Decision 00034](../decisions/00034-binding-instance-configuration-and-provider-sessions.md)） |
 | 外部接続provider | 自分で生きる。Coreは管理しない |
 
 ## Executionを第一級概念にする

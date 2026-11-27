@@ -40,7 +40,7 @@ virtual embedはDOM、event listener、timer、background処理を持たない�
 
 virtual embedには2つの動機がある。
 
-1. UI App operationが違うため、同じEmbedでも表示できるrepresentationがHostごとに変わる。
+1. UI Appごとに登録されるoperationが違うため、同じEmbedでも表示できるrepresentationがHostごとに変わる。
 2. chat、timeline、historyに多数のEmbedがあると、全部を同時にmountするのは重い。
 
 したがって、表示可能かどうかと、実際にmountするかどうかを分ける。

@@ -32,7 +32,7 @@ Panel Instance、Mount寿命、Layout Snapshot、writer claimなどの基本設�
 
 | 概念 | 意味 |
 |---|---|
-| View Contribution | 開けるViewの種類と、対応するresource / intent / 必要なUI App operationの登録 |
+| View Contribution | 開けるViewの種類と、対応するresource / intent / 必要なUI App側operationの登録 |
 | Panel Reference | 共有・保存できるPanelへの参照。resource、intent、preferred view、params、寿命などを持つ |
 | virtual panel instance | Panel instanceとして存在するが、Plugin viewをまだmountしていない状態 |
 | mounted panel instance | 実際にPlugin viewが動き、DOMへ描画している状態 |
@@ -73,7 +73,7 @@ stateDiagram-v2
     Mounted --> Closed: close
     Virtual --> Closed: close
     Virtual --> Unavailable: 現在のUI Appで解決不能
-    Unavailable --> Virtual: fallback / UI App operation利用可能
+    Unavailable --> Virtual: fallback / UI App側operationが利用可能
 ```
 
 suspendしてvirtualへ戻すかは未決定である。少なくとも、Workbench復元時にはinstanceを復元しつつ、表示されるまでmountしない。
@@ -84,7 +84,7 @@ UI AppはPanel Referenceを受け取ると、次の順で解決する。
 
 1. resource + intentから利用可能なView候補を探す。
 2. preferredViewが利用可能なら優先する。
-3. requiredHostOperationsを現在のUI App operationと照合する。
+3. requiredHostOperationsを現在UI Appが登録しているoperationと照合する。
 4. Plugin viewなら、必要なPluginをactivateしてview実装をloadする。
 5. built-in viewなら、必要になった時点でlazy importする。
 6. fallback Viewがあるなら利用者へ提示するか、設定に従って開く。

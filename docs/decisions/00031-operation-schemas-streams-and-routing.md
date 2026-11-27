@@ -77,6 +77,17 @@ capabilityはPlugin IDでもoperationの実体でもなく、現行の正式用�
 
 Operationは旧 `toolPath` の後継であり、Plugin内部のローカルIDではなく、callerから見える意味付きのcanonicalな操作名とする。callerはproviderやregistrationを直接選ばず、operation pathとinputを指定し、Coreがcontextやresource refから振り分ける。
 
+## toolはoperationのcaller向け投影
+
+operationとtoolを混ぜず、分けて使う。
+
+- **operation**: providerがCoreへ登録する中核の操作。canonicalなschemaを持ち、Core、contract、routing、Executionの文脈ではこちらを使う
+- **tool**: operationをcaller向けに投影したもの。AI SDK、MCP、function callingの適配層で使う語であり、Coreの登録対象やwire上の概念ではない
+
+分ける理由は、両者が将来同じものではないためである。1つのoperationを用途やcallerごとに複数のtoolとして露出しうる。toolにはinput bind（引数の固定・隠蔽・既定値）や露出制御が乗りうるため、AIに見せるschemaとproviderへ実際に送るinputは一致しないことがある。これはInput bind / Tool Viewの検討課題へつながる。
+
+現時点ではtoolを第一級概念にせず、用語の使い分けだけを決める。CLIやコマンドパレットはoperationをそのまま呼ぶ形とし、わざわざtoolと呼ばない。
+
 ## Resourceとbindに関する整理
 
 Resourceの厳密な定義はまだ確定しない。ただし、次の用語は分ける。

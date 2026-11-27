@@ -22,6 +22,7 @@ relations:
     - '00031'
     - '00032'
     - '00033'
+    - '00034'
 ---
 
 ## 目的
@@ -40,7 +41,8 @@ relations:
 8. [Decision 00031](../decisions/00031-operation-schemas-streams-and-routing.md) — operation schema、stream、Resource / bindの整理
 9. [Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md) — routingとprovider / UI App停止時の整理
 10. [Decision 00033](../decisions/00033-retire-capability-terminology.md) — capability / capability-centricを現行用語から外す
-11. [Design 00003](../designs/00003-plugin-client-migration.md) — `toolPath` / `tools.call` の現行実装からoperation / Executionへの移行順
+11. [Decision 00034](../decisions/00034-binding-instance-configuration-and-provider-sessions.md) — bindingを部分適用として扱い、account差はinstance configurationとする
+12. [Design 00003](../designs/00003-plugin-client-migration.md) — `toolPath` / `tools.call` の現行実装からoperation / Executionへの移行順
 
 ## 確定済みの軸
 
@@ -62,7 +64,7 @@ relations:
 - installable packageは **Plugin**。Extensionという語は現行概念として使わない
 - Pluginの構成概念は **Plugin runtime** と **Plugin view** だけ。client entry / workbench entryは廃止。`entry` は基本概念にしない
 - Plugin manifestはファイルではなく、Plugin runtimeが接続・登録時にPOST / PUTなどでCoreへ送る宣言情報。operation宣言、UI contribution宣言、UI bundle参照などを含む論理集合とする
-- `Host Provider` は独立した第一級概念として扱わない。UI Appがapp-local operationをCoreへ登録するものは **UI App operation** と呼ぶ。内部実装ではprovider protocolを使ってよい
+- `Host Provider` は独立した第一級概念として扱わない。UI Appはapp-local operationをCoreへ登録できるが、専用の概念名はつけない。内部実装ではprovider protocolを使ってよい
 - 旧 `UI Host` / `Web Plugin` / `Electron Plugin` / `Plugin Shell` は、それぞれ `UI App` / `Web app` / `Electron app` / `Workbench shell` に対応する旧称として読む。新しい文章では旧称を使わない
 
 ## 構造の最新方向
@@ -78,7 +80,7 @@ Plugin
 重要な区別:
 
 - Environment Providerはprovider protocolを使うがPluginではない
-- UI App operationもprovider protocolを使うがPluginではない
+- UI Appのoperation登録にもprovider protocolを使うがPluginではない
 - provider protocolを使うことと、Pluginであることは別の話である
 - UI Appはpluginではない。shell構造の大幅な改造はfork / downstream host側の話にする
 - UI AppとCLIは操作面であり、process ownershipはCore Daemon側に寄せる
@@ -142,6 +144,12 @@ Plugin
 - Eventは独立した第一級概念にせず、実行中の出力はExecutionのstream outputとして扱う
 - 購読や継続出力も、まず終わらない長時間Executionとして扱う方向で考える
 - capability / capability-centricは正式用語として使わない。機能領域やoperation groupと普通に説明し、中心語はoperation / Execution / resource ref / providerに寄せる
+- bindingはoperationの部分適用。fixed / defaultとvisibilityは直交し、ユーザー全体 / project / agent session / 呼び出し時の4層で重ねる
+- accountなどのinstance差はinputではなくinstance configuration。1 processが複数provider sessionを登録できる
+- discovery（account list等）は普通のoperation。AI向けtool表面はbinding適用後の姿に最小化する
+- Project registryはCoreが持つ。folder実体へのアクセスはEnvironmentが担う
+- 利用可能期間は独立したmetadataにせず、provider sessionのscopeから導出する
+- caller / providerはcomponent分類ではなくinteractionごとの役割。AI agentなどは両方を同時に演じ得る
 - Operationは旧toolPathの後継で、Plugin内部IDではなくcallerから見えるcanonicalな操作名
 - Resource本体、resource ref、Resource registryは分けて考える。Resourceという概念を使っても、Coreが全Resourceを管理するとは限らない
 - bindは少なくとも接続・振り分けbind、Project bind、Input bindに分けて考える
@@ -155,7 +163,7 @@ Plugin
 - Project registryをCoreが持つか、別provider / pluginが持つかは未決定
 - Plugumi管理 / 外部管理 / self-managed / external serviceの整理は途中で、用語としても確定していない
 - `Provider` をユーザー向け概念として使うのか、contract / implementation向けの役割名に留めるのかは未決定
-- `UI App operation` は概念の輪郭は見えてきたが、名前とwire上の表現は未決定
+- UI Appが登録するoperationには専用の概念名をつけない方針。`providerKind` enumは廃止し、scope / 利用可能期間を個別metadataで登録する方向。wire変更のタイミングはcontract revisionで決める
 - `Interaction` / `Affordance` はAI向けUIの検討用語として出ているが、概念としては詰め切れていない
 - 過去の議論で`Workspace`はworktree / 作業ディレクトリの意味でも使われていたが、現行ではPanelとtab構成をまとめる単位。作業ディレクトリ側の語は今後分ける必要がある
 - `packages/` に置くTS向けCore client / provider libraryの名前と分割は未決定

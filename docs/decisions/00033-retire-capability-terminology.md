@@ -25,7 +25,7 @@ operation / Execution modelでは、callerが実際に使うのはoperation path
 - Capabilityという第一級Object、登録API、registry、descriptorは設けない
 - `filesystem` / `terminal` / `browser` などのoperation pathのまとまりを説明したい場合は、正式語を作らず「機能領域」「operation group」などと普通に説明する
 - 中心語は operation / Execution / resource ref / provider / View とする
-- UI AppがCoreへ登録するapp-localな操作は、いったん `UI App operation` と呼ぶ。wire field / enumの既存表現を改名するかは別途contract revisionで決める
+- UI AppがCoreへ登録するapp-localな操作に専用の概念名はつけず、「UI Appが登録するoperation」と普通に説明する。呼び出し・Executionの仕組みは他のoperationと同一であり、違いはproviderと寿命だけである。wire field / enumの既存表現（`providerKind: "host"` など）を改名するかは別途contract revisionで決める
 - 過去のcapabilityという語は、歴史記述または廃止語としてだけ読む
 
 ## 帰結
@@ -38,5 +38,5 @@ operation / Execution modelでは、callerが実際に使うのはoperation path
 
 ## 未解決の問い
 
-- `UI App operation` という仮の呼び名をこのまま使うか
+- wire上の `providerKind: "host"` / `hostSession` / `host-session` という表現を改名するか
 - operation groupをcatalogやpermissionでどう表すか。ただし正式なCapability objectは作らない

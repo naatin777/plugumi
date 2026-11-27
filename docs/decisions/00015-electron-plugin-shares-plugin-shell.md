@@ -24,7 +24,7 @@ relations:
 
 Electronでも、Web appと同じ画面（Workbench shell、Panel、OS領域）を使いたい。当初はElectronのmainプロセスが自らCoreへ接続・登録し、preloadのIPCで `ShellHost` を実装する別のPluginとして作った。その結果、Web appのGoサーバーが担う処理（登録とLeaseの更新、operation呼び出し、Project以下の保存、PanelのUIファイルの取得）をTypeScriptで複製することになり、2つの実装のずれを文書で抑える必要があった。
 
-現行モデルではElectron appはPluginではなく公式UI Appである。ただし、Electron native browserやwindow操作などのapp-local operationは、UI App operationとしてCoreへ登録する。
+現行モデルではElectron appはPluginではなく公式UI Appである。ただし、Electron native browserやwindow操作などのapp-local operationは、UI AppからCoreへ登録する。
 
 ## 決定
 
@@ -36,7 +36,7 @@ Electronでも、Web appと同じ画面（Workbench shell、Panel、OS領域）�
 - detachはElectron専用の操作とする。Web側の `ShellHost.windows` はpreloadのbridgeがあるときだけ非nullになり、ブラウザでは別windowへ出す操作を出さない。
 - Project以下の保存はWeb app側の `~/.plugumi/web/` に一本化する。Electron独自の `~/.plugumi/electron/` は廃止し、Electron app自身のCore接続・保存・UI取得のTypeScript実装は削除する。
 - ウィンドウは `BrowserWindow` に `titleBarOverlay` を指定する。ElectronはこのときWindow Controls OverlayのCSS環境変数を提供するので、PWAと同じOS領域のCSSを使える。
-- Electron appがCoreへ登録するUI App operationは、Electron固有の能力に限る。例はwindowの開閉・一覧・フォーカス・描画内容の取得、native browser、OS統合である。同じ由来のPanel（`apps/electron/ui` のWindows Panel）もUI bundleとして登録してよい。
+- Electron appがCoreへ登録するoperationは、Electron固有の能力に限る。例はwindowの開閉・一覧・フォーカス・描画内容の取得、native browser、OS統合である。同じ由来のPanel（`apps/electron/ui` のWindows Panel）もUI bundleとして登録してよい。
 
 ## 代替案
 
@@ -49,7 +49,7 @@ Electronでも、Web appと同じ画面（Workbench shell、Panel、OS領域）�
 ## トレードオフと帰結
 
 - Coreへの接続、保存、UIファイルの取得はWeb app側のGo実装1本になる。Electron側のTypeScript backend（約1,100行）は削除した。
-- Electron appのUI App operation接続は、viewerとして開いているhostの `GET /api/cores` に追従し、Coreごとに張る。TypeScript側の接続機構（registration・RPC・実行記録・UI bundleの登録）は現行実装では `packages/plugin-client` を使うが、このpackageはlegacyであり、今後のclient library分割で置き換える。
+- Electron appがCoreへoperationを登録する接続は、viewerとして開いているhostの `GET /api/cores` に追従し、Coreごとに張る。TypeScript側の接続機構（registration・RPC・実行記録・UI bundleの登録）は現行実装では `packages/plugin-client` を使うが、このpackageはlegacyであり、今後のclient library分割で置き換える。
 - 現行の開発構成では、Electron appはWeb app側serverなしには動かない。viewerがhostを起動・発見するため、利用者が意識する必要はないが、Web app側serverが起動できない環境ではElectron appも使えない。配布時もserverはElectron appへ同梱せず、別processとして配布・起動する。install物の粒度と更新方法は別途決める。
 - 保存先を分けないので、Web appで作ったProjectはElectron appにもそのまま出る。
 - 依存として `electron` の追加を承認済み。ビルドの補助ツールや配布用のパッケージ作成ツールは、必要になったときに改めて決める。

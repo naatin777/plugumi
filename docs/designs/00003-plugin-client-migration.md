@@ -37,7 +37,7 @@ ProviderがCoreへ登録・接続する方向自体は、旧revisionの `registr
 
 ## 位置づけ
 
-この文書は実装着手の承認ではなく、議論を進めるための移行順の検討案である。operation / Execution、lifecycle、client library、UI App operationの個別論点がまだ残っているため、この順序をそのまま実装計画として確定しない。
+この文書は実装着手の承認ではなく、議論を進めるための移行順の検討案である。operation / Execution、lifecycle、client library、UI Appのoperation登録の個別論点がまだ残っているため、この順序をそのまま実装計画として確定しない。
 
 ## 移行の原則
 
@@ -54,7 +54,7 @@ ProviderがCoreへ登録・接続する方向自体は、旧revisionの `registr
 | 1. Coreのoperation / Execution化 | Coreでoperation宣言、operation catalog、context解決、`operations.invoke`、Execution record / event / cancelを実装する。テスト用の小さなProviderでechoを通す。 | `operations.invoke` がterminal状態のExecutionを返す。running実行のevent、cancel、provider切断時の `failed` / `unknown` を観測できる。 |
 | 2. TypeScript client libraryとagentの移行 | `packages/plugin-client` を直接renameせず、Core接続 / RPC / operation dispatch / UI bundle登録の責務を持つ新しいTypeScript / Node.js向けlibraryへ分解する。agent pluginを最初の利用者にする。 | agentが `tools.call` を使わずoperationを登録・実行できる。複数Coreで登録、event、cancelが混ざらない。 |
 | 3. Environment Providerの移行 | RustのEnvironment Providerをoperation / Execution modelへ移す。filesystem / shell / processなどbuilt-in environment operationをsemanticなoperation pathで登録する。 | 代表operationがUI非依存のExecutionとして動く。long-running shell / terminal相当の処理をUIのcloseなしで継続できる。 |
-| 4. Web app / Electron appの移行 | Web appのcaller経路、Panelからの呼び出し、Electron appのUI App operation登録をoperation / Execution modelへ移す。`callTool` / `toolPath` をPanel contractから外す。 | UI AppがExecutionを開始・購読・一覧・cancelできる。UIを閉じてもdurable Executionが残り、host-session operationは例外として扱える。 |
+| 4. Web app / Electron appの移行 | Web appのcaller経路、Panelからの呼び出し、Electron appのoperation登録をoperation / Execution modelへ移す。`callTool` / `toolPath` をPanel contractから外す。 | UI AppがExecutionを開始・購読・一覧・cancelできる。UIを閉じてもdurable Executionが残り、host-session operationは例外として扱える。 |
 | 5. lifecycle / Daemon managementの実装 | Core Daemonのlocal process manager、Daemon management API、Plugumi管理のPlugin runtime processのenable / disable / stop、remote-side supervisorへの委譲契約を実装する。`plugumi` CLIとUI Appを操作面として接続する。 | UI AppとCLIがPlugin runtime processを直接所有せずにPluginをenable / disableできる。localとremoteでspawn主体が分かれていることを観測できる。 |
 | 6. legacyの除去とdocs確定 | 旧 `tools.call`、旧caller contract、`registrationId + toolPath` caller指定、legacy `packages/plugin-client` を消す。Verification 00002を新contractで再実行し、結果を更新する。 | 旧method / fieldが実装から除去される。新しい適合シナリオが通り、glossaryの旧用語が実装読解用の歴史語だけになる。 |
 
@@ -64,7 +64,7 @@ ProviderがCoreへ登録・接続する方向自体は、旧revisionの `registr
 
 TypeScript libraryを先に作るのは、agentが最初の利用者であり、WebSocket RPC、reconnect、operation dispatch、cancelを各Pluginへ分散させないためである。Environment ProviderはRust実装だが、built-in operationとして重要なので、TypeScript側の縦切りが通った後に続けて移行する。
 
-Web app / Electron appはcallerとUI App operationの両方を持つため、Provider側のoperation modelが動いてから移行する。lifecycle / Daemon managementは、operation / Executionがない状態で作るとprocess管理だけが先行し、実行状態と結び付かないため後段に置く。
+Web app / Electron appはcallerとoperation providerの両方の役割を持つため、Provider側のoperation modelが動いてから移行する。lifecycle / Daemon managementは、operation / Executionがない状態で作るとprocess管理だけが先行し、実行状態と結び付かないため後段に置く。
 
 ## 未解決の問い
 
@@ -73,7 +73,7 @@ Web app / Electron appはcallerとUI App operationの両方を持つため、Pro
 - Execution recordの永続化範囲、保存期間、Core再起動後の復元範囲。
 - remote-side supervisorへ起動・停止を委譲するwire contract。Environment Providerが持つ範囲と外部systemに任せる範囲。
 - Panel専用APIとoperation catalogの権限分離をどう実装へ落とすか。
-- UI App operationのhost-session終了時に、running Executionを `failed` / `cancelled` / `unknown` のどれへ進めるか。
+- UI Appが登録するoperationについてhost-session終了時に、running Executionを `failed` / `cancelled` / `unknown` のどれへ進めるか。
 
 ## 検証への示唆
 

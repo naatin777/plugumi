@@ -23,12 +23,12 @@ modstrataの「全部Plugin」では、寿命・trust level・target・AIへ見�
 **機能の意味上の分類**（旧検討枠組み。capabilityという語は[Decision 00033](00033-retire-capability-terminology.md)で廃止）:
 
 1. **Core built-in機能** — workspace state、execution registry、interaction state、operation routingなど。常に存在するCore機能
-2. **UI App operation** — notification、clipboard、file picker、native browser viewportなど。host sessionに属し、hostが閉じたら使えない。durable desired stateにせず、plugin listに出さない
+2. UI Appが登録するoperation — notification、clipboard、file picker、native browser viewportなど。host sessionに属し、hostが閉じたら使えない。durable desired stateにせず、plugin listに出さない
 3. **Environment / service operation** — filesystem、shell、terminalなど。hostが閉じても生きている必要がある
 4. **Plugin** — GitHub、Slackなど利用者が追加する外部拡張パッケージ
 5. **Representation Provider** — DiffViewer、TerminalViewなど「どう見せるか」。operation（何ができるか）とは分ける
 
-**hostの扱い**: Hostをplugin registrationとして見せず、**host session**（host kind、device identity、user presence、利用できるUI App operation、trusted状態）として登場させる。UI App operationはsessionの属性である。
+**hostの扱い**: Hostをplugin registrationとして見せず、**host session**（host kind、device identity、user presence、UI Appが登録するoperation、trusted状態）として登場させる。UI Appが登録するoperationはsessionの属性である。
 
 **AIへの見せ方の原則**（検討中）: AIはprovider implementationではなく**operationと実行対象を選ぶ**。providerがbuiltinかhostかserviceかpluginかはrouting / policy / lifecycleの問題であり、AIの第一関心ではない。
 
@@ -36,7 +36,7 @@ modstrataの「全部Plugin」では、寿命・trust level・target・AIへ見�
 
 ## 代替案
 
-modstrataから引き継ぐべきもの（UI App operationをremote operationとして呼べる実証、reconciliation、persistent execution、terminalのUI-independent sessionなど）は引き継ぐが、「全部Plugin」という世界観は引き継がない、という判断。すべてをplugin registrationとして見せる案は却下。
+modstrataから引き継ぐべきもの（UI Appが登録するoperationをremote operationとして呼べる実証、reconciliation、persistent execution、terminalのUI-independent sessionなど）は引き継ぐが、「全部Plugin」という世界観は引き継がない、という判断。すべてをplugin registrationとして見せる案は却下。
 
 ## トレードオフと帰結
 

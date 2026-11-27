@@ -61,3 +61,7 @@ relations:
 - Areaが入れ子になるか、WorkspaceのURL /保存形式をどう移行するか
 - Environmentが複数あるとき、Projectのfolder参照とoperation routingをどう表すか
 - `daemon` / `node` / `host-session` / `ui-session` の寿命分類
+
+## 追加の決定
+
+- Project registry（environment refとfolderを紐づけるprojectの台帳）はCoreが持つ。folder実体へのアクセスはEnvironmentが担うが、どのprojectがあるかというレコードはCoreが管理してよい。CoreはEnvironmentを第一級概念として知ってよい方向と矛盾しない

@@ -14,7 +14,7 @@ relations:
 
 ## コンテキスト
 
-`standard` やElectron appのUI App operationが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
+`standard` やElectron appが登録するoperationが複数あると、どの環境・どのHostへoperationを送るかを決める必要がある。会話では `standard/{project}/files/create` や `electron/{account}/browser/click` のように、projectやaccountをpathへ入れる案が出た。
 
 しかし、project、account、environment、hostは独立した軸である。同じprojectをlocalとWSLで開くこと、同じaccountを複数Electron hostで使うこと、projectごとにdefault account / profileを持つことがある。1本のdynamic pathに埋め込むと、これらの軸を表しにくい。
 

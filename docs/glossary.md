@@ -24,7 +24,7 @@ Web app / Electron appとして提供される公式UIアプリ。Workbench shel
 
 ### Electron app
 
-Electron向けのUI App（`apps/electron/`）。Web appとWorkbench shellを共有しつつ、native browser、window操作、OS統合などのUI App operationを提供できる。
+Electron向けのUI App（`apps/electron/`）。Web appとWorkbench shellを共有しつつ、native browser、window操作、OS統合などのapp-local operationをCoreへ登録できる。
 
 ### Environment
 
@@ -36,15 +36,11 @@ Environmentの標準operationをCoreへ提供するProvider（`environment/`、R
 
 ### Provider
 
-browser / agent / git / 外部serviceなどのoperationを提供する実行時の役割。Plugin runtime、Environment Provider、UI App operationの実装などがProviderになる。Provider間はCoreをbypassして通信しない。
+operationをCoreへ登録し、実行を受け付けるinteraction上の役割。componentの分類ではない。Plugin runtime、Environment Provider、UI App、AI agent runtimeなどがこの役割を演じ得る。Provider間はCoreをbypassして通信しない。
 
 ### Plugin
 
 operationやViewなどのcontributionを束ねるinstallable package。公式・第三者のいずれにもなり得るが、UI App / Environment Provider / Core built-in機能はPluginではない。PluginはPlugin runtimeとPlugin viewを持てる。
-
-### UI App operation
-
-UI AppがCoreへ登録するapp-local operation。例はElectron native browser、native dialog、OS統合、browser clipboard、web-native file picker。installable pluginではなく、寿命は原則としてhost-sessionであり、durable executionの対象にはしない。内部実装ではprovider protocolを使う。
 
 ### built-in
 
@@ -76,9 +72,9 @@ Panel等を表示するためのビルド成果物。entrypointのほか、JS・
 
 ## operation / Executionモデル
 
-### Provider
+### caller / provider
 
-operationをCoreへ登録し、実行を受け付ける側。Environment Provider、UI App operationの実装、Plugin runtimeなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
+operation invocationにおける役割。callerはoperationを呼ぶ側、providerはoperationをCoreへ登録して実行を受け付ける側。どちらもcomponentの分類ではなくinteractionごとの役割であり、1つのcomponentは両方を同時に演じ得る。例えばAI agent runtimeは、fs / terminalのoperationを呼ぶcallerであると同時に、自分自身を `agent/message/send` のようなoperationとして登録するproviderにもなり得る。呼び出しは常にCore経由で、provider間を直接接続しない。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
 
 ### capability（廃止語）
 
@@ -86,7 +82,11 @@ operationをCoreへ登録し、実行を受け付ける側。Environment Provide
 
 ### Operation
 
-Providerが公開するsemanticな操作単位。`filesystem/list` のようなoperation pathで識別し、callerも同じpathで呼ぶ。Toolとoperationを別名で持たない。
+Providerが公開するsemanticな操作単位。`filesystem/list` のようなoperation pathで識別し、callerも同じpathで呼ぶ。中核概念はoperationであり、toolはoperationのcaller向け投影として区別する。
+
+### tool
+
+operationをcaller向けに投影したもの。AI SDK、MCP、function callingなどの適配層で使う語であり、Coreの登録対象やwire上の概念ではない。1つのoperationを用途やcallerごとに複数のtoolとして露出しうる。toolにはinput bind（引数の固定・隠蔽・既定値）や露出制御が乗りうるため、AIに見せるschemaとproviderへ実際に送るinputは一致しないことがある。現時点では第一級概念にせず、用語の使い分けだけを決める。Core、contract、routing、Executionの文脈ではoperationを使い、toolと混ぜない。
 
 ### operation path
 
@@ -107,6 +107,14 @@ Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から
 ### operation schema
 
 operation宣言に付く入力・出力の型情報。`inputSchema`（呼び出し引数）、`acceptSchema`（受理・開始時のoperation固有データ）、`streamSchema`（実行中のchunk / progress / log）、`resultSchema`（最終結果）を分ける。曖昧な`outputSchema`は使わない。
+
+### binding
+
+operationの部分適用としての設定。inputの一部をfixedまたはdefaultとして埋め、ユーザー全体 / project / agent session / 呼び出し時のレイヤーで重ねる。routing系と挙動系を分けない。fixedはcallerからの上書きを許さず、hiddenなfixedはschemaにも現れない。権限委譲（attenuation）と一体の概念でもある。詳細は[Decision 00034](decisions/00034-binding-instance-configuration-and-provider-sessions.md)を参照。
+
+### provider session
+
+providerがCoreへ登録・接続している1つのsession。processとは分離し、1つのPlugin runtime processが設定の異なる複数のprovider sessionを登録できる。accountのような差はinputではなくinstance configurationとしてsessionごとに持つ。
 
 ### Resource
 
@@ -242,7 +250,7 @@ resource / executionに対して現在利用できる操作。operationが存在
 
 ### UI Host
 
-旧構成でPlugin Viewsの実行・配信環境を指した語。現行ではUI Appを使う。UI Hostが担っていたapp-local operationはUI App operationへ分ける。
+旧構成でPlugin Viewsの実行・配信環境を指した語。現行ではUI Appを使う。UI Hostが担っていたapp-local operationはUI Appが登録するoperationとして分ける。
 
 ### Web Plugin
 

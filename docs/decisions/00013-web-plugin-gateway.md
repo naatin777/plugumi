@@ -32,7 +32,7 @@ relations:
 - Web appは接続先のCoreを、起動コマンドの `--core` と、画面から追加された一覧の両方から受け取る。画面から追加した一覧はWeb appが保存する。
 - URLでCoreを指すときは、Coreが返すCore名を使う。Core名はCoreの設定（`core.name`）で決め、公開APIの `GET /v1/core` で返す。Web appは独自の名前を付けない。
 - Web appの待受は、Coreと同じくloopbackに限り、既定のポートは `0`（OSが選ぶ）とする。
-- Web appがbrowser clipboard、browser notification、web-native file pickerなどのapp-local operationを提供する場合は、UI App operationとしてCoreへ登録する。UIを配信するためのserver機能そのものはPlugin登録ではない。
+- Web appがbrowser clipboard、browser notification、web-native file pickerなどのapp-local operationを提供する場合は、app-local operationとしてCoreへ登録する。UIを配信するためのserver機能そのものはPlugin登録ではない。
 
 ## 代替案
 

@@ -1,7 +1,7 @@
 ---
 type: decision
 title: ProviderがCoreへ接続する
-description: Coreを共通の接続先とし、Plugin runtime・Environment Provider・UI App operationなどのProviderが待受サーバーなしで参加できるようにする。
+description: Coreを共通の接続先とし、Plugin runtime・Environment Provider・UI AppなどのProviderが待受サーバーなしで参加できるようにする。
 status: accepted
 relations:
   requirement:
@@ -20,7 +20,7 @@ relations:
 
 旧方式では、Coreから到達できるHTTP/WSサーバーをPluginごとに用意する必要があった。既存CLIの拡張やDocker・WSL内のプロセスをつなぐとき、待受ポートの公開やCore側のEndpoint設定が負担になる。外部サービスと連携するPluginも、標準形は提供者の公開URLではなく、利用者が管理する環境で動くCLIやAdapterとする。
 
-現行の用語では、Coreへoperationを登録する側をProviderと呼ぶ。Plugin runtimeはProviderの一種であり、Environment ProviderやUI App operationもProvider protocolを使う。UI Appはoperationを登録しない面ではcaller / controllerとしてCoreへ接続する。
+現行の用語では、Coreへoperationを登録する側をProviderと呼ぶ。Plugin runtimeはProviderの一種であり、Environment ProviderやUI AppもProvider protocolを使う。UI Appはoperationを登録しない面ではcaller / controllerとしてCoreへ接続する。
 
 ## 合意済みの方針
 

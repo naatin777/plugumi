@@ -57,7 +57,7 @@ capability / capability-centricは現行の正式用語として使わない。`
 
 ### UI Appと実行の独立性
 
-UIの表示状態は、Core、Environment、Plugin runtime、AI agent、他のPluginの処理へ影響しない。Web appではbrowser tabを閉じても、Electron appではwindowを閉じても、処理は継続する。UI App processが生きている間は、UI App operationも非表示状態で利用できてよい。ただし、window / pageに依存するoperationは、非表示時に維持できるかをoperationごとに決める必要がある。
+UIの表示状態は、Core、Environment、Plugin runtime、AI agent、他のPluginの処理へ影響しない。Web appではbrowser tabを閉じても、Electron appではwindowを閉じても、処理は継続する。UI App processが生きている間は、UI Appが登録するoperationも非表示状態で利用できてよい。ただし、window / pageに依存するoperationは、非表示時に維持できるかをoperationごとに決める必要がある。
 
 UI App processが終了した場合は、そのUI Appが提供していたoperationへの新規呼び出しは利用不能errorになる。実行中だったExecutionもrunningのまま残さず、`failed` / `cancelled` / `unknown` などへ遷移させる必要がある。これはUIの表示状態が実行を止める例外ではなく、operationの実装主体であるprocessが失われたためである。
 
@@ -77,10 +77,20 @@ Coreは副作用のあるoperationを自動retryしない。retryするかはcal
 
 AIやcallerには、単なる`error`ではなく、retry可能な一時失敗、別provider /別方法を選ぶべき利用不能、caller inputの修正が必要な失敗を区別できる情報を返す必要がある。
 
+
+### 利用可能期間は独立したmetadataにせずscopeから導出する
+
+`daemon` / `host-session` / `ui-session` のような寿命enumを登録時に宣言する案があったが、独立した宣言は持たない方向。operationが使える期間は、provider sessionがどのscopeに紐づいて登録されたかから導出できる。
+
+- `host-session/electron-1` のscopeで登録されたoperationは、そのUI App sessionが終われば使えない
+- `env/local` のscopeで登録されたoperationは、そのenvironmentが生きている間使える
+
+agentやbackground executionがdurableなoperationだけを選ぶ必要がある場合も、「host-session scopeにいるかどうか」という事実を見れば足りる。細かい分類が必要になった場合に後から追加する。
+
 ## 未解決の問い
 
 - routingを必要とするoperation / providerをどう宣言または推測するか
-- app session寿命のoperationとwindow / page寿命のoperationをどう区別するか
+- app session寿命のoperationとwindow / page寿命のoperationをどう区別するか。scope導出の原則の範囲内で扱えるかは要検討
 - in-flight Executionを`failed` / `cancelled` / `unknown`のどれにするかの規則
 - Core再起動後のorphan Executionやresource refをどこまで復帰可能にするか
 - account / environment / projectをpathへ入れず、どこまでcontext / resource ref / bindingで解決できるか
@@ -88,3 +98,13 @@ AIやcallerには、単なる`error`ではなく、retry可能な一時失敗、
 - UI App process quit時のin-flight Executionを `failed` / `cancelled` / `unknown` のどれにするか
 - Environment / Plugin runtime / Core再起動後に、どこまでExecutionやresource refを復帰可能にするか
 - AI agentをbuilt-inにするかofficial pluginにするか。現時点ではofficial plugin寄りだが未確定
+
+### providerKindは廃止する方向
+
+登録時の `providerKind: plugin | environment | host` という種別enumは廃止する方向。種別は本来別々の属性を1つに束ねたものであり、必要な情報は個別のmetadataとして宣言する。
+
+- scope / 利用可能期間（daemon、host-sessionなど）: routingとlifecycleに効く事実。登録時に明示するかsessionから導出する
+- installable pluginとの紐付け: plugin管理側が内部で持つ。Coreがspawnしたproviderなら分かるのでwire上の種別は要らない
+- process管理責任（Core管理 / 外部自生）: 接続・起動の経路から分かる
+
+「UI Appかどうか」という分類自体は不要で、「このoperationはhost-session寿命である」という事実だけがroutingとlifecycleに効く。wire上の `providerKind` fieldを実際に消すタイミングと移行はcontract revisionで決める。

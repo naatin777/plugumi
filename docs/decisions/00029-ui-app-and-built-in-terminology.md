@@ -26,7 +26,7 @@ Web / Electronの公式UIを指す語として `Workbench Host` を使ってい�
 - `標準装備` / `標準搭載` という語は使わず、**built-in** を使う
 - `built-in` は実装場所ではなく、利用者が追加installせずに使える製品の基本体験を指す
 - 現段階では `first-class`、`baseline`、`bundled`、`official plugin`、`bundled plugin`、`built-in plugin` を正式な分類語として使わない。必要なときは普通の文章で説明する
-- `Host Provider` は独立した第一級概念として扱わない。UI Appがapp-local operationをCoreへ登録する場合は、**UI App operation** と呼ぶ。内部実装ではprovider protocolを使ってよい
+- `Host Provider` は独立した第一級概念として扱わない。UI Appはapp-local operationをCoreへ登録してよいが、この操作群に専用の概念名はつけず「UI Appが登録するoperation」と普通に説明する。内部実装ではprovider protocolを使ってよい
 - wire field / enumの `providerKind: "host"`、`hostSession`、`host-session` は現行contract revisionでは改名しない。改名する場合はcontract revisionの変更として扱う
 
 ## トレードオフと帰結

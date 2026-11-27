@@ -80,11 +80,11 @@ Pluginの場合、`POST /v1/registrations`、`PUT /v1/registrations/{registratio
 | key | 意味 |
 |---|---|
 | `environment` | Environment Providerが担当するenvironment ref。例: `env/local`。 |
-| `hostSession` | UI App operationが属するhost session ref。例: `host-session/electron-1`。 |
+| `hostSession` | UI Appが登録するoperationが属するhost session ref。例: `host-session/electron-1`。 |
 
 Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal / service scopeとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
 
-概念上の呼称はUI Appへ揃えるが、この版ではwire field / enumの `providerKind: "host"`、`hostSession`、`host-session` を改名しない。これらを `app` 系の名前へ変えるかは、wire compatibilityではなくcontract revisionを切るタイミングで決める。
+`providerKind` enum自体を廃止し、scope / 利用可能期間を個別metadataとして登録する方向が検討されている（[Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md)）。この版ではwire field / enumの `providerKind`、`hostSession`、`host-session` をまだ変えない。変更する場合はwire compatibilityではなくcontract revisionを切るタイミングで行う。
 
 ### operation宣言
 
