@@ -2,7 +2,7 @@
 // runtimeに走査して一覧を作る — 契約に追加されれば自動で並ぶので、
 // カタログが契約からずれることがない。色はliveのvar()参照で描くので、
 // テーマ切替にそのまま追従する。
-import { For } from "solid-js";
+import { For, createSignal } from "solid-js";
 import { render, type JSX } from "@solidjs/web";
 import { tokens, type ViewContext, type ViewHandle } from "@plugumi/view";
 
@@ -73,10 +73,12 @@ function Typography(): JSX.Element {
   );
 }
 
-function Lab(): JSX.Element {
-  return (
-    <div class="lab">
-      <h2>Components</h2>
+// sectionの定義。menuに並ぶ順 = ここに並ぶ順。新しいカテゴリは
+// ここに足す — 追加するとnavにも自動で出る。
+const SECTIONS: { id: string; title: string; render: () => JSX.Element }[] = [
+  {
+    id: "components", title: "Components",
+    render: () => (
       <section class="lab-section">
         <h3>button</h3>
         <div class="lab-row">
@@ -95,20 +97,56 @@ function Lab(): JSX.Element {
           <div class="lab-scrollcontent" />
         </div>
       </section>
-      <h2>Colors</h2>
-      <Swatches />
-      <h2>Typography</h2>
-      <Typography />
-      <Scale title="Font size" prefix="fontSize" sample={(v) => (
-        <span style={{ "font-size": `var(${v})` }}>あいうえお ABCabc 123</span>
-      )} />
-      <h2>Scales</h2>
-      <Scale title="Spacing" prefix="spacing" sample={(v) => (
-        <span class="lab-bar" style={{ width: `var(${v})` }} />
-      )} />
-      <Scale title="Radii" prefix="radii" sample={(v) => (
-        <span class="lab-radiusbox" style={{ "border-radius": `var(${v})` }} />
-      )} />
+    ),
+  },
+  { id: "colors", title: "Colors", render: () => <Swatches /> },
+  {
+    id: "typography", title: "Typography",
+    render: () => (
+      <>
+        <Typography />
+        <Scale title="Font size" prefix="fontSize" sample={(v) => (
+          <span style={{ "font-size": `var(${v})` }}>あいうえお ABCabc 123</span>
+        )} />
+      </>
+    ),
+  },
+  {
+    id: "scales", title: "Scales",
+    render: () => (
+      <>
+        <Scale title="Spacing" prefix="spacing" sample={(v) => (
+          <span class="lab-bar" style={{ width: `var(${v})` }} />
+        )} />
+        <Scale title="Radii" prefix="radii" sample={(v) => (
+          <span class="lab-radiusbox" style={{ "border-radius": `var(${v})` }} />
+        )} />
+      </>
+    ),
+  },
+];
+
+function Lab(): JSX.Element {
+  const [active, setActive] = createSignal(SECTIONS[0].id);
+  const current = () => SECTIONS.find((section) => section.id === active()) ?? SECTIONS[0];
+  return (
+    <div class="lab">
+      <nav class="lab-nav">
+        <For each={SECTIONS}>
+          {(section) => (
+            <button
+              class={{ "lab-nav-item": true, selected: active() === section.id }}
+              onClick={() => setActive(section.id)}
+            >
+              {section.title}
+            </button>
+          )}
+        </For>
+      </nav>
+      <div class="lab-content">
+        <h2>{current().title}</h2>
+        {current().render()}
+      </div>
     </div>
   );
 }

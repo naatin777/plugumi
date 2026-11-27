@@ -1,16 +1,48 @@
 /* Style Labの配置だけ。component自体の見た目はcomponents.cssと
    tokenに任せ、ここには並べ方だけを書く。 */
 .lab {
-  padding: var(--plugumi-spacing-md);
+  display: flex;
   font-family: var(--plugumi-font-family-sans);
   color: var(--plugumi-colors-text);
-  overflow: auto;
   height: 100%;
   box-sizing: border-box;
 }
+.lab-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--plugumi-spacing-sm);
+  border-right: 1px solid var(--plugumi-colors-border);
+  min-width: 8em;
+  flex-shrink: 0;
+}
+.lab-nav-item {
+  background: none;
+  border: none;
+  color: var(--plugumi-colors-text-muted);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+  text-align: left;
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+  border-radius: var(--plugumi-radii-md);
+  cursor: pointer;
+}
+.lab-nav-item:hover {
+  background: var(--plugumi-colors-fill);
+  color: var(--plugumi-colors-text);
+}
+.lab-nav-item.selected {
+  background: var(--plugumi-colors-fill-strong);
+  color: var(--plugumi-colors-text-strong);
+}
+.lab-content {
+  flex: 1;
+  overflow: auto;
+  padding: var(--plugumi-spacing-md);
+}
 .lab h2 {
   font-size: var(--plugumi-font-size-md);
-  margin: var(--plugumi-spacing-md) 0 var(--plugumi-spacing-sm);
+  margin: 0 0 var(--plugumi-spacing-sm);
   border-bottom: 1px solid var(--plugumi-colors-border);
   padding-bottom: var(--plugumi-spacing-xs);
 }
