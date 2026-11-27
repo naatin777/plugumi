@@ -411,7 +411,7 @@ declarative surfaceのpayload仕様はA2UIとする（[Decision 00035](../decisi
 
 ### Panel呼び出し
 
-Panel呼び出しの候補は `panel.call` とし、`params` は `panelId`（文字列）、`method`（宣言済みPanelメソッド名）、`input`（JSON値）。配送先にはCoreが検証したPanel宣言とメソッドの情報を渡す。Panel専用メソッドをoperation一覧に混ぜず、任意の登録への迂回経路にしない。
+`panel.call` は廃止する。UIへの働きかけは、capabilityとして意味があるものはoperation、plugin runtimeと自分のviewの私的な対話はview channelに分類する（[Design 00011](../designs/00011-view-channel.md)）。view channelのwire上の形式は未確定であり、次のrevisionまでに決める。
 
 ## Schema・型生成
 
