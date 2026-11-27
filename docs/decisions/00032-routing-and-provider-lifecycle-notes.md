@@ -87,15 +87,21 @@ AIやcallerには、単なる`error`ではなく、retry可能な一時失敗、
 
 agentやbackground executionがdurableなoperationだけを選ぶ必要がある場合も、「host-session scopeにいるかどうか」という事実を見れば足りる。細かい分類が必要になった場合に後から追加する。
 
+
+### provider切断時のin-flight Executionはfailedとし、error kindで区別する
+
+Coreが生きている状態でproviderとの接続が切れたと判明した場合、Coreが代わりにin-flightのExecutionを `failed` にする。`unknown` という独立したstatusは追加せず、「実行そのものの失敗」と「接続喪失による追跡不能」はerrorの種類で区別する。
+
+- `error.kind: executionFailed` — 実行そのものが失敗した
+- `error.kind: providerDisconnected` — providerとの接続が切れて追跡できなくなった。実行の成否は不明かもしれないが、Coreからは追えないため失敗扱いとする記録
+
 ## 未解決の問い
 
 - routingを必要とするoperation / providerをどう宣言または推測するか
 - app session寿命のoperationとwindow / page寿命のoperationをどう区別するか。scope導出の原則の範囲内で扱えるかは要検討
-- in-flight Executionを`failed` / `cancelled` / `unknown`のどれにするかの規則
 - Core再起動後のorphan Executionやresource refをどこまで復帰可能にするか
 - account / environment / projectをpathへ入れず、どこまでcontext / resource ref / bindingで解決できるか
 - Project registryの正本をCore、Environment、別providerのどこに置くか
-- UI App process quit時のin-flight Executionを `failed` / `cancelled` / `unknown` のどれにするか
 - Environment / Plugin runtime / Core再起動後に、どこまでExecutionやresource refを復帰可能にするか
 - AI agentをbuilt-inにするかofficial pluginにするか。現時点ではofficial plugin寄りだが未確定
 

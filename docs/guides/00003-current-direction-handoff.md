@@ -151,6 +151,11 @@ Plugin
 - Project registryはCoreが持つ。folder実体へのアクセスはEnvironmentが担う
 - 利用可能期間は独立したmetadataにせず、provider sessionのscopeから導出する
 - caller / providerはcomponent分類ではなくinteractionごとの役割。AI agentなどは両方を同時に演じ得る
+- Panel / Embed / Widgetはライフサイクルで分かれる。embedは記録、widgetは現在、panelは作業の主体。tool outputはresult（AI向け）とpresentation（embed向け）を別フィールドで分け、presentationはembedのdata modelへ流し込む
+- provider切断時のin-flight Executionはfailedとし、error kindでexecutionFailed / providerDisconnectedを区別する。unknown statusは追加しない
+- declarative surfaceのpayload仕様はA2UIを採用する方向。`@a2ui/web_core`を再利用し、rendererはSolidJS用の薄いbindingを自前で書く。transportはPlugumi独自のものを使い、AG-UIは採用しない
+- Panel / Embed / WidgetはすべてJS実装の完成品componentで、違いはライフサイクルと置き場所だけ。A2UIで組み立てたdeclarativeな内容物はsurfaceと呼び、view typeとは直交する。catalogはA2UI basicをそのまま使い、custom componentを追加登録する
+- tool outputはresult（AI向け）とpresentation（表示向け）を別フィールドで分け、presentationはdata modelへ流し込む。embed componentが紐付かないtool呼び出しは汎用fallback表示でよい。画面の操作手段はoperation呼び出しに紐付けられる
 - Operationは旧toolPathの後継で、Plugin内部IDではなくcallerから見えるcanonicalな操作名
 - Resource本体、resource ref、Resource registryは分けて考える。Resourceという概念を使っても、Coreが全Resourceを管理するとは限らない
 - bindは少なくとも接続・振り分けbind、Project bind、Input bindに分けて考える

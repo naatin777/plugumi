@@ -48,7 +48,7 @@ operationやViewなどのcontributionを束ねるinstallable package。公式・
 
 ### View
 
-Panel / Embedなどの人間向けUI。resourceやExecutionを表示・操作する。operationやPlugin runtimeの所有とは分ける。
+Panel / Embed / Widgetなどの人間向けUI。resourceやExecutionを表示・操作する。operationやPlugin runtimeの所有とは分ける。Panel / Embed / WidgetはすべてJSで実装された完成品componentであり、違いはライフサイクルと置き場所だけである。詳細は[Design 00010](designs/00010-panel-embed-widget-view-types.md)を参照。
 
 ### Panel
 
@@ -56,7 +56,7 @@ UI App上に表示されるView。Core仲介RPCを操作通信の第一候補と
 
 ### Widget
 
-旧称Widget。状態表示やshortcutを担う独立したPlugin viewの種類。PanelやEmbedの特殊形ではない。常時見せるライブなmicro surfaceで、pluginが供給し自己更新する。status barへの固定配置と、widget panel内への自由配置の両方を許す。例はCPU / memory使用量、AI使用量、実行中件数、panel shortcut。詳細は[Design 00010](designs/00010-panel-embed-widget-view-types.md)を参照。
+旧称Indicator。状態表示やshortcutを担う独立したPlugin viewの種類。PanelやEmbedの特殊形ではない。常時見せるライブな表示で、pluginが供給し自己更新する。JSで実装された完成品componentであり、どこにでも埋め込める。status barへの固定配置、widget panel内への自由配置に加え、panel内などへの配置も許す方向。例はCPU / memory使用量、AI使用量、実行中件数、panel shortcut。詳細は[Design 00010](designs/00010-panel-embed-widget-view-types.md)を参照。
 
 ### Plugin view
 
@@ -107,6 +107,10 @@ Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から
 ### operation schema
 
 operation宣言に付く入力・出力の型情報。`inputSchema`（呼び出し引数）、`acceptSchema`（受理・開始時のoperation固有データ）、`streamSchema`（実行中のchunk / progress / log）、`resultSchema`（最終結果）を分ける。曖昧な`outputSchema`は使わない。
+
+### scope
+
+provider sessionがどの範囲・どこに属しているかを表す所属ラベル。`env/local`、`host-session/electron-1` など。routingはこのscopeを材料に呼び出しの配送先を決める行為であり、scopeはroutingそのものではない。scopeはrouting以外に寿命の導出にも使われ、`host-session` scopeのoperationはそのsessionが終われば使えなくなる。
 
 ### binding
 
@@ -222,7 +226,7 @@ Embedとして存在するが、まだmountしていないinertな状態。DOM�
 
 ### declarative surface
 
-component tree、data binding、actionをJSONなどの宣言的な形式で表すEmbedの表現。A2UI-inspiredまたはA2UI-compatibleな方向で検討している。portable baselineとして扱う。
+component tree、data binding、actionをJSONなどの宣言的な形式で表す内容物の単位。A2UIではこの単位をsurfaceと呼び、Plugumiでもsurfaceと呼ぶ。payload仕様としてA2UIを採用する方向。view type（Panel / Embed / Widget）ではなく表現形式の単位であり、両者は直交する。surfaceの中にembed componentを配置できるし、panelは自身の中にsurfaceをホストできる。portable baselineとして扱う。
 
 ### Component Catalog
 
