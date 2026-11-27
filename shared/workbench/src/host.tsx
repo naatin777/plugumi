@@ -54,7 +54,8 @@ export interface PluginPanelEntry {
   panelId: string;
   title: string;
   entry: string;
-  styles: string[];
+  // CoreのJSONでは未宣言だとnullで来るのでoptional扱いにする。
+  styles?: string[] | null;
   uiSha256: string;
   // 提供元の登録のRPC接続が生きているか。falseの宣言はmountはできるが
   // view channelが繋がらないので、同じpanelIdにliveの宣言があればそちらを優先する。

@@ -25,7 +25,7 @@ async function fetchText(
   host: ShellHost, coreKey: string, panel: PluginPanelEntry,
 ): Promise<string> {
   const parts: string[] = [];
-  for (const path of panel.styles) {
+  for (const path of panel.styles ?? []) {
     const response = await fetch(
       host.uiURL(coreKey, panel.registrationId, path, panel.uiSha256),
     );
