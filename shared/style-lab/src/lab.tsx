@@ -166,10 +166,16 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
     group: "components", id: "tabs", title: "Tabs",
     render: () => (
       <>
-        <div class="tab-strip" style={{ border: "none", padding: 0 }}>
-          <button class="tab"><span class="tab-title">非選択</span></button>
-          <button class="tab selected"><span class="tab-title">選択中</span><span class="tab-close">×</span></button>
-        </div>
+        {/* 実物と同じ構造: header.leaf-strip > .tab-strip。
+            tabはstripの高さとhairlineの文脈でこそ正しく見える部品で、
+            裸で描くと別物になる。--shell-strip-hは:root定義なので
+            shadow越しに継承され、そのまま使える。 */}
+        <header class="leaf-strip">
+          <div class="tab-strip">
+            <button class="tab"><span class="tab-title">非選択</span></button>
+            <button class="tab selected"><span class="tab-title">選択中</span><span class="tab-close">×</span></button>
+          </div>
+        </header>
         <Spec rows={[
           ["class", ".tab — shell専有"],
           ["radius", "radii-sm — icon-buttonのmdと違う点に注意"],
