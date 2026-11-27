@@ -2,6 +2,8 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -364,6 +366,34 @@ func (s *Server) uiAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
 	_, _ = w.Write(data)
+}
+
+// uploadUIAsset はproviderがasset内容をpushする口。manifestで宣言された
+// pathだけを受け付け、sha256が宣言と一致したときだけcacheへ書く。
+// 内容はWSを通らずRESTで来るので1MBのframe制限はかからない。
+func (s *Server) uploadUIAsset(w http.ResponseWriter, r *http.Request) {
+	registrationID := r.PathValue("registrationId")
+	filePath := r.PathValue("path")
+	hash, declared := s.registry.UIAssetRef(registrationID, filePath)
+	if !declared {
+		writeAPIError(w, http.StatusNotFound, "not_found", "no such UI asset in the manifest")
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<20))
+	if err != nil {
+		writeAPIError(w, http.StatusRequestEntityTooLarge, "too_large", "asset body could not be read")
+		return
+	}
+	sum := sha256.Sum256(body)
+	if hex.EncodeToString(sum[:]) != hash {
+		writeAPIError(w, http.StatusBadRequest, "hash_mismatch", "asset content does not match the declared sha256")
+		return
+	}
+	if err := s.registry.WriteAsset(hash, body); err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "http_error", "asset could not be stored")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeAPIError(w http.ResponseWriter, status int, code, message string) {

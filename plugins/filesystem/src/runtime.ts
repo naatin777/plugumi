@@ -69,7 +69,7 @@ const read = async (input: unknown) => {
   }
   const content = await readFile(file, "utf8");
   // NULを含むものはbinaryとみなす
-  if (content.includes("")) {
+  if (content.includes("\u0000")) {
     throw new Error("binary file");
   }
   return { content, size: info.size };
@@ -116,6 +116,8 @@ const runtime = new PluginRuntime({
   onView(channel) {
     const typed = channel.typed<RuntimeMessage, ViewMessage>();
     typed.onMessage(async (message) => {
+      // send自体の失敗も含めてcatchする — channel close後のsendで
+      // unhandled rejectionになりprocessが死ぬのを防ぐ。
       try {
         if (message.type === "read") {
           const result = await read({ path: message.path });
@@ -126,7 +128,11 @@ const runtime = new PluginRuntime({
           typed.send({ type: "saved", path: message.path });
         }
       } catch (cause) {
-        typed.send({ type: "error", message: cause instanceof Error ? cause.message : String(cause) });
+        try {
+          typed.send({ type: "error", message: cause instanceof Error ? cause.message : String(cause) });
+        } catch {
+          // channelが閉じていればerror報告も届かない — 諦める
+        }
       }
     });
   },

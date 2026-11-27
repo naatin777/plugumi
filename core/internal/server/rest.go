@@ -99,6 +99,9 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 	// UI配信はワイルドカードパスのためhumaではなく直接muxへ
 	// （認証・loopback・Origin拒否は既存ミドルウェアがかかる）。
 	mux.HandleFunc("GET "+prefix+"/ui/{registrationId}/{path...}", s.uiAsset)
+	// asset内容のuploadもraw bytesなのでmux直接。assetはWSを通さず
+	// RESTで送る — WSはtool実行など双方向が必要なものだけに絞る。
+	mux.HandleFunc("PUT "+registrationsPath+"/{registrationId}/ui/assets/{path...}", s.uploadUIAsset)
 	huma.Delete(api, registrationsPath+"/{registrationId}", s.deleteRegistration,
 		func(operation *huma.Operation) {
 			operation.OperationID = "deleteRegistration"

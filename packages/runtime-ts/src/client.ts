@@ -4,7 +4,8 @@
 
 import { setTimeout as delay } from "node:timers/promises";
 import WebSocket from "ws";
-import { scanUI, serveAsset, validatePanels } from "./assets.js";
+import { readFile } from "node:fs/promises";
+import { scanUI, validatePanels } from "./assets.js";
 import type { UI, UIManifest, UIFileEntry } from "./assets.js";
 import { ActiveExecutions } from "./execution.js";
 import { InvocationEvents, invokeOperation, cancelExecution } from "./caller.js";
@@ -18,7 +19,6 @@ import type { Socket } from "./rpc.js";
 import { RuntimeViewChannelImpl } from "./viewchannel.js";
 import type { RuntimeViewChannel } from "./viewchannel.js";
 import {
-  METHOD_ASSETS_GET,
   METHOD_EXECUTIONS_CANCEL,
   METHOD_OPERATIONS_INVOKE,
   isNotification,
@@ -135,6 +135,21 @@ export class PluginRuntime {
     return response;
   }
 
+  // asset内容のupload。JSONではなくraw bytesをPUTする — 大きなfileを
+  // base64で膨らませない。sha256はCore側でmanifestの宣言と照合される。
+  async requestUpload(path: string, signal: AbortSignal, absolute: string): Promise<void> {
+    const content = await readFile(absolute);
+    const response = await fetch(new URL(API + path, this.url), {
+      method: "PUT", signal, redirect: "error",
+      headers: { ...this.headers, "Content-Type": "application/octet-stream" },
+      body: content,
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new CoreHTTPError(response.status, "PUT", path);
+    }
+  }
+
   async run(signal: AbortSignal): Promise<"stopped" | "rejected"> {
     let backoff = 250;
     // catalog追跡はsessionではなくrunの寿命に紐付ける。
@@ -195,6 +210,11 @@ export class PluginRuntime {
       this.uiFiles = scanned.files;
       this.uiManifest = scanned.manifest;
       await this.request("PUT", `${base}/ui`, signal, scanned.manifest);
+      // asset内容はWSを通さずRESTでpushする — WSはtool実行など
+      // 双方向が必要なものだけ。sha256はCore側で宣言と照合される。
+      for (const [path, entry] of scanned.files) {
+        await this.requestUpload(`${base}/ui/assets/${path}`, signal, entry.absolute);
+      }
     }
     await this.request("POST", `${base}/ready`, signal);
     return lease;
@@ -253,13 +273,6 @@ export class PluginRuntime {
       const params = message.params as ForwardInvokeParams | undefined;
       if (!params?.operation || !params.executionId) return invalidParams("invalid invoke params");
       return dispatchInvoke(this.active, this.connection!, this.options.operations ?? [], params);
-    }
-    if (message.method === METHOD_ASSETS_GET) {
-      const params = message.params as { path?: string } | undefined;
-      if (!params?.path || !this.uiFiles) return invalidParams("invalid assets.get params");
-      const served = await serveAsset(this.uiFiles, params.path);
-      // JSON-RPC responseのresultがAssetsGetResult（{content: base64}）になる。
-      return "content" in served ? { result: { content: served.content } } : served;
     }
     return { error: { code: -32601, message: "method not found" } };
   }
