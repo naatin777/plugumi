@@ -114,3 +114,7 @@ Coreが生きている状態でproviderとの接続が切れたと判明した�
 - process管理責任（Core管理 / 外部自生）: 接続・起動の経路から分かる
 
 「UI Appかどうか」という分類自体は不要で、「このoperationはhost-session寿命である」という事実だけがroutingとlifecycleに効く。wire上の `providerKind` fieldを実際に消すタイミングと移行はcontract revisionで決める。
+
+### scope概念の廃止
+
+scopeは独立した概念としては廃止する方向。その実体はproviderの所属environment / host sessionという既存概念の情報に過ぎない。routingはinvocationの対象とproviderの所属のマッチングであり、利用可能期間も所属から導出される。用語としての「scope」は立てず、「providerの所属environment / session」と説明する。wire fieldとしての `scope` はcontract revisionのタイミングで扱う。

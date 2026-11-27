@@ -108,9 +108,9 @@ Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から
 
 operation宣言に付く入力・出力の型情報。`inputSchema`（呼び出し引数）、`acceptSchema`（受理・開始時のoperation固有データ）、`streamSchema`（実行中のchunk / progress / log）、`resultSchema`（最終結果）を分ける。曖昧な`outputSchema`は使わない。
 
-### scope
+### scope（廃止語）
 
-provider sessionがどの範囲・どこに属しているかを表す所属ラベル。`env/local`、`host-session/electron-1` など。routingはこのscopeを材料に呼び出しの配送先を決める行為であり、scopeはroutingそのものではない。scopeはrouting以外に寿命の導出にも使われ、`host-session` scopeのoperationはそのsessionが終われば使えなくなる。
+provider sessionの所属を表す概念として使っていたが、独立した概念としては廃止する。実体は既存概念であるproviderの所属environment / host sessionの情報に過ぎず、新しい概念ではない。routingはinvocationの対象environment / sessionとproviderの所属をマッチングする行為であり、利用可能期間も所属から導出される。`env/local`、`host-session/electron-1` などの値自体は所属を表す識別子として残るが、「scope」という用語は立てない。
 
 ### binding
 

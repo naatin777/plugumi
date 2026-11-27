@@ -111,13 +111,14 @@ Embedのrepresentationはサイズバリアントに応答する。サイズ数�
 
 ## A2UIの採用
 
-declarative surfaceのpayload仕様としてA2UIを採用する方向。Open-JSON-UIはversioned protocolとしての整備とstreaming対応が薄く、ライブラリがCopilotKit ecosystem依存のため採用しない。
+declarative surfaceのpayload仕様としてA2UIを採用する。候補比較と理由は[Decision 00035](../decisions/00035-a2ui-as-declarative-surface-payload.md)を参照。
 
 採用するのはA2UIのpayload定義（message形式とcatalog仕様）であり、transportはPlugumi独自のCore WS / Execution streamを使う。AG-UIは採用しない。
 
 - `@a2ui/web_core` を再利用し、MessageProcessor、surface管理、data binding、schema検証はライブラリに任せる
-- rendererはSolidJS用の薄いframework bindingを自前で書く。React部分があれば `@a2ui/react` をそのまま使える
+- rendererはweb componentベース（`@a2ui/lit`）とし、SolidJS専用のrendererは作らない。web componentはframework非依存なのでSolidJSのhost内にそのままmountできる。renderer自体はhost内蔵またはplugin配信のどちらでもよく、fallback chainで解決する
 - A2UIは若い仕様でbreaking changeの履歴があるため、version pinningを必須とする
+- rendererはlayeredにする。Apps UI（host）が描画基盤を提供し、pluginがUIを提供することもでき、representationのfallback chainで選ぶ
 - Generative UIの3分類はPlugumiの表現モデルの段として同居する。custom componentはControlled、surfaceはDeclarative、plugin view（フルJS module）はOpen-endedに対応する
 
 ## outputの分離
