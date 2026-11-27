@@ -21,7 +21,7 @@ func TestRegistryWatcherRefreshesOnCoreEvents(t *testing.T) {
 	defer cancel()
 	const token = "test-token"
 	t.Setenv("PLUGUMI_TOKEN", token)
-	core := httptest.NewServer(server.New(ctx, "test-core", "", token).Handler())
+	core := httptest.NewServer(server.New(ctx, "test-core", "", token, "").Handler())
 	defer core.Close()
 	client, err := NewClient(core.URL)
 	if err != nil {

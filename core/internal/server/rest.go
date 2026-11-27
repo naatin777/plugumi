@@ -91,14 +91,13 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 			operation.OperationID = "replaceUIManifest"
 			operation.Summary = "UI manifestを置き換える"
 		})
-	huma.Post(api, prefix+"/assets/missing", s.listMissingAssets,
+	huma.Post(api, registrationsPath+"/{registrationId}/ready", s.markReady,
 		func(operation *huma.Operation) {
-			operation.OperationID = "listMissingAssets"
-			operation.Summary = "Coreが持っていないassetのsha256を返す"
+			operation.OperationID = "markRegistrationReady"
+			operation.Summary = "初期setupの完了を宣言する"
 		})
-	// assetのPUTは生バイト、UI配信はワイルドカードパスのためhumaではなく
-	// 直接muxへ（認証・loopback・Origin拒否は既存ミドルウェアがかかる）。
-	mux.HandleFunc("PUT "+prefix+"/assets/{sha256}", s.putAsset)
+	// UI配信はワイルドカードパスのためhumaではなく直接muxへ
+	// （認証・loopback・Origin拒否は既存ミドルウェアがかかる）。
 	mux.HandleFunc("GET "+prefix+"/ui/{registrationId}/{path...}", s.uiAsset)
 	huma.Delete(api, registrationsPath+"/{registrationId}", s.deleteRegistration,
 		func(operation *huma.Operation) {
@@ -170,22 +169,15 @@ func (s *Server) deleteRegistration(_ context.Context, input *registrationPath) 
 	return nil, nil
 }
 
-func (s *Server) listMissingAssets(_ context.Context, input *struct {
-	Body struct {
-		SHA256 []string `json:"sha256"`
+func (s *Server) markReady(_ context.Context, input *registrationPath) (*struct{}, error) {
+	switch err := s.registry.SetReady(input.RegistrationID); err {
+	case nil:
+		return nil, nil
+	case registry.ErrUnknownRegistration:
+		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
+	default:
+		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not mark ready")
 	}
-}) (*struct {
-	Body struct {
-		Missing []string `json:"missing"`
-	}
-}, error) {
-	response := &struct {
-		Body struct {
-			Missing []string `json:"missing"`
-		}
-	}{}
-	response.Body.Missing = s.registry.MissingAssets(input.Body.SHA256)
-	return response, nil
 }
 
 func (s *Server) replaceUI(_ context.Context, input *struct {
@@ -200,10 +192,6 @@ func (s *Server) replaceUI(_ context.Context, input *struct {
 	case errors.Is(err, registry.ErrInvalidUI):
 		return nil, newAPIError(http.StatusBadRequest, "invalid_params", err.Error())
 	default:
-		var missing *registry.MissingAssetsError
-		if errors.As(err, &missing) {
-			return nil, newAPIError(http.StatusBadRequest, "missing_assets", err.Error())
-		}
 		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace UI manifest")
 	}
 }

@@ -24,10 +24,6 @@ const leaseDuration = 60 * time.Second
 // 永久に409が返り続ける。
 const reservationTTL = 15 * time.Second
 
-// アップロード済みだがどのUI manifestからも参照されないassetの保持期限。
-// 登録が途中で止まってもファイルが残らないようにする。
-const unreferencedAssetTTL = 60 * time.Second
-
 var (
 	ErrUnknownRegistration   = errors.New("unknown registration")
 	ErrRegistrationConflict  = errors.New("instance already registered with another pluginId")
@@ -42,6 +38,7 @@ var (
 type registration struct {
 	identity    wire.ProviderIdentity
 	lease       wire.RegistrationLease
+	ready       bool
 	operations  []wire.OperationDeclaration
 	files       []wire.UIFile
 	panels      []wire.PanelDeclaration
@@ -63,18 +60,42 @@ type Registry struct {
 	byID        map[string]*registration
 	byInstance  map[string]*registration
 	subscribers map[chan Event]struct{}
-	assets      map[string]*asset
+	assets      map[string]*assetEntry
+	cacheDir    string
+	fetchMu     sync.Mutex
+	fetches     map[string]*fetchCall
 }
 
-func New(coreID string) *Registry {
-	return &Registry{
+// New はcoreIDとasset cacheのdisk directoryでRegistryを作る。
+// cacheDirが空ならasset cacheは無効（テスト用）。
+func New(coreID, cacheDir string) *Registry {
+	r := &Registry{
 		coreID:      coreID,
 		now:         time.Now,
 		byID:        make(map[string]*registration),
 		byInstance:  make(map[string]*registration),
 		subscribers: make(map[chan Event]struct{}),
-		assets:      make(map[string]*asset),
+		assets:      make(map[string]*assetEntry),
+		cacheDir:    cacheDir,
+		fetches:     make(map[string]*fetchCall),
 	}
+	r.scanCache()
+	return r
+}
+
+// SetReady は登録をreadyにする。one-way latchで、ready後に戻す方法はない。
+func (r *Registry) SetReady(registrationID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	record := r.liveLocked(registrationID, r.now())
+	if record == nil {
+		return ErrUnknownRegistration
+	}
+	if !record.ready {
+		record.ready = true
+		r.publishLocked("provider.changed")
+	}
+	return nil
 }
 
 func (r *Registry) Create(identity wire.ProviderIdentity) (wire.RegistrationLease, bool, error) {
@@ -179,7 +200,7 @@ func (r *Registry) ResolveOperation(path string) (*rpc.Connection, error) {
 	var found *registration
 	count := 0
 	for _, record := range r.byID {
-		if !now.Before(record.lease.ExpiresAt) {
+		if !now.Before(record.lease.ExpiresAt) || !record.ready {
 			continue
 		}
 		for _, operation := range record.operations {
@@ -268,6 +289,17 @@ func (reservation *ConnectionReservation) Complete(connection *rpc.Connection) b
 	}
 	record.connection = connection
 	r.publishLocked("provider.changed")
+	registrationID := record.lease.RegistrationID
+	go func() {
+		// connection確立後にprefetch。ReplaceUIが接続より先に来た場合の受け口。
+		r.mu.Lock()
+		reg := r.byID[registrationID]
+		stillCurrent := reg != nil && reg.connection == connection
+		r.mu.Unlock()
+		if stillCurrent {
+			r.PrefetchUIAssets(registrationID)
+		}
+	}()
 	return true
 }
 
@@ -351,6 +383,7 @@ func (r *Registry) Snapshot() wire.RegistrySnapshot {
 			Environment:    record.identity.Environment,
 			HostSession:    record.identity.HostSession,
 			RPCAvailable:   record.connection != nil,
+			Ready:          record.ready,
 			Operations:     append([]wire.OperationDeclaration{}, record.operations...),
 			Panels:         append([]wire.PanelDeclaration{}, record.panels...),
 			UISHA256:       record.uiSHA256,

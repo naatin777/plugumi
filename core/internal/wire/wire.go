@@ -36,6 +36,7 @@ type RegistryRegistration struct {
 	Environment    string                `json:"environment,omitempty"`
 	HostSession    string                `json:"hostSession,omitempty"`
 	RPCAvailable   bool                  `json:"rpcAvailable"`
+	Ready          bool                  `json:"ready"`
 	Operations     []OperationDeclaration `json:"operations"`
 	Panels         []PanelDeclaration    `json:"panels,omitempty"`
 	UISHA256       string                `json:"uiSha256,omitempty"`
@@ -70,11 +71,12 @@ type PanelDeclaration struct {
 	Styles  []string `json:"styles,omitempty"`
 }
 
-// UIFile はUI manifestが参照する1ファイル。pathは相対パス、
-// sha256はPUT /v1/assets/{sha256}で事前に送った内容アドレス。
+// UIFile はUI manifestが参照する1ファイル。pathは相対パス、sha256は内容アドレス、
+// sizeは宣言時のファイルサイズ。内容は登録時に送らず、Coreがassets.getでfetchする。
 type UIFile struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size,omitempty"`
 }
 
 // UIManifest はPUT /v1/registrations/{registrationId}/uiの本文。
@@ -146,6 +148,21 @@ func Unmarshal(raw json.RawMessage, v any) error {
 		return nil
 	}
 	return json.Unmarshal(raw, v)
+}
+
+// asset fetchのメソッド。Core → Provider方向。
+const MethodAssetsGet = "assets.get"
+
+// AssetsGetParams はCore→Providerのassets.get params。
+// Providerはpathでファイルを特定し、内容をbase64で返す。
+type AssetsGetParams struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+
+// AssetsGetResult はProviderのassets.get応答。contentはbase64。
+type AssetsGetResult struct {
+	Content string `json:"content"`
 }
 
 // operation invocation / Executionのメソッド（contracts/00004）。

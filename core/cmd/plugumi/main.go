@@ -199,7 +199,13 @@ func newRuntime(settings *config.Config) *coreRuntime {
 		w.WriteHeader(http.StatusNoContent)
 		cancel()
 	})
-	mux.Handle("/", server.New(ctx, instanceID, settings.Core.Name, os.Getenv("PLUGUMI_TOKEN")).Handler())
+	// asset cacheはlogと同じくuser cache dir配下に置く。
+	// 取れなければcacheなし（memory運用にはならずfetchは失敗する）で起動する。
+	assetCacheDir := ""
+	if cacheDirectory, err := os.UserCacheDir(); err == nil {
+		assetCacheDir = filepath.Join(cacheDirectory, "plugumi", "assets")
+	}
+	mux.Handle("/", server.New(ctx, instanceID, settings.Core.Name, os.Getenv("PLUGUMI_TOKEN"), assetCacheDir).Handler())
 	return &coreRuntime{
 		ctx: ctx, cancel: cancel, settings: settings,
 		instanceID: instanceID, stopToken: stopToken,

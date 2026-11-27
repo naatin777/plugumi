@@ -86,6 +86,9 @@ func setupProvider(t *testing.T, reg *registry.Registry, connection *rpc.Connect
 	if !reservation.Complete(connection) {
 		t.Fatal("could not attach provider connection")
 	}
+	if err := reg.SetReady(lease.RegistrationID); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type invokeOutcome struct {
@@ -116,7 +119,7 @@ func parseExecution(t *testing.T, result json.RawMessage) *wire.Execution {
 }
 
 func TestInvokeForwardsAndReturnsTerminalExecution(t *testing.T) {
-	reg := registry.New("test-core")
+	reg := registry.New("test-core", "")
 	store := execution.NewStore()
 	r := New(reg, store)
 	caller, _ := testConnection(t)
@@ -177,7 +180,7 @@ func TestInvokeForwardsAndReturnsTerminalExecution(t *testing.T) {
 }
 
 func TestInvokeRunningThenTerminalEvent(t *testing.T) {
-	reg := registry.New("test-core")
+	reg := registry.New("test-core", "")
 	store := execution.NewStore()
 	r := New(reg, store)
 	caller, _ := testConnection(t)
@@ -236,7 +239,7 @@ func TestInvokeRunningThenTerminalEvent(t *testing.T) {
 }
 
 func TestDropConnectionFailsInflightExecution(t *testing.T) {
-	reg := registry.New("test-core")
+	reg := registry.New("test-core", "")
 	store := execution.NewStore()
 	r := New(reg, store)
 	caller, _ := testConnection(t)
@@ -272,7 +275,7 @@ func TestDropConnectionFailsInflightExecution(t *testing.T) {
 }
 
 func TestInvokeUnknownOperation(t *testing.T) {
-	reg := registry.New("test-core")
+	reg := registry.New("test-core", "")
 	store := execution.NewStore()
 	r := New(reg, store)
 	caller, _ := testConnection(t)
