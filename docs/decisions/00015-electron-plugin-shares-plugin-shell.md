@@ -31,7 +31,7 @@ Electronでも、Web appと同じ画面（Workbench shell、Panel、OS領域）�
 - Electron appは、`apps/electron/` に置く公式UI Appである。画面表示のためのElectron固有serverは持たず、別processとして配布・起動されるWeb app側serverがloopbackで配る画面を `BrowserWindow` で開く。登録・保存・UI取得はWeb app側のserver実装に任せる。
 - この方針はprocess ownershipをElectron appへ移す意味ではない。Electron appはCore DaemonやPlugumi管理のPlugin runtime processを直接所有せず、管理操作はDaemon management API経由で行う。
 - Web app側のserverは実行記録（`<cache>/plugumi/plugins/<id>.json`）に待受URLを `url` として書く。Electronのmainプロセスは記録を読み、`GET <url>/api/cores` が200を返すhostを再利用する。見つからなければplugumi-webを子プロセスとして起動する（バイナリは `PLUGUMI_HOST_BIN` で指定する）。再利用したhostは終了時に止めず、自分が起動した子プロセスだけを終了時に止める。
-- 画面はWorkbench shell（`shared/workbench`）として共有する。Web appの配るページをそのまま読み込むので、`ShellHost` の実装はHTTP（`/api`）の1本だけになり、preloadのIPC実装や `plugumi-ui://` プロトコルは持たない。
+- 画面はWorkbench shell（`shared/app-ui`）として共有する。Web appの配るページをそのまま読み込むので、`ShellHost` の実装はHTTP（`/api`）の1本だけになり、preloadのIPC実装や `plugumi-ui://` プロトコルは持たない。
 - Areaを別windowに出す（detach）とタイトルバー装飾のテーマ連動だけはpreloadのIPCで行う。preloadは `window.plugumiWindows.open(path)` を公開し、mainプロセスは `plugumi:open-window` で受けたpathをhost URLで開く。テーマはrendererの `plugumi:theme` DOMイベントをpreloadが `plugumi:theme` IPCへ中継し、mainプロセスが `titleBarOverlay` に反映する。
 - detachはElectron専用の操作とする。Web側の `ShellHost.windows` はpreloadのbridgeがあるときだけ非nullになり、ブラウザでは別windowへ出す操作を出さない。
 - Project以下の保存はWeb app側の `~/.plugumi/web/` に一本化する。Electron独自の `~/.plugumi/electron/` は廃止し、Electron app自身のCore接続・保存・UI取得のTypeScript実装は削除する。

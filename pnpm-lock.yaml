@@ -218,9 +218,9 @@ importers:
 
   apps/web/frontend:
     dependencies:
-      '@plugumi/workbench':
+      '@plugumi/app-ui':
         specifier: workspace:*
-        version: link:../../../shared/workbench
+        version: link:../../../shared/app-ui
       '@solidjs/router':
         specifier: 2.0.0
         version: 2.0.0(@solidjs/web@2.0.0(solid-js@2.0.0))(solid-js@2.0.0)
@@ -313,31 +313,7 @@ importers:
         specifier: ^8.23.0
         version: 8.23.0
 
-  shared/files:
-    dependencies:
-      '@plugumi/view':
-        specifier: workspace:*
-        version: link:../../packages/view-core
-      '@solidjs/web':
-        specifier: 2.0.0
-        version: 2.0.0(solid-js@2.0.0)
-      solid-js:
-        specifier: 2.0.0
-        version: 2.0.0
-
-  shared/theme:
-    dependencies:
-      '@plugumi/view':
-        specifier: workspace:*
-        version: link:../../packages/view-core
-      '@solidjs/web':
-        specifier: 2.0.0
-        version: 2.0.0(solid-js@2.0.0)
-      solid-js:
-        specifier: 2.0.0
-        version: 2.0.0
-
-  shared/workbench:
+  shared/app-ui:
     dependencies:
       '@fontsource/ibm-plex-mono':
         specifier: ^5.3.0
@@ -373,6 +349,30 @@ importers:
       vite:
         specifier: 8.3.8
         version: 8.3.8(@types/node@24.19.2)
+
+  shared/files:
+    dependencies:
+      '@plugumi/view':
+        specifier: workspace:*
+        version: link:../../packages/view-core
+      '@solidjs/web':
+        specifier: 2.0.0
+        version: 2.0.0(solid-js@2.0.0)
+      solid-js:
+        specifier: 2.0.0
+        version: 2.0.0
+
+  shared/theme:
+    dependencies:
+      '@plugumi/view':
+        specifier: workspace:*
+        version: link:../../packages/view-core
+      '@solidjs/web':
+        specifier: 2.0.0
+        version: 2.0.0(solid-js@2.0.0)
+      solid-js:
+        specifier: 2.0.0
+        version: 2.0.0
 
 packages:
 

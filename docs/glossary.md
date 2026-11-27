@@ -64,7 +64,7 @@ Pluginが提供する、画面にはめ込まれるUI部分（Panel・Embed・Wi
 
 ### Workbench shell
 
-Plugin viewを並べて表示する画面の外枠。Web appとElectron appが共有する公式shell実装（`shared/workbench`）であり、installable pluginではない。`ShellHost` interfaceを通して外とやりとりし、Tokenの値を持つ。
+Plugin viewを並べて表示する画面の外枠。Web appとElectron appが共有する公式shell実装（`shared/app-ui`）であり、installable pluginではない。`ShellHost` interfaceを通して外とやりとりし、Tokenの値を持つ。
 
 ### UI Bundle
 
@@ -266,7 +266,7 @@ resource / executionに対して現在利用できる操作。operationが存在
 
 ### Plugin Shell
 
-旧構成でWeb PluginとElectron Pluginが共有するとしていた画面の外枠。現行ではWorkbench shellと呼び、installable pluginの仕組みではなく `shared/workbench` の公式shell共有実装として扱う。
+旧構成でWeb PluginとElectron Pluginが共有するとしていた画面の外枠。現行ではWorkbench shellと呼び、installable pluginの仕組みではなく `shared/app-ui` の公式shell共有実装として扱う。
 
 ### Plugin Views
 

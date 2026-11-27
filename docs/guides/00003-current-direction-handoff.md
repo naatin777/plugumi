@@ -176,7 +176,7 @@ Plugin
 - `Interaction` / `Affordance` はAI向けUIの検討用語として出ているが、概念としては詰め切れていない
 - 過去の議論で`Workspace`はworktree / 作業ディレクトリの意味でも使われていたが、現行ではPanelとtab構成をまとめる単位。作業ディレクトリ側の語は今後分ける必要がある
 - `packages/` に置くTS向けCore client / provider libraryの名前と分割は未決定
-- `shared/` の境界、特に `shared/workbench` とhost固有実装、environment panelの置き場は詰め切れていない
+- `shared/` の境界、特に `shared/app-ui` とhost固有実装、environment panelの置き場は詰め切れていない
 - process record、heartbeat、cache path、service discoveryを誰が持ち、誰が読むかは未決定
 - JS系Pluginを1つのNode processへまとめて載せるか、Pluginごとにprocessを分けるかは未決定
 - Daemon management APIの認証・権限分離をどこまで公開contractにするかは未決定

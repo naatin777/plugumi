@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import solid from "@solidjs/vite-plugin";
-import { woff2Only } from "@plugumi/workbench/vite";
+import { woff2Only } from "@plugumi/app-ui/vite";
 
 // 開発時は /api を動作中のplugumi-webへ転送する。未設定ならproxyなし。
 const target = process.env.PLUGUMI_WEB_URL;

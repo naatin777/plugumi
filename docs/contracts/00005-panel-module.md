@@ -88,7 +88,7 @@ Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照�
 | 文字 | `--plugumi-font-family-sans`、`--plugumi-font-family-mono`、`--plugumi-font-size-md`、`--plugumi-font-weight-semibold`、`--plugumi-line-height-md` |
 | 余白・角丸 | `--plugumi-spacing-xs` 〜 `--plugumi-spacing-xl`、`--plugumi-radii-sm` 〜 `--plugumi-radii-lg` |
 
-値の正本は、Workbench shellの `shared/workbench/src/styles/tokens.css` とする。
+値の正本は、Workbench shellの `shared/app-ui/src/styles/tokens.css` とする。
 
 Panelの最背面は透明にする。Panelの面はShellが領域によらず `--plugumi-colors-background-secondary` で敷く（Design 00005「面と縁」）。Panelが自分で最背面を塗る必要はなく、Tokenで面の色を塗るのはPanel内部で面を分けたい要素に限る。
 
@@ -98,7 +98,7 @@ Plugin経由ではなくShellのbundleに同梱されるPanel（`kind: "builtin"
 
 組み込みも本contractの `mount(host, context)` で呼ばれ、`host`はPluginと同じShadowRoot。違うのはコードとstyleの来所だけで、module fetchの代わりにbundle同梱の`mount`を呼び、Core経由の`styles` fetchの代わりに同梱されたCSSテキストを`adoptedStyleSheets`へ載せる。contextは`PanelContext`に`shell: ShellController`を足した`BuiltinPanelContext` — 同梱コードなので信頼境界はなく、テーマのような端末localのprefsへはCore Toolではなくこの`shell`で届く（`callTool`は組み込みでは使えない）。`styles`・`uiSha256`・`registrationId`は持たず、一覧の更新追従・再mountも行わない。
 
-組み込みPanelの実体は`shared/`配下の独立package（最初の組み込みはテーマ切替Panel `plugumi-theme-panel`、`panelId: "theme"`）として置き、`shared/workbench`はmountの機構だけを持つ。
+組み込みPanelの実体は`shared/`配下の独立package（最初の組み込みはテーマ切替Panel `plugumi-theme-panel`、`panelId: "theme"`）として置き、`shared/app-ui`はmountの機構だけを持つ。
 
 ## 未決定
 

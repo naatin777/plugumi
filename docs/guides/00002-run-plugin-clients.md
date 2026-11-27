@@ -58,7 +58,7 @@ Web appはブラウザ向けの画面を提供する。フロントエンドを�
 (cd apps/web && go build -o plugumi-web ./cmd/plugumi-web)
 ```
 
-フロントエンドは、上の `pnpm run build` でビルド済みになる。画面の本体はWorkbench（`shared/workbench`）にあり、Web appのフロントエンドは、それにHTTPでの通信（`ShellHost` の実装）を渡す入口だけを持つ。
+フロントエンドは、上の `pnpm run build` でビルド済みになる。画面の本体はWorkbench（`shared/app-ui`）にあり、Web appのフロントエンドは、それにHTTPでの通信（`ShellHost` の実装）を渡す入口だけを持つ。
 
 URLでCoreを指すにはCore名が要る。Coreを `--name` 付きで起動する（`plugumi.json` の `core.name` でもよい）。名前には小文字の英数字とハイフンだけを使える。同じOSユーザーで、同じ名前のCoreを2つ起動することはできない。
 

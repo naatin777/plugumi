@@ -2,7 +2,7 @@
 import type {
   CoreEntry, InvokeBody, PluginPanelEntry, ProjectTree, RegistrationEntry,
   ShellHost, ViewTicket, WorkspaceState,
-} from "@plugumi/workbench";
+} from "@plugumi/app-ui";
 
 async function errorMessage(response: Response): Promise<string> {
   try {
