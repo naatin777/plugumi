@@ -1,9 +1,11 @@
 //! plugumi environment provider: Plugin起点の接続（docs/contracts/00004）の
-//! Rust実装。基本Tool群（echo/fs/exec/ticks）を提供する検証用Plugin。
+//! Rust実装。env/localのoperation群（echo/filesystem/shell/dev）を提供する
+//! 検証用Plugin。
+//!
+//! client/ はCore protocol話者としてのlibrary的な層、
+//! operations/ はこのprovider固有のoperation実装。
 
-pub mod core_client;
+pub mod client;
 pub mod log;
+pub mod operations;
 pub mod registration;
-pub mod rpc;
-pub mod tools;
-pub mod wire;

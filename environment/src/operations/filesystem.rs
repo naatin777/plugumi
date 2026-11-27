@@ -1,10 +1,9 @@
-//! fs/read・fs/write・fs/list: ファイル読み書きと一覧のsync tool。
+//! filesystem/read・write・list: ファイル読み書きと一覧のoperation。
 
-use super::ToolCall;
 use serde_json::{json, Value};
 
-pub async fn read(call: &mut ToolCall) -> Result<Value, String> {
-    let path = call.input["path"].as_str().unwrap_or("");
+pub async fn read(input: &Value) -> Result<Value, String> {
+    let path = input["path"].as_str().unwrap_or("");
     if path.is_empty() {
         return Err("input.path is required".into());
     }
@@ -14,12 +13,12 @@ pub async fn read(call: &mut ToolCall) -> Result<Value, String> {
         .map_err(|e| e.to_string())
 }
 
-pub async fn write(call: &mut ToolCall) -> Result<Value, String> {
-    let path = call.input["path"].as_str().unwrap_or("");
+pub async fn write(input: &Value) -> Result<Value, String> {
+    let path = input["path"].as_str().unwrap_or("");
     if path.is_empty() {
         return Err("input.path is required".into());
     }
-    let Some(content) = call.input["content"].as_str() else {
+    let Some(content) = input["content"].as_str() else {
         return Err("input.content must be a string".into());
     };
     let bytes = content.len();
@@ -35,10 +34,10 @@ struct Entry {
     size: u64,
 }
 
-/// fs/list: ディレクトリ一覧のsync tool。UIのファイルブラウザが使う。
-/// entriesはディレクトリを先に、同種内では名前順。
-pub async fn list(call: &mut ToolCall) -> Result<Value, String> {
-    let path = call.input["path"].as_str().unwrap_or(".");
+/// filesystem/list: ディレクトリ一覧。entriesはディレクトリを先に、
+/// 同種内では名前順。
+pub async fn list(input: &Value) -> Result<Value, String> {
+    let path = input["path"].as_str().unwrap_or(".");
     let entries = list_directory(path).await?;
     Ok(json!({
         "path": path,

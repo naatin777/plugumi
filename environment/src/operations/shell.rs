@@ -1,14 +1,14 @@
-//! exec: コマンドを実行し、stdout/stderrを途中出力として流すasync tool。
-//! closeされたら子プロセスをkillする。
+//! shell/exec: コマンドを実行し、stdout/stderrを進行として流すoperation。
+//! 接続が切れたら子プロセスをkillする。
 
-use super::ToolCall;
+use crate::client::execution::Execution;
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-pub async fn handle(mut call: ToolCall) {
-    let Some(command) = call.input["command"].as_str() else {
-        call.result_error("input.command is required");
+pub async fn handle(mut execution: Execution) {
+    let Some(command) = execution.input["command"].as_str() else {
+        execution.error("input.command is required");
         return;
     };
     let mut child = match Command::new("sh")
@@ -20,89 +20,88 @@ pub async fn handle(mut call: ToolCall) {
     {
         Ok(c) => c,
         Err(e) => {
-            call.result_error(&e.to_string());
+            execution.error(&e.to_string());
             return;
         }
     };
 
-    // stdout/stderr の行を途中出力として流す。
+    // stdout/stderr の行を進行として流す。
     let mut out_lines = BufReader::new(child.stdout.take().unwrap()).lines();
     let mut err_lines = BufReader::new(child.stderr.take().unwrap()).lines();
     let mut out_open = true;
     let mut err_open = true;
     let mut status = None;
-    // シェルが終了しても、両方の出力を読み切るまでは取消を受け付ける。
+    // シェルが終了しても、両方の出力を読み切るまでは切断を監視する。
     while status.is_none() || out_open || err_open {
         tokio::select! {
             line = out_lines.next_line(), if out_open => match line {
-                Ok(Some(line)) => call.chunk(json!({"stream": "stdout", "line": line})),
+                Ok(Some(line)) => execution.progress(json!({"stream": "stdout", "line": line})),
                 _ => out_open = false,
             },
             line = err_lines.next_line(), if err_open => match line {
-                Ok(Some(line)) => call.chunk(json!({"stream": "stderr", "line": line})),
+                Ok(Some(line)) => execution.progress(json!({"stream": "stderr", "line": line})),
                 _ => err_open = false,
             },
-            _ = call.closed() => {
+            _ = execution.disconnected() => {
                 if status.is_none() {
                     let _ = child.kill().await;
                 }
-                call.result_error("closed by caller");
+                // 接続切断時はCore側でproviderDisconnectedになるので終端eventは不要。
                 return;
             },
             result = child.wait(), if status.is_none() => status = Some(result),
         }
     }
     match status.unwrap() {
-        Ok(s) => call.result(json!({"exitCode": s.code()})),
-        Err(e) => call.result_error(&e.to_string()),
+        Ok(s) => execution.result(json!({"exitCode": s.code()})),
+        Err(e) => execution.error(&e.to_string()),
     }
 }
 
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use crate::rpc::Connection;
+    use crate::client::rpc::Connection;
     use futures_util::StreamExt;
     use serde_json::Value;
     use std::time::Duration;
     use tokio::io::duplex;
-    use tokio::sync::watch;
     use tokio::time::timeout;
     use tokio_tungstenite::{tungstenite::protocol::Role, WebSocketStream};
 
     #[tokio::test]
-    async fn close_interrupts_output_drain_after_the_shell_exits() {
+    async fn disconnect_interrupts_output_drain_after_the_shell_exits() {
         let (plugin, core) = duplex(4096);
         let mut core = WebSocketStream::from_raw_socket(core, Role::Server, None).await;
         let plugin = WebSocketStream::from_raw_socket(plugin, Role::Client, None).await;
         let (connection, _) = Connection::attach(plugin, |_, _| {});
-        let (close, close_rx) = watch::channel(false);
         // 親シェルが回収された後も出力パイプを開いたままにする。
         let command = r#"parent=$$; (while kill -0 "$parent" 2>/dev/null; do sleep 0.02; done; printf 'shell exited\n'; sleep 3) &"#;
-        let task = tokio::spawn(handle(ToolCall {
-            connection,
-            id: json!("exec-test"),
-            tool_path: "exec".into(),
-            input: json!({"command": command}),
-            close_rx,
-        }));
-        let chunk = timeout(Duration::from_secs(2), core.next())
+        let execution = Execution::new(
+            connection.clone(),
+            "exec-test".into(),
+            "shell/exec".into(),
+            json!({"command": command}),
+        );
+        let task = tokio::spawn(handle(execution));
+        let progress = timeout(Duration::from_secs(2), core.next())
             .await
             .expect("no output after the shell exited")
             .unwrap()
             .unwrap();
-        let chunk: Value = serde_json::from_str(chunk.to_text().unwrap()).unwrap();
-        assert_eq!(chunk["params"]["payload"]["line"], "shell exited");
+        let progress: Value = serde_json::from_str(progress.to_text().unwrap()).unwrap();
+        assert_eq!(
+            progress["method"],
+            crate::client::wire::METHOD_OPERATIONS_EVENT
+        );
+        assert_eq!(progress["params"]["type"], "progress");
+        assert_eq!(progress["params"]["payload"]["line"], "shell exited");
 
-        close.send(true).unwrap();
-        let result = timeout(Duration::from_secs(1), core.next())
+        // 接続を切ると、出力パイプのEOFを待たずにhandlerが終わる。
+        connection.close();
+        timeout(Duration::from_secs(1), task)
             .await
-            .expect("close waited for output pipes to reach EOF")
-            .unwrap()
+            .expect("handler did not stop after the connection closed")
             .unwrap();
-        let result: Value = serde_json::from_str(result.to_text().unwrap()).unwrap();
-        assert_eq!(result["method"], crate::wire::METHOD_CALL_RESULT);
-        assert_eq!(result["params"]["error"]["message"], "closed by caller");
-        task.await.unwrap();
     }
 }

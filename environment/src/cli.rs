@@ -1,4 +1,4 @@
-use plugumi_environment::{core_client::CoreClient, registration};
+use plugumi_environment::{client::core::CoreClient, registration};
 use std::collections::HashSet;
 use std::process::ExitCode;
 use std::time::Duration;

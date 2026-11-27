@@ -1,4 +1,5 @@
 //! Environment ProviderからCoreへ登録・宣言・WS接続する（contracts/00004）。
+//! operation / Execution model: 登録 → operations宣言 → ready → WS接続。
 
 use http_body_util::{BodyExt, Full, Limited};
 use hyper::body::Bytes;
@@ -7,9 +8,7 @@ use hyper::{header, Method, Request, StatusCode, Uri};
 use hyper_util::rt::TokioIo;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::watch;
@@ -17,18 +16,11 @@ use tokio::time::{sleep, timeout};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Error as WebSocketError;
 
-use crate::rpc::Connection;
-use crate::tools;
-use crate::wire::{self, ForwardCallParams, Incoming};
+use super::rpc::Connection;
+use super::wire::{self, ForwardInvokeParams, Incoming};
+use crate::operations;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
-
-#[derive(Default)]
-pub struct ConnectionCalls {
-    pub(crate) call_close_senders: HashMap<String, watch::Sender<bool>>,
-}
-
-pub type SharedCalls = Arc<Mutex<ConnectionCalls>>;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -145,6 +137,8 @@ impl CoreClient {
         }
     }
 
+    /// 登録 → operations宣言 → ready。いずれもlease内なら冪等なので、
+    /// 再接続のたびに同じ手順を踏む。
     async fn prepare(
         &self,
         instance_id: &str,
@@ -155,7 +149,9 @@ impl CoreClient {
                 Method::POST,
                 "/v1/registrations",
                 Some(json!({
-                    "providerId": "environment", "instanceId": instance_id, "providerKind": "environment",
+                    "providerId": "environment",
+                    "instanceId": instance_id,
+                    "environment": "env/local",
                 })),
             )
             .await?;
@@ -173,10 +169,12 @@ impl CoreClient {
         let path = format!("/v1/registrations/{}", lease.registration_id);
         self.request(
             Method::PUT,
-            &format!("{path}/tools"),
-            Some(json!({ "tools": tools::declarations() })),
+            &format!("{path}/operations"),
+            Some(json!({ "operations": operations::declarations() })),
         )
         .await?;
+        self.request(Method::POST, &format!("{path}/ready"), None)
+            .await?;
         Ok(lease)
     }
 
@@ -205,11 +203,7 @@ impl CoreClient {
                 WebSocketError::Http(response) => Failure::http("/v1/rpc", response.status()),
                 other => Failure::retry(other),
             })?;
-        let calls = SharedCalls::default();
-        let handler_calls = calls.clone();
-        let (connection, pump) = Connection::attach(socket, move |message, connection| {
-            on_message(handler_calls.clone(), message, connection);
-        });
+        let (connection, pump) = Connection::attach(socket, on_message);
         crate::log::logln!(
             "[environment] connected to http://{} ({})",
             self.authority,
@@ -232,7 +226,6 @@ impl CoreClient {
             connection.close();
             let _ = pump.await;
         }
-        cancel_calls(&calls);
         result.unwrap_or(Ok(()))
     }
 
@@ -296,56 +289,34 @@ impl CoreClient {
     }
 }
 
-fn on_message(calls: SharedCalls, message: Incoming, connection: Connection) {
-    match message.method.as_deref() {
-        Some(wire::METHOD_CALL) => {
-            let Some(id) = message.id else { return };
-            let params: Option<ForwardCallParams> = message
-                .params
-                .and_then(|params| serde_json::from_value(params).ok());
-            if let Some(params) = params {
-                tools::dispatch(calls, connection, id, params);
-            } else {
-                connection.respond(
-                    id,
-                    Err(wire::RpcError {
-                        code: -32602,
-                        message: "invalid params".into(),
-                        data: None,
-                    }),
-                );
-            }
+fn on_message(message: Incoming, connection: Connection) {
+    if message.method.as_deref() != Some(wire::METHOD_OPERATIONS_INVOKE) {
+        if let Some(id) = message.id {
+            connection.respond(
+                id,
+                Err(wire::RpcError {
+                    code: -32601,
+                    message: "method not found".into(),
+                    data: None,
+                }),
+            );
         }
-        Some(wire::METHOD_CALL_CLOSE) => {
-            let call_key = message
-                .params
-                .as_ref()
-                .and_then(|params| params.get("callId"))
-                .map(crate::wire::call_key);
-            if let Some(sender) =
-                call_key.and_then(|key| calls.lock().unwrap().call_close_senders.remove(&key))
-            {
-                let _ = sender.send(true);
-            }
-        }
-        _ => {
-            if let Some(id) = message.id {
-                connection.respond(
-                    id,
-                    Err(wire::RpcError {
-                        code: -32601,
-                        message: "method not found".into(),
-                        data: None,
-                    }),
-                );
-            }
-        }
+        return;
     }
-}
-
-fn cancel_calls(calls: &SharedCalls) {
-    for (_, sender) in calls.lock().unwrap().call_close_senders.drain() {
-        let _ = sender.send(true);
+    let Some(id) = message.id else { return };
+    let params: Option<ForwardInvokeParams> = message
+        .params
+        .and_then(|params| serde_json::from_value(params).ok());
+    match params {
+        Some(params) => operations::dispatch(connection, id, params),
+        None => connection.respond(
+            id,
+            Err(wire::RpcError {
+                code: -32602,
+                message: "invalid params".into(),
+                data: None,
+            }),
+        ),
     }
 }
 

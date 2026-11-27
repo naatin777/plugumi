@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
-use crate::wire::{Incoming, Notification, Response, RpcError};
+use super::wire::{Incoming, Notification, Response, RpcError};
 
 type PendingMap = Arc<Mutex<HashMap<String, oneshot::Sender<Incoming>>>>;
 
@@ -102,6 +102,12 @@ impl Connection {
 
     pub fn close(&self) {
         let _ = self.shutdown.send(());
+    }
+
+    /// 接続切断を検知するためのreceiver。`changed()`が返ったら切断済み。
+    /// running状態のoperation handlerが仕事を止める判定に使う。
+    pub fn closure(&self) -> watch::Receiver<()> {
+        self.shutdown.subscribe()
     }
 
     // 送るidにはplugin- prefixを付けて受信idと区別する
