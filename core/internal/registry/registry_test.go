@@ -103,6 +103,42 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	}
 }
 
+// 接続の無い登録（zombie）はoperation解決で数えない。
+// processが死んでleaseだけ残った登録が、生きているproviderの
+// 解決をambiguousにしないことを確認する。
+func TestDisconnectedRegistrationDoesNotCauseAmbiguity(t *testing.T) {
+	registry := New("test-core", "")
+	first, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "fs", InstanceID: "instance-1"})
+	second, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "fs", InstanceID: "instance-2"})
+	for _, lease := range []wire.RegistrationLease{first, second} {
+		if err := registry.ReplaceOperations(lease.RegistrationID, []wire.OperationDeclaration{{Path: "echo"}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := registry.SetReady(lease.RegistrationID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// secondだけ接続する。firstは宣言・ready済みだが未接続のまま
+	// （process死亡でdetachされた状態と同じ）。
+	reservation, err := registry.ReserveConnection(second.RegistrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection := &rpc.Connection{}
+	if !reservation.Complete(connection) {
+		t.Fatal("Could not attach to live registration")
+	}
+	if got, err := registry.ResolveOperation("echo"); got != connection || err != nil {
+		t.Fatalf("disconnected registration caused ambiguity or wrong resolution: %v", err)
+	}
+	// 接続している方も切ると、unknownではなくunavailableになる
+	// （「居ない」と「居るが繋がらない」を区別する）。
+	registry.Detach(second.RegistrationID, connection)
+	if _, err := registry.ResolveOperation("echo"); err != ErrConnectionUnavailable {
+		t.Fatalf("fully disconnected resolution should be unavailable: %v", err)
+	}
+}
+
 func TestRepeatRegistrationRefreshesLeaseWithoutChangingTheRegistry(t *testing.T) {
 	registry := New("test-core", "")
 	now := time.Now()

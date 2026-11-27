@@ -193,32 +193,42 @@ func (r *Registry) ReplaceOperations(registrationID string, declarations []wire.
 // Lease・宣言・接続を同じ時点で確認する。
 // 初期実装ではroutingを行わず、宣言しているliveなproviderが
 // ちょうど1つの場合だけ解決する。複数ならambiguous、ゼロならunknown。
+// 接続の無い登録は数えない — 呼び出せないproviderはambiguousの
+// 根拠にしない（processが死んでleaseだけ残ったzombie登録が
+// 生きているproviderの解決を邪魔しない）。
 func (r *Registry) ResolveOperation(path string) (*rpc.Connection, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	now := r.now()
 	var found *registration
 	count := 0
+	disconnected := false
 	for _, record := range r.byID {
 		if !now.Before(record.lease.ExpiresAt) || !record.ready {
 			continue
 		}
 		for _, operation := range record.operations {
 			if operation.Path == path {
-				found = record
-				count++
+				if record.connection == nil {
+					// 接続が切れた宣言者は数えないが、「providerは居るのに
+					// 繋がっていない」と「そもそも居ない」を区別するため覚える。
+					disconnected = true
+				} else {
+					found = record
+					count++
+				}
 				break
 			}
 		}
 	}
 	if count == 0 {
+		if disconnected {
+			return nil, ErrConnectionUnavailable
+		}
 		return nil, ErrUnknownOperation
 	}
 	if count > 1 {
 		return nil, ErrAmbiguousOperation
-	}
-	if found.connection == nil {
-		return nil, ErrConnectionUnavailable
 	}
 	return found.connection, nil
 }
