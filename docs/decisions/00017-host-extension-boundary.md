@@ -30,7 +30,7 @@ ElectronがPluginだった理由の1つは、native browserなどのAI操作可�
 - 公式UI AppはCore Daemon管理、tray、native integrationと密に統合してよい。ただし、process ownershipはCore Daemonへ寄せ、UI Appはmanagement APIを呼ぶcontroller / displayとする。
 - Electron appはWorkbench shellを内蔵し、native browserやOS統合などのapp-local operationをCoreへ登録する。
 - shell自体を拡張するentryはPluginに持たせない。shell標準機能は公式shellの `shared/` 実装へ置き、shell構造の改造はforkまたはdownstream hostで行う（[Decision 00028](00028-plugin-runtime-and-view-entries.md)）。
-- PluginはPlugin runtimeとPlugin viewを持てる。UIと独立して動く処理はPlugin runtime、Panel / Embed / Indicatorの描画はPlugin viewに置く。
+- PluginはPlugin runtimeとPlugin viewを持てる。UIと独立して動く処理はPlugin runtime、Panel / Embed / Widgetの描画はPlugin viewに置く。
 - operationとViewの差し替えはPluginで行う。file explorerの既定実装はbuilt-in viewとし、custom explorerはresource + intentで差し替えられるようにする。file explorerはvisual workbenchの基本体験の一部であり、Plugin runtime processの起動失敗時にも基本UIを提供したいため、built-inにする。一方で、filesystem operationそのものはEnvironment Providerに置く。
 - 公式と第三者の完全な対等性は目標にしない。公式のbuilt-in viewは内部統合を使ってよいが、第三者が意味のある代替を作れる公開面は用意する。
 - Environment Providerは利用者へPluginと見せない。browser / agent / gitなどは公式のpluginにしてよいが、公式であることとprivilegedであることを分ける。

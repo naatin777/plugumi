@@ -47,7 +47,7 @@ Workbench shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plu
 
 - **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にArea listの開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とSubの開閉を持つ（位置は固定）。テーマや背景の切替はSettingsのPanelへ移す予定。
 - **本体**: 左のArea list（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。Areaの選択・作成・削除・Projectの切替と作成もここ）、中央のMain（選択中AreaのWorkspace）と右のSub（開閉できる2枚目）。
-- **ステータス帯（最下段）**: 左に接続状態などの文字列、右にIndicator（Plugin View）のマウント領域を持つ。Indicator自体の登録とマウントは未実装。
+- **ステータス帯（最下段）**: 左に接続状態などの文字列、右にWidget（Plugin View）のマウント領域を持つ。Widget自体の登録とマウントは未実装。
 
 Coreの切り替えを一番外側の帯に置くのは、Coreが接続先でありProject以下がCoreごとに分かれた状態だからである。`/<core>/` に移動すると、そのCoreでこの端末が最後に開いていた場所へ戻る。
 

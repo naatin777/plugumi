@@ -43,7 +43,7 @@ relations:
 - ProjectはAreaをまとめる
 - AreaはWorkspaceをまとめる。Areaは以前Collectionと呼ばれていたものに相当する
 - WorkspaceはPanelをまとめる。Panelのtab構成や並びもWorkspaceに含まれる
-- IndicatorはPanelやEmbedの特殊形ではなく、独立したPlugin viewの種類とする
+- WidgetはPanelやEmbedの特殊形ではなく、独立したPlugin viewの種類とする
 
 ## 帰結
 

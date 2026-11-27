@@ -102,13 +102,13 @@ Pluginの構成概念は2つに絞る。
 | 概念 | 実行場所 | 寿命 | 役割 |
 |---|---|---|---|
 | Plugin runtime | Core-managedなPlugin runtime process、または外部管理のPlugin service | UIと独立して長時間動いてよい | operationの提供、状態保持、event処理 |
-| Plugin view | Panel / Embed / Indicator内 | View instance | 画面描画とUI操作 |
+| Plugin view | Panel / Embed / Widget内 | View instance | 画面描画とUI操作 |
 
 Plugin runtimeはProviderとしてCoreへ接続し、接続・登録時にPlugin manifestをPOST / PUTなどでCoreへ送る。Plugin manifestはファイルではなく、Plugin runtimeが送る宣言情報である。operation宣言、UI contribution宣言、UI bundle参照などを含む論理集合として扱い、実際のwire上は複数のREST操作へ分かれてよい。
 
 Plugin viewはProviderとしてCoreへ接続しない。browser tabやElectron rendererの中で動き、UIを閉じれば終わる。UIを閉じても動き続ける必要がある処理はPlugin runtimeへ置く。
 
-CoreへのWS接続、登録、reconnect、operation dispatch、UI bundle登録などの共通処理は、Plugin runtimeそのものではなく、Plugin runtimeが使うruntime support libraryの責務として分ける。Panel / Embed / Indicatorの型、context、design tokenなどの共通処理は、Plugin viewが使うview support libraryの責務として分ける。
+CoreへのWS接続、登録、reconnect、operation dispatch、UI bundle登録などの共通処理は、Plugin runtimeそのものではなく、Plugin runtimeが使うruntime support libraryの責務として分ける。Panel / Embed / Widgetの型、context、design tokenなどの共通処理は、Plugin viewが使うview support libraryの責務として分ける。
 
 shell自体を拡張する仕組みはPluginに持たせない。command、menu、status item、notificationなどのshell標準機能は公式shellの実装として `shared/` に置き、shell構造そのものを変えたい場合はforkまたはdownstream hostで対応する。Web / ElectronがPluginだった時代に想定していたClient entry / workbench entryは廃止する。詳細は[Decision 00028](../decisions/00028-plugin-runtime-and-view-entries.md)を参照。
 

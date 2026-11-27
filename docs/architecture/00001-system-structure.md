@@ -19,7 +19,7 @@ Plugumi 全体の構成要素と接続関係。詳細な通信契約は `docs/co
 | Plugin | Tool・Plugin View（Panel等）の機能提供。Plugumi専用でも既存アプリの拡張としても実装できる。UI Hostを提供できる | Coreへの言語・フロントエンド依存 |
 | Node | Pluginの実行場所。ローカルホスト・リモートPC・Docker等を含む | 単一マシンへの限定 |
 | UI Host | Plugin Viewsの実行・配信環境。Coreとの接続・環境固有の機能。Pluginが提供する（web・electron等のPlugin） | 実行の寿命。任意コンポーネント |
-| Plugin Views | Panel・Embed・Indicator等を表示する共通インターフェース（仕様） | 実行環境ではない（実行・配信はUI Host） |
+| Plugin Views | Panel・Embed・Widget等を表示する共通インターフェース（仕様） | 実行環境ではない（実行・配信はUI Host） |
 
 ## 設計思想（旧実装から引き継ぐ不変条件）
 

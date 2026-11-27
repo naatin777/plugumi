@@ -54,13 +54,13 @@ Panel / Embedなどの人間向けUI。resourceやExecutionを表示・操作す
 
 UI App上に表示されるView。Core仲介RPCを操作通信の第一候補とし、Panel専用APIはoperationと分ける。現行のWeb appはPanelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
 
-### Indicator
+### Widget
 
-状態表示を担う独立したPlugin viewの種類。PanelやEmbedの特殊形ではない。現行ではステータス帯へのmountが想定されているが、登録とマウントは未実装。
+旧称Widget。状態表示やshortcutを担う独立したPlugin viewの種類。PanelやEmbedの特殊形ではない。常時見せるライブなmicro surfaceで、pluginが供給し自己更新する。status barへの固定配置と、widget panel内への自由配置の両方を許す。例はCPU / memory使用量、AI使用量、実行中件数、panel shortcut。詳細は[Design 00010](designs/00010-panel-embed-widget-view-types.md)を参照。
 
 ### Plugin view
 
-Pluginが提供する、画面にはめ込まれるUI部分（Panel・Embed・Indicator）。UI App / Workbench shellにmountされ、ProviderとしてCoreへ接続しない。作者向けの型とTokenの名前は、現行では `@plugumi/plugin-view`（`packages/plugin-view`）にある。
+Pluginが提供する、画面にはめ込まれるUI部分（Panel・Embed・Widget）。UI App / Workbench shellにmountされ、ProviderとしてCoreへ接続しない。作者向けの型とTokenの名前は、現行では `@plugumi/plugin-view`（`packages/plugin-view`）にある。
 
 ### Workbench shell
 
@@ -266,7 +266,7 @@ resource / executionに対して現在利用できる操作。operationが存在
 
 ### Plugin Views
 
-旧構成でPanel・Embed・Indicator等を表示する共通インターフェースをまとめて指した語。現行ではViewまたはPlugin Viewと書き分ける。
+旧構成でPanel・Embed・Widget等を表示する共通インターフェースをまとめて指した語。現行ではViewまたはPlugin Viewと書き分ける。
 
 ## 旧v1の接続用語
 

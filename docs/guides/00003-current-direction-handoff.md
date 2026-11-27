@@ -42,7 +42,8 @@ relations:
 9. [Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md) — routingとprovider / UI App停止時の整理
 10. [Decision 00033](../decisions/00033-retire-capability-terminology.md) — capability / capability-centricを現行用語から外す
 11. [Decision 00034](../decisions/00034-binding-instance-configuration-and-provider-sessions.md) — bindingを部分適用として扱い、account差はinstance configurationとする
-12. [Design 00003](../designs/00003-plugin-client-migration.md) — `toolPath` / `tools.call` の現行実装からoperation / Executionへの移行順
+12. [Design 00010](../designs/00010-panel-embed-widget-view-types.md) — Panel / Embed / Widgetのview typeとlifecycle
+13. [Design 00003](../designs/00003-plugin-client-migration.md) — `toolPath` / `tools.call` の現行実装からoperation / Executionへの移行順
 
 ## 確定済みの軸
 
@@ -114,7 +115,7 @@ Plugin
 - CoreはTailscaleなどのoverlay networkとの統合を前提にする。公開internetへ無認証で開く前提にはしない
 - ProjectはEnvironment上のdevice / folderを指す作業単位
 - 画面階層は Project > Area > Workspace > Panel。ProjectはAreaを、AreaはWorkspaceを、WorkspaceはPanelとtab構成をまとめる。AreaとWorkspaceの対応関係の詳細は実装時に決める
-- Indicatorは独立したPlugin viewの種類
+- Widgetは独立したPlugin viewの種類
 
 ## built-in / pluginの現時点の帰属
 
