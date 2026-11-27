@@ -15,7 +15,7 @@ import {
   emptyWorkspace, addPanel, closePanel, selectPanel, movePanel, detachPanel,
   splitAt, setRatio,
   allPanelRefs, leafOf,
-  decodeWorkspace, newInstanceId,
+  decodeWorkspace, newInstanceId, updatePanelState,
 } from "../layout/model.ts";
 import type { AreaRef, AreaListState } from "../layout/area-list.ts";
 import {
@@ -390,6 +390,12 @@ export function createAreaController(
         declaration?.kind ?? "plugin");
       // 復元時はinput引数が来ない — 永続化されたPanelRef側を使う。
       found.input = input !== undefined ? input : panelRef.input;
+      // restorable state。書き込みはlayout treeのrefを更新して
+      // いつものdebounce保存に乗せる — 頻度はclick程度を想定。
+      found.panelState = panelRef.state;
+      found.saveState = (value) => {
+        applyLayout((state) => updatePanelState(state, panelRef.instanceId, value));
+      };
       // context.openPanel — 呼び出し時点のlayoutから自分が居るleafを
       // 探して、隣に同じPluginの別Panelを足す。leafから外れていれば無視。
       const source = found;

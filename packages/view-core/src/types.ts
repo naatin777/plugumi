@@ -14,8 +14,15 @@ export interface ViewConnectionInfo {
 // 作者は存在を前提にしないほうが移植性が高い。
 export interface ViewContext {
   connection: ViewConnectionInfo;
-  // このviewを開いたときの初期入力。永続化はされない。
+  // このviewを開いたときの初期入力。workspaceと一緒に永続化される
+  // （「同じものをもう一度開くための情報」であり、編集中の状態ではない）。
   input?: unknown;
+  // panelのrestorable state。UIの状態（選択・展開・directory等）を
+  // saveStateで書くとworkspaceと一緒に永続化され、reloadや再mountで
+  // ここに復元される。編集内容（dirty textなど）は入れない —
+  // あくまでUIの状態だけ。JSON直列化できる値に限る。
+  state?: unknown;
+  saveState?(state: unknown): void;
   // hostのShadowRoot（mountのhostと同じもの）。popover・tooltipなど
   // viewの見た目の一部だが並びの外に置きたい要素はここへappendする。
   root?: ShadowRoot;

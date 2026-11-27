@@ -274,7 +274,8 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
 
 const GROUPS = [...new Set(ENTRIES.map((entry) => entry.group))];
 
-function Lab(): JSX.Element {
+function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => void }): JSX.Element {
+  const saveState = props.saveState;
   const [active, setActive] = createSignal(ENTRIES[0].id);
   const [width, setWidth] = createSignal(180);
   // 幅が狭いときはsidebarを畳む。ResizeObserverでpanel自体の幅を見る —
@@ -289,16 +290,15 @@ function Lab(): JSX.Element {
   const select = (id: string) => {
     setActive(id);
     setNavOpen(false); // narrow時に項目を選んだら畳む
-    // 選択はURL hashに載せる — reloadで復元され、token linkが
-    // shareableになる。path routing（browserHistory）と衝突しない。
-    history.replaceState(null, "", `#${id}`);
+    // 選択はrestorable stateへ — workspaceと一緒に永続化され
+    // reloadで復元される。URLはshellの名前空間なのでpanelは触らない。
+    saveState?.({ selected: id });
   };
   navigateTo = select;
   onCleanup(() => { if (navigateTo === select) navigateTo = null; });
-  // 初期選択はhashから復元する。無効なhashなら先頭。
-  const initialHash = location.hash.slice(1);
-  if (initialHash && ENTRIES.some((entry) => entry.id === initialHash)) {
-    setActive(initialHash);
+  // 初期選択はrestorable stateから。無効な値なら先頭のまま。
+  if (props.initialSelected && ENTRIES.some((entry) => entry.id === props.initialSelected)) {
+    setActive(props.initialSelected);
   }
 
   // sidebarのresize。handleを掴んで動かす — shellのsplit resizerと
@@ -353,7 +353,10 @@ function Lab(): JSX.Element {
   );
 }
 
-export function mount(host: ShadowRoot, _context: ViewContext): ViewHandle {
-  const dispose = render(() => <Lab />, host);
+export function mount(host: ShadowRoot, context: ViewContext): ViewHandle {
+  const saved = context.state as { selected?: string } | undefined;
+  const dispose = render(() => (
+    <Lab initialSelected={saved?.selected} saveState={context.saveState} />
+  ), host);
   return { destroy: () => dispose() };
 }

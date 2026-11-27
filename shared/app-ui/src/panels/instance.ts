@@ -93,6 +93,10 @@ export class PanelInstance {
   private readonly coreKey: string;
   // context.inputへ渡す開き時の入力。AreaControllerがInstance作成時に入れる。
   input: unknown;
+  // context.state/saveStateの実体。inputと同じくAreaControllerが差す。
+  // Instance自体のmount状態を指すstate()と紛らわしいのでpanelState。
+  panelState: unknown;
+  saveState?: (value: unknown) => void;
   // context.openPanelAcrossの実体。openSiblingと同じくAreaControllerが差す。
   openAcross?: (providerId: string, panelId: string, input?: unknown) => void;
   // context.openPanelの実体。AreaControllerがInstance作成時に差す —
@@ -214,6 +218,8 @@ export class PanelInstance {
           connection: { coreUrl: "about:blank", ticket: "" },
           setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
           input: this.input,
+          state: this.panelState,
+          saveState: (value) => this.saveState?.(value),
           openPanel: (panelId, input) => this.openSibling?.(panelId, input),
           openPanelAcross: (providerId, panelId, input) =>
             this.openAcross?.(providerId, panelId, input),
@@ -303,6 +309,8 @@ export class PanelInstance {
         // Pluginは意味だけ渡す。呼ぶたびに全体を置き換える。
         setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
         input: this.input,
+        state: this.panelState,
+        saveState: (value) => this.saveState?.(value),
         openPanel: (panelId, input) => this.openSibling?.(panelId, input),
       });
     } catch (cause) {

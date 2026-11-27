@@ -143,7 +143,13 @@ Workspace（Areaごと）の保存内容は、Shellが所有するJSONである�
 // reloadで復元される。JSON直列化できる値に限る。なおinputは「同じものを
 // もう一度開くための情報」であって編集中の状態ではない — dirtyな編集内容
 // などの復元はこの仕組みの対象外とする。
-type PanelRef = { instanceId: string; providerId: string; panelId: string; input?: unknown };
+// stateはpanelが自分で書くrestorable state（UIの状態 — 選択・展開・
+// directoryなど）。inputは開く側が一度だけ渡すのに対し、stateは開かれた
+// panel自身がsaveStateで更新する。同じくWorkspaceと一緒に永続化される。
+// 書き込みはdebounce済みのWorkspace保存に乗るため、頻度は人間の操作
+// 速度程度を想定し、scroll位置のような高頻度のものは対象外とする。
+// dirtyな編集内容はinputと同じく対象外。
+type PanelRef = { instanceId: string; providerId: string; panelId: string; input?: unknown; state?: unknown };
 
 // leaf: tab切替の1区画。layout省略時はpages。colWidthはdeckの列幅（px）
 type Leaf = {

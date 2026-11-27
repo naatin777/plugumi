@@ -14,6 +14,9 @@ export type PanelRef = {
   // 開き時の入力（editorのfile pathなど）。workspaceと一緒に永続化され、
   // reloadで復元される。JSON直列化できる値に限る。
   input?: unknown;
+  // panelが自分で書くrestorable state（UIの状態）。inputと違い
+  // 開いた後にpanel自身が更新する。同じく永続化される。
+  state?: unknown;
 };
 
 type Stack = {
@@ -132,6 +135,7 @@ function decodePanelRef(value: unknown): PanelRef | null {
   if (typeof panelId !== "string" || panelId === "") return null;
   const ref: PanelRef = { instanceId, providerId, panelId };
   if ("input" in value) ref.input = value.input;
+  if ("state" in value) ref.state = value.state;
   return ref;
 }
 
@@ -304,6 +308,28 @@ function replaceNode(workspace: WorkspaceState, id: string, other: Node): void {
     return node;
   };
   workspace.center.root = replace(workspace.center.root);
+}
+
+// panelのrestorable stateを書き換える。treeをimmutableに更新し、
+// 対象のrefだけstateを差し替えた新しいWorkspaceStateを返す。
+// 見つからなければ元のstateをそのまま返す（applyLayoutのno-op判定に乗る）。
+export function updatePanelState(
+  state: WorkspaceState, instanceId: string, panelState: unknown,
+): WorkspaceState {
+  const mapNode = (node: Node): Node => {
+    if (node.kind === "split") {
+      return { ...node, first: mapNode(node.first), second: mapNode(node.second) };
+    }
+    if (!node.panels.some((ref) => ref.instanceId === instanceId)) return node;
+    return {
+      ...node,
+      panels: node.panels.map((ref) =>
+        ref.instanceId === instanceId ? { ...ref, state: panelState } : ref
+      ),
+    };
+  };
+  if (!panelRefOf(state, instanceId)) return state;
+  return { ...state, center: { ...state.center, root: mapNode(state.center.root) } };
 }
 
 // PanelRefをstateから取り出す（別controllerへ移すArea間drop用）。
