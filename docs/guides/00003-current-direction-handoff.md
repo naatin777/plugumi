@@ -154,6 +154,7 @@ Plugin
 - Panel / Embed / Widgetはライフサイクルで分かれる。embedは記録、widgetは現在、panelは作業の主体。tool outputはresult（AI向け）とpresentation（embed向け）を別フィールドで分け、presentationはembedのdata modelへ流し込む
 - provider切断時のin-flight Executionはfailedとし、error kindでexecutionFailed / providerDisconnectedを区別する。unknown statusは追加しない
 - declarative surfaceのpayload仕様はA2UIを採用する（Decision 00035）。`@a2ui/web_core`を再利用し、transportはPlugumi独自のものを使い、AG-UIは採用しない。SolidJS専用rendererは作らず、web componentベース（`@a2ui/lit`）をSolid hostにmountする。rendererはhost内蔵またはplugin配信のどちらでもよく、native clientではネイティブrendererで上書きできる。specが契約でrendererは差し替え可能
+- agentはbuilt-inではなくpluginとする（Decision 00036）。配布上のfirst-party同梱とは分け、Core / UI Appはagentの存在に依存しない
 - scopeは独立概念として廃止し、providerの所属environment / host sessionとして扱う。routingは所属のマッチング、寿命も所属から導出する
 - Panel / Embed / WidgetはすべてJS実装の完成品componentで、違いはライフサイクルと置き場所だけ。A2UIで組み立てたdeclarativeな内容物はsurfaceと呼び、view typeとは直交する。catalogはA2UI basicをそのまま使い、custom componentを追加登録する
 - tool outputはresult（AI向け）とpresentation（表示向け）を別フィールドで分け、presentationはdata modelへ流し込む。embed componentが紐付かないtool呼び出しは汎用fallback表示でよい。画面の操作手段はoperation呼び出しに紐付けられる
