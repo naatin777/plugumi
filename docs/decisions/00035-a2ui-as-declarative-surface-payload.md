@@ -43,9 +43,21 @@ declarative surfaceのpayload仕様として**A2UIを採用する**。
 - plugin配信のrendererに依存するsurfaceは、そのpluginがいない環境では描画できない。これはunavailable panel / virtual embedの既存の扱いに従う
 - OpenUI Lang等のトークン効率のよいgeneration edge形式は、必要になったときagent側のcompile段で導入できる。wire formatの決定を変更しない
 
+## spike検証結果（v1.0、`@a2ui/web_core` 0.16.1 / `@a2ui/lit` 0.16.0）
+
+最小構成のSolidJSアプリで実証済み。
+
+- **描画**: 手書きのv1.0 message（createSurface / updateComponents / updateDataModel）で、SolidJS host内の `<a2ui-surface>` web componentに正しく描画される。Solid側のworkaroundは不要
+- **incremental update**: updateDataModelでpath+valueだけ送れば構造を送り直さずにreactiveに更新される。presentation→data modelの流れの中核は検証済み
+- **custom component**: zod schemaでAPIを定義し、`A2uiLitElement` 継承のLit実装と `Catalog` に登録してMessageProcessorへ渡す方式で動く。data bindingとstream更新の両方がcustom componentにも届く。tree内では `@catalogId` で参照する
+- **action event**: button押下で `{name, surfaceId, sourceComponentId, timestamp, context}` の構造化eventが `surface.onAction` 購読で取れる。operation呼び出しへの接続点は検証済み
+- **snapshot / restore**: 公式のserialize APIは見つかっていないが、dataModelは`signals` / `subscriptions`を除けばplain JSONとして抽出でき、component treeはcomponentsModelのMapをwalkして再構成できる。新規processorへのrestoreはcreateSurfaceのinline components + dataModelで実証済み。あるいは入力messageがplain JSONなので、message logを保持してreplayする方式も取れる
+- basic catalogのcomponentは `@a2ui/web_core` 内のframework-agnosticなuniversal custom elementとして実装されており、light DOMに描画される。themingはCSS変数（`--a2ui-color-primary` 等）でhost側から制御できる
+- 内部reactivityは `@preact/signals-core` ベース。npm package version（0.16.x）とprotocol version（1.0）は別物なので、pinningはpackage versionで行う
+
 ## 未解決の問い
 
-- web component rendererの具体的な構成。`@a2ui/lit` をそのまま使うか、catalog拡張のために薄くwrapするか。spikeで検証する
+- web component rendererの具体的な構成。`@a2ui/lit` をそのまま使うか、catalog拡張のために薄くwrapするか。spikeで基本動作は検証済みだが、Plugumiのcatalog設計と一緒に決める
 - surfaceのmessageをPlugumiのtransportにどう乗せるか。Execution streamに混ぜるか、surface専用streamか。[Design 00008](../designs/00008-embed-references-semantic-projections.md)のsnapshot / 再同期との整合
 - catalogの定義方法。A2UI basic catalogをそのまま使い、Plugumi custom componentを追加登録する方向だが、登録形式の詳細は未定
 - Interaction / Affordanceの詳細。A2UIのaction modelに沿って薄く定義する方向だが、spike後に詰める
