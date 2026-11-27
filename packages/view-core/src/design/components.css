@@ -1,0 +1,108 @@
+/* Plugumi design systemのCSS-onlyコンポーネント（decisions/00038）。
+   値は一切ハードコードせず var(--plugumi-*) のみで書く — 値の定義は
+   host（UI Apps）が行い、panelのshadow DOMへはCSS変数の継承で届く。
+   使い方: entryで `import "@plugumi/view/components.css"` すると
+   bundleにfoldされ、panelのstylesとしてshadow rootにadoptされる。
+   classは全てopt-in。要素セレクタでは作者の要素を勝手に装飾しない。 */
+
+/* ---- button ---- */
+.plugumi-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--plugumi-spacing-xs);
+  padding: 4px var(--plugumi-spacing-md);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+  cursor: pointer;
+  user-select: none;
+}
+.plugumi-button:hover:not(:disabled) {
+  background: var(--plugumi-colors-fill);
+  border-color: var(--plugumi-colors-border-strong);
+}
+.plugumi-button:active:not(:disabled) {
+  background: var(--plugumi-colors-fill-strong);
+}
+.plugumi-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plugumi-button--accent {
+  background: var(--plugumi-colors-accent);
+  border-color: var(--plugumi-colors-accent-border);
+  color: var(--plugumi-colors-accent-contrast);
+}
+.plugumi-button--accent:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--plugumi-colors-accent), var(--plugumi-colors-accent-contrast) 12%);
+  border-color: var(--plugumi-colors-accent-border);
+}
+.plugumi-button--danger {
+  color: var(--plugumi-colors-error);
+  border-color: var(--plugumi-colors-error-border);
+}
+.plugumi-button--danger:hover:not(:disabled) {
+  background: var(--plugumi-colors-error-surface);
+  border-color: var(--plugumi-colors-error-border);
+}
+
+/* ---- テキスト入力（input[type=text]等とtextarea共通） ---- */
+.plugumi-input {
+  padding: 4px var(--plugumi-spacing-sm);
+  border: 1px solid var(--plugumi-colors-border-strong);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+}
+.plugumi-input::placeholder {
+  color: var(--plugumi-colors-text-subtle);
+}
+.plugumi-input:focus-visible {
+  border-color: var(--plugumi-colors-accent-border);
+}
+
+/* ---- focus ring（インタラクション要素共通の見た目ルール） ---- */
+.plugumi-button:focus-visible,
+.plugumi-input:focus-visible {
+  outline: 2px solid var(--plugumi-colors-accent);
+  outline-offset: 1px;
+}
+
+/* ---- 面（panel内部で領域を分けたい要素用） ---- */
+.plugumi-surface {
+  background: var(--plugumi-colors-background-secondary);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+}
+
+/* ---- scroll bar（細く控えめに。hoverでだけ存在感を出す） ---- */
+.plugumi-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--plugumi-colors-fill) transparent;
+}
+.plugumi-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.plugumi-scroll::-webkit-scrollbar-thumb {
+  background: var(--plugumi-colors-fill);
+  border-radius: 4px;
+}
+.plugumi-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--plugumi-colors-fill-strong);
+}
+.plugumi-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- 補助テキスト ---- */
+.plugumi-text-muted {
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-xs);
+}

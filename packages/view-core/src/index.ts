@@ -11,6 +11,8 @@ export type {
   ViewActivityProgress, ViewActivityLayer,
 } from "./types.js";
 export { ChannelClosedError, ViewConnectError } from "./channel.js";
+export { tokens, cssVar } from "./design/tokens.js";
+export type { TokenKey, TokenName } from "./design/tokens.js";
 
 // 作者のmount関数。hostはShadowRoot、channelは接続済み・型付きで渡る。
 // Ctxはhost固有のcontext拡張（shell service等）を効かせるための型で、

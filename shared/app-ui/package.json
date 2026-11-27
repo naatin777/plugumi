@@ -20,7 +20,7 @@
     "solid-js": "2.0.0"
   },
   "scripts": {
-    "test": "node --test src/layout/*.test.ts src/panels/*.test.ts",
+    "test": "node --test src/layout/*.test.ts src/panels/*.test.ts src/styles/*.test.ts",
     "test:e2e": "node --test --test-concurrency=1 test/e2e/*.spec.ts"
   },
   "devDependencies": {

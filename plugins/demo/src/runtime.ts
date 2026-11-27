@@ -15,7 +15,7 @@ const runtime = new PluginRuntime({
   ],
   ui: {
     root: new URL("../dist-ui", import.meta.url).pathname,
-    panels: [{ panelId: "demo", title: "Demo", entry: "panel.js" }],
+    panels: [{ panelId: "demo", title: "Demo", entry: "panel.js", styles: ["panel.css"] }],
   },
   onView(channel) {
     const typed = channel.typed<RuntimeMessage, ViewMessage>();

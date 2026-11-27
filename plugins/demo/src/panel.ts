@@ -1,6 +1,7 @@
 // demo panelのview entry。defineViewで包むので接続・bind・cleanupは
 // SDKが担い、ここではUIと型付きchannelだけを扱う。
 import { defineView } from "@plugumi/view";
+import "@plugumi/view/components.css";
 import type { RuntimeMessage, ViewMessage } from "./shared.js";
 
 export const mount = defineView<ViewMessage, RuntimeMessage>((host, channel) => {
@@ -9,9 +10,14 @@ export const mount = defineView<ViewMessage, RuntimeMessage>((host, channel) => 
   const form = document.createElement("form");
   const input = document.createElement("input");
   input.placeholder = "message";
+  input.className = "plugumi-input";
   const button = document.createElement("button");
   button.type = "submit";
   button.textContent = "send";
+  button.className = "plugumi-button plugumi-button--accent";
+  form.style.display = "flex";
+  form.style.gap = "var(--plugumi-spacing-sm)";
+  form.style.padding = "var(--plugumi-spacing-sm)";
   form.append(input, button);
   host.replaceChildren(log, form);
 

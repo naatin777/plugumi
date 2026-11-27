@@ -9,6 +9,7 @@ export default defineConfig({
       entry: "src/panel.ts",
       formats: ["es"],
       fileName: () => "panel.js",
+      cssFileName: "panel",
     },
     rollupOptions: {
       // 依存は全てbundleする（externalなし）。
