@@ -104,5 +104,24 @@
     font-size: var(--plugumi-font-size-xs);
     pointer-events: none;
   }
-  [data-drop-target] { outline: 2px solid var(--plugumi-colors-border-highlight); outline-offset: -2px; }
+  /* drop preview。pointer-eventsは無効化してpickの邪魔をしない。
+     splitはaccentの面で半分の着地場所を示し、挿入は薄い縁だけ。 */
+  .drop-region {
+    position: fixed; z-index: var(--plugumi-z-ghost);
+    pointer-events: none;
+    border-radius: var(--plugumi-radii-md);
+    outline: 2px solid var(--plugumi-colors-accent-border);
+    outline-offset: -2px;
+  }
+  .drop-region.split {
+    background: color-mix(in oklab, var(--plugumi-colors-accent) 12%, transparent);
+    outline-color: var(--plugumi-colors-accent);
+  }
+  .drop-caret {
+    position: fixed; z-index: var(--plugumi-z-ghost);
+    width: 2px;
+    pointer-events: none;
+    background: var(--plugumi-colors-accent);
+    border-radius: 1px;
+  }
 }

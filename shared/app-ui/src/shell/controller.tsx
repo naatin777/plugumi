@@ -26,7 +26,7 @@ import { builtinPanels } from "../panels/builtin.ts";
 import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
 import { saveLastLocation } from "../storage.ts";
-import { createDragController, type DragController } from "./drag.ts";
+import { createDragController, type DragController, type DropPreview } from "./drag.ts";
 
 export function areaPathOf(segment: string | undefined): string[] {
   if (!segment) return [];
@@ -74,6 +74,7 @@ export interface ShellController {
   // ---- drag & drop（windowに1個。全AreaControllerが共有する） ----
   drag: DragController;
   ghost(): { x: number; y: number; title: string } | null;
+  dropPreview(): DropPreview | null;
 
   // Shellの横幅に応じた段階（ResizeObserverがセット）。
   // <1100pxでSubがdrawer、<800pxでArea listもdrawerになる。
@@ -250,13 +251,8 @@ export function createShellController(
 
   // ---- drag & drop（windowに1個。AreaControllerが共有する） ----
   const [ghost, setGhost] = createSignal<{ x: number; y: number; title: string } | null>(null);
-  let marked: HTMLElement | null = null;
-  const setDropElement = (element: HTMLElement | null) => {
-    marked?.removeAttribute("data-drop-target");
-    marked = element;
-    marked?.setAttribute("data-drop-target", "");
-  };
-  const drag = createDragController(setGhost, setDropElement, (session, target, targetArea) => {
+  const [dropPreview, setDropPreview] = createSignal<DropPreview | null>(null);
+  const drag = createDragController(setGhost, setDropPreview, (session, target, targetArea) => {
     if (targetArea === session.area) {
       targetArea.applyLayout((state) => movePanel(state, session.instanceId, target));
       return;
@@ -309,7 +305,7 @@ export function createShellController(
     areaList, applyAreaList,
     mainRef, subRef,
     focusedArea, setFocusedArea,
-    drag, ghost,
+    drag, ghost, dropPreview,
     shellSize, setShellSize,
     subDrawer,
     sideDrawer,

@@ -8,9 +8,17 @@ import type { MoveTarget } from "../layout/model.ts";
 import type { AreaController } from "./controller.tsx";
 import { areaKey } from "../layout/area-list.ts";
 
+// drop先のpreview。splitなら新しいleafが入る半分の矩形、leafへの
+// 末尾挿入ならleaf全体、stripへの挿入なら caret（挿入位置の縦線）。
+// getBoundingClientRectはこのファイル内だけで使う約束なので、
+// 幾何はtesterが計算して返す。
+export type DropPreview =
+  | { kind: "region"; x: number; y: number; width: number; height: number; split: boolean }
+  | { kind: "caret"; x: number; y: number; height: number };
+
 export type DropTester = (
   element: HTMLElement, x: number, y: number, session: DragSession,
-) => MoveTarget | null;
+) => { target: MoveTarget; preview: DropPreview } | null;
 
 export interface DragSession {
   instanceId: string;
@@ -46,7 +54,7 @@ const SPLIT_MIN_SIZE = 240;
 
 export function createDragController(
   setGhost: (ghost: { x: number; y: number; title: string } | null) => void,
-  setOver: (element: HTMLElement | null) => void,
+  setPreview: (preview: DropPreview | null) => void,
   onDrop: (session: DragSession, target: MoveTarget, area: AreaController) => void,
 ): DragController {
   const targets = new Map<HTMLElement, { area: AreaController; test: DropTester }>();
@@ -55,6 +63,7 @@ export function createDragController(
   let over: HTMLElement | null = null;
   let overArea: AreaController | null = null;
   let overTarget: MoveTarget | null = null;
+  let overPreview: DropPreview | null = null;
   let startX = 0;
   let startY = 0;
   let active = false;
@@ -65,6 +74,7 @@ export function createDragController(
     over = null;
     overArea = null;
     overTarget = null;
+    overPreview = null;
     if (!session) return;
     let node = document.elementFromPoint(x, y);
     while (node) {
@@ -79,18 +89,19 @@ export function createDragController(
           session.area.ref() !== null &&
           areaKey(found.area.ref()!) === areaKey(session.area.ref()!);
         if (!sameRef) {
-          const target = found.test(node as HTMLElement, x, y, session);
-          if (target) {
+          const hit = found.test(node as HTMLElement, x, y, session);
+          if (hit) {
             over = node as HTMLElement;
             overArea = found.area;
-            overTarget = target;
+            overTarget = hit.target;
+            overPreview = hit.preview;
             break;
           }
         }
       }
       node = node.parentElement;
     }
-    setOver(over);
+    setPreview(overPreview);
   };
 
   const move = (event: PointerEvent): void => {
@@ -121,7 +132,7 @@ export function createDragController(
     onClick = null;
     active = false;
     setGhost(null);
-    setOver(null);
+    setPreview(null);
     if (current && dragged && target && droppedArea) {
       onDrop(current, target, droppedArea);
     }
@@ -169,11 +180,28 @@ const insertIndex = (element: HTMLElement, pos: number, axis: "x" | "y"): number
   return index;
 };
 
-// 横strip（leafのtab帯）のdrop判定。
+// 横strip（leafのtab帯）のdrop判定。previewは挿入位置のcaret。
 export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
   (element, x, y) => {
     if (!inside(element, x, y)) return null;
-    return target(insertIndex(element, x, "x"));
+    const index = insertIndex(element, x, "x");
+    const rect = element.getBoundingClientRect();
+    // caret位置: indexの子の左端。末尾なら最後の子の右端。
+    // 子が無ければstripの左端。drag中のtab自身も子に含まれるが、
+    // 位置はおよそ合うので近似としては十分。
+    const children = [...element.children] as HTMLElement[];
+    let caretX = rect.left + 4;
+    if (children.length > 0) {
+      if (index < children.length) {
+        caretX = children[index].getBoundingClientRect().left;
+      } else {
+        caretX = children[children.length - 1].getBoundingClientRect().right;
+      }
+    }
+    return {
+      target: target(index),
+      preview: { kind: "caret", x: caretX, y: rect.top + 4, height: rect.height - 8 },
+    };
   };
 
 // leaf本体のdrop判定。縁に近ければsplit、中央なら末尾挿入。
@@ -189,18 +217,29 @@ export const leafBodyTest = (leafId: () => string): DropTester =>
     const nearTop = y - rect.top < edgeY;
     const nearBottom = rect.bottom - y < edgeY;
     // 分割後の葉が小さくなりすぎる向きはsplitしない。
+    // previewの半分矩形は実際のsplit（ratio 0.5）と対応する。
     const id = leafId();
-    if (nearLeft && rect.width >= SPLIT_MIN_SIZE) {
-      return { region: "split", leafId: id, edge: "left" };
-    }
-    if (nearRight && rect.width >= SPLIT_MIN_SIZE) {
-      return { region: "split", leafId: id, edge: "right" };
-    }
-    if (nearTop && rect.height >= SPLIT_MIN_SIZE) {
-      return { region: "split", leafId: id, edge: "top" };
-    }
-    if (nearBottom && rect.height >= SPLIT_MIN_SIZE) {
-      return { region: "split", leafId: id, edge: "bottom" };
-    }
-    return { region: "leaf", leafId: id, index: -1 };
+    const halfW = rect.width / 2;
+    const halfH = rect.height / 2;
+    const splitTarget = (edge: "left" | "right" | "top" | "bottom") => ({
+      target: { region: "split", leafId: id, edge } as MoveTarget,
+      preview: {
+        kind: "region", split: true,
+        x: edge === "right" ? rect.left + halfW : rect.left,
+        y: edge === "bottom" ? rect.top + halfH : rect.top,
+        width: edge === "left" || edge === "right" ? halfW : rect.width,
+        height: edge === "top" || edge === "bottom" ? halfH : rect.height,
+      } as DropPreview,
+    });
+    if (nearLeft && rect.width >= SPLIT_MIN_SIZE) return splitTarget("left");
+    if (nearRight && rect.width >= SPLIT_MIN_SIZE) return splitTarget("right");
+    if (nearTop && rect.height >= SPLIT_MIN_SIZE) return splitTarget("top");
+    if (nearBottom && rect.height >= SPLIT_MIN_SIZE) return splitTarget("bottom");
+    return {
+      target: { region: "leaf", leafId: id, index: -1 },
+      preview: {
+        kind: "region", split: false,
+        x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+      },
+    };
   };
