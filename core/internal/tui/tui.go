@@ -26,7 +26,6 @@ const (
 	callInput callState = iota
 	callPreparing
 	callActive
-	callClosing
 	callFinished
 )
 
@@ -62,13 +61,12 @@ type Model struct {
 	coreView
 
 	// callモード
-	callTool       *wire.ToolDeclaration
+	callOperation  *wire.OperationDeclaration
 	callTicket     *CallTicket
 	callID         string
 	callGeneration int // requestCallごとに+1。古いticketMsgを弾く世代番号
 	callState      callState
 	callLines      []string
-	pendingTarget  wire.CallTarget
 	pendingInput   json.RawMessage
 	inputArea      textarea.Model
 	callChunks     viewport.Model
@@ -123,17 +121,11 @@ type ticketMsg struct {
 }
 
 type callDoneMsg struct {
-	client  *Client
-	callID  string
-	outcome CallOutcome
-	result  json.RawMessage
-	rpcErr  *wire.RPCError
-	err     error
-}
-
-type callCloseSentMsg struct {
-	ticket *CallTicket
-	err    error
+	client    *Client
+	callID    string
+	execution *wire.Execution
+	rpcErr    *wire.RPCError
+	err       error
 }
 
 type eventMsg struct {
@@ -162,21 +154,15 @@ func ticketCmd(client *Client, generation int) tea.Cmd {
 	}
 }
 
-func callCmd(client *Client, ticket *CallTicket, params wire.CallParams, kind string) tea.Cmd {
+func callCmd(client *Client, ticket *CallTicket, params wire.InvokeParams) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 130*time.Second)
 		defer cancel()
-		outcome, result, rpcErr, err := client.Call(ctx, ticket, params, kind)
+		execution, rpcErr, err := client.Invoke(ctx, ticket, params)
 		return callDoneMsg{
-			client: client, callID: ticket.CallID(), outcome: outcome,
-			result: result, rpcErr: rpcErr, err: err,
+			client: client, callID: ticket.CallID(), execution: execution,
+			rpcErr: rpcErr, err: err,
 		}
-	}
-}
-
-func closeCallCmd(client *Client, ticket *CallTicket) tea.Cmd {
-	return func() tea.Msg {
-		return callCloseSentMsg{ticket: ticket, err: client.Close(ticket)}
 	}
 }
 
@@ -280,11 +266,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.callTicket = msg.ticket
 		m.callID = msg.ticket.CallID()
 		m.callState = callActive
-		m.appendCallLine("→ calling " + m.callTool.ToolPath)
-		return m, callCmd(m.client, msg.ticket, wire.CallParams{
-			Target: m.pendingTarget,
-			Input:  m.pendingInput,
-		}, m.callTool.Kind)
+		m.appendCallLine("→ invoking " + m.callOperation.Path)
+		return m, callCmd(m.client, msg.ticket, wire.InvokeParams{
+			Operation: m.callOperation.Path,
+			Input:     m.pendingInput,
+		})
 
 	case callDoneMsg:
 		// 前のcallの遅れ応答を新しいcallへ混ぜない
@@ -294,17 +280,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.onCallDone(msg)
 		return m, nil
 
-	case callCloseSentMsg:
-		if m.detailMode != detailCall || m.callState != callClosing || msg.ticket != m.callTicket {
-			return m, nil
-		}
-		if msg.err != nil {
-			m.callState = callActive
-			m.statusMsg = styleError.Render("close failed: " + msg.err.Error())
-		} else {
-			m.statusMsg = "close sent — waiting for result; esc again to leave"
-		}
-		return m, nil
 
 	case eventMsg:
 		if msg.client != m.client {
@@ -426,10 +401,9 @@ func (m *Model) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // ---- callモード ----
 
 func (m *Model) openCall(row detailRow) (tea.Model, tea.Cmd) {
-	// Snapshotの更新後も、呼び出しは選択時点の宛先を使う。
-	toolCopy := *row.tool
-	m.callTool = &toolCopy
-	m.pendingTarget = row.identity()
+	// Snapshotの更新後も、呼び出しは選択時点のoperationを使う。
+	operationCopy := *row.operation
+	m.callOperation = &operationCopy
 	m.callState = callInput
 	m.callID = ""
 	m.callTicket = nil
@@ -467,11 +441,7 @@ func (m *Model) updateCallKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.callChunks.HalfPageDown()
 		return m, nil
 	case "esc":
-		if m.callState == callActive {
-			m.callState = callClosing
-			m.statusMsg = "sending close — esc again to leave"
-			return m, closeCallCmd(m.client, m.callTicket)
-		}
+		// executions.cancelは未実装。active中に抜けてもExecutionはCore側で進行する。
 		m.callID = ""
 		m.callTicket = nil
 		m.callState = callFinished
@@ -485,7 +455,7 @@ func (m *Model) updateCallKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // requestCall は入力JSONを検証し、call ticketの発行を始める。
 // 実際の送信はticketMsg処理時（callIDが確定してから）。
 func (m *Model) requestCall() (tea.Model, tea.Cmd) {
-	if m.callTool == nil {
+	if m.callOperation == nil {
 		return m, nil
 	}
 	raw := strings.TrimSpace(m.inputArea.Value())
@@ -509,26 +479,29 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 	if m.callState == callFinished {
 		return
 	}
-	if m.callState == callClosing && msg.outcome != CallAsyncAccepted {
-		m.statusMsg = ""
-	}
 	switch {
 	case msg.err != nil:
-		m.appendCallLine(styleError.Render("call failed: " + msg.err.Error()))
+		m.appendCallLine(styleError.Render("invoke failed: " + msg.err.Error()))
 		m.callState = callFinished
 	case msg.rpcErr != nil:
 		m.appendCallLine(styleError.Render(fmt.Sprintf("error %d: %s", msg.rpcErr.Code, msg.rpcErr.Message)))
 		m.callState = callFinished
-	case msg.outcome == CallAsyncAccepted:
-		// response経路とnotification経路は独立なので、result通知が
-		// callDoneMsgより先に処理されることがある。その場合は
-		// 終端が既に表示済みなのでaccepted行は出さない。
-		if m.callState == callActive || m.callState == callClosing {
-			m.appendCallLine(styleOK.Render("accepted — waiting for chunk/result"))
+	default:
+		execution := msg.execution
+		m.appendCallLine("execution " + execution.ID + "  status: " + execution.Status)
+		if execution.Progress != nil {
+			m.appendCallLine("progress:")
+			m.appendCallLine(indentJSON(execution.Progress))
 		}
-	case msg.outcome == CallSyncDone:
-		m.appendCallLine("result:")
-		m.appendCallLine(indentJSON(msg.result))
+		if execution.Result != nil {
+			m.appendCallLine("result:")
+			m.appendCallLine(indentJSON(execution.Result))
+		}
+		if execution.Error != nil {
+			errorJSON := wire.Marshal(execution.Error)
+			m.appendCallLine("error:")
+			m.appendCallLine(indentJSON(errorJSON))
+		}
 		m.callState = callFinished
 	}
 }
@@ -536,31 +509,11 @@ func (m *Model) onCallDone(msg callDoneMsg) {
 func (m *Model) onEvent(event Event) {
 	if event.Kind == EventConnectionClosed {
 		m.statusMsg = styleWarn.Render("call channel disconnected — will reconnect on next call")
-		if m.detailMode == detailCall && (m.callState == callActive || m.callState == callClosing) {
+		if m.detailMode == detailCall && m.callState == callActive {
 			m.appendCallLine(styleError.Render("connection lost"))
 			m.callState = callFinished
 		}
 		return
-	}
-	if m.detailMode != detailCall || event.CallID != m.callID || m.callID == "" ||
-		m.callTicket == nil || event.connection != m.callTicket.connection {
-		return
-	}
-	switch event.Kind {
-	case EventChunk:
-		// 途中出力は高頻度なので1行compactで流す
-		m.appendCallLine("out " + compactJSON(event.Payload))
-	case EventResult:
-		if m.callState == callClosing {
-			m.statusMsg = ""
-		}
-		if event.Err != nil {
-			m.appendCallLine(styleError.Render(fmt.Sprintf("error %d: %s", event.Err.Code, event.Err.Message)))
-		} else {
-			m.appendCallLine("result:")
-			m.appendCallLine(indentJSON(event.Result))
-		}
-		m.callState = callFinished
 	}
 }
 

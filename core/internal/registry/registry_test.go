@@ -9,26 +9,41 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-func TestReplaceToolsNormalizesAndPublishesOnlyOnChange(t *testing.T) {
+func TestReplaceOperationsValidatesAndPublishesOnlyOnChange(t *testing.T) {
 	registry := New("test-core")
 	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
-	declarations := []wire.ToolDeclaration{
-		{ToolPath: "a/one"},
-		{ToolPath: "a/two", Kind: "async"},
+	declarations := []wire.OperationDeclaration{
+		{Path: "a/one"},
+		{Path: "a/two"},
 	}
-	if err := registry.ReplaceTools(lease.RegistrationID, declarations); err != nil {
+	if err := registry.ReplaceOperations(lease.RegistrationID, declarations); err != nil {
 		t.Fatal(err)
 	}
 	snapshot := registry.Snapshot()
-	tools := snapshot.Registrations[0].Tools
-	if tools[0].Kind != "sync" || tools[1].Kind != "async" {
-		t.Fatalf("unexpected Tool kinds: %+v", tools)
+	operations := snapshot.Registrations[0].Operations
+	if len(operations) != 2 || operations[0].Path != "a/one" {
+		t.Fatalf("unexpected operations: %+v", operations)
 	}
-	if err := registry.ReplaceTools(lease.RegistrationID, declarations); err != nil {
+	if err := registry.ReplaceOperations(lease.RegistrationID, declarations); err != nil {
 		t.Fatal(err)
 	}
 	if current := registry.Snapshot(); current.Revision != snapshot.Revision {
 		t.Fatalf("identical replacement changed the revision: %s", current.Revision)
+	}
+
+	// contracts/00004のpath制約: 重複・空segment・先頭末尾の /・空白・. / ..を拒否する
+	for _, invalid := range [][]wire.OperationDeclaration{
+		{{Path: "a/one"}, {Path: "a/one"}},   // 重複
+		{{Path: ""}},                        // 空
+		{{Path: "/a"}},                      // 先頭 /
+		{{Path: "a/"}},                      // 末尾 /
+		{{Path: "a//b"}},                    // 空segment
+		{{Path: "a/../b"}},                  // .. segment
+		{{Path: "a/b c"}},                   // 空白
+	} {
+		if err := registry.ReplaceOperations(lease.RegistrationID, invalid); err != ErrInvalidOperations {
+			t.Fatalf("invalid declarations accepted: %+v", invalid)
+		}
 	}
 }
 
@@ -38,7 +53,7 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	registry.now = func() time.Time { return now }
 	identity := wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"}
 	lease, _, _ := registry.Create(identity)
-	if err := registry.ReplaceTools(lease.RegistrationID, []wire.ToolDeclaration{{ToolPath: "echo"}}); err != nil {
+	if err := registry.ReplaceOperations(lease.RegistrationID, []wire.OperationDeclaration{{Path: "echo"}}); err != nil {
 		t.Fatal(err)
 	}
 	reservation, err := registry.ReserveConnection(lease.RegistrationID)
@@ -49,12 +64,14 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	if !reservation.Complete(connection) {
 		t.Fatal("Could not attach to live registration")
 	}
-	target := wire.CallTarget{RegistrationID: lease.RegistrationID, ToolPath: "echo"}
-	if got, kind, err := registry.ResolveTool(target); got != connection || kind != "sync" || err != nil {
-		t.Fatalf("live registration was not routable: %s, %v", kind, err)
+	if got, err := registry.ResolveOperation("echo"); got != connection || err != nil {
+		t.Fatalf("live registration was not routable: %v", err)
+	}
+	if _, err := registry.ResolveOperation("nonexistent"); err != ErrUnknownOperation {
+		t.Fatalf("unknown operation resolved: %v", err)
 	}
 	now = lease.ExpiresAt
-	if _, _, err := registry.ResolveTool(target); err != ErrUnknownRegistration {
+	if _, err := registry.ResolveOperation("echo"); err != ErrUnknownOperation {
 		t.Fatalf("expired registration is still routable: %v", err)
 	}
 	if _, found := registry.Renew(lease.RegistrationID); found {

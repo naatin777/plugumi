@@ -49,8 +49,8 @@ type registrationPath struct {
 	RegistrationID string `path:"registrationId" minLength:"1"`
 }
 
-type toolDeclarations struct {
-	Tools []wire.ToolDeclaration `json:"tools"`
+type operationDeclarations struct {
+	Operations []wire.OperationDeclaration `json:"operations"`
 }
 
 type leaseResponse struct {
@@ -81,10 +81,10 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 			operation.OperationID = "renewRegistration"
 			operation.Summary = "登録のLeaseを更新する"
 		})
-	huma.Put(api, registrationsPath+"/{registrationId}/tools", s.replaceTools,
+	huma.Put(api, registrationsPath+"/{registrationId}/operations", s.replaceOperations,
 		func(operation *huma.Operation) {
-			operation.OperationID = "replaceToolDeclarations"
-			operation.Summary = "Tool宣言を置き換える"
+			operation.OperationID = "replaceOperationDeclarations"
+			operation.Summary = "operation宣言を置き換える"
 		})
 	huma.Put(api, registrationsPath+"/{registrationId}/ui", s.replaceUI,
 		func(operation *huma.Operation) {
@@ -143,23 +143,23 @@ func (s *Server) renewRegistration(_ context.Context, input *registrationPath) (
 	return &struct{ Body wire.RegistrationLease }{Body: lease}, nil
 }
 
-func (s *Server) replaceTools(_ context.Context, input *struct {
+func (s *Server) replaceOperations(_ context.Context, input *struct {
 	RegistrationID string `path:"registrationId" minLength:"1"`
-	Body           toolDeclarations
+	Body           operationDeclarations
 }) (*struct{}, error) {
-	tools := input.Body.Tools
-	if tools == nil {
-		return nil, newAPIError(http.StatusBadRequest, "invalid_params", "tools must be an array")
+	operations := input.Body.Operations
+	if operations == nil {
+		return nil, newAPIError(http.StatusBadRequest, "invalid_params", "operations must be an array")
 	}
-	switch err := s.registry.ReplaceTools(input.RegistrationID, tools); err {
+	switch err := s.registry.ReplaceOperations(input.RegistrationID, operations); err {
 	case nil:
 		return nil, nil
-	case registry.ErrInvalidTools:
+	case registry.ErrInvalidOperations:
 		return nil, newAPIError(http.StatusBadRequest, "invalid_params", err.Error())
 	case registry.ErrUnknownRegistration:
 		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
 	default:
-		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace Tool declarations")
+		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace operation declarations")
 	}
 }
 

@@ -33,15 +33,16 @@ var (
 	ErrRegistrationConflict  = errors.New("instance already registered with another pluginId")
 	ErrConnectionInUse       = errors.New("registration already has an RPC connection")
 	ErrConnectionUnavailable = errors.New("plugin connection unavailable")
-	ErrUnknownTool           = errors.New("unknown toolPath")
-	ErrInvalidTools          = errors.New("invalid or duplicated Tool declaration")
+	ErrUnknownOperation      = errors.New("unknown operation")
+	ErrInvalidOperations     = errors.New("invalid or duplicated operation declaration")
+	ErrAmbiguousOperation    = errors.New("operation provided by multiple providers")
 	ErrInvalidUI             = errors.New("invalid UI manifest")
 )
 
 type registration struct {
 	identity    wire.ProviderIdentity
 	lease       wire.RegistrationLease
-	tools       []wire.ToolDeclaration
+	operations  []wire.OperationDeclaration
 	files       []wire.UIFile
 	panels      []wire.PanelDeclaration
 	uiSHA256    string
@@ -129,18 +130,28 @@ func (r *Registry) Renew(registrationID string) (wire.RegistrationLease, bool) {
 	return record.lease, true
 }
 
-func (r *Registry) ReplaceTools(registrationID string, declarations []wire.ToolDeclaration) error {
-	tools := slices.Clone(declarations)
-	paths := make(map[string]bool, len(tools))
-	for index, tool := range tools {
-		if tool.Kind == "" {
-			tools[index].Kind = "sync"
+// validOperationPath はcontracts/00004のpath制約を検査する。
+// 空のsegment、先頭・末尾の /、空白、. / .. segmentを拒否する。
+func validOperationPath(path string) bool {
+	if path == "" || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
+		return false
+	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == "" || segment == "." || segment == ".." || strings.ContainsAny(segment, " \t\n") {
+			return false
 		}
-		if paths[tool.ToolPath] || strings.TrimSpace(tool.ToolPath) == "" ||
-			(tools[index].Kind != "sync" && tools[index].Kind != "async") {
-			return ErrInvalidTools
+	}
+	return true
+}
+
+func (r *Registry) ReplaceOperations(registrationID string, declarations []wire.OperationDeclaration) error {
+	operations := slices.Clone(declarations)
+	paths := make(map[string]bool, len(operations))
+	for _, operation := range operations {
+		if paths[operation.Path] || !validOperationPath(operation.Path) {
+			return ErrInvalidOperations
 		}
-		paths[tool.ToolPath] = true
+		paths[operation.Path] = true
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -148,32 +159,71 @@ func (r *Registry) ReplaceTools(registrationID string, declarations []wire.ToolD
 	if record == nil {
 		return ErrUnknownRegistration
 	}
-	if !slices.EqualFunc(record.tools, tools, func(first, second wire.ToolDeclaration) bool {
+	if !slices.EqualFunc(record.operations, operations, func(first, second wire.OperationDeclaration) bool {
 		return reflect.DeepEqual(first, second)
 	}) {
-		record.tools = tools
-		r.publishLocked("tools.changed")
+		record.operations = operations
+		r.publishLocked("operations.changed")
 	}
 	return nil
 }
 
-// ResolveTool はLease・宣言・接続を同じ時点で確認する。期限切れの掃除を待つ必要はない。
-func (r *Registry) ResolveTool(target wire.CallTarget) (*rpc.Connection, string, error) {
+// ResolveOperation はoperation pathからproviderを解決する。
+// Lease・宣言・接続を同じ時点で確認する。
+// 初期実装ではroutingを行わず、宣言しているliveなproviderが
+// ちょうど1つの場合だけ解決する。複数ならambiguous、ゼロならunknown。
+func (r *Registry) ResolveOperation(path string) (*rpc.Connection, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	record := r.liveLocked(target.RegistrationID, r.now())
-	if record == nil {
-		return nil, "", ErrUnknownRegistration
-	}
-	if record.connection == nil {
-		return nil, "", ErrConnectionUnavailable
-	}
-	for _, tool := range record.tools {
-		if tool.ToolPath == target.ToolPath {
-			return record.connection, tool.Kind, nil
+	now := r.now()
+	var found *registration
+	count := 0
+	for _, record := range r.byID {
+		if !now.Before(record.lease.ExpiresAt) {
+			continue
+		}
+		for _, operation := range record.operations {
+			if operation.Path == path {
+				found = record
+				count++
+				break
+			}
 		}
 	}
-	return nil, "", ErrUnknownTool
+	if count == 0 {
+		return nil, ErrUnknownOperation
+	}
+	if count > 1 {
+		return nil, ErrAmbiguousOperation
+	}
+	if found.connection == nil {
+		return nil, ErrConnectionUnavailable
+	}
+	return found.connection, nil
+}
+
+// ListOperations は現在liveな登録のoperation宣言を集約する。
+func (r *Registry) ListOperations() []wire.OperationDeclaration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := r.now()
+	seen := make(map[string]bool)
+	var result []wire.OperationDeclaration
+	for _, record := range r.byID {
+		if !now.Before(record.lease.ExpiresAt) {
+			continue
+		}
+		for _, operation := range record.operations {
+			if !seen[operation.Path] {
+				seen[operation.Path] = true
+				result = append(result, operation)
+			}
+		}
+	}
+	slices.SortFunc(result, func(first, second wire.OperationDeclaration) int {
+		return cmp.Compare(first.Path, second.Path)
+	})
+	return result
 }
 
 type ConnectionReservation struct {
@@ -298,9 +348,10 @@ func (r *Registry) Snapshot() wire.RegistrySnapshot {
 		result.Registrations = append(result.Registrations, wire.RegistryRegistration{
 			RegistrationID: record.lease.RegistrationID,
 			ProviderID:     record.identity.ProviderID,
-			Kind:           record.identity.Kind,
+			Environment:    record.identity.Environment,
+			HostSession:    record.identity.HostSession,
 			RPCAvailable:   record.connection != nil,
-			Tools:          append([]wire.ToolDeclaration{}, record.tools...),
+			Operations:     append([]wire.OperationDeclaration{}, record.operations...),
 			Panels:         append([]wire.PanelDeclaration{}, record.panels...),
 			UISHA256:       record.uiSHA256,
 		})

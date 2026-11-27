@@ -94,11 +94,11 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	}
 	registrationPath := "/v1/registrations/" + lease.RegistrationID
 	request("POST", registrationPath+"/renew", "", true, 200).Body.Close()
-	request("PUT", registrationPath+"/tools", `{"tools":[{"toolPath":"echo"},{"toolPath":"echo"}]}`, true, 400).Body.Close()
-	const tools = `{"tools":[{"toolPath":"echo"}]}`
-	request("PUT", registrationPath+"/tools", tools, true, 204).Body.Close()
-	request("PUT", registrationPath+"/tools", tools, true, 204).Body.Close()
-	event("tools.changed")
+	request("PUT", registrationPath+"/operations", `{"operations":[{"path":"echo"},{"path":"echo"}]}`, true, 400).Body.Close()
+	const operations = `{"operations":[{"path":"echo"}]}`
+	request("PUT", registrationPath+"/operations", operations, true, 204).Body.Close()
+	request("PUT", registrationPath+"/operations", operations, true, 204).Body.Close()
+	event("operations.changed")
 
 	connect := func(path string) *websocket.Conn {
 		t.Helper()
@@ -134,16 +134,36 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 		return result
 	}
 	const callerID = `"caller-echo"`
-	send(caller, wire.Request{JSONRPC: "2.0", Method: wire.MethodCall, ID: json.RawMessage(callerID), Params: wire.Marshal(wire.CallParams{
-		Target: wire.CallTarget{RegistrationID: lease.RegistrationID, ToolPath: "echo"}, Input: json.RawMessage(`"hello"`),
+	send(caller, wire.Request{JSONRPC: "2.0", Method: wire.MethodOperationsInvoke, ID: json.RawMessage(callerID), Params: wire.Marshal(wire.InvokeParams{
+		Operation: "echo", Input: json.RawMessage(`"hello"`),
 	})})
 	forward := read(plugin)
-	if forward.Method != wire.MethodCall || string(forward.ID) == callerID {
+	if forward.Method != wire.MethodOperationsInvoke || string(forward.ID) == callerID {
 		t.Fatalf("expected a forwarded request with a different ID, got %+v", forward)
 	}
-	send(plugin, wire.Response{JSONRPC: "2.0", ID: forward.ID, Result: json.RawMessage(`"hello"`)})
-	if result := read(caller); string(result.ID) != callerID || string(result.Result) != `"hello"` {
-		t.Fatalf("unexpected forwarded result: %+v", result)
+	var forwardParams wire.ForwardInvokeParams
+	if err := wire.Unmarshal(forward.Params, &forwardParams); err != nil {
+		t.Fatalf("forward params: %v", err)
+	}
+	if forwardParams.ExecutionID == "" || forwardParams.Operation != "echo" || string(forwardParams.Input) != `"hello"` {
+		t.Fatalf("unexpected forward params: %+v", forwardParams)
+	}
+	// providerはterminal応答を返し、callerはsucceededのExecutionを受け取る
+	send(plugin, wire.Response{JSONRPC: "2.0", ID: forward.ID, Result: wire.Marshal(wire.ProviderInvokeResult{
+		Status: wire.ExecutionSucceeded,
+		Result: json.RawMessage(`"hello"`),
+	})})
+	result := read(caller)
+	if string(result.ID) != callerID {
+		t.Fatalf("unexpected response id: %+v", result)
+	}
+	var invokeResult wire.InvokeResult
+	if err := wire.Unmarshal(result.Result, &invokeResult); err != nil || invokeResult.Execution == nil {
+		t.Fatalf("unexpected invoke result: %s", result.Result)
+	}
+	exec := invokeResult.Execution
+	if exec.Status != wire.ExecutionSucceeded || string(exec.Result) != `"hello"` || exec.ID != forwardParams.ExecutionID || exec.Operation != "echo" {
+		t.Fatalf("unexpected execution: %+v", exec)
 	}
 
 	_ = plugin.CloseNow()
@@ -151,8 +171,8 @@ func TestPluginInitiatedRegistrationAndRPC(t *testing.T) {
 	var afterDisconnect wire.RegistrySnapshot
 	err = json.NewDecoder(request("GET", "/v1/registry", "", true, 200).Body).Decode(&afterDisconnect)
 	if err != nil || len(afterDisconnect.Registrations) != 1 || afterDisconnect.Registrations[0].RPCAvailable ||
-		afterDisconnect.Registrations[0].RegistrationID != lease.RegistrationID || len(afterDisconnect.Registrations[0].Tools) != 1 {
-		t.Fatalf("WS disconnect should preserve the registration and tools: %+v %v", afterDisconnect, err)
+		afterDisconnect.Registrations[0].RegistrationID != lease.RegistrationID || len(afterDisconnect.Registrations[0].Operations) != 1 {
+		t.Fatalf("WS disconnect should preserve the registration and operations: %+v %v", afterDisconnect, err)
 	}
 	_ = connect(pluginPath)
 	event("provider.changed")

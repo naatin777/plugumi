@@ -19,6 +19,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/naatin777/plugumi/core/internal/execution"
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/router"
 	"github.com/naatin777/plugumi/core/internal/rpc"
@@ -40,7 +41,7 @@ type Server struct {
 
 func New(ctx context.Context, coreID, name, token string) *Server {
 	pluginRegistry := registry.New(coreID)
-	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry), registry: pluginRegistry, token: token}
+	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry, execution.NewStore()), registry: pluginRegistry, token: token}
 	go pluginRegistry.Expire(ctx)
 	return s
 }
@@ -146,15 +147,21 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 	socket.SetReadLimit(1 << 20)
 	connection := rpc.NewConnection(socket, "core-")
 	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
-		if message.Method == wire.MethodCall {
-			return s.router.HandleCall(connection, message)
+		switch message.Method {
+		case wire.MethodOperationsInvoke:
+			return s.router.HandleInvoke(connection, message)
+		case wire.MethodOperationsList:
+			return s.router.HandleOperationsList(connection, message)
+		case wire.MethodExecutionsGet:
+			return s.router.HandleExecutionsGet(connection, message)
+		case wire.MethodExecutionsList:
+			return s.router.HandleExecutionsList(connection, message)
 		}
 		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
 	}
 	connection.OnNotification = func(message *wire.Incoming) {
 		s.router.DispatchNotification(connection, message)
 	}
-	connection.OnResponded = func(id json.RawMessage) { s.router.NotifyResponded(connection, id) }
 	if reservation != nil && !reservation.Complete(connection) {
 		connection.CloseNow()
 		return

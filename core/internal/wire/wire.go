@@ -7,18 +7,14 @@ import (
 	"time"
 )
 
-// Providerのkind。pluginはinstallable package、environmentは環境capability、
-// hostはWeb / ElectronのWorkbench Host。空はpluginとして扱う。
-const (
-	KindPlugin      = "plugin"
-	KindEnvironment = "environment"
-	KindHost        = "host"
-)
-
+// ProviderIdentity は登録時の実装名とinstance、および所属。
+// providerKind enumは廃止。所属はenvironment / hostSessionのどちらか一方だけ
+// 指定でき、両方なければglobal / serviceとして扱う（contracts/00004）。
 type ProviderIdentity struct {
-	ProviderID string `json:"providerId" minLength:"1"`
-	InstanceID string `json:"instanceId" minLength:"1"`
-	Kind       string `json:"providerKind,omitempty" enum:"plugin,environment,host"`
+	ProviderID  string `json:"providerId" minLength:"1"`
+	InstanceID  string `json:"instanceId" minLength:"1"`
+	Environment string `json:"environment,omitempty"`
+	HostSession string `json:"hostSession,omitempty"`
 }
 
 type RegistrationLease struct {
@@ -35,22 +31,33 @@ type RegistrySnapshot struct {
 }
 
 type RegistryRegistration struct {
-	RegistrationID string             `json:"registrationId"`
-	ProviderID     string             `json:"providerId"`
-	Kind           string             `json:"providerKind"`
-	RPCAvailable   bool               `json:"rpcAvailable"`
-	Tools          []ToolDeclaration  `json:"tools"`
-	Panels         []PanelDeclaration `json:"panels,omitempty"`
-	UISHA256       string             `json:"uiSha256,omitempty"`
+	RegistrationID string                `json:"registrationId"`
+	ProviderID     string                `json:"providerId"`
+	Environment    string                `json:"environment,omitempty"`
+	HostSession    string                `json:"hostSession,omitempty"`
+	RPCAvailable   bool                  `json:"rpcAvailable"`
+	Operations     []OperationDeclaration `json:"operations"`
+	Panels         []PanelDeclaration    `json:"panels,omitempty"`
+	UISHA256       string                `json:"uiSha256,omitempty"`
 }
 
-type ToolDeclaration struct {
-	ToolPath     string          `json:"toolPath" minLength:"1"`
-	Kind         string          `json:"kind,omitempty" enum:"sync,async" default:"sync"`
-	Description  string          `json:"description,omitempty"`
-	Tags         []string        `json:"tags,omitempty"`
-	InputSchema  json.RawMessage `json:"inputSchema,omitempty"`
-	OutputSchema json.RawMessage `json:"outputSchema,omitempty"`
+// OperationDeclaration はcontracts/00004のoperation宣言。
+// kind（sync / async）、targetAxes、lifetimeは宣言しない。
+type OperationDeclaration struct {
+	Path               string          `json:"path" minLength:"1"`
+	Description        string          `json:"description,omitempty"`
+	InputSchema        json.RawMessage `json:"inputSchema,omitempty"`
+	AcceptSchema       json.RawMessage `json:"acceptSchema,omitempty"`
+	StreamSchema       json.RawMessage `json:"streamSchema,omitempty"`
+	ResultSchema       json.RawMessage `json:"resultSchema,omitempty"`
+	PresentationSchema json.RawMessage `json:"presentationSchema,omitempty"`
+	Embed              *EmbedDeclaration `json:"embed,omitempty"`
+}
+
+// EmbedDeclaration はtool紐付け自動表示の宣言。形式は検討中（contracts/00004）。
+type EmbedDeclaration struct {
+	Component string `json:"component,omitempty"`
+	Catalog   string `json:"catalog,omitempty"`
 }
 
 // PanelDeclaration はPluginが宣言するUIパネル。entryはUI file一覧内の
@@ -141,42 +148,90 @@ func Unmarshal(raw json.RawMessage, v any) error {
 	return json.Unmarshal(raw, v)
 }
 
-// Tool呼び出しのメソッド（contracts/00004のローカル実装範囲）。
+// operation invocation / Executionのメソッド（contracts/00004）。
 const (
-	MethodCall       = "tools.call"
-	MethodCallChunk  = "tools.call.chunk"
-	MethodCallResult = "tools.call.result"
-	MethodCallClose  = "tools.call.close"
+	MethodOperationsInvoke = "operations.invoke"
+	MethodOperationsList   = "operations.list"
+	MethodOperationsEvent  = "operations.event"  // provider → Core
+	MethodExecutionsEvent  = "executions.event"  // Core → 購読者
+	MethodExecutionsGet    = "executions.get"
+	MethodExecutionsList   = "executions.list"
+	MethodExecutionsCancel = "executions.cancel"
 )
 
-type CallTarget struct {
-	RegistrationID string `json:"registrationId"`
-	ToolPath       string `json:"toolPath"`
+// Execution status。unknownは持たない（contracts/00004）。
+const (
+	ExecutionQueued    = "queued"
+	ExecutionRunning   = "running"
+	ExecutionSucceeded = "succeeded"
+	ExecutionFailed    = "failed"
+	ExecutionCancelled = "cancelled"
+)
+
+// error kind。実行そのものの失敗と接続喪失を区別する。
+const (
+	ErrorKindExecutionFailed     = "executionFailed"
+	ErrorKindProviderDisconnected = "providerDisconnected"
+)
+
+type ExecutionError struct {
+	Code    string          `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data,omitempty"`
+	Kind    string          `json:"kind,omitempty"`
 }
 
-type CallParams struct {
-	Target CallTarget      `json:"target"`
-	Input  json.RawMessage `json:"input,omitempty"`
+// Execution はCoreが記録するoperation invocationの実行。
+type Execution struct {
+	ID            string          `json:"id"`
+	Operation     string          `json:"operation"`
+	Status        string          `json:"status"`
+	CreatedAt     time.Time       `json:"createdAt"`
+	UpdatedAt     time.Time       `json:"updatedAt"`
+	Context       json.RawMessage `json:"context,omitempty"`
+	Input         json.RawMessage `json:"input,omitempty"`
+	Accept        json.RawMessage `json:"accept,omitempty"`
+	Progress      json.RawMessage `json:"progress,omitempty"`
+	Result        json.RawMessage `json:"result,omitempty"`
+	Error         *ExecutionError `json:"error,omitempty"`
+	Presentation  json.RawMessage `json:"presentation,omitempty"`
+	ResourceRefs  json.RawMessage `json:"resourceRefs,omitempty"`
+	ParentExecution string        `json:"parentExecution,omitempty"`
 }
 
-// ForwardCallParams は中継時にtargetへ渡すparams。
-// contracts/00004: targetへはtoolPathのみ伝える。
-type ForwardCallParams struct {
-	ToolPath string          `json:"toolPath"`
-	Input    json.RawMessage `json:"input,omitempty"`
+// InvokeParams はcaller→Coreのoperations.invoke params。
+type InvokeParams struct {
+	Operation string          `json:"operation"`
+	Input     json.RawMessage `json:"input"`
+	Context   json.RawMessage `json:"context,omitempty"`
 }
 
-type CallChunkParams struct {
-	CallID  json.RawMessage `json:"callId"`
-	Payload json.RawMessage `json:"payload,omitempty"`
+// ForwardInvokeParams はCore→providerのoperations.invoke params。
+type ForwardInvokeParams struct {
+	Operation   string          `json:"operation"`
+	ExecutionID string          `json:"executionId"`
+	Input       json.RawMessage `json:"input"`
 }
 
-type CallResultParams struct {
-	CallID json.RawMessage `json:"callId"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  *RPCError       `json:"error,omitempty"`
+// ProviderInvokeResult はproviderのoperations.invoke応答。
+// runningまたはterminal状態を返す。
+type ProviderInvokeResult struct {
+	Status   string          `json:"status"`
+	Progress json.RawMessage `json:"progress,omitempty"`
+	Result   json.RawMessage `json:"result,omitempty"`
+	Error    *ExecutionError `json:"error,omitempty"`
+	Accept   json.RawMessage `json:"accept,omitempty"`
 }
 
-type CallCloseParams struct {
-	CallID json.RawMessage `json:"callId"`
+// OperationsEventParams はprovider→Coreのoperations.event params。
+type OperationsEventParams struct {
+	ExecutionID string          `json:"executionId"`
+	Seq         uint64          `json:"seq"`
+	Type        string          `json:"type"`
+	Payload     json.RawMessage `json:"payload,omitempty"`
+}
+
+// InvokeResult はCore→callerのoperations.invoke応答。
+type InvokeResult struct {
+	Execution *Execution `json:"execution"`
 }

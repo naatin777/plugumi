@@ -12,7 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/naatin777/plugumi/core/internal/coreinstances"
-	"github.com/naatin777/plugumi/core/internal/rpc"
 	"github.com/naatin777/plugumi/core/internal/server"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
@@ -57,7 +56,7 @@ func TestRegistryWatcherRefreshesOnCoreEvents(t *testing.T) {
 	waitForChange()
 	snapshot, err := client.Registry()
 	if err != nil || len(snapshot.Registrations) != 1 || snapshot.Registrations[0].ProviderID != "standard" ||
-		len(snapshot.Registrations[0].Tools) != 0 {
+		len(snapshot.Registrations[0].Operations) != 0 {
 		t.Fatalf("unexpected Registry: %+v, %v", snapshot, err)
 	}
 }
@@ -65,7 +64,7 @@ func TestRegistryWatcherRefreshesOnCoreEvents(t *testing.T) {
 func TestEscapeWhilePreparingDoesNotSendCall(t *testing.T) {
 	model := New(Actions{})
 	model.detailMode = detailCall
-	model.callTool = &wire.ToolDeclaration{ToolPath: "echo"}
+	model.callOperation = &wire.OperationDeclaration{Path: "echo"}
 	if _, command := model.requestCall(); command == nil {
 		t.Fatal("call did not start preparing")
 	}
@@ -76,56 +75,28 @@ func TestEscapeWhilePreparingDoesNotSendCall(t *testing.T) {
 	}
 
 	// 新しい入力画面を開いた後に、前の準備結果が届く。
-	model.openCall(detailRow{tool: model.callTool, registration: &wire.RegistryRegistration{RegistrationID: "registration"}})
+	model.openCall(detailRow{operation: model.callOperation, registration: &wire.RegistryRegistration{RegistrationID: "registration"}})
 	if _, command := model.Update(ticketMsg{generation: generation}); command != nil || model.callState != callInput {
 		t.Fatal("a late ticket should not submit a call")
 	}
 }
 
-func TestCloseKeepsCallUntilResult(t *testing.T) {
+func TestInvokeDisplaysTerminalExecution(t *testing.T) {
 	ticket := &CallTicket{ID: wire.Marshal("call-1")}
-	model := &Model{coreView: coreView{client: &Client{}}, detailMode: detailCall, callState: callActive, callTicket: ticket, callID: ticket.CallID()}
-	_, command := model.updateCallKey(tea.KeyPressMsg{Code: tea.KeyEscape})
-	if command == nil || model.callState != callClosing || model.callID != ticket.CallID() || !strings.Contains(model.statusMsg, "sending close") {
-		t.Fatal("close should preserve the active call while waiting for its result")
-	}
-	model.onEvent(Event{Kind: EventResult, CallID: ticket.CallID(), Result: json.RawMessage(`"closed"`)})
-	model.Update(callCloseSentMsg{ticket: ticket})
-	if model.callState != callFinished || model.statusMsg != "" || !strings.Contains(strings.Join(model.callLines, " "), "closed") {
-		t.Fatal("terminal result was not displayed")
-	}
-}
-
-// 接続の張り直しで同じcallIdが回ってきても、旧接続からの遅延通知を
-// 新しいcallの結果として表示しない。
-func TestEventFromPreviousConnectionIsIgnored(t *testing.T) {
-	previous, current := &rpc.Connection{}, &rpc.Connection{}
-	ticket := &CallTicket{connection: current, ID: wire.Marshal("call-1")}
-	model := &Model{coreView: coreView{client: &Client{}}, detailMode: detailCall, callState: callActive, callTicket: ticket, callID: ticket.CallID()}
-	model.onEvent(Event{Kind: EventResult, connection: previous, CallID: ticket.CallID(), Result: json.RawMessage(`"stale"`)})
-	if model.callState != callActive || len(model.callLines) != 0 {
-		t.Fatal("a stale connection's result changed the active call")
-	}
-	model.onEvent(Event{Kind: EventResult, connection: current, CallID: ticket.CallID(), Result: json.RawMessage(`"fresh"`)})
-	if model.callState != callFinished || !strings.Contains(strings.Join(model.callLines, " "), "fresh") {
-		t.Fatal("the current connection's result was not displayed")
-	}
-}
-
-func TestCloseReportsSendFailureWithoutEndingTheCall(t *testing.T) {
-	ticket := &CallTicket{ID: wire.Marshal("call-1")}
-	model := &Model{coreView: coreView{client: &Client{}}, detailMode: detailCall, callState: callActive, callTicket: ticket, callID: ticket.CallID()}
-	_, command := model.updateCallKey(tea.KeyPressMsg{Code: tea.KeyEscape})
-	if command == nil {
-		t.Fatal("Escape should schedule a close command")
-	}
-	model.Update(callCloseSentMsg{ticket: &CallTicket{ID: ticket.ID}})
-	if model.callState != callClosing || !strings.Contains(model.statusMsg, "sending close") {
-		t.Fatal("a send result from another connection should be ignored")
-	}
-	model.Update(command()) // このticketには接続がないので送信できない。
-	if model.callState != callActive || model.callID != ticket.CallID() || !strings.Contains(model.statusMsg, "close failed") {
-		t.Fatal("a failed close should be reported without ending the call")
+	client := &Client{}
+	model := &Model{coreView: coreView{client: client}, detailMode: detailCall, callState: callActive, callTicket: ticket, callID: ticket.CallID()}
+	model.Update(callDoneMsg{
+		client: client, callID: ticket.CallID(),
+		execution: &wire.Execution{
+			ID:        "execution/test",
+			Operation: "echo",
+			Status:    wire.ExecutionSucceeded,
+			Result:    json.RawMessage(`"hello"`),
+		},
+	})
+	lines := strings.Join(model.callLines, " ")
+	if model.callState != callFinished || !strings.Contains(lines, "succeeded") || !strings.Contains(lines, "hello") {
+		t.Fatalf("terminal execution was not displayed: %s", lines)
 	}
 }
 
@@ -177,7 +148,7 @@ func TestCoreFocusShowsOnlyTheFocusedCoresLinksAndTools(t *testing.T) {
 		client: firstPreview,
 		snapshot: wire.RegistrySnapshot{Registrations: []wire.RegistryRegistration{{
 			RegistrationID: "registration-first", RPCAvailable: true,
-			Tools: []wire.ToolDeclaration{{ToolPath: "tool-from-first"}},
+			Operations: []wire.OperationDeclaration{{Path: "tool-from-first"}},
 		}}},
 	}
 	model.Update(oldSnapshot)
@@ -205,7 +176,7 @@ func TestCoreFocusShowsOnlyTheFocusedCoresLinksAndTools(t *testing.T) {
 		client: model.client,
 		snapshot: wire.RegistrySnapshot{Registrations: []wire.RegistryRegistration{{
 			RegistrationID: "registration-second", RPCAvailable: true,
-			Tools: []wire.ToolDeclaration{{ToolPath: "tool-from-second"}},
+			Operations: []wire.OperationDeclaration{{Path: "tool-from-second"}},
 		}}},
 	})
 	if view := model.View().Content; !strings.Contains(view, "registration-second") || !strings.Contains(view, "tool-from-second") {
@@ -245,13 +216,13 @@ func TestStopConfirmationKeepsTheOriginallySelectedInstance(t *testing.T) {
 }
 
 func TestDetailSelectionFollowsRowAcrossRefresh(t *testing.T) {
-	message := func(tools ...wire.ToolDeclaration) coreViewMsg {
+	message := func(operations ...wire.OperationDeclaration) coreViewMsg {
 		return coreViewMsg{snapshot: wire.RegistrySnapshot{Registrations: []wire.RegistryRegistration{{
-			RegistrationID: "registration-1", ProviderID: "standard", RPCAvailable: true, Tools: tools,
+			RegistrationID: "registration-1", ProviderID: "standard", RPCAvailable: true, Operations: operations,
 		}}}}
 	}
-	first := wire.ToolDeclaration{ToolPath: "echo"}
-	second := wire.ToolDeclaration{ToolPath: "exec"}
+	first := wire.OperationDeclaration{Path: "echo"}
+	second := wire.OperationDeclaration{Path: "exec"}
 	model := New(Actions{})
 	model.Update(message(first, second))
 	model.detailSelection = 2
@@ -268,12 +239,12 @@ func TestDetailSelectionFollowsRowAcrossRefresh(t *testing.T) {
 
 func TestDetailRowsListOnlyCallableToolsUnderTheirRegistration(t *testing.T) {
 	rows := registrationRows([]wire.RegistryRegistration{
-		{RegistrationID: "connected", RPCAvailable: true, Tools: []wire.ToolDeclaration{{ToolPath: "echo"}}},
-		{RegistrationID: "disconnected", Tools: []wire.ToolDeclaration{{ToolPath: "echo"}}},
+		{RegistrationID: "connected", RPCAvailable: true, Operations: []wire.OperationDeclaration{{Path: "echo"}}},
+		{RegistrationID: "disconnected", Operations: []wire.OperationDeclaration{{Path: "echo"}}},
 	})
-	if len(rows) != 3 || rows[0].tool != nil || rows[1].identity() != (wire.CallTarget{
-		RegistrationID: "connected", ToolPath: "echo",
-	}) || rows[2].registration.RegistrationID != "disconnected" || rows[2].tool != nil {
+	if len(rows) != 3 || rows[0].operation != nil || rows[1].operationPath() != "echo" ||
+		rows[1].registration.RegistrationID != "connected" ||
+		rows[2].registration.RegistrationID != "disconnected" || rows[2].operation != nil {
 		t.Fatalf("unexpected row order: %+v", rows)
 	}
 }
