@@ -13,6 +13,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -35,11 +36,15 @@ type Server struct {
 	registry *registry.Registry
 	router   *router.Router
 	token    string
+
+	execMu   sync.Mutex
+	execSubs map[chan wire.OperationsEventParams]struct{}
 }
 
 func New(ctx context.Context, coreID, name, token, cacheDir string) *Server {
 	pluginRegistry := registry.New(coreID, cacheDir)
-	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry, execution.NewStore()), registry: pluginRegistry, token: token}
+	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry, execution.NewStore()), registry: pluginRegistry, token: token, execSubs: make(map[chan wire.OperationsEventParams]struct{})}
+	s.router.OnExecutionEvent = s.broadcastExecutionEvent
 	go pluginRegistry.Expire(ctx)
 	return s
 }
@@ -94,6 +99,8 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	stream := http.NewResponseController(w)
 	events, unsubscribe := s.registry.Subscribe()
 	defer unsubscribe()
+	execEvents, unsubscribeExec := s.subscribeExecutions()
+	defer unsubscribeExec()
 	heartbeat := time.NewTicker(15 * time.Second)
 	defer heartbeat.Stop()
 	for {
@@ -110,10 +117,44 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			frame = fmt.Sprintf("id: %s\nevent: %s\ndata: {\"revision\":%q}\n\n", event.Revision, event.Name, event.Revision)
+		case params := <-execEvents:
+			// execution eventはidを持たない。再開はRegistry系列だけに意味を持ち、
+			// execution系列はlive限定（contracts/00004）。
+			data, err := json.Marshal(params)
+			if err != nil {
+				continue
+			}
+			frame = fmt.Sprintf("event: executions.event\ndata: %s\n\n", data)
 		}
 		_ = stream.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if _, err := io.WriteString(w, frame); err != nil || stream.Flush() != nil {
 			return
+		}
+	}
+}
+
+// subscribeExecutions はSSE clientごとのexecution event受信口を作る。
+// バッファを超えた分は落とす。outputなどの途中経過はrecordに残らず
+// live限定なので、遅いclientへの追いつき配信はしない（contracts/00004）。
+func (s *Server) subscribeExecutions() (chan wire.OperationsEventParams, func()) {
+	ch := make(chan wire.OperationsEventParams, 256)
+	s.execMu.Lock()
+	s.execSubs[ch] = struct{}{}
+	s.execMu.Unlock()
+	return ch, func() {
+		s.execMu.Lock()
+		delete(s.execSubs, ch)
+		s.execMu.Unlock()
+	}
+}
+
+func (s *Server) broadcastExecutionEvent(params wire.OperationsEventParams) {
+	s.execMu.Lock()
+	defer s.execMu.Unlock()
+	for ch := range s.execSubs {
+		select {
+		case ch <- params:
+		default:
 		}
 	}
 }
@@ -154,6 +195,8 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 			return s.router.HandleExecutionsGet(connection, message)
 		case wire.MethodExecutionsList:
 			return s.router.HandleExecutionsList(connection, message)
+		case wire.MethodExecutionsCancel:
+			return s.router.HandleExecutionsCancel(connection, message)
 		}
 		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
 	}

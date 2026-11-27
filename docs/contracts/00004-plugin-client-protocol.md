@@ -206,7 +206,12 @@ SnapshotはPanelの宣言を登録ごとの `panels` に含める。登録ごと
 
 ## SSE: Registry変更通知と復旧
 
-SSEはRegistry通知専用とし、CommandやExecution出力を載せない。`event` は `registry.reset`、`provider.added`、`provider.changed`（配送可否・ready状態の変化）、`provider.removed`、`operations.changed`、`panels.changed`（UIの登録・置換・解除）。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
+SSEはCore状態の観察feedであり、2つの系列を同じstreamに流す。
+
+1. **Registry通知:** `event` は `registry.reset`、`provider.added`、`provider.changed`（配送可否・ready状態の変化）、`provider.removed`、`operations.changed`、`panels.changed`（UIの登録・置換・解除）。`data` は `{"revision":"..."}` で、Snapshotの版と同じCore世代に属する。クライアントはRevisionの連番を仮定しない。
+2. **Execution event:** `event` は `executions.event`。`data` はcallerへpushするものと同じparams形（`executionId`、`seq`、`type`、`payload`）で、event内容を自己完結で持つ。running executionの進行表示やembedのstreaming描画はこれを使う。
+
+`id` はRegistry系列にだけ付く。Execution eventは再開に参加しないため `id` を持たず、live限定とする。再開保証は系列ごとに異なる。Registry通知はRevisionに対応するSnapshotを取り直せば状態を復元できる。Execution eventは再接続時に `executions.list` で現在状態を取り直し、再接続後のlive eventだけを追う。進行中に失われたoutputなどの途中経過は、Executionの意味論上も記録されないものとして扱う。
 
 ```text
 id: revision-7f
@@ -306,8 +311,11 @@ caller向けのRPCは次の通り。
 | `executions.get` | `{"executionId":"…"}` でExecutionを取得する。 |
 | `executions.list` | 現在のCore世代で参照可能なExecutionを一覧する。filterは `status`、`project`、`parentExecution` を候補とする。 |
 | `executions.cancel` | `{"executionId":"…"}` でcancelを要求する。Responseは要求受理時点のExecution。 |
-| `executions.subscribe` | `{"executionId":"…"}` またはfilterでExecution eventを購読する。Responseは `{"subscriptionId":"…"}`。 |
-| `executions.unsubscribe` | `{"subscriptionId":"…"}` で購読を止める。 |
+
+Execution eventの配送に `executions.subscribe` / `unsubscribe` は設けない。購読という概念を持ち込まず、需要ごとに既存の経路へ載せる。
+
+- **呼んだ本人:** Coreはinvocationを受けたWS接続へ、そのExecutionの `executions.event` を終端まで自動でpushする。callerは無視してもよい。invokeの意味論に「自分が呼んだものの経過が届く」を含める。
+- **第三者の観察者（UIなど）:** SSE feedへexecution eventを流す（`GET /v1/events` 節を参照）。観察はSSE、双方向が必要なものだけWSという分業である。
 
 cancelは協調的で、配送済みの副作用を巻き戻さない。既にterminalなExecutionには作用しない。Coreはcancel要求をproviderへ転送し、終端を待つ。期限までに終端が得られなければ、Core側の状態を `failed` へ進めてよい。この場合のerror kindの扱いは未確定とする。
 
@@ -318,7 +326,6 @@ Execution eventは `executions.event` Notificationで送る。`seq` はExecution
   "jsonrpc": "2.0",
   "method": "executions.event",
   "params": {
-    "subscriptionId": "subscription/1",
     "executionId": "execution/123",
     "seq": 2,
     "type": "output",
@@ -327,7 +334,7 @@ Execution eventは `executions.event` Notificationで送る。`seq` はExecution
 }
 ```
 
-`type` は `status` / `progress` / `output` / `presentation` / `result` / `error` を初期値とする。`payload` の意味はtypeごとに決める。`status` は状態遷移、`progress` と `output` はoperationごとの進行・出力、`presentation` は表示用データのincrementalな更新、`result` / `error` は終端結果を表す。`subscriptionId` はCoreから購読者へ送るeventにだけ含める。購読開始後のeventだけを保証し、過去のevent再送や途中再開は初期contractでは保証しない。現在状態は `executions.get` で取り直す。
+`type` は `status` / `progress` / `output` / `presentation` / `result` / `error` を初期値とする。`payload` の意味はtypeごとに決める。`status` は状態遷移、`progress` と `output` はoperationごとの進行・出力、`presentation` は表示用データのincrementalな更新、`result` / `error` は終端結果を表す。eventの再送や途中再開は保証しない。現在状態は `executions.get` で取り直す。
 
 ### Providerへの配送
 
@@ -361,7 +368,7 @@ ProviderのResponseは初期状態を返す。
 
 Providerがoperationを受理できない場合はJSON-RPC errorを返してよい。このerrorはenvelopeや受理自体の失敗を表す。operation内部の業務的な失敗は、受理後のterminal状態 `failed` とExecution errorとして表す。
 
-runningの場合、Providerは同じ `executionId` を持つ `operations.event` Notificationで進行・出力・終端をCoreへ送る。paramsは `executionId`、`seq`、`type`、`payload` を持ち、`type` と `payload` の意味は購読者向けの `executions.event` と同じである。`seq` はExecutionごとに1から単調増加し、初回Responseはseqに数えない。`subscriptionId` は含めない。Responseでterminal状態を返した場合は、追加のterminal eventを送らなくてよい。Coreは認証済み登録とoperation declarationを照合し、Core側のExecutionへ反映する。Providerがterminal eventを送らず切断・失効した場合、CoreはExecutionを `failed`（`error.kind: providerDisconnected`）へ進める。
+runningの場合、Providerは同じ `executionId` を持つ `operations.event` Notificationで進行・出力・終端をCoreへ送る。paramsは `executionId`、`seq`、`type`、`payload` を持ち、`type` と `payload` の意味は購読者向けの `executions.event` と同じである。`seq` はExecutionごとに1から単調増加し、初回Responseはseqに数えない。Responseでterminal状態を返した場合は、追加のterminal eventを送らなくてよい。Coreは認証済み登録とoperation declarationを照合し、Core側のExecutionへ反映する。Providerがterminal eventを送らず切断・失効した場合、CoreはExecutionを `failed`（`error.kind: providerDisconnected`）へ進める。
 
 cancelはCoreからProviderへ `executions.cancel` Notificationで送る。`executionId` を含める。Providerは可能な範囲で停止し、最後にterminal eventを返す。cancelを無視した場合でも、Coreは無制限には待たない。
 
@@ -378,7 +385,7 @@ sequenceDiagram
     B-->>C: Response id=17（runningまたはterminal）
     B-->>C: operations.event（runningの場合）
     C-->>A: Response id=42（Execution）
-    C-->>A: executions.event（購読中の場合）
+    C-->>A: executions.event（invokeした接続へ自動push）
 ```
 
 ### RPCエラー

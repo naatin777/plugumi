@@ -15,7 +15,7 @@ mod shell;
 
 use serde_json::{json, Value};
 
-use crate::client::execution::Execution;
+use crate::client::execution::{ActiveExecutions, Execution};
 use crate::client::rpc::Connection;
 use crate::client::wire::{self, ForwardInvokeParams};
 
@@ -58,9 +58,15 @@ pub fn declarations() -> Vec<Value> {
 }
 
 /// 着信operations.invokeを捌く。
-pub fn dispatch(connection: Connection, req_id: Value, params: ForwardInvokeParams) {
+pub fn dispatch(
+    active: ActiveExecutions,
+    connection: Connection,
+    req_id: Value,
+    params: ForwardInvokeParams,
+) {
     let operation = params.operation.clone();
     let execution = Execution::new(
+        active,
         connection.clone(),
         params.execution_id,
         params.operation,

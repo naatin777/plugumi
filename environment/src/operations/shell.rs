@@ -31,6 +31,8 @@ pub async fn handle(mut execution: Execution) {
     let mut out_open = true;
     let mut err_open = true;
     let mut status = None;
+    let mut cancel = execution.cancel_watch();
+    let mut closed = execution.close_watch();
     // シェルが終了しても、両方の出力を読み切るまでは切断を監視する。
     while status.is_none() || out_open || err_open {
         tokio::select! {
@@ -42,7 +44,14 @@ pub async fn handle(mut execution: Execution) {
                 Ok(Some(line)) => execution.progress(json!({"stream": "stderr", "line": line})),
                 _ => err_open = false,
             },
-            _ = execution.disconnected() => {
+            _ = cancel.changed() => {
+                if status.is_none() {
+                    let _ = child.kill().await;
+                }
+                execution.cancel();
+                return;
+            },
+            _ = closed.changed() => {
                 if status.is_none() {
                     let _ = child.kill().await;
                 }
@@ -78,6 +87,7 @@ mod tests {
         // 親シェルが回収された後も出力パイプを開いたままにする。
         let command = r#"parent=$$; (while kill -0 "$parent" 2>/dev/null; do sleep 0.02; done; printf 'shell exited\n'; sleep 3) &"#;
         let execution = Execution::new(
+            crate::client::execution::ActiveExecutions::default(),
             connection.clone(),
             "exec-test".into(),
             "shell/exec".into(),

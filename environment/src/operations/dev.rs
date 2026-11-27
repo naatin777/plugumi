@@ -13,6 +13,8 @@ pub async fn ticks(mut execution: Execution) {
         return;
     }
     let count = execution.input["count"].as_u64();
+    let mut cancel = execution.cancel_watch();
+    let mut closed = execution.close_watch();
     let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
     let mut seq = 0u64;
     loop {
@@ -27,7 +29,11 @@ pub async fn ticks(mut execution: Execution) {
                     }
                 }
             }
-            _ = execution.disconnected() => {
+            _ = cancel.changed() => {
+                execution.cancel();
+                return;
+            }
+            _ = closed.changed() => {
                 // 接続が切れたらCore側でproviderDisconnectedとしてfailedになる。
                 // 送っても届かないので終端eventは送らず終える。
                 return;

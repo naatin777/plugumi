@@ -16,6 +16,7 @@ use tokio::time::{sleep, timeout};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Error as WebSocketError;
 
+use super::execution::ActiveExecutions;
 use super::rpc::Connection;
 use super::wire::{self, ForwardInvokeParams, Incoming};
 use crate::operations;
@@ -203,7 +204,11 @@ impl CoreClient {
                 WebSocketError::Http(response) => Failure::http("/v1/rpc", response.status()),
                 other => Failure::retry(other),
             })?;
-        let (connection, pump) = Connection::attach(socket, on_message);
+        let active = ActiveExecutions::default();
+        let handler_active = active.clone();
+        let (connection, pump) = Connection::attach(socket, move |message, connection| {
+            on_message(handler_active.clone(), message, connection);
+        });
         crate::log::logln!(
             "[environment] connected to http://{} ({})",
             self.authority,
@@ -289,34 +294,48 @@ impl CoreClient {
     }
 }
 
-fn on_message(message: Incoming, connection: Connection) {
-    if message.method.as_deref() != Some(wire::METHOD_OPERATIONS_INVOKE) {
-        if let Some(id) = message.id {
-            connection.respond(
-                id,
-                Err(wire::RpcError {
-                    code: -32601,
-                    message: "method not found".into(),
-                    data: None,
-                }),
-            );
+fn on_message(active: ActiveExecutions, message: Incoming, connection: Connection) {
+    match message.method.as_deref() {
+        Some(wire::METHOD_OPERATIONS_INVOKE) => {
+            let Some(id) = message.id else { return };
+            let params: Option<ForwardInvokeParams> = message
+                .params
+                .and_then(|params| serde_json::from_value(params).ok());
+            match params {
+                Some(params) => operations::dispatch(active, connection, id, params),
+                None => connection.respond(
+                    id,
+                    Err(wire::RpcError {
+                        code: -32602,
+                        message: "invalid params".into(),
+                        data: None,
+                    }),
+                ),
+            }
         }
-        return;
-    }
-    let Some(id) = message.id else { return };
-    let params: Option<ForwardInvokeParams> = message
-        .params
-        .and_then(|params| serde_json::from_value(params).ok());
-    match params {
-        Some(params) => operations::dispatch(connection, id, params),
-        None => connection.respond(
-            id,
-            Err(wire::RpcError {
-                code: -32602,
-                message: "invalid params".into(),
-                data: None,
-            }),
-        ),
+        // cancelはnotification。executionIdを照合してrunning実行へ配送する。
+        Some(wire::METHOD_EXECUTIONS_CANCEL) => {
+            if let Some(id) = message
+                .params
+                .as_ref()
+                .and_then(|params| params.get("executionId"))
+                .and_then(|id| id.as_str())
+            {
+                active.cancel(id);
+            }
+        }
+        _ => {
+            if let Some(id) = message.id {
+                connection.respond(
+                    id,
+                    Err(wire::RpcError {
+                        code: -32601,
+                        message: "method not found".into(),
+                        data: None,
+                    }),
+                );
+            }
+        }
     }
 }
 

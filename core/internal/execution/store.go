@@ -104,7 +104,11 @@ func (s *Store) ApplyEvent(id, eventType string, payload []byte) (*wire.Executio
 		execution.Status = wire.ExecutionFailed
 		var executionError wire.ExecutionError
 		if err := wire.Unmarshal(payload, &executionError); err == nil && executionError.Code != "" {
-			if executionError.Kind == "" {
+			// cancel要求で終わった実行はcancelledとする。codeの予約はcontractの範囲。
+			if executionError.Code == "cancelled" {
+				execution.Status = wire.ExecutionCancelled
+			} else if executionError.Kind == "" {
+				// cancelによる中断は失敗ではないのでkindを空にする。
 				executionError.Kind = wire.ErrorKindExecutionFailed
 			}
 			execution.Error = &executionError

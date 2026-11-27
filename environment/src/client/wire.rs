@@ -60,6 +60,8 @@ impl Incoming {
 // Plugin → Coreはoperations.eventの通知（contracts/00004）。
 pub const METHOD_OPERATIONS_INVOKE: &str = "operations.invoke";
 pub const METHOD_OPERATIONS_EVENT: &str = "operations.event";
+// Core → Plugin方向。running実行の中断要求（contracts/00004）。
+pub const METHOD_EXECUTIONS_CANCEL: &str = "executions.cancel";
 
 /// PluginがWS接続上で受け取るoperations.invokeのparams。
 /// Go側の wire.ForwardInvokeParams と同じ形。

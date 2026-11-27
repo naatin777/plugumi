@@ -19,12 +19,19 @@ type Router struct {
 	registry   *registry.Registry
 	executions *execution.Store
 
+	// OnExecutionEvent はexecution event（provider由来・Core合成の両方）が
+	// 発生するたびに呼ばれるhook。SSE feedへのfan-outに使う。
+	OnExecutionEvent func(params wire.OperationsEventParams)
+
 	mu sync.Mutex
 	// inflight[connectionID] = そのconnectionのproviderが処理中のexecution ID集合。
 	// 切断時にproviderDisconnectedでfailedへ進めるために使う。
 	inflight map[string]map[string]bool
-	// executionOwner[executionID] = connectionID
-	executionOwner map[string]string
+	// executionOwner[executionID] = 配送先providerのconnection。cancel転送に使う。
+	executionOwner map[string]*rpc.Connection
+	// invokers[executionID] = そのexecutionをinvokeしたcallerのconnection。
+	// executions.eventの自動push先（contracts/00004「呼んだ本人」）。
+	invokers map[string]*rpc.Connection
 }
 
 func New(reg *registry.Registry, executions *execution.Store) *Router {
@@ -32,7 +39,8 @@ func New(reg *registry.Registry, executions *execution.Store) *Router {
 		registry:       reg,
 		executions:     executions,
 		inflight:       make(map[string]map[string]bool),
-		executionOwner: make(map[string]string),
+		executionOwner: make(map[string]*rpc.Connection),
+		invokers:       make(map[string]*rpc.Connection),
 	}
 }
 
@@ -64,6 +72,9 @@ func (r *Router) HandleInvoke(caller *rpc.Connection, message *wire.Incoming) (j
 	}
 
 	exec := r.executions.Create(params.Operation, params.Input, params.Context)
+	r.mu.Lock()
+	r.invokers[exec.ID] = caller
+	r.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -131,7 +142,7 @@ func (r *Router) trackInflight(connection *rpc.Connection, executionID string) {
 		r.inflight[connection.ID] = set
 	}
 	set[executionID] = true
-	r.executionOwner[executionID] = connection.ID
+	r.executionOwner[executionID] = connection
 }
 
 func (r *Router) untrackInflight(connection *rpc.Connection, executionID string) {
@@ -157,9 +168,31 @@ func (r *Router) HandleOperationsEvent(provider *rpc.Connection, message *wire.I
 	if err != nil {
 		return
 	}
+	r.fanout(params)
 	if isTerminal(updated.Status) {
 		r.untrackInflight(provider, params.ExecutionID)
+		r.dropInvoker(params.ExecutionID)
 	}
+}
+
+// fanout はexecution eventをinvokerの接続とSSE hookへ配信する。
+func (r *Router) fanout(params wire.OperationsEventParams) {
+	r.mu.Lock()
+	invoker := r.invokers[params.ExecutionID]
+	r.mu.Unlock()
+	if invoker != nil {
+		// 書き込み失敗（切断済み）は気にしない。次の接続でgetすれば取り直せる。
+		_ = invoker.Notify(wire.MethodExecutionsEvent, params)
+	}
+	if r.OnExecutionEvent != nil {
+		r.OnExecutionEvent(params)
+	}
+}
+
+func (r *Router) dropInvoker(executionID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.invokers, executionID)
 }
 
 // HandleExecutionsGet はcaller→Coreのexecutions.getを捌く。
@@ -201,6 +234,7 @@ func (r *Router) DispatchNotification(c *rpc.Connection, message *wire.Incoming)
 
 // DropConnection はconnection切断時の清算。in-flightのExecutionを
 // providerDisconnectedでfailedへ進める（contracts/00004）。
+// caller側の接続ならinvoker登録を外す。
 func (r *Router) DropConnection(c *rpc.Connection) {
 	r.mu.Lock()
 	ids := make([]string, 0)
@@ -211,6 +245,57 @@ func (r *Router) DropConnection(c *rpc.Connection) {
 		}
 		delete(r.inflight, c.ID)
 	}
+	// callerとして切断した場合、それがinvokerのexecutionの登録を外す。
+	for id, invoker := range r.invokers {
+		if invoker == c {
+			delete(r.invokers, id)
+		}
+	}
 	r.mu.Unlock()
 	r.executions.FailDisconnected(ids)
+	// provider切断でfailedへ進んだexecutionへは、終端を知る術がないと
+	// callerがrunningのまま待ち続けるので、Core合成のerror eventをfanoutする。
+	for _, id := range ids {
+		seq := r.executions.NextSeq(id)
+		params := wire.OperationsEventParams{
+			ExecutionID: id,
+			Seq:         seq,
+			Type:        "error",
+			Payload: wire.Marshal(wire.ExecutionError{
+				Code:    "provider_disconnected",
+				Message: "provider disconnected",
+				Kind:    wire.ErrorKindProviderDisconnected,
+			}),
+		}
+		r.fanout(params)
+		r.dropInvoker(id)
+	}
+}
+
+// HandleExecutionsCancel はcaller→Coreのexecutions.cancelを捌く。
+// providerへcancel notificationを転送し、受理時点のExecutionを返す。
+// 終端はproviderのterminal eventを待つ（contracts/00004）。
+func (r *Router) HandleExecutionsCancel(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+	var params struct {
+		ExecutionID string `json:"executionId"`
+	}
+	if err := wire.Unmarshal(message.Params, &params); err != nil || params.ExecutionID == "" {
+		return nil, &wire.RPCError{Code: -32602, Message: "invalid params"}
+	}
+	exec, err := r.executions.Get(params.ExecutionID)
+	if err != nil {
+		return nil, &wire.RPCError{Code: -32005, Message: "unknown execution"}
+	}
+	if isTerminal(exec.Status) {
+		return wire.Marshal(exec), nil
+	}
+	r.mu.Lock()
+	owner := r.executionOwner[params.ExecutionID]
+	r.mu.Unlock()
+	if owner != nil {
+		_ = owner.Notify(wire.MethodExecutionsCancel, map[string]string{
+			"executionId": params.ExecutionID,
+		})
+	}
+	return wire.Marshal(exec), nil
 }
