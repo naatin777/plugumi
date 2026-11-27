@@ -27,11 +27,13 @@ relations:
 
 **方針:** Coreがサーバー、ProviderとUI Appはクライアント。REST・SSE・WSを同じCoreのHTTP入口で提供し、Providerへの着信はProviderが開始したWSで配送する。operation invocationとPanel専用APIは分ける。
 
-この版は[Decision 00024](../decisions/00024-operation-invocation-context-and-execution.md)に従い、callerが `registrationId + toolPath` を指定する形を廃止する。callerはsemanticなoperation pathとoperation inputを指定し、provider選択とscope解決はCoreが行う。`registrationId` はCore内部の登録・配送管理IDであり、callerが指定する宛先ではない。
+この版は[Decision 00024](../decisions/00024-operation-invocation-context-and-execution.md)に従い、callerが `registrationId + toolPath` を指定する形を廃止する。callerはsemanticなoperation pathとoperation inputを指定し、provider選択と所属解決はCoreが行う。`registrationId` はCore内部の登録・配送管理IDであり、callerが指定する宛先ではない。
 
 **移行:** 開発中の旧 `/v1/` と互換を保たない。旧[接続 00001](00001-core-plugin-transport.md)、[非同期チャネル 00002](00002-async-channel.md)、[Tool呼び出し 00003](00003-tool-call.md)、および旧revisionの `tools.call` / `PUT /tools` はこのcontractの正本ではない。Core・Provider・UI Appを同時に更新する。未対応の版は `426 protocol_mismatch`、廃止された旧パスは `404 unknown_endpoint`。旧方向へのフォールバックはない。
 
-**実装範囲:** 現行実装は旧revisionの `registrationId + toolPath` と `sync` / `async` Tool modelに基づく。この文書は改訂後のcontract案であり、実装は順次移行する。認証は引き続きloopback上のネイティブクライアントを前提とし、`PLUGUMI_TOKEN` をCoreに設定した場合は全操作に同じBearer資格情報が必要で、所有主体別の権限はない。ブラウザ、運用向け認可、動的なMethod Schema検証、Executionの永続化、credit型Streamingは草案または未実装のまま。
+**実装範囲:** 現行実装は旧revisionの `registrationId + toolPath` と `sync` / `async` Tool modelに基づく。この文書は改訂後のcontract案であり、実装は順次移行する。
+
+**このrevisionで変わるもの:** `providerKind` enumの廃止（[Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md)）、`scope` fieldの廃止と所属environment / sessionへの置き換え、Execution status `unknown` の廃止（provider切断は `failed` + error kindで表す）、operation宣言への `presentationSchema` / `embed` の追加（[Design 00010](../designs/00010-panel-embed-widget-view-types.md)）。認証は引き続きloopback上のネイティブクライアントを前提とし、`PLUGUMI_TOKEN` をCoreに設定した場合は全操作に同じBearer資格情報が必要で、所有主体別の権限はない。ブラウザ、運用向け認可、動的なMethod Schema検証、Executionの永続化、credit型Streamingは草案または未実装のまま。
 
 HTTP/1.1でREST・SSEとWS upgradeを利用できることを基準とする。HTTPSではGo `net/http` のネゴシエーションでREST・SSEにHTTP/2を使える。WSがHTTP/2で動くことには依存しない。
 
@@ -41,7 +43,6 @@ HTTP/1.1でREST・SSEとWS upgradeを利用できることを基準とする。H
 |---|---|
 | `coreId` | Coreが起動ごとに発行する不透明な文字列。Snapshot、登録、Executionの世代を識別する。Core URLや接続先の認証を代替しない。 |
 | `providerId`, `instanceId` | Providerが宣言する実装名と、実行プロセスごとに発行する不透明なID。権限の証明にはならない。`instanceId` の登録時の一意性は認証主体とCoreの世代の内側で扱う。 |
-| `providerKind` | 登録者の種別。`plugin`（installable package、省略時の既定）、`environment`（環境operationのProvider）、`host`（Web app / Electron appとして動くUI App）。登録時にだけ指定し、あとから変更しない。 |
 | `registrationId` | Coreが発行する登録ID。Coreの世代内で一意。Lease・WS接続・内部配送を結び付ける。callerはoperation routingの宛先としてこれを指定しない。 |
 | operation path | Providerが宣言するsemanticな操作名。`filesystem/list` のようなslash区切りpath。CLI・MCP・HTTP API・AI tool catalogのcanonical名。 |
 | `executionId` | Coreがoperation invocationごとに発行するExecution ID。接続やUI sessionから独立し、Execution保持期間内は状態・結果・cancelの参照に使う。 |
@@ -60,7 +61,7 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 
 | 操作 | 意味 |
 |---|---|
-| `POST /v1/registrations` | `providerId` と `instanceId`、任意で `providerKind` と `scope` を指定して登録。新規は `201`。同じ実装・インスタンスの存続中の登録には `200` を返す。登録ID・operation宣言・WS接続状態は変えず、受理時点から `leaseSeconds` 分の有効期限を設定する。実装名が異なれば `409 registration_conflict`。 |
+| `POST /v1/registrations` | `providerId` と `instanceId`、任意で所属（`environment` または `hostSession`）を指定して登録。新規は `201`。同じ実装・インスタンスの存続中の登録には `200` を返す。登録ID・operation宣言・WS接続状態は変えず、受理時点から `leaseSeconds` 分の有効期限を設定する。実装名が異なれば `409 registration_conflict`。 |
 | `POST /v1/registrations/{registrationId}/renew` | 失効前に明示更新。登録操作と同じ型で期限を返す。 |
 | `DELETE /v1/registrations/{registrationId}` | 登録を取り消す。配送を止め、宣言を公開対象から外す。 |
 | `PUT /v1/registrations/{registrationId}/operations` | operation宣言を全置換。空配列で全解除。pathの重複があれば全体を拒否。同じ内容の再送は変更通知を発生させない。 |
@@ -73,18 +74,20 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 
 Pluginの場合、`POST /v1/registrations`、`PUT /v1/registrations/{registrationId}/operations`、`PUT /v1/registrations/{registrationId}/ui` などでPlugin runtimeが登録時に送る宣言情報の論理集合をPlugin manifestと呼ぶ。Plugin manifestはファイルではなく、Coreへの登録時に送られるwire上の宣言情報である。wire上は複数のREST操作に分かれるため、単一のmanifest endpointやmanifest fileを前提にしない。
 
-### Provider scope
+### Providerの所属environment / session
 
-`scope` はprovider sessionが属する実行場所・提供範囲を表す登録時の属性である。operationごとの `targetAxes` ではない。初期のkeyは次の通り。
+provider sessionは登録時に、自分がどのenvironmentまたはhost sessionに属するかを宣言できる。これはroutingの材料と利用可能期間の導出に使う事実であり、独立した「scope」概念ではない（[Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md)のscope廃止を参照）。
 
 | key | 意味 |
 |---|---|
 | `environment` | Environment Providerが担当するenvironment ref。例: `env/local`。 |
 | `hostSession` | UI Appが登録するoperationが属するhost session ref。例: `host-session/electron-1`。 |
 
-Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal / service scopeとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
+両方を同時に指定してはならない。どちらも持たないproviderはglobal / serviceとして扱う。service accountやbrowser profileとの対応はprovider宣言へ直接書かず、Coreのbinding / credential resolutionで扱う。
 
-`providerKind` enum自体を廃止し、scope / 利用可能期間を個別metadataとして登録する方向が検討されている（[Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md)）。この版ではwire field / enumの `providerKind`、`hostSession`、`host-session` をまだ変えない。変更する場合はwire compatibilityではなくcontract revisionを切るタイミングで行う。
+`providerKind` enumは廃止する。種別は別々の属性を1つに束ねたものだったため、必要な情報は個別に扱う。installable pluginとの紐付けはplugin管理側が内部で持ち、process管理責任（Core管理 / 外部自生）は接続・起動の経路から分かるため、wire上の種別は要らない。
+
+利用可能期間は独立したmetadataではなく所属から導出する。`host-session/electron-1` に属するoperationはそのUI App sessionが終われば使えず、`env/local` に属するoperationはそのenvironmentが生きている間使える。
 
 ### operation宣言
 
@@ -99,15 +102,24 @@ Pluginはscopeを持たなくてよい。scopeを持たないproviderはglobal /
       "inputSchema": {},
       "acceptSchema": {},
       "streamSchema": {},
-      "resultSchema": {}
+      "resultSchema": {},
+      "presentationSchema": {},
+      "embed": {
+        "component": "DiffViewer",
+        "catalog": "…"
+      }
     }
   ]
 }
 ```
 
-`path` は登録内で一意とする。空のsegment、先頭・末尾の `/`、`/` 以外の空白、`.` / `..` segmentを拒否する。`kind`（`sync` / `async`）、`targetAxes`、`lifetime` は宣言しない。実行時間や途中出力の有無はoperation宣言では固定せず、実際のExecutionが状態を持つ。providerの寿命はprovider sessionと `providerKind` / `scope` からCoreが導出する。
+`path` は登録内で一意とする。空のsegment、先頭・末尾の `/`、`/` 以外の空白、`.` / `..` segmentを拒否する。`kind`（`sync` / `async`）、`targetAxes`、`lifetime` は宣言しない。実行時間や途中出力の有無はoperation宣言では固定せず、実際のExecutionが状態を持つ。providerの寿命はprovider sessionとその所属environment / sessionからCoreが導出する。
 
-`inputSchema` / `acceptSchema` / `streamSchema` / `resultSchema` はJSON Schemaとする。`outputSchema` という曖昧な名前は使わない。CoreがSchema検証を行う場合は登録時にSchema自体を検査し、invocation時に外部URLへ参照を取りに行かない。現行実装はCoreによる厳密なSchema検証を保証しない。Schemaの検証・型生成は後続の検証対象である。
+`inputSchema` / `acceptSchema` / `streamSchema` / `resultSchema` / `presentationSchema` はJSON Schemaとする。`outputSchema` という曖昧な名前は使わない。
+
+operationのoutputは用途ごとに分ける（[Design 00010](../designs/00010-panel-embed-widget-view-types.md)）。`result` はAIやcallerへの判断材料でcompactな構造化データ、`presentation` はembedやsurfaceへ表示するためのデータで、実行中はstreamで随時流し込まれ、component treeではなくdata modelへの入力となる。`presentationSchema` は省略でき、省略時はpresentation出力を持たない。
+
+`embed` はtool紐付けの自動表示の宣言で省略できる。呼び出し時に自動で表示するembed componentを指定する。`embed` を持たないoperationの呼び出しは汎用fallback表示でよい。`embed` の具体的な形式（component参照の解決方法、catalog指定、A2UI templateをinlineで持てるか）は検討中であり、この版では未確定とする。CoreがSchema検証を行う場合は登録時にSchema自体を検査し、invocation時に外部URLへ参照を取りに行かない。現行実装はCoreによる厳密なSchema検証を保証しない。Schemaの検証・型生成は後続の検証対象である。
 
 UIファイルとPanelの宣言は後節で定める。Signalingのワイヤーは拡張候補で、メディア本体はこのAPIのデータではない。
 
@@ -213,11 +225,11 @@ Coreは次の順で配送先を解決する。
 5. global defaultを使う
 6. それでも複数またはゼロなら ambiguous / unavailable errorを返す
 
-複数のresource refが互いに矛盾する所属先を示す場合も、Coreは黙って調停せず `context_ambiguous` とする。Coreは候補を暗黙に選び直さない。同じscopeで同じoperationを複数providerが提供する場合は `context_ambiguous` とする。providerごとに意味や挙動が違うなら、同じoperation名で宣言してはならない。
+複数のresource refが互いに矛盾する所属先を示す場合も、Coreは黙って調停せず `context_ambiguous` とする。Coreは候補を暗黙に選び直さない。同じ所属（environment / session）で同じoperationを複数providerが提供する場合は `context_ambiguous` とする。providerごとに意味や挙動が違うなら、同じoperation名で宣言してはならない。
 
 ### operation catalogとAI tool schema
 
-callerは `operations.list` で、指定または接続から導出したcontextで利用できるoperation catalogを取得できる。catalog entryは `path`、`description`、`inputSchema`、`acceptSchema`、`streamSchema`、`resultSchema` を持ち、`registrationId` やprovider固有の宛先を含めない。provider寿命などのmetadataはCoreが導出した値として含めてよい。
+callerは `operations.list` で、指定または接続から導出したcontextで利用できるoperation catalogを取得できる。catalog entryは `path`、`description`、`inputSchema`、`acceptSchema`、`streamSchema`、`resultSchema`、`presentationSchema`、embed宣言を持ち、`registrationId` やprovider固有の宛先を含めない。provider寿命などのmetadataはCoreが導出した値として含めてよい。
 
 ```json
 {"jsonrpc":"2.0","id":"7","method":"operations.list","params":{"context":{"project":"project/plugumi"}}}
@@ -249,17 +261,18 @@ Executionは少なくとも次を持つ。
 |---|---|
 | `id` | Coreが発行するExecution ID。 |
 | `operation` | 呼ばれたoperation path。 |
-| `status` | `queued` / `running` / `succeeded` / `failed` / `cancelled` / `unknown`。通常のterminalは `succeeded` / `failed` / `cancelled`。`unknown` はCoreが結果を追跡できなくなった終端状態で、外部の実行が停止したことを意味しない。 |
+| `status` | `queued` / `running` / `succeeded` / `failed` / `cancelled`。terminalは `succeeded` / `failed` / `cancelled`。`unknown` は持たない。providerとの接続が切れて追跡不能になった場合も `failed` とし、実行そのものの失敗とはerror kindで区別する（下記）。 |
 | `createdAt` / `updatedAt` | Coreが記録した時刻。 |
 | `context` | Coreが解決した実行文脈。少なくともprojectなど、解決に使った公開可能なrefを含める。 |
 | `input` | 保存する場合はoperation input。秘密や大きな値をそのまま保存しない方針は別途定める。 |
 | `accept` | 受理・開始時に返るoperation固有のデータ。session ref、page ref、購読受理結果など。`executionId` などの共通fieldは含めない。 |
 | `progress` | 進行中の任意の構造化情報。 |
-| `result` / `error` | terminal状態の結果またはエラー。`error` は `{"code":"…","message":"…","data":{}}` の形で、JSON-RPCの数値コードではなくExecution内では安定した文字列codeを使う。 |
+| `result` / `error` | terminal状態の結果またはエラー。`result` はAIやcallerへの判断材料。`error` は `{"code":"…","message":"…","data":{},"kind":"…"}` の形で、JSON-RPCの数値コードではなくExecution内では安定した文字列codeを使う。`kind` は少なくとも `executionFailed`（実行そのものの失敗）と `providerDisconnected`（providerとの接続が切れて追跡不能。実行の成否は不明かもしれないがCoreからは追えない）を区別する。 |
+| `presentation` | 人間への表示用データ。embedやsurfaceのdata modelへ流し込まれる。実行中はstream eventで随時更新され、terminal時点の値がExecutionに残る。operation宣言の `presentationSchema` に従う。 |
 | `resourceRefs` | 実行に関連するresource ref。 |
 | `parentExecution` | 親Executionがある場合のref。 |
 
-`operations.invoke` のResponseはExecutionを返す。既にterminalなら `result` / `error` を含めてよい。runningなら含めず、受理・開始時のoperation固有データがある場合は `accept` を含める。operation検証・context解決・認可の失敗など、Executionを作る前の失敗だけをJSON-RPC errorで返す。Executionを作った後のprovider timeoutや追跡不能はJSON-RPC errorではなく、Executionの `failed` / `unknown` 状態と `error` として表す。
+`operations.invoke` のResponseはExecutionを返す。既にterminalなら `result` / `error` を含めてよい。runningなら含めず、受理・開始時のoperation固有データがある場合は `accept` を含める。operation検証・context解決・認可の失敗など、Executionを作る前の失敗だけをJSON-RPC errorで返す。Executionを作った後のprovider timeoutや追跡不能はJSON-RPC errorではなく、Executionの `failed` 状態と `error` として表す。
 
 ```json
 {"jsonrpc":"2.0","id":"42","result":{"execution":{"id":"execution/123","operation":"filesystem/list","status":"succeeded","createdAt":"…","updatedAt":"…","context":{"project":"project/plugumi"},"result":{"entries":[]}}}}
@@ -279,7 +292,7 @@ caller向けのRPCは次の通り。
 | `executions.subscribe` | `{"executionId":"…"}` またはfilterでExecution eventを購読する。Responseは `{"subscriptionId":"…"}`。 |
 | `executions.unsubscribe` | `{"subscriptionId":"…"}` で購読を止める。 |
 
-cancelは協調的で、配送済みの副作用を巻き戻さない。既にterminalなExecutionには作用しない。Coreはcancel要求をproviderへ転送し、終端を待つ。期限までに終端が得られなければ、Core側の状態を `unknown` へ進めてよい。
+cancelは協調的で、配送済みの副作用を巻き戻さない。既にterminalなExecutionには作用しない。Coreはcancel要求をproviderへ転送し、終端を待つ。期限までに終端が得られなければ、Core側の状態を `failed` へ進めてよい。この場合のerror kindの扱いは未確定とする。
 
 Execution eventは `executions.event` Notificationで送る。`seq` はExecutionごとに1から単調増加する。
 
@@ -297,7 +310,7 @@ Execution eventは `executions.event` Notificationで送る。`seq` はExecution
 }
 ```
 
-`type` は `status` / `progress` / `output` / `result` / `error` を初期値とする。`payload` の意味はtypeごとに決める。`status` は状態遷移、`progress` と `output` はoperationごとの進行・出力、`result` / `error` は終端結果を表す。`subscriptionId` はCoreから購読者へ送るeventにだけ含める。購読開始後のeventだけを保証し、過去のevent再送や途中再開は初期contractでは保証しない。現在状態は `executions.get` で取り直す。
+`type` は `status` / `progress` / `output` / `presentation` / `result` / `error` を初期値とする。`payload` の意味はtypeごとに決める。`status` は状態遷移、`progress` と `output` はoperationごとの進行・出力、`presentation` は表示用データのincrementalな更新、`result` / `error` は終端結果を表す。`subscriptionId` はCoreから購読者へ送るeventにだけ含める。購読開始後のeventだけを保証し、過去のevent再送や途中再開は初期contractでは保証しない。現在状態は `executions.get` で取り直す。
 
 ### Providerへの配送
 
@@ -329,7 +342,7 @@ ProviderのResponseは初期状態を返す。
 
 Providerがoperationを受理できない場合はJSON-RPC errorを返してよい。このerrorはenvelopeや受理自体の失敗を表す。operation内部の業務的な失敗は、受理後のterminal状態 `failed` とExecution errorとして表す。
 
-runningの場合、Providerは同じ `executionId` を持つ `operations.event` Notificationで進行・出力・終端をCoreへ送る。paramsは `executionId`、`seq`、`type`、`payload` を持ち、`type` と `payload` の意味は購読者向けの `executions.event` と同じである。`seq` はExecutionごとに1から単調増加し、初回Responseはseqに数えない。`subscriptionId` は含めない。Responseでterminal状態を返した場合は、追加のterminal eventを送らなくてよい。Coreは認証済み登録とoperation declarationを照合し、Core側のExecutionへ反映する。Providerがterminal eventを送らず切断・失効した場合、CoreはExecutionを `unknown` へ進めてよい。
+runningの場合、Providerは同じ `executionId` を持つ `operations.event` Notificationで進行・出力・終端をCoreへ送る。paramsは `executionId`、`seq`、`type`、`payload` を持ち、`type` と `payload` の意味は購読者向けの `executions.event` と同じである。`seq` はExecutionごとに1から単調増加し、初回Responseはseqに数えない。`subscriptionId` は含めない。Responseでterminal状態を返した場合は、追加のterminal eventを送らなくてよい。Coreは認証済み登録とoperation declarationを照合し、Core側のExecutionへ反映する。Providerがterminal eventを送らず切断・失効した場合、CoreはExecutionを `failed`（`error.kind: providerDisconnected`）へ進める。
 
 cancelはCoreからProviderへ `executions.cancel` Notificationで送る。`executionId` を含める。Providerは可能な範囲で停止し、最後にterminal eventを返す。cancelを無視した場合でも、Coreは無制限には待たない。
 
@@ -356,9 +369,9 @@ sequenceDiagram
 | code | 意味 |
 |---|---|
 | `-32001 forbidden` | 権限がない。 |
-| `-32002 target_unavailable` | 解決先providerまたはscopeが現在利用できない。 |
+| `-32002 target_unavailable` | 解決先providerまたはその所属先が現在利用できない。 |
 | `-32003 deadline_exceeded` | Coreまたはcaller指定の期限に達した。 |
-| `-32004 outcome_unknown` | 実行結果をCoreが追跡できない。実行が停止したとは限らない。 |
+| `-32004` | （欠番。旧revisionの `outcome_unknown`。追跡不能はExecutionの `failed` + error kindで表し、RPC errorにはしない） |
 | `-32005 cancelled` | cancel済み。 |
 | `-32006 overloaded` | 有界キューまたはrate limitを超えた。 |
 | `-32007 operation_not_found` | operationが見つからない、または権限上見えない。 |
@@ -369,9 +382,13 @@ sequenceDiagram
 
 ### 期限・切断・Streaming
 
-- **期限と切断:** Coreは呼び出しに上限時間を適用する。クライアントが指定する場合の候補は `timeoutMs`（正の整数、上限はCore設定）。切断・期限切れ・取消が配送後に起きた場合、副作用が完了していないとは保証できない。結果を追跡できなければExecutionを `unknown` とする。Core・クライアントとも自動再実行しない。同じWSの同じ発信方向でIDを再利用しない。再接続後のIDは別の名前空間。結果照会は `executionId` で行う。永続的な冪等性キーは未決定。
+- **期限と切断:** Coreは呼び出しに上限時間を適用する。クライアントが指定する場合の候補は `timeoutMs`（正の整数、上限はCore設定）。切断・期限切れ・取消が配送後に起きた場合、副作用が完了していないとは保証できない。追跡不能になったExecutionは `failed` とし、`error.kind: providerDisconnected` で表す。Core・クライアントとも自動再実行しない。同じWSの同じ発信方向でIDを再利用しない。再接続後のIDは別の名前空間。結果照会は `executionId` で行う。永続的な冪等性キーは未決定。
 - **Streaming / output:** Executionの `output` eventを使う。大容量データや双方向入力のために別途credit型streamを設ける場合も、eventはExecution IDに紐付ける。初期PoCで検証する方向はProviderからcallerへの出力のみ。双方向の入力、再送・途中再開は未決定。
 - **Backpressure:** Coreは区間ごとに有界キューを持ち、下流の受信枠と空きを超えて上流へ送らない。上限・credit違反は無制限に溜めず、エラーで終端するか、終端を配信できなければ接続を閉じる。終端・cancelはデータ用creditを消費しないが、制御側のキューにも上限を設ける。具体的な上限値と大容量のHTTP Streaming契約は未決定。
+
+### surface（A2UI）の扱い
+
+declarative surfaceのpayload仕様はA2UIとする（[Decision 00035](../decisions/00035-a2ui-as-declarative-surface-payload.md)）。A2UI messageをこのcontractのどこに乗せるか（Execution streamに混ぜるか、surface専用のstream / channelを分けるか）は未確定であり、次のrevisionまでに決める。embedの記録性とwidgetの常時更新、実行より長生きするsurfaceの寿命を考慮する必要がある。message logを保持すればreplayで復元できることはspikeで検証済みである。
 
 ### Panel呼び出し
 

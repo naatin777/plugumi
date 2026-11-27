@@ -153,6 +153,7 @@ Plugin
 - caller / providerはcomponent分類ではなくinteractionごとの役割。AI agentなどは両方を同時に演じ得る
 - Panel / Embed / Widgetはライフサイクルで分かれる。embedは記録、widgetは現在、panelは作業の主体。tool outputはresult（AI向け）とpresentation（embed向け）を別フィールドで分け、presentationはembedのdata modelへ流し込む
 - provider切断時のin-flight Executionはfailedとし、error kindでexecutionFailed / providerDisconnectedを区別する。unknown statusは追加しない
+- Contract 00004をrevisionした。providerKind enum廃止、scope fieldを所属environment / sessionへ置き換え、Execution status unknown廃止（failed + error kind）、operation宣言へpresentationSchema / embed追加
 - declarative surfaceのpayload仕様はA2UIを採用する（Decision 00035）。`@a2ui/web_core`を再利用し、transportはPlugumi独自のものを使い、AG-UIは採用しない。SolidJS専用rendererは作らず、web componentベース（`@a2ui/lit`）をSolid hostにmountする。rendererはhost内蔵またはplugin配信のどちらでもよく、native clientではネイティブrendererで上書きできる。specが契約でrendererは差し替え可能
 - agentはbuilt-inではなくpluginとする（Decision 00036）。配布上のfirst-party同梱とは分け、Core / UI Appはagentの存在に依存しない
 - scopeは独立概念として廃止し、providerの所属environment / host sessionとして扱う。routingは所属のマッチング、寿命も所属から導出する
