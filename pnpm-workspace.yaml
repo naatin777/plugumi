@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "shared/*"
   - "plugins/agent"
+  - "plugins/demo"
   - "apps/electron"
   - "apps/electron/ui"
   - "apps/web/frontend"
