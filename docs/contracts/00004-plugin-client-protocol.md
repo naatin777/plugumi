@@ -33,7 +33,7 @@ relations:
 
 **実装範囲:** 現行実装は旧revisionの `registrationId + toolPath` と `sync` / `async` Tool modelに基づく。この文書は改訂後のcontract案であり、実装は順次移行する。
 
-**このrevisionで変わるもの:** `providerKind` enumの廃止（[Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md)）、`scope` fieldの廃止と所属environment / sessionへの置き換え、Execution status `unknown` の廃止（provider切断は `failed` + error kindで表す）、operation宣言への `presentationSchema` / `embed` の追加（[Design 00010](../designs/00010-panel-embed-widget-view-types.md)）。認証は引き続きloopback上のネイティブクライアントを前提とし、`PLUGUMI_TOKEN` をCoreに設定した場合は全操作に同じBearer資格情報が必要で、所有主体別の権限はない。ブラウザ、運用向け認可、動的なMethod Schema検証、Executionの永続化、credit型Streamingは草案または未実装のまま。
+**このrevisionで変わるもの:** `providerKind` enumの廃止（[Decision 00032](../decisions/00032-routing-and-provider-lifecycle-notes.md)）、`scope` fieldの廃止と所属environment / sessionへの置き換え、Execution status `unknown` の廃止（provider切断は `failed` + error kindで表す）、operation宣言への `presentationSchema` / `embed` の追加（[Design 00010](../designs/00010-panel-embed-widget-view-types.md)）、UI assetのpush uploadの廃止とpull modelへの置き換え（`assets.get` を既存WS上でCoreからProviderへ送る。Coreはassetをdisk cacheに保持する）、登録の `ready` 状態の追加。認証は引き続きloopback上のネイティブクライアントを前提とし、`PLUGUMI_TOKEN` をCoreに設定した場合は全操作に同じBearer資格情報が必要で、所有主体別の権限はない。ブラウザ、運用向け認可、動的なMethod Schema検証、Executionの永続化、credit型Streamingは草案または未実装のまま。
 
 HTTP/1.1でREST・SSEとWS upgradeを利用できることを基準とする。HTTPSではGo `net/http` のネゴシエーションでREST・SSEにHTTP/2を使える。WSがHTTP/2で動くことには依存しない。
 
@@ -65,10 +65,17 @@ PoCでは、CLIはCoreごとのスコープ付きBearer資格情報をHTTPSの�
 | `POST /v1/registrations/{registrationId}/renew` | 失効前に明示更新。登録操作と同じ型で期限を返す。 |
 | `DELETE /v1/registrations/{registrationId}` | 登録を取り消す。配送を止め、宣言を公開対象から外す。 |
 | `PUT /v1/registrations/{registrationId}/operations` | operation宣言を全置換。空配列で全解除。pathの重複があれば全体を拒否。同じ内容の再送は変更通知を発生させない。 |
+| `POST /v1/registrations/{registrationId}/ready` | 初期setupが完了したことを宣言する。詳細は「登録のready状態」節。 |
 | `GET /v1/core` | Coreの識別情報。`coreId` と、Coreに設定されていればCore名 `name` を返す。`coreId` はプロセスごとに変わり、`name` は再起動しても変わらない。他の操作と同じ認証を要する。 |
 | `GET /v1/registry` | Snapshot。Coreの世代、`revision`、登録ごとのRPC到達可否とoperation宣言を一貫した時点で返す。 |
 | `GET /v1/events` | Registry通知のSSE購読。詳細は次節。 |
 | `GET /v1/rpc` | WS upgrade。Providerは `registrationId` をクエリで指定し、資格情報はヘッダーで送る。呼び出し専用接続は登録IDを指定しない。 |
+
+### 登録のready状態
+
+登録は作成直後、readyではない。Providerはoperation宣言・UI manifestなど初期setupを終えてから `POST /v1/registrations/{registrationId}/ready` でreadyを立てる。readyは登録ごとのone-way latchで、一度立てばその登録の寿命内は戻らない。WS切断・再接続では変化しない（宣言は登録に残るため）。
+
+readyでない登録はoperation解決の対象外とする。callerが中途半端な状態のproviderへ配送されることを防ぐためである。readyでない登録もSnapshotには `ready: false` として現れ、準備中であることが購読者から分かる。readyへの遷移は `provider.changed` で通知する。宣言のready後の更新（dynamic operationsなど）は制約しない。
 
 ### Plugin manifest
 
@@ -149,7 +156,8 @@ sequenceDiagram
     P->>C: PUT operations（宣言の全置換）
     C-->>S: operations.changed
     P->>C: GET rpc（同じ主体・登録でupgrade）
-    C-->>S: provider.changed（配送可）
+    P->>C: POST ready（初期setupの完了）
+    C-->>S: provider.changed（ready・配送可）
     S->>C: GET registry（最新の状態を取得）
     P->>C: POST renew（期限前）
 ```
@@ -160,20 +168,28 @@ sequenceDiagram
 
 ### UIファイルとPanelの宣言
 
-Providerは、PanelのUI Bundleを構成するファイルを、登録のたびにCoreへ送る。Coreはファイルを内容のsha256で識別してメモリに保持し、HTTPで配信する。Panelのモジュールの形は[Contract 00005](00005-panel-module.md)で定める。
+Providerは、PanelのUI Bundleの宣言だけをCoreへ送る。ファイルの中身は登録時に送らず、Coreが必要になった時点で既存のWS接続上でProviderから取得する（pull model）。WSは双方向なので、ProviderはHTTPサーバーを立てなくてもCoreからのrequestを受けられる。Coreは取得したファイルを内容のsha256で識別してdisk cacheに保持し、HTTPで配信する。Panelのモジュールの形は[Contract 00005](00005-panel-module.md)で定める。
 
 | 操作 | 意味 |
 |---|---|
-| `POST /v1/assets/missing` | `{"sha256": [...]}` のうち、Coreが持っていないものを `{"missing": [...]}` で返す。 |
-| `PUT /v1/assets/{sha256}` | ファイルの中身をそのまま送る。中身のsha256が一致しなければ `400`。1ファイルの上限は16MiBで、超えると `413`。 |
-| `PUT /v1/registrations/{registrationId}/ui` | `{"files": [{"path", "sha256"}], "panels": [{"panelId", "title", "entry", "styles"}]}` で、その登録のUIを全置換する。両方を空配列にすると解除する。Coreが持っていないsha256を参照すると `400 missing_assets`。同じ内容の再送は変更通知を発生させない。 |
-| `GET /v1/ui/{registrationId}/{path}` | 登録のUIに含まれるファイルを返す。`Content-Type` は拡張子から決め、`ETag` にsha256を入れる。 |
+| `PUT /v1/registrations/{registrationId}/ui` | `{"files": [{"path", "sha256", "size"}], "panels": [{"panelId", "title", "entry", "styles"}]}` で、その登録のUIを全置換する。両方を空配列にすると解除する。ファイルの中身はここでは送らない。同じ内容の再送は変更通知を発生させない。 |
+| `GET /v1/ui/{registrationId}/{path}` | 登録のUIに含まれるファイルを返す。`Content-Type` は拡張子から決め、`ETag` にsha256を入れる。cacheに無ければCoreはProviderからfetchしてから返す。fetchできなければ `503 asset_unavailable`。 |
 
-Providerは、`missing` で不足を確かめ、不足するファイルだけを送ってから、`ui` を登録する。Coreを再起動するとファイルは失われるので、Providerは再登録のたびにこの手順をやり直す。
+#### assetのfetch（Core → Provider）
 
-`files` の `path` は、Bundleのルートからの相対パスとする。Coreは次のパスを拒否する: 空、絶対パス、`path.Clean` した結果と異なるもの（`.`・`..`・連続した `/`・末尾の `/`）、`\` `:` `?` `%` `#` を含むもの、重複。1つのUIのファイル数は1000、合計サイズは64MiBまでとする。`panelId` は小文字の英数字とハイフンで、登録内で一意とする。`entry` と `styles` の各パスは `files` に含まれるパスでなければならない。`styles` は省略でき、重複を含められない。
+Coreは、cacheに持っていないファイルをProviderへWSのrequestで取得する。
 
-SnapshotはPanelの宣言を登録ごとの `panels` に含める。登録ごとの `uiSha256` は、`files` をパス順に並べたものと `panels`（宣言順を含む）を正規化したJSONのsha256で、UIのどれか1つのファイルが変わっても変わる。UIを登録していなければ省略する。Coreは、どの登録のUIからも参照されなくなったファイルを削除する。送られたまま60秒以内に参照されなかったファイルも削除する。
+| method | 方向 | 意味 |
+|---|---|---|
+| `assets.get` | Core → Provider | paramsは `{"path": "…", "sha256": "…"}`。Providerはpathでファイルを特定し、中身をbase64で `{"content": "…"}` として返す。Coreは受け取った内容のsha256が宣言と一致することを検証し、不一致なら破棄する。 |
+
+fetchのタイミングはCoreの実装に委ねる。宣言時にprefetchしてもよく、`GET /v1/ui` の要求時にlazyにfetchしてもよい。一度cacheに入ったファイルは、Providerが切断・失効した後も配信できる。cacheはCoreの再起動をまたいでよい（永続化は実装の最適化であり、Providerは再登録時に改めて宣言を送るだけで、upload手順は存在しない）。
+
+1ファイルの上限は16MiBとする。base64はJSON-RPC上で約33%膨らむが、UI bundleの典型的な大きさ（数十KiB〜数MiB）とloopback帯域では実害はない。将来さらに大きなassetが必要になれば、WSのbinary frameでの転送を別revisionで検討する。
+
+`files` の `path` は、Bundleのルートからの相対パスとする。Coreは次のパスを拒否する: 空、絶対パス、`path.Clean` した結果と異なるもの（`.`・`..`・連続した `/`・末尾の `/`）、`\` `:` `?` `%` `#` を含むもの、重複。1つのUIのファイル数は1000、合計サイズは64MiBまでとする。`panelId` は小文字の英数字とハイフンで、登録内で一意とする。`entry` と `styles` の各パスは `files` に含まれるパスでなければならない。`styles` は省略でき、重複を含められない。`size` は宣言時のファイルサイズ（バイト）で、Coreはfetch応答の検証と制限の適用に使う。
+
+SnapshotはPanelの宣言を登録ごとの `panels` に含める。登録ごとの `uiSha256` は、`files` をパス順に並べたものと `panels`（宣言順を含む）を正規化したJSONのsha256で、UIのどれか1つのファイルが変わっても変わる。UIを登録していなければ省略する。Coreは、どの登録のUIからも参照されなくなったcache entryをいずれ削除する。削除の猶予と上限の管理は実装に委ねる。
 
 ### HTTPエラー
 
@@ -186,10 +202,11 @@ SnapshotはPanelの宣言を登録ごとの `panels` に含める。登録ごと
 | 404 | `unknown_registration` / `unknown_endpoint` | 存在しない・失効した・閲覧不可の登録 / 未知のパス |
 | 409 | `registration_conflict` / `rpc_already_connected` | 登録時の実装名不一致 / 同じ登録に既存WSあり |
 | 413 / 426 / 429 | `payload_too_large` / `protocol_mismatch` / `rate_limited` | 設定上限超過 / 版不一致 / 頻度超過 |
+| 503 | `asset_unavailable` | UI fileがcacheに無く、Providerからもfetchできない（切断・fetch失敗・hash不一致） |
 
 ## SSE: Registry変更通知と復旧
 
-SSEはRegistry通知専用とし、CommandやExecution出力を載せない。`event` は `registry.reset`、`provider.added`、`provider.changed`（配送可否）、`provider.removed`、`operations.changed`、`panels.changed`（UIの登録・置換・解除）。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
+SSEはRegistry通知専用とし、CommandやExecution出力を載せない。`event` は `registry.reset`、`provider.added`、`provider.changed`（配送可否・ready状態の変化）、`provider.removed`、`operations.changed`、`panels.changed`（UIの登録・置換・解除）。`id` と `data: {"revision":"..."}` の `revision` は同じ不透明な値で、Snapshotの版と同じCore世代に属する。イベントには別の認可範囲の登録情報を含めない。クライアントはRevisionの連番を仮定しない。
 
 ```text
 id: revision-7f
@@ -314,7 +331,9 @@ Execution eventは `executions.event` Notificationで送る。`seq` はExecution
 
 ### Providerへの配送
 
-Coreはproviderへも `operations.invoke` を送る。paramsには `operation`、`input`、Coreが発行した `executionId` を含める。
+Coreはproviderへrequestを送る。methodは `operations.invoke`（operation実行の配送）、`executions.cancel`（cancel要求）、`assets.get`（UI assetのfetch。「UIファイルとPanelの宣言」節を参照）がある。
+
+`operations.invoke` のparamsには `operation`、`input`、Coreが発行した `executionId` を含める。
 
 ```json
 {"jsonrpc":"2.0","id":"17","method":"operations.invoke","params":{"operation":"filesystem/list","executionId":"execution/123","input":{"path":"src"}}}
