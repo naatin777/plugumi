@@ -13,7 +13,6 @@
   gap: 2px;
   padding: var(--plugumi-spacing-sm);
   border-right: 1px solid var(--plugumi-colors-border);
-  min-width: 8em;
   flex-shrink: 0;
 }
 .lab-nav-item {
@@ -119,3 +118,84 @@
   font-size: var(--plugumi-font-size-xs);
   color: var(--plugumi-colors-text-subtle);
 }
+
+/* sidebarのグループ見出しとresizer */
+.lab-nav-group {
+  font-size: var(--plugumi-font-size-2xs);
+  color: var(--plugumi-colors-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--plugumi-spacing-sm) var(--plugumi-spacing-sm) 2px;
+}
+.lab-resizer {
+  width: 4px;
+  cursor: col-resize;
+  flex-shrink: 0;
+}
+.lab-resizer:hover {
+  background: var(--plugumi-colors-fill);
+}
+/* 状態を並べる枠とspec表 */
+.lab-states {
+  display: flex;
+  gap: var(--plugumi-spacing-md);
+  margin-bottom: var(--plugumi-spacing-md);
+  flex-wrap: wrap;
+}
+.lab-state-label {
+  font-size: var(--plugumi-font-size-2xs);
+  color: var(--plugumi-colors-text-subtle);
+  margin-bottom: 2px;
+}
+.lab-spec {
+  border-collapse: collapse;
+  font-size: var(--plugumi-font-size-xs);
+  margin-top: var(--plugumi-spacing-md);
+}
+.lab-spec td {
+  padding: 2px var(--plugumi-spacing-sm) 2px 0;
+  vertical-align: top;
+}
+.lab-spec-prop {
+  color: var(--plugumi-colors-text-muted);
+  white-space: nowrap;
+}
+.lab-spec-value {
+  font-family: var(--plugumi-font-family-mono);
+  color: var(--plugumi-colors-text);
+}
+
+/* responsive — narrow時はsidebarを畳み、hamburgerでoverlay表示 */
+.lab-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--plugumi-spacing-sm);
+  margin-bottom: var(--plugumi-spacing-sm);
+}
+.lab-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--plugumi-colors-text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--plugumi-spacing-xs);
+  border-radius: var(--plugumi-radii-md);
+}
+.lab-hamburger:hover {
+  background: var(--plugumi-colors-fill);
+  color: var(--plugumi-colors-text);
+}
+.lab.narrow .lab-hamburger { display: block; }
+.lab.narrow .lab-nav {
+  display: none;
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 12em;
+  background: var(--plugumi-colors-background-secondary);
+  z-index: 1;
+  box-shadow: 2px 0 8px var(--plugumi-colors-scrim, rgb(0 0 0 / 0.4));
+}
+.lab.narrow.nav-open .lab-nav { display: flex; }
+.lab.narrow .lab-resizer { display: none; }
+.lab { position: relative; }
