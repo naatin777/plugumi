@@ -1,4 +1,4 @@
-// Package registry は登録、Lease、Tool宣言、接続状態とRevisionを管理する（contracts/00004）。
+// Package registry は登録、Lease、operation宣言、接続状態とRevisionを管理する（contracts/00004）。
 package registry
 
 import (

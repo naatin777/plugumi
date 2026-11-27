@@ -98,7 +98,7 @@ func (r *Registry) PutAsset(hash string, data []byte) {
 }
 
 // ReplaceUI は登録のUI manifestを全置換する。filesとpanelsが両方空ならUI解除。
-// 同じ内容の再送は変更通知を出さない（ReplaceToolsと同じ扱い）。
+// 同じ内容の再送は変更通知を出さない（ReplaceOperationsと同じ扱い）。
 func (r *Registry) ReplaceUI(registrationID string, manifest wire.UIManifest) error {
 	files := manifest.Files
 	if files == nil {

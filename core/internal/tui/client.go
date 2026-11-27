@@ -25,22 +25,17 @@ import (
 type EventKind string
 
 const (
-	EventChunk            EventKind = "chunk"
-	EventResult           EventKind = "result"
 	EventConnectionClosed EventKind = "connection-closed"
 )
 
 // Event は呼び出し側のWS接続経由で届く非同期イベント。TUIのUpdateが
 // events channelから拾って画面に反映する。
 type Event struct {
-	Kind EventKind // EventChunk | EventResult | EventConnectionClosed
+	Kind EventKind
 	// connection は届いた接続。idは接続ごとにtui-1から振り直すので、
 	// 切断→再接続で同じidが回ってきても旧接続の遅延通知と混ざらないよう照合に使う。
 	connection *rpc.Connection
 	CallID     string // json.RawMessageの文字列表現（"\"tui-1\""等）
-	Payload    json.RawMessage
-	Result     json.RawMessage
-	Err        *wire.RPCError
 }
 
 // Client はCoreの管理RESTと呼び出し側のWSへの薄いクライアント。
