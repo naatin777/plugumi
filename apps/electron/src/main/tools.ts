@@ -1,7 +1,7 @@
-// Electronが提供するTool。内部ブラウザを持つこと由来のもの —
+// Electronが提供するoperation。内部ブラウザを持つこと由来のもの —
 // webのhostには出せないwindow操作と描画内容の取得だけを置く
-// （decisions/00015）。
-import type { Tool } from "plugumi-plugin-client";
+// （decisions/00015）。全部terminal応答（contracts/00004）。
+import type { Operation } from "@plugumi/runtime";
 import type { Windows } from "./windows.js";
 
 // inputの形の最小検査。未知フィールドは無視する（forward compatible）。
@@ -21,23 +21,17 @@ function inputWindowId(input: unknown): number {
   return id;
 }
 
-export function windowTools(windows: Windows): Tool[] {
+export function windowOperations(windows: Windows): Operation[] {
   return [
     {
-      declaration: {
-        toolPath: "electron/window/list",
-        kind: "sync",
-        description: "開いているElectron windowの一覧（id・url・title・focused）",
-      },
-      handler: () => windows.list(),
+      path: "electron/window/list",
+      description: "開いているElectron windowの一覧（id・url・title・focused）",
+      handle: () => windows.list(),
     },
     {
-      declaration: {
-        toolPath: "electron/window/open",
-        kind: "sync",
-        description: "新しいwindowを開く。input.pathはhostのroute path（省略時はroot）",
-      },
-      handler: async (input) => {
+      path: "electron/window/open",
+      description: "新しいwindowを開く。input.pathはhostのroute path（省略時はroot）",
+      handle: async (input) => {
         const path = inputObject(input).path;
         if (path !== undefined && (typeof path !== "string" || !path.startsWith("/"))) {
           throw new Error("input.path は / から始まるroute pathです");
@@ -46,34 +40,25 @@ export function windowTools(windows: Windows): Tool[] {
       },
     },
     {
-      declaration: {
-        toolPath: "electron/window/close",
-        kind: "sync",
-        description: "input.idのwindowを閉じる",
-      },
-      handler: (input) => {
+      path: "electron/window/close",
+      description: "input.idのwindowを閉じる",
+      handle: (input) => {
         windows.get(inputWindowId(input)).close();
         return {};
       },
     },
     {
-      declaration: {
-        toolPath: "electron/window/focus",
-        kind: "sync",
-        description: "input.idのwindowを前面に出す",
-      },
-      handler: (input) => {
+      path: "electron/window/focus",
+      description: "input.idのwindowを前面に出す",
+      handle: (input) => {
         windows.get(inputWindowId(input)).focus();
         return {};
       },
     },
     {
-      declaration: {
-        toolPath: "electron/window/screenshot",
-        kind: "sync",
-        description: "input.idのwindowの描画内容をJPEGで返す（id省略時は先頭のwindow）",
-      },
-      handler: async (input) => {
+      path: "electron/window/screenshot",
+      description: "input.idのwindowの描画内容をJPEGで返す（id省略時は先頭のwindow）",
+      handle: async (input) => {
         const fields = inputObject(input);
         const id = fields.id === undefined
           ? windows.list()[0]?.id

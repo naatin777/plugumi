@@ -4,7 +4,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { recordsDirectory } from "plugumi-plugin-client";
+import { recordsDirectory } from "@plugumi/runtime";
 
 // 実行記録のうち必要な部分だけ。urlを持つのは待受を立てるweb pluginだけ。
 interface InstanceRecord {

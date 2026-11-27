@@ -21,33 +21,35 @@ Panelのモジュールは、Web appと同じOriginで動き、Panel Instanceご
 
 ## entryがexportするもの
 
-> 移行メモ: この節の `callTool` は旧revisionの `registrationId + toolPath` modelに対応する。[Contract 00004](00004-plugin-client-protocol.md)のoperation / Execution modelへ実装を移行するとき、Panelからの呼び出しAPIも `callTool` からoperation pathを使う形へ改訂する。それまでは現行実装の記述として残す。
-
 ```ts
-export function mount(host: ShadowRoot, context: PanelContext): PanelHandle | Promise<PanelHandle>;
+export function mount(host: ShadowRoot, context: ViewContext): ViewHandle | Promise<ViewHandle>;
 
-interface PanelHandle {
+interface ViewHandle {
   destroy(): void;
 }
 
-interface PanelContext {
-  // このPanelのShadowRoot。mountに渡すhostと同じもの。
-  root: ShadowRoot;
-  // このPanelを提供した登録のToolを呼ぶ。現在はsyncのToolだけに対応する。
-  callTool(toolPath: string, input: unknown): Promise<unknown>;
+interface ViewContext {
+  // viewがCoreへ自分で接続するための情報（designs/00011のview channel）。
+  // hostはticketの受け渡しだけを行い、通信には関与しない。
+  connection: { coreUrl: string; ticket: string };
   // このPanelを開いたときの初期入力。openPanelの第2引数がそのまま届く。
   input?: unknown;
+  // このPanelのShadowRoot。mountに渡すhostと同じもの。
+  root?: ShadowRoot;
+  // viewの活動状態をhostへ通知する。意味だけ渡し、表現はhostが決める。
+  setActivity?(activity: ViewActivity | null): void;
   // 同じleafの自分の隣に、同じPluginの別Panelを開く。
-  openPanel(panelId: string, input?: unknown): void;
+  openPanel?(panelId: string, input?: unknown): void;
 }
 ```
 
+viewとruntimeの通信はshellを経由しない。viewは `connection` の情報でCoreのview専用endpointへ自分でWebSocket接続し、ticketでbindする。それ以降のmessageはCoreがopaqueにruntimeへroutingする（[Design 00011](../designs/00011-view-channel.md)）。標準の書き方は `@plugumi/view` の `defineView<SendMsg, RecvMsg>(mount)` で、接続・bind・型付け・cleanupはSDKが担い、作者は接続済みの型付きchannelを受け取ってUIだけを書く。
+
 - `host` は、そのPanel Instance専用のShadowRootである。Panelは `host` の中だけにDOMを作る。ShadowRootを持つhost要素には `data-plugumi-plugin="<registrationId>"` が付いている。
 - popover・tooltip・dialogなど、Panelの並びの外に置きたい要素は `context.root`（`host`と同じShadowRoot）へappendする。documentやbody直下へ出すと、Panel自身のCSSがその要素に届かない。
-- `callTool` は、Toolの結果を返す。Toolがエラーを返したときは、Promiseを拒否する。
 - `openPanel` で開いたPanelは、自分を開いたPanelの隣（leaf内の次の位置）に挿入され、その新しいPanelの `context.input` に第2引数が届く。`input` は実行時だけの値で、workspaceへは保存されず再mountでも届かない。開けるのは同じPluginのPanelだけ（他PluginのPanelを指定することはできない）。
 - Panelは特定のフレームワークに依存しなくてよい。フレームワークのランタイムはPanelのBundleに含める。
-- TypeScriptの型（`PanelContext`・`PanelHandle`）は、配布用のパッケージ `@plugumi/plugin-view` から使える。
+- TypeScriptの型（`ViewContext`・`ViewHandle`）は、配布用のパッケージ `@plugumi/view` から使える。
 
 ## Panelのライフサイクル
 
@@ -86,7 +88,7 @@ Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照�
 | 文字 | `--plugumi-font-family-sans`、`--plugumi-font-family-mono`、`--plugumi-font-size-md`、`--plugumi-font-weight-semibold`、`--plugumi-line-height-md` |
 | 余白・角丸 | `--plugumi-spacing-xs` 〜 `--plugumi-spacing-xl`、`--plugumi-radii-sm` 〜 `--plugumi-radii-lg` |
 
-Tokenの名前は `@plugumi/plugin-view` の `tokenNames` でも参照できる。値の正本は、Workbench shellの `shared/workbench/src/styles/tokens.css` とする。
+値の正本は、Workbench shellの `shared/workbench/src/styles/tokens.css` とする。
 
 Panelの最背面は透明にする。Panelの面はShellが領域によらず `--plugumi-colors-background-secondary` で敷く（Design 00005「面と縁」）。Panelが自分で最背面を塗る必要はなく、Tokenで面の色を塗るのはPanel内部で面を分けたい要素に限る。
 

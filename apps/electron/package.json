@@ -16,6 +16,6 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
-    "plugumi-plugin-client": "workspace:*"
+    "@plugumi/runtime": "workspace:*"
   }
 }
