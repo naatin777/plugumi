@@ -199,3 +199,13 @@
 .lab.narrow.nav-open .lab-nav { display: flex; }
 .lab.narrow .lab-resizer { display: none; }
 .lab { position: relative; }
+
+.lab-token-link {
+  color: var(--plugumi-colors-info);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--plugumi-colors-info);
+}
+.lab-token-link:hover {
+  color: var(--plugumi-colors-text);
+  border-bottom-style: solid;
+}

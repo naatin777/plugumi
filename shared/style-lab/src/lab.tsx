@@ -11,10 +11,55 @@ import { usedTokens } from "./usage.ts";
 const entries = Object.entries(tokens) as [string, string][];
 const prefixed = (prefix: string) => entries.filter(([key]) => key.startsWith(prefix));
 
+// token名（spec表ではcss流のhyphenatedで書く: radii-sm, colors-text-muted）
+// からentryへの対応。spec表のtoken参照をlinkにするために使う。
+const tokenEntryOf = (hyphenated: string): string | null => {
+  if (hyphenated.startsWith("colors-")) return "color";
+  if (hyphenated.startsWith("radii-")) return "shape";
+  if (hyphenated.startsWith("spacing-")) return "spacing";
+  if (hyphenated.startsWith("font")) return "typography";
+  return null;
+};
+
+// spec表の値文字列に出てくるtoken名（colors-x, radii-x, spacing-x,
+// font-size-x等）を検出してlink化する。%や混色の数値は対象外。
+const TOKEN_REF = /\b((?:colors|radii|spacing|font-size|font-family|font-weight)-[a-z0-9-]+?)(?=[\s/%]|$)/g;
+
 // ---- spec表: 部品がどのtokenをどう使っているか ----
 // 描画は共有cssで真実が保証されるが、spec表は手書きの注釈。
 // shell側を変えたらここも更新する — ずれたら表が嘘になるので、
 // 変更時はlabを開いて目視で突き合わせる運用。
+// ナビゲーションはLabがsetterを登録する。spec表はcomponentの外で
+// 定義されているため、直接はsignalに触れられない — 簡単なmodule級の
+// 委譲で十分（labは同時に1つしかmountされない想定ではないが、
+// 各panelは自分のhashしか読まないので実害はない）。
+let navigateTo: ((id: string) => void) | null = null;
+
+function SpecValue(props: { text: string }): JSX.Element {
+  // token名を検出してlinkにする。linkでない部分はtextのまま。
+  const parts = () => {
+    const out: { text: string; entry: string | null }[] = [];
+    let last = 0;
+    for (const match of props.text.matchAll(TOKEN_REF)) {
+      const index = match.index ?? 0;
+      if (index > last) out.push({ text: props.text.slice(last, index), entry: null });
+      out.push({ text: match[1], entry: tokenEntryOf(match[1]) });
+      last = index + match[1].length;
+    }
+    if (last < props.text.length) out.push({ text: props.text.slice(last), entry: null });
+    return out;
+  };
+  return (
+    <For each={parts()}>
+      {(part) => part.entry && navigateTo
+        ? <a class="lab-token-link" href={`#${part.entry}`}
+            onClick={(event) => { event.preventDefault(); navigateTo?.(part.entry!); }}
+          >{part.text}</a>
+        : <>{part.text}</>}
+    </For>
+  );
+}
+
 function Spec(props: { rows: [string, string][] }): JSX.Element {
   return (
     <table class="lab-spec">
@@ -23,7 +68,7 @@ function Spec(props: { rows: [string, string][] }): JSX.Element {
           {([property, value]) => (
             <tr>
               <td class="lab-spec-prop">{property}</td>
-              <td class="lab-spec-value">{value}</td>
+              <td class="lab-spec-value"><SpecValue text={value} /></td>
             </tr>
           )}
         </For>
@@ -244,7 +289,17 @@ function Lab(): JSX.Element {
   const select = (id: string) => {
     setActive(id);
     setNavOpen(false); // narrow時に項目を選んだら畳む
+    // 選択はURL hashに載せる — reloadで復元され、token linkが
+    // shareableになる。path routing（browserHistory）と衝突しない。
+    history.replaceState(null, "", `#${id}`);
   };
+  navigateTo = select;
+  onCleanup(() => { if (navigateTo === select) navigateTo = null; });
+  // 初期選択はhashから復元する。無効なhashなら先頭。
+  const initialHash = location.hash.slice(1);
+  if (initialHash && ENTRIES.some((entry) => entry.id === initialHash)) {
+    setActive(initialHash);
+  }
 
   // sidebarのresize。handleを掴んで動かす — shellのsplit resizerと
   // 同じくpointer captureで追う。幅はpanel localで永続化しない。
