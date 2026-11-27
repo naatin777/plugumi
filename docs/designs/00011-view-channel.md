@@ -36,7 +36,7 @@ view channel: pluginA ↔ Core ↔ pluginAの自分のview（intra-plugin、私�
 view channelは、**plugin runtimeとそのpluginのview instanceの間の、instance単位の双方向private channel**である。
 
 - **payloadはopaque**。Coreは中身を解釈しない。messageのmethod宣言もschemaもなく、中身のプロトコルはpluginの私物である。
-- **経路**: viewはUI App内のplugin shellで動く。Coreへの直接接続は持たないので、UI Appがviewの代理としてCoreと通信し、Coreがplugin runtimeへ転送する。Coreはenvelopeのroutingだけを行う。
+- **経路**: viewはUI Appやshellの仲介なしに、**自分でCoreにWS接続する**。Coreはenvelopeのroutingだけを行う。shell bridgeによる通信仲介は廃止する — shellは信頼境界ではない（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）ので仲介にセキュリティ上の意味はなく、高頻度通信がhost processを回るボトルネックだけが残る。shellの役割はvisual mounting（ShadowRootの用意、entryのimport、接続情報の受け渡し）に縮小する。
 - **instance idはhostが発行する**。panelを開くとき、widgetを配置するときにhostがmintし、channelの宛先識別に使う。同じpanel typeが複数開かれてもinstance idで区別できる。
 - **双方向**。view → runtime（ユーザーの操作）とruntime → view（状態のpush）の両方がある。runtime → viewのpushはwidgetのlive更新の生命線である。
 
@@ -74,4 +74,5 @@ view channelの両端は同じ作者・同じパッケージである。runtime�
 - wire上のmethod名とenvelope形式（`views.message` 等）。Contract 00004への反映時に決める。
 - open handshakeの正確な手順。view側の最初のmessageをもって開くか、明示的なopen requestを挟むか。
 - close通知の発生者と保証。hostが明示closeした場合、UI App切断で死んだ場合、runtime側から閉じたい場合。
-- UI App内でview instanceをmultiplexする際のbridge側のAPI形。plugin shell設計と一緒に詰める。
+- **view接続の認証とbinding**。viewはWSで直接繋ぐので、Coreはその接続がどのview instanceかを知る必要がある。hostがmount時にCoreへinstance登録し、接続用のticketを受け取ってviewへ渡す形が候補。shellはpanelをCoreからfetchする立場なので、この仲介は通信仲介とは別物で残る。
+- instance idの発行と登録の正確な手順。host mintか、Core発行か。
