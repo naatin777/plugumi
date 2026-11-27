@@ -7,3 +7,5 @@ packages:
   - "apps/electron"
   - "apps/electron/ui"
   - "apps/web/frontend"
+minimumReleaseAgeExclude:
+  - "@codemirror/view@6.44.2"
