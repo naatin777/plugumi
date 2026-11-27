@@ -214,10 +214,12 @@ func TestOpenAPIDescribesOnlyNativeREST(t *testing.T) {
 	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &api) != nil {
 		t.Fatalf("OpenAPI is not available: %d %s", response.Code, response.Body)
 	}
-	if len(api.Paths) != 8 || api.Paths["/v1/registrations"]["post"].OperationID != "createRegistration" ||
+	if len(api.Paths) != 10 || api.Paths["/v1/registrations"]["post"].OperationID != "createRegistration" ||
 		api.Paths["/v1/core"]["get"].OperationID != "getCore" ||
 		api.Paths["/v1/registrations/{registrationId}/ui"]["put"].OperationID != "replaceUIManifest" ||
-		api.Paths["/v1/registrations/{registrationId}/ready"]["post"].OperationID != "markRegistrationReady" {
+		api.Paths["/v1/registrations/{registrationId}/ready"]["post"].OperationID != "markRegistrationReady" ||
+		api.Paths["/v1/views"]["post"].OperationID != "createViewInstance" ||
+		api.Paths["/v1/views/{viewId}"]["delete"].OperationID != "closeViewInstance" {
 		t.Fatalf("unexpected REST operations: %+v", api.Paths)
 	}
 }

@@ -10,6 +10,7 @@ export type { Socket } from "./rpc.js";
 export { declarations } from "./operations.js";
 export type { Operation, StreamOperation, TerminalOperation } from "./operations.js";
 export type { UI, PanelDeclaration, UIManifest } from "./assets.js";
+export type { RuntimeViewChannel, TypedViewChannel } from "./viewchannel.js";
 export { Catalog } from "./catalog.js";
 export type { CatalogOperation } from "./catalog.js";
 export type { ExecutionRecord, ExecutionsEventParams } from "./caller.js";

@@ -104,6 +104,15 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 			operation.OperationID = "deleteRegistration"
 			operation.Summary = "登録を削除する"
 		})
+	viewsPath := prefix + "/views"
+	huma.Register(api, huma.Operation{
+		OperationID: "createViewInstance", Method: http.MethodPost, Path: viewsPath,
+		Summary: "view instanceを登録しticketを発行する", DefaultStatus: http.StatusCreated,
+	}, s.createViewInstance)
+	huma.Register(api, huma.Operation{
+		OperationID: "closeViewInstance", Method: http.MethodDelete, Path: viewsPath + "/{viewId}",
+		Summary: "view instanceを閉じる",
+	}, s.closeViewInstance)
 	huma.Get(api, prefix+"/core", func(context.Context, *struct{}) (*struct{ Body wire.CoreInfo }, error) {
 		return &struct{ Body wire.CoreInfo }{Body: wire.CoreInfo{CoreID: s.coreID, Name: s.name}}, nil
 	}, func(operation *huma.Operation) {
@@ -194,4 +203,26 @@ func (s *Server) replaceUI(_ context.Context, input *struct {
 	default:
 		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace UI manifest")
 	}
+}
+
+type viewPath struct {
+	ViewID string `path:"viewId" minLength:"1"`
+}
+
+func (s *Server) createViewInstance(_ context.Context, input *struct{ Body wire.ViewCreateParams }) (*struct{ Body wire.ViewTicket }, error) {
+	if !s.registry.HasRegistration(input.Body.RegistrationID) {
+		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
+	}
+	if !s.registry.PanelDeclared(input.Body.RegistrationID, input.Body.PanelID) {
+		return nil, newAPIError(http.StatusNotFound, "unknown_panel", "panel is not declared by the registration")
+	}
+	ticket := s.views.Store().Create(input.Body.RegistrationID, input.Body.PanelID)
+	return &struct{ Body wire.ViewTicket }{Body: ticket}, nil
+}
+
+func (s *Server) closeViewInstance(_ context.Context, input *viewPath) (*struct{}, error) {
+	if !s.views.CloseInstance(input.ViewID) {
+		return nil, newAPIError(http.StatusNotFound, "unknown_view", "unknown or already closed view instance")
+	}
+	return nil, nil
 }

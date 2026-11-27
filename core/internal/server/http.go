@@ -22,6 +22,7 @@ import (
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/router"
 	"github.com/naatin777/plugumi/core/internal/rpc"
+	"github.com/naatin777/plugumi/core/internal/view"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
@@ -35,6 +36,7 @@ type Server struct {
 	name     string
 	registry *registry.Registry
 	router   *router.Router
+	views    *view.Manager
 	token    string
 
 	execMu   sync.Mutex
@@ -44,6 +46,7 @@ type Server struct {
 func New(ctx context.Context, coreID, name, token, cacheDir string) *Server {
 	pluginRegistry := registry.New(coreID, cacheDir)
 	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry, execution.NewStore()), registry: pluginRegistry, token: token, execSubs: make(map[chan wire.OperationsEventParams]struct{})}
+	s.views = view.NewManager(view.NewStore(), pluginRegistry)
 	s.router.OnExecutionEvent = s.broadcastExecutionEvent
 	go pluginRegistry.Expire(ctx)
 	return s
@@ -197,11 +200,20 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 			return s.router.HandleExecutionsList(connection, message)
 		case wire.MethodExecutionsCancel:
 			return s.router.HandleExecutionsCancel(connection, message)
+		case wire.MethodViewsConnect:
+			return s.views.HandleConnect(connection, message)
 		}
 		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
 	}
 	connection.OnNotification = func(message *wire.Incoming) {
-		s.router.DispatchNotification(connection, message)
+		switch message.Method {
+		case wire.MethodViewsMessage:
+			s.views.HandleMessage(connection, message)
+		case wire.MethodViewsClose:
+			s.views.HandleClose(connection, message)
+		default:
+			s.router.DispatchNotification(connection, message)
+		}
 	}
 	if reservation != nil && !reservation.Complete(connection) {
 		connection.CloseNow()
@@ -231,7 +243,9 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 	_ = connection.Run(s.ctx)
 	if reservation != nil {
 		s.registry.Detach(registrationID, connection)
+		s.views.DropRuntime(registrationID)
 	}
+	s.views.DropViewConnection(connection)
 	s.router.DropConnection(connection)
 }
 

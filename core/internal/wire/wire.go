@@ -31,27 +31,27 @@ type RegistrySnapshot struct {
 }
 
 type RegistryRegistration struct {
-	RegistrationID string                `json:"registrationId"`
-	ProviderID     string                `json:"providerId"`
-	Environment    string                `json:"environment,omitempty"`
-	HostSession    string                `json:"hostSession,omitempty"`
-	RPCAvailable   bool                  `json:"rpcAvailable"`
-	Ready          bool                  `json:"ready"`
+	RegistrationID string                 `json:"registrationId"`
+	ProviderID     string                 `json:"providerId"`
+	Environment    string                 `json:"environment,omitempty"`
+	HostSession    string                 `json:"hostSession,omitempty"`
+	RPCAvailable   bool                   `json:"rpcAvailable"`
+	Ready          bool                   `json:"ready"`
 	Operations     []OperationDeclaration `json:"operations"`
-	Panels         []PanelDeclaration    `json:"panels,omitempty"`
-	UISHA256       string                `json:"uiSha256,omitempty"`
+	Panels         []PanelDeclaration     `json:"panels,omitempty"`
+	UISHA256       string                 `json:"uiSha256,omitempty"`
 }
 
 // OperationDeclaration はcontracts/00004のoperation宣言。
 // kind（sync / async）、targetAxes、lifetimeは宣言しない。
 type OperationDeclaration struct {
-	Path               string          `json:"path" minLength:"1"`
-	Description        string          `json:"description,omitempty"`
-	InputSchema        json.RawMessage `json:"inputSchema,omitempty"`
-	AcceptSchema       json.RawMessage `json:"acceptSchema,omitempty"`
-	StreamSchema       json.RawMessage `json:"streamSchema,omitempty"`
-	ResultSchema       json.RawMessage `json:"resultSchema,omitempty"`
-	PresentationSchema json.RawMessage `json:"presentationSchema,omitempty"`
+	Path               string            `json:"path" minLength:"1"`
+	Description        string            `json:"description,omitempty"`
+	InputSchema        json.RawMessage   `json:"inputSchema,omitempty"`
+	AcceptSchema       json.RawMessage   `json:"acceptSchema,omitempty"`
+	StreamSchema       json.RawMessage   `json:"streamSchema,omitempty"`
+	ResultSchema       json.RawMessage   `json:"resultSchema,omitempty"`
+	PresentationSchema json.RawMessage   `json:"presentationSchema,omitempty"`
 	Embed              *EmbedDeclaration `json:"embed,omitempty"`
 }
 
@@ -169,8 +169,8 @@ type AssetsGetResult struct {
 const (
 	MethodOperationsInvoke = "operations.invoke"
 	MethodOperationsList   = "operations.list"
-	MethodOperationsEvent  = "operations.event"  // provider → Core
-	MethodExecutionsEvent  = "executions.event"  // Core → 購読者
+	MethodOperationsEvent  = "operations.event" // provider → Core
+	MethodExecutionsEvent  = "executions.event" // Core → 購読者
 	MethodExecutionsGet    = "executions.get"
 	MethodExecutionsList   = "executions.list"
 	MethodExecutionsCancel = "executions.cancel"
@@ -187,7 +187,7 @@ const (
 
 // error kind。実行そのものの失敗と接続喪失を区別する。
 const (
-	ErrorKindExecutionFailed     = "executionFailed"
+	ErrorKindExecutionFailed      = "executionFailed"
 	ErrorKindProviderDisconnected = "providerDisconnected"
 )
 
@@ -200,20 +200,20 @@ type ExecutionError struct {
 
 // Execution はCoreが記録するoperation invocationの実行。
 type Execution struct {
-	ID            string          `json:"id"`
-	Operation     string          `json:"operation"`
-	Status        string          `json:"status"`
-	CreatedAt     time.Time       `json:"createdAt"`
-	UpdatedAt     time.Time       `json:"updatedAt"`
-	Context       json.RawMessage `json:"context,omitempty"`
-	Input         json.RawMessage `json:"input,omitempty"`
-	Accept        json.RawMessage `json:"accept,omitempty"`
-	Progress      json.RawMessage `json:"progress,omitempty"`
-	Result        json.RawMessage `json:"result,omitempty"`
-	Error         *ExecutionError `json:"error,omitempty"`
-	Presentation  json.RawMessage `json:"presentation,omitempty"`
-	ResourceRefs  json.RawMessage `json:"resourceRefs,omitempty"`
-	ParentExecution string        `json:"parentExecution,omitempty"`
+	ID              string          `json:"id"`
+	Operation       string          `json:"operation"`
+	Status          string          `json:"status"`
+	CreatedAt       time.Time       `json:"createdAt"`
+	UpdatedAt       time.Time       `json:"updatedAt"`
+	Context         json.RawMessage `json:"context,omitempty"`
+	Input           json.RawMessage `json:"input,omitempty"`
+	Accept          json.RawMessage `json:"accept,omitempty"`
+	Progress        json.RawMessage `json:"progress,omitempty"`
+	Result          json.RawMessage `json:"result,omitempty"`
+	Error           *ExecutionError `json:"error,omitempty"`
+	Presentation    json.RawMessage `json:"presentation,omitempty"`
+	ResourceRefs    json.RawMessage `json:"resourceRefs,omitempty"`
+	ParentExecution string          `json:"parentExecution,omitempty"`
 }
 
 // InvokeParams はcaller→Coreのoperations.invoke params。
@@ -251,4 +251,76 @@ type OperationsEventParams struct {
 // InvokeResult はCore→callerのoperations.invoke応答。
 type InvokeResult struct {
 	Execution *Execution `json:"execution"`
+}
+
+// ---- view channel（designs/00011） ----
+
+// view channelのメソッド。channelは対称なのでmessageは1つだけ。
+const (
+	MethodViewsConnect = "views.connect"
+	MethodViewsMessage = "views.message"
+	MethodViewsEvent   = "views.event"
+	MethodViewsClose   = "views.close"
+)
+
+// view instanceのstatus。pendingはhostが登録したがviewが未接続、
+// openは接続済み、closedは終了。
+const (
+	ViewPending = "pending"
+	ViewOpen    = "open"
+	ViewClosed  = "closed"
+)
+
+// ViewInstance はhostが開いたviewの1instance。
+// instanceごとに1つのWS接続がbindされる。
+type ViewInstance struct {
+	ID             string    `json:"id"`
+	RegistrationID string    `json:"registrationId"`
+	PanelID        string    `json:"panelId"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// ViewTicket はPOST /v1/viewsの応答。ticketはviewがviews.connectで
+// 提示する接続credentialで、instanceのlifetime中有効。
+type ViewTicket struct {
+	ViewInstance
+	Ticket string `json:"ticket"`
+}
+
+// ViewCreateParams はPOST /v1/viewsの本文。
+type ViewCreateParams struct {
+	RegistrationID string `json:"registrationId" minLength:"1"`
+	PanelID        string `json:"panelId" minLength:"1"`
+}
+
+// ViewsConnectParams はview→Coreのviews.connect params。
+type ViewsConnectParams struct {
+	Ticket string `json:"ticket"`
+}
+
+// ViewsConnectResult はviews.connectの応答。bindされたinstanceを返す。
+type ViewsConnectResult struct {
+	Instance ViewInstance `json:"instance"`
+}
+
+// ViewsMessageParams はviews.messageのenvelope。
+// payloadはopaqueでCoreは解釈しない（designs/00011）。
+type ViewsMessageParams struct {
+	Instance string          `json:"instance"`
+	Payload  json.RawMessage `json:"payload,omitempty"`
+}
+
+// views.eventのtype。
+const (
+	ViewsEventOpened = "opened"
+	ViewsEventClosed = "closed"
+)
+
+// ViewsEventParams はlifecycle通知。runtimeへはopened/closed両方、
+// viewへはruntime死によるclosedが届く。
+type ViewsEventParams struct {
+	Instance string `json:"instance"`
+	Type     string `json:"type"`
+	PanelID  string `json:"panelId,omitempty"`
 }

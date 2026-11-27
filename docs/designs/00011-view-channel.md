@@ -91,10 +91,10 @@ viewがWSで繋いできたとき、Coreはroutingのためにその接続がど
 ```
 
 - 1つのWS接続は1つのinstanceにbindする。同一webview内の複数viewが接続を共有するmultiplexingは将来の最適化とし、まずはinstanceごとに接続する（loopback WSは安い）。
-- ticketはinstanceのlifetime中有効とし、再接続に使える。loopbackの脅威モデルではこれで十分。
+- viewのWS切断でinstanceはclosedになる。channelの私的protocol状態はruntime側のmemoryにあり再接続で復元できないため、切断したinstanceに固執せずhostが新しいinstanceを登録し直す方が単純である。このためticketの再利用は起こらない。
 
 ## 未決事項
 
-- wire上の正確なmethod名とenvelope形式。REST path、`views.connect` / `views.message` / `views.event` 等の命名。Contract 00004への反映時に決める。
 - runtime側から能動的にviewを開く逆方向の要否。現状はhostが開く方向のみ。
 - UI Appが死んだときのinstance cleanupのタイミング。
+- registrationのlease期限切れ・DELETE時のinstance清算。runtimeのWS切断はcover済みだが、WSが残ったままregistrationだけ消える経路は未対応。

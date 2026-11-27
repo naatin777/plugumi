@@ -288,6 +288,15 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  packages/view:
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   plugins/agent:
     dependencies:
       '@plugumi/runtime':

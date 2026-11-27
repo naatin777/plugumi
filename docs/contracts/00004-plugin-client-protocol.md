@@ -418,7 +418,27 @@ declarative surfaceのpayload仕様はA2UIとする（[Decision 00035](../decisi
 
 ### Panel呼び出し
 
-`panel.call` は廃止する。UIへの働きかけは、capabilityとして意味があるものはoperation、plugin runtimeと自分のviewの私的な対話はview channelに分類する（[Design 00011](../designs/00011-view-channel.md)）。view channelのwire上の形式は未確定であり、次のrevisionまでに決める。
+`panel.call` は廃止する。UIへの働きかけは、capabilityとして意味があるものはoperation、plugin runtimeと自分のviewの私的な対話はview channelに分類する（[Design 00011](../designs/00011-view-channel.md)）。
+
+### view channel
+
+view channelはplugin runtimeと自分のview instanceの間の私的な双方向channelである。operationとは別種別で、Executionとして記録されず、catalogにも出ず、routingはinstance単位で自明である。payloadはopaqueでCoreは解釈しない。
+
+viewはUI Appやshellの仲介なしに自分でCoreへWS接続する。bindingはhost事前登録 + ticket方式:
+
+1. hostが `POST /v1/views` に `{registrationId, panelId}` を送り、instance idと `ticket` を受け取る。instanceは `pending` 状態。
+2. hostはviewをmountし、contextにCore URLとticketを渡す。hostの通信への関与はここまで。
+3. viewは `/v1/rpc` へWS接続し、`views.connect` requestで `{ticket}` を提示する。Coreはticketを検証して接続をinstanceにbindし、`open` へ進め、runtimeへ `views.event` `{instance, type: "opened", panelId}` notificationを送る。
+4. 以降 `views.message` notification `{instance, payload}` が双方向にroutingされる。view接続からはruntimeへ、runtime接続からはviewへ。第三者の接続からのmessageはdropする。
+5. close:
+   - viewのWS切断 → instanceは `closed`、runtimeへ `views.event` `{instance, type: "closed"}`。
+   - runtimeのWS切断 → そのregistrationの開いているinstanceは全て `closed`、view接続へ `views.event` closedが届く。channelの寿命はruntime sessionに紐付く。
+   - runtimeからの `views.close` notification `{instance}` → instanceを閉じ、viewへ通知する。
+   - hostからの `DELETE /v1/views/{viewId}` → instanceを閉じ、view接続へ通知したうえでcloseする。
+
+1つのWS接続は1つのinstanceにbindする。instance idはREST path parameterに載るためslashを含まない `view-` prefix形式とする。viewのWS切断でinstanceはclosedになるため、ticketが再利用されることはなく、切断時はhostが新しいinstanceを登録し直す。
+
+view channelのメッセージにはschemaもmethod宣言もなく、型の共有はplugin作者に委ねられる（TypeScript同士ならshared type import、別言語ならquicktype等。designs/00011）。
 
 ## Schema・型生成
 

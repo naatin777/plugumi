@@ -15,6 +15,8 @@ import { declarations, dispatchInvoke, invalidParams } from "./operations.js";
 import type { Operation } from "./operations.js";
 import { Connection } from "./rpc.js";
 import type { Socket } from "./rpc.js";
+import { RuntimeViewChannelImpl } from "./viewchannel.js";
+import type { RuntimeViewChannel } from "./viewchannel.js";
 import {
   METHOD_ASSETS_GET,
   METHOD_EXECUTIONS_CANCEL,
@@ -60,6 +62,9 @@ export interface PluginRuntimeOptions {
   // trueならSSE+Snapshotでcatalogを追跡しthis.catalogを最新に保つ。
   // 呼び出し側にもなるpluginだけ有効にすればよい。
   catalog?: boolean;
+  // view instanceが開いたときに呼ばれる。channelの寿命管理は
+  // （close検知まで）SDKが行い、作者はhandlerを登録するだけでよい。
+  onView?: (channel: RuntimeViewChannel) => void;
   log?: (message: string) => void;
 }
 
@@ -70,6 +75,7 @@ export class PluginRuntime {
   private readonly log: (message: string) => void;
   private readonly active = new ActiveExecutions();
   private readonly invocationEvents = new InvocationEvents();
+  private readonly viewChannels = new Map<string, RuntimeViewChannelImpl>();
   // catalog追跡。options.catalogがtrueのときrunで起動する。
   readonly catalogTracker?: Catalog;
   private uiFiles?: Map<string, UIFileEntry>;
@@ -267,6 +273,28 @@ export class PluginRuntime {
     // 呼んだinvocationへのevent配送。providerとcallerを兼ねるpluginもある。
     if (message.method === "executions.event") {
       this.invocationEvents.route(message.params as ExecutionsEventParams);
+      return;
+    }
+    if (message.method === "views.event") {
+      const params = message.params as { instance?: string; type?: string; panelId?: string } | undefined;
+      if (!params?.instance) return;
+      if (params.type === "opened") {
+        if (!this.connection) return;
+        const channel = new RuntimeViewChannelImpl(this.connection, params.instance, params.panelId ?? "");
+        this.viewChannels.set(params.instance, channel);
+        this.options.onView?.(channel);
+      } else if (params.type === "closed") {
+        const channel = this.viewChannels.get(params.instance);
+        if (channel) {
+          this.viewChannels.delete(params.instance);
+          channel.markClosed();
+        }
+      }
+      return;
+    }
+    if (message.method === "views.message") {
+      const params = message.params as { instance?: string; payload?: unknown } | undefined;
+      if (params?.instance) this.viewChannels.get(params.instance)?.dispatch(params.payload);
     }
   }
 }

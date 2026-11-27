@@ -223,6 +223,41 @@ func (r *Registry) ResolveOperation(path string) (*rpc.Connection, error) {
 	return found.connection, nil
 }
 
+// ConnectionFor はregistrationの現行RPC接続を返す。
+// view channelのroutingなど、operation解決を介さずregistrationの
+// 接続そのものが必要な場合に使う。未接続・未知ならnil。
+func (r *Registry) ConnectionFor(registrationID string) *rpc.Connection {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if record := r.byID[registrationID]; record != nil {
+		return record.connection
+	}
+	return nil
+}
+
+// PanelDeclared はregistrationがそのpanelIdを宣言しているかを返す。
+func (r *Registry) PanelDeclared(registrationID, panelID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	record := r.byID[registrationID]
+	if record == nil {
+		return false
+	}
+	for _, panel := range record.panels {
+		if panel.PanelID == panelID {
+			return true
+		}
+	}
+	return false
+}
+
+// HasRegistration はregistrationが存在するかを返す。
+func (r *Registry) HasRegistration(registrationID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.byID[registrationID] != nil
+}
+
 // ListOperations は現在liveな登録のoperation宣言を集約する。
 func (r *Registry) ListOperations() []wire.OperationDeclaration {
 	r.mu.Lock()
