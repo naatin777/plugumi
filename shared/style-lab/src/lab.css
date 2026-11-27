@@ -1,0 +1,76 @@
+/* Style Labの配置だけ。component自体の見た目はcomponents.cssと
+   tokenに任せ、ここには並べ方だけを書く。 */
+.lab {
+  padding: var(--plugumi-spacing-md);
+  font-family: var(--plugumi-font-family-sans, sans-serif);
+  color: var(--plugumi-colors-text);
+  overflow: auto;
+  height: 100%;
+  box-sizing: border-box;
+}
+.lab h2 {
+  font-size: var(--plugumi-font-size-md, 1rem);
+  margin: var(--plugumi-spacing-md) 0 var(--plugumi-spacing-sm);
+  border-bottom: 1px solid var(--plugumi-colors-border);
+  padding-bottom: var(--plugumi-spacing-xs);
+}
+.lab h3 {
+  font-size: var(--plugumi-font-size-sm);
+  color: var(--plugumi-colors-text-muted);
+  margin: var(--plugumi-spacing-sm) 0 var(--plugumi-spacing-xs);
+  font-weight: normal;
+}
+.lab-section { margin-bottom: var(--plugumi-spacing-md); }
+.lab-row {
+  display: flex;
+  align-items: center;
+  gap: var(--plugumi-spacing-sm);
+  margin-bottom: var(--plugumi-spacing-xs);
+  flex-wrap: wrap;
+}
+.lab-key {
+  font-family: var(--plugumi-font-family-mono, monospace);
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-subtle);
+  min-width: 12em;
+}
+.lab-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5em, 1fr));
+  gap: var(--plugumi-spacing-xs);
+}
+.lab-swatch { display: flex; flex-direction: column; gap: 2px; }
+.lab-chip {
+  height: 2.5em;
+  border-radius: var(--plugumi-radii-md);
+  border: 1px solid var(--plugumi-colors-border);
+}
+.lab-swatch-name {
+  font-family: var(--plugumi-font-family-mono, monospace);
+  font-size: var(--plugumi-font-size-xs);
+  color: var(--plugumi-colors-text-subtle);
+  word-break: break-all;
+}
+.lab-bar {
+  display: inline-block;
+  height: 0.8em;
+  background: var(--plugumi-colors-accent);
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.lab-radiusbox {
+  display: inline-block;
+  width: 2em;
+  height: 2em;
+  background: var(--plugumi-colors-accent-surface);
+  border: 1px solid var(--plugumi-colors-accent-border);
+  vertical-align: middle;
+}
+.lab-scrollbox {
+  height: 5em;
+  width: 12em;
+  overflow: auto;
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+}
+.lab-scrollcontent { height: 20em; }

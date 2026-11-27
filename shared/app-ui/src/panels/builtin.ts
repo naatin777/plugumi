@@ -3,6 +3,7 @@
 // `mount(host, context)` で書かれた独立package（shared/theme等）。
 import * as theme from "plugumi-theme-panel";
 import * as files from "plugumi-files-panel";
+import * as styleLab from "plugumi-style-lab-panel";
 import type { BuiltinPanelEntry } from "../host.tsx";
 
 export const builtinPanels: BuiltinPanelEntry[] = [
@@ -21,5 +22,13 @@ export const builtinPanels: BuiltinPanelEntry[] = [
     title: files.title,
     mount: files.mount,
     css: files.css,
+  },
+  {
+    kind: "builtin",
+    providerId: "shell",
+    panelId: styleLab.panelId,
+    title: styleLab.title,
+    mount: styleLab.mount,
+    css: styleLab.css,
   },
 ];
