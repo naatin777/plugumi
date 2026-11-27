@@ -1,7 +1,7 @@
 // ShellHost の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
 import type {
-  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree, RegistrationEntry,
-  ShellHost, WorkspaceState,
+  CoreEntry, InvokeBody, PluginPanelEntry, ProjectTree, RegistrationEntry,
+  ShellHost, ViewTicket, WorkspaceState,
 } from "@plugumi/workbench";
 
 async function errorMessage(response: Response): Promise<string> {
@@ -59,14 +59,30 @@ export function httpShellHost(): ShellHost {
       if (!response.ok) throw new Error(`GET registrations: HTTP ${response.status}`);
       return response.json();
     },
-    async callTool(key: string, body: CallToolBody): Promise<unknown> {
-      const response = await fetch(`/api/cores/${encodeURIComponent(key)}/call`, {
+    async invoke(key: string, body: InvokeBody): Promise<unknown> {
+      const response = await fetch(`/api/cores/${encodeURIComponent(key)}/invoke`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!response.ok) throw new Error(await errorMessage(response));
-      return (await response.json()).result;
+      return (await response.json()).execution?.result;
+    },
+    async createView(key: string, body: { registrationId: string; panelId: string }): Promise<ViewTicket> {
+      const response = await fetch(`/api/cores/${encodeURIComponent(key)}/views`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error(await errorMessage(response));
+      return response.json();
+    },
+    async closeView(key: string, viewId: string): Promise<void> {
+      const response = await fetch(
+        `/api/cores/${encodeURIComponent(key)}/views/${encodeURIComponent(viewId)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error(await errorMessage(response));
     },
     async listProjects(key: string): Promise<ProjectTree[]> {
       const response = await fetch(base(key));

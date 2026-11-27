@@ -5,7 +5,7 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { render } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
-import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
+import type { ViewContext, ViewHandle } from "@plugumi/view";
 
 type ThemeMode = "system" | "light" | "dark";
 
@@ -16,7 +16,7 @@ export interface ThemeShell {
   updatePrefs(mutate: (prefs: { theme: ThemeMode; aurora: boolean; auroraVivid: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string }) => void): void;
 }
 
-export interface ThemePanelContext extends PanelContext {
+export interface ThemePanelContext extends ViewContext {
   shell: ThemeShell;
 }
 
@@ -123,7 +123,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
   );
 }
 
-export function mount(host: ShadowRoot, context: ThemePanelContext): PanelHandle {
+export function mount(host: ShadowRoot, context: ThemePanelContext): ViewHandle {
   const dispose = render(() => <ThemePanel shell={context.shell} />, host);
   return { destroy: () => dispose() };
 }

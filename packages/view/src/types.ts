@@ -9,11 +9,43 @@ export interface ViewConnectionInfo {
   ticket: string;
 }
 
-// hostがmountへ渡すcontext。接続情報以外にもhost固有の情報
-// （開くときの初期入力など）が載りうるが、SDKが要求するのはconnectionだけ。
+// hostがmountへ渡すcontext。connectionはview channelの確立に必須で、
+// それ以外はhostが提供するservice。shellによっては無い機能もあるので、
+// 作者は存在を前提にしないほうが移植性が高い。
 export interface ViewContext {
   connection: ViewConnectionInfo;
+  // このviewを開いたときの初期入力。永続化はされない。
   input?: unknown;
+  // hostのShadowRoot（mountのhostと同じもの）。popover・tooltipなど
+  // viewの見た目の一部だが並びの外に置きたい要素はここへappendする。
+  root?: ShadowRoot;
+  // viewの活動状態をhostへ通知する。意味だけ渡し、表現はhostが決める。
+  // 呼ぶたびに全体を置き換える。永続化されず再mountで消える。
+  setActivity?(activity: ViewActivity | null): void;
+  // 同じleafの隣に、同じpluginの別panelを開く。
+  openPanel?(panelId: string, input?: unknown): void;
+}
+
+// viewの活動状態。hostはこれを見てheaderやborderに表現を載せる。
+export type ViewActivityTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type ViewActivitySurface = "header" | "border" | "divider" | "content";
+export type ViewActivityEffect = "static" | "flow" | "glow";
+
+// determinateのvalueは0〜1の割合。範囲外はhost側で丸める。
+export type ViewActivityProgress =
+  | { kind: "determinate"; value: number }
+  | { kind: "indeterminate" };
+
+export interface ViewActivityLayer {
+  surface: ViewActivitySurface;
+  tone: ViewActivityTone;
+  effect?: ViewActivityEffect;
+}
+
+export interface ViewActivity {
+  busy?: boolean;
+  progress?: ViewActivityProgress;
+  layers?: ViewActivityLayer[];
 }
 
 // view⇄runtime間の型付きchannel。payloadはopaqueでCoreは中身を見ず、

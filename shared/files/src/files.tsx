@@ -1,11 +1,11 @@
 // file explorer Panelの本体。Pluginと同じく `mount(host, context)` で
 // ShadowRootへ描く。Environment ProviderはheadlessでUIを持たないので、
-// このPanelがfs/listを宣言した登録をRegistryから探し、context.shell経由で
-// capabilityを呼ぶ。provider側にUIは置かない（Decision 00017）。
+// このPanelがfilesystem/listを宣言した登録をRegistryから探し、
+// context.shell経由でcapabilityを呼ぶ。provider側にUIは置かない（Decision 00017）。
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { render } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
-import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
+import type { ViewContext, ViewHandle } from "@plugumi/view";
 
 // shellから受け取る最小の口。ShellControllerの型は引かず、
 // このPanelが触るsliceだけを宣言する。
@@ -13,11 +13,12 @@ export interface FilesShell {
   coreKey(): string;
   host: {
     listRegistrations(key: string): Promise<RegistrationEntry[]>;
-    callTool(key: string, body: { registrationId: string; toolPath: string; input: unknown }): Promise<unknown>;
+    invoke(key: string, body: { operation: string; input: unknown }): Promise<unknown>;
   };
 }
 
-export interface FilesPanelContext extends PanelContext {
+// builtin panelはview channelを持たないので、contextのうちshellだけを使う。
+export interface FilesPanelContext extends ViewContext {
   shell: FilesShell;
 }
 
@@ -25,7 +26,7 @@ interface RegistrationEntry {
   registrationId: string;
   providerId: string;
   rpcAvailable: boolean;
-  tools: { toolPath: string; kind?: string }[];
+  operations: { path: string }[];
 }
 
 interface Entry {
@@ -38,16 +39,17 @@ interface ListResult {
   entries?: Entry[];
 }
 
-export function mount(host: ShadowRoot, context: FilesPanelContext): PanelHandle {
+export function mount(host: ShadowRoot, context: FilesPanelContext): ViewHandle {
   const dispose = render(() => <FilesPanel shell={context.shell} />, host);
   return { destroy: () => dispose() };
 }
 
-// fs/listをsyncで提供し、RPC接続が生きている登録を探す。
+// filesystem/listを提供し、RPC接続が生きている登録を探す。
+// operationにkindの概念はない — terminal応答するかはproviderの振る舞い。
 function fsProviders(registrations: RegistrationEntry[]): RegistrationEntry[] {
   return registrations.filter((registration) =>
     registration.rpcAvailable &&
-    registration.tools.some((tool) => tool.toolPath === "fs/list" && (tool.kind ?? "sync") === "sync"));
+    registration.operations.some((operation) => operation.path === "filesystem/list"));
 }
 
 function FilesPanel(props: { shell: FilesShell }): JSX.Element {
@@ -94,8 +96,12 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
       let stale = false;
       setLoading(true);
       setError("");
-      props.shell.host.callTool(core, {
-        registrationId, toolPath: "fs/list", input: { path: directory },
+      // registrationIdは解決に使わない — operationはpathだけで解決する。
+      // providerを選ぶUIは残すが、それは「どの環境の一覧を見たいか」の
+      // 表示上の選択で、呼び出しのroutingはCoreに委ねる。
+      void registrationId;
+      props.shell.host.invoke(core, {
+        operation: "filesystem/list", input: { path: directory },
       }).then((result) => {
         if (stale) return;
         setListing((result as ListResult).entries ?? []);

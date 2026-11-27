@@ -5,7 +5,7 @@
 // 有効にしたwindowでのみ動く）
 import { createSignal, onSettled, Show, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import type { PanelContext } from "@plugumi/plugin-view";
+import type { ViewContext } from "@plugumi/view";
 
 // <webview>はElectronのwebviewTagで有効化される要素。ブラウザや
 // 無効化されたrendererではただのunknown elementになりloadURLを持たない。
@@ -28,7 +28,7 @@ function validURL(value: string): string | undefined {
   }
 }
 
-export function SitePanel(props: { context: PanelContext }): JSX.Element {
+export function SitePanel(props: { context: ViewContext }): JSX.Element {
   const supported = "loadURL" in document.createElement("webview");
 
   // 開き時の入力（context.openPanelで生えたPanelにだけ来る）。
@@ -76,7 +76,7 @@ export function SitePanel(props: { context: PanelContext }): JSX.Element {
       const detail = (event as CustomEvent<{ guestId?: number; url?: string }>).detail;
       if (detail?.guestId !== view?.getWebContentsId()) return;
       const url = validURL(detail.url ?? "");
-      if (url !== undefined) props.context.openPanel("site", { url });
+      if (url !== undefined) props.context.openPanel?.("site", { url });
     };
     window.addEventListener("plugumi:site-open", openSibling);
 

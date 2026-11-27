@@ -4,9 +4,21 @@
 // Shellがdecodeする。putはShellのstateをそのまま渡す。
 import { createContext, useContext, type ParentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
+import type { ViewContext, ViewHandle } from "@plugumi/view";
 import type { WorkspaceState } from "./layout/model.ts";
 import type { ShellController } from "./shell/controller.tsx";
+
+// Panelのmountに渡すcontext。view channelの接続情報に加えて、
+// workbenchはactivity通知とopenPanelを必ず提供する。
+// Pluginのview entryはdefineViewで包まれ、接続はSDKが担う（designs/00011）。
+export interface PanelContext extends ViewContext {
+  root: ShadowRoot;
+  setActivity: NonNullable<ViewContext["setActivity"]>;
+  openPanel: NonNullable<ViewContext["openPanel"]>;
+}
+
+export type PanelHandle = ViewHandle;
+export type PanelMount = (host: ShadowRoot, context: PanelContext) => PanelHandle | Promise<PanelHandle>;
 
 // ---- /api/cores 系の型（Go側のJSONフィールド名と一致） ----
 export type CoreSource = "command" | "saved";
@@ -23,11 +35,11 @@ export interface CoreEntry {
 }
 
 // Shell組み込みPanel。providerId "shell" のlocal PluginとしてShellの
-// bundleに同梱され、Pluginと同じくShadowRootへmountする
-// （contracts/00005のPanelMountと同じ形）。
+// bundleに同梱され、Pluginと同じくShadowRootへmountする。
 // contextはPluginと同じPanelContextに、Shell内部へ届くshellを足した
-// もの — 同梱コードなので信頼境界はなく、Core Toolではなく端末localの
-// prefsのようなShell状態に届けるためにある。
+// もの — 同梱コードなので信頼境界はなく、端末localのprefsのような
+// Shell状態に届けるためにある。組み込みはview channelを持たない
+// （Coreを経由しない）のでconnectionは形だけのものを入れる。
 export interface BuiltinPanelContext extends PanelContext {
   shell: ShellController;
 }
@@ -45,7 +57,7 @@ export interface PluginPanelEntry {
   styles: string[];
   uiSha256: string;
   // 提供元の登録のRPC接続が生きているか。falseの宣言はmountはできるが
-  // callToolが通らないので、同じpanelIdにliveの宣言があればそちらを優先する。
+  // view channelが繋がらないので、同じpanelIdにliveの宣言があればそちらを優先する。
   rpcAvailable: boolean;
 }
 
@@ -76,20 +88,30 @@ export interface ProjectTree {
   areas: AreaTree[];
 }
 
-export interface CallToolBody {
-  registrationId: string;
-  toolPath: string;
+export interface InvokeBody {
+  operation: string;
   input: unknown;
 }
 
+// view instanceの登録応答（POST /api/cores/{key}/views）。
+// shellはticketとCore URLをpanelのcontext.connectionへ入れる。
+export interface ViewTicket {
+  id: string;
+  registrationId: string;
+  panelId: string;
+  status: string;
+  ticket: string;
+}
+
 // Registryの1登録。Shell同梱Viewがcapability宣言から呼び出し先を
-// 選ぶために使う（file explorerがfs/listを探す等）。
+// 選ぶために使う（file explorerがfilesystem/listを探す等）。
 export interface RegistrationEntry {
   registrationId: string;
   providerId: string;
-  providerKind?: string;
+  environment?: string;
+  ready: boolean;
   rpcAvailable: boolean;
-  tools: { toolPath: string; kind?: string }[];
+  operations: { path: string; description?: string }[];
 }
 
 export interface ShellHost {
@@ -100,7 +122,13 @@ export interface ShellHost {
 
   listPanels(key: string): Promise<PluginPanelEntry[]>;
   listRegistrations(key: string): Promise<RegistrationEntry[]>;
-  callTool(key: string, body: CallToolBody): Promise<unknown>;
+  // shell自身がcallerとしてoperationを呼ぶ。builtin panelが
+  // environment operationを使う経路。terminal応答だけを扱う。
+  invoke(key: string, body: InvokeBody): Promise<unknown>;
+  // hostとしてview instanceを登録・closeする（designs/00011）。
+  // panelのmount時にcreateViewし、ticketをcontextへ入れる。
+  createView(key: string, body: { registrationId: string; panelId: string }): Promise<ViewTicket>;
+  closeView(key: string, viewId: string): Promise<void>;
 
   listProjects(key: string): Promise<ProjectTree[]>;
   // 作成はtitleを渡し、発行されたkeyが返る。

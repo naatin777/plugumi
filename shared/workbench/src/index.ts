@@ -17,7 +17,8 @@ import "./styles/layout.css";
 
 export type {
   ShellHost, CoreEntry, PanelEntry, PluginPanelEntry, BuiltinPanelEntry,
-  AreaTree, ProjectTree, CallToolBody, RegistrationEntry,
+  AreaTree, ProjectTree, InvokeBody, ViewTicket, RegistrationEntry,
+  PanelContext, PanelHandle, PanelMount,
 } from "./host.tsx";
 export { ShellHostContext, ShellHostProvider, useShellHost } from "./host.tsx";
 export { shellRoutes } from "./routes.tsx";

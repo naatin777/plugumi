@@ -2,8 +2,8 @@
 // Projects/Areas/workspaceはsessionStorageに保持する（reloadに耐え、
 // タブを閉じれば消える）。
 import type {
-  CallToolBody, CoreEntry, PluginPanelEntry, ProjectTree, RegistrationEntry,
-  ShellHost, WorkspaceState,
+  CoreEntry, PluginPanelEntry, ProjectTree, RegistrationEntry,
+  ShellHost, ViewTicket, WorkspaceState,
 } from "../../src/host.tsx";
 import { pathKey } from "../../src/layout/area-list.ts";
 
@@ -108,15 +108,24 @@ export function createMemoryHost(): ShellHost {
 
     async listPanels() { return PANELS; },
     async listRegistrations(): Promise<RegistrationEntry[]> {
-      // fs/listを持つ環境Providerのつもり。E2Eでfile explorerを開くときの
-      // 対象になる。callTool自体はnullを返すスタブ。
+      // filesystem/listを持つ環境Providerのつもり。E2Eでfile explorerを
+      // 開くときの対象になる。invoke自体はnullを返すスタブ。
       return [{
         registrationId: "environment", providerId: "environment",
-        providerKind: "environment", rpcAvailable: true,
-        tools: [{ toolPath: "fs/list", kind: "sync" }],
+        environment: "env/local", ready: true, rpcAvailable: true,
+        operations: [{ path: "filesystem/list" }],
       }];
     },
-    async callTool(_key: string, _body: CallToolBody) { return null; },
+    async invoke() { return null; },
+    async createView(_key, body): Promise<ViewTicket> {
+      // memory hostではview channelは繋がらないが、mount flowは通す。
+      // 接続失敗はview側の問題として表面化する。
+      return {
+        id: "view-memory", registrationId: body.registrationId,
+        panelId: body.panelId, status: "pending", ticket: "memory-ticket",
+      };
+    },
+    async closeView() {},
 
     async listProjects() { return stored.projects; },
     async createProject(_key, title) {

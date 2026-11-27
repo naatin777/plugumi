@@ -2,16 +2,16 @@
 // 保存上のinstanceId（panel-…）を持ち、registrationIdは都度解決する
 // （Plugin再起動で変わるため保存しない。0件ならmissing、複数なら昇順の先頭）。
 import { createSignal } from "solid-js";
-import type { PanelMount, PanelHandle } from "@plugumi/plugin-view";
+import type { PanelMount, PanelHandle } from "../host.tsx";
 import type { PanelEntry, PluginPanelEntry, ShellHost } from "../host.tsx";
 import type { ShellController } from "../shell/controller.tsx";
 import type { PanelRef } from "../layout/model.ts";
 import { acquirePanelStyles } from "./styles.ts";
 import type { ActivityState } from "../shell/activity.ts";
-import type { PanelActivity } from "@plugumi/plugin-view";
+import type { ViewActivity } from "@plugumi/view";
 
 // context.setActivityの入力をShell内部の形へ。effect省略はstatic。
-function normalizeActivity(activity: PanelActivity | null): ActivityState | undefined {
+function normalizeActivity(activity: ViewActivity | null): ActivityState | undefined {
   if (!activity) return undefined;
   return {
     busy: activity.busy ?? false,
@@ -72,6 +72,12 @@ export class PanelInstance {
 
   private destroyPanel: (() => void) | undefined;
   private releaseStyles: (() => void) | undefined;
+  // mountしたpanelのview instance。teardownでhost側からcloseする —
+  // defineViewのdestroyがWSを閉じてもCore側でinstanceは閉じるが、
+  // connectに失敗したpanelやconnectしないpanelは閉じないので、
+  // こちらでも畳む（二重closeは404になるだけで無害）。
+  private viewId: string | undefined;
+  private viewClosed = true;
   // PanelはPlugin・組み込みともShadowRootへ描く。
   private shadow: ShadowRoot | undefined;
   private mountToken = 0;
@@ -137,6 +143,13 @@ export class PanelInstance {
     this.destroyPanel = undefined;
     this.releaseStyles?.();
     this.releaseStyles = undefined;
+    if (!this.viewClosed && this.viewId) {
+      const viewId = this.viewId;
+      this.viewClosed = true;
+      // best effort — 既にclosedなら404、Coreが死んでいても構わない。
+      void this.shell.closeView(this.coreKey, viewId).catch(() => {});
+    }
+    this.viewId = undefined;
     if (this.shadow) {
       // shadowの中身とadoptしたstyleはPanelのもの。Instanceをまたいで
       // 残さない（Panel自身のdestroyが掃除しない分もここで落とす）。
@@ -180,7 +193,7 @@ export class PanelInstance {
     this.shadow = root;
 
     if (panel.kind === "builtin") {
-      // 組み込みはCoreを経由しない — fetch・import・callToolなしで、
+      // 組み込みはCoreを経由しない — fetch・import・instance登録なしで、
       // bundle同梱のmountとcssを使う。DOMの置き場はPluginと同じ
       // ShadowRootで、呼ぶcontractも同じ。
       this.kind = "builtin";
@@ -194,8 +207,9 @@ export class PanelInstance {
       try {
         handle = await panel.mount(root, {
           root,
-          // 組み込みにCore Toolは無い。Shell状態にはcontext.shellで届く。
-          callTool: () => Promise.reject(new Error("組み込みPanelはToolを呼べません")),
+          // 組み込みはCoreを経由しないのでview channelを持たない。
+          // connectionは形だけ — Shell状態にはcontext.shellで届く。
+          connection: { coreUrl: "about:blank", ticket: "" },
           setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
           input: this.input,
           openPanel: (panelId, input) => this.openSibling?.(panelId, input),
@@ -254,14 +268,34 @@ export class PanelInstance {
       release();
       return;
     }
+    // hostとしてview instanceを登録し、ticketをcontextへ入れる。
+    // viewはこれで自分でCoreへ繋ぐ（designs/00011）。shellは通信に関与しない。
+    let ticket;
+    let coreUrl;
+    try {
+      [ticket, coreUrl] = await Promise.all([
+        this.shell.createView(this.coreKey, {
+          registrationId: this.registrationId, panelId: panel.panelId,
+        }),
+        this.shell.getCore(this.coreKey).then((core) => core.url),
+      ]);
+    } catch (cause) {
+      release();
+      fail("load", cause);
+      return;
+    }
+    if (token !== this.mountToken) {
+      release();
+      void this.shell.closeView(this.coreKey, ticket.id).catch(() => {});
+      return;
+    }
+    this.viewId = ticket.id;
+    this.viewClosed = false;
     let handle: PanelHandle;
     try {
       handle = await module.mount(root, {
         root,
-        callTool: (toolPath, input) =>
-          this.shell.callTool(this.coreKey, {
-            registrationId: this.registrationId, toolPath, input,
-          }),
+        connection: { coreUrl, ticket: ticket.ticket },
         // Pluginは意味だけ渡す。呼ぶたびに全体を置き換える。
         setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
         input: this.input,
@@ -269,6 +303,9 @@ export class PanelInstance {
       });
     } catch (cause) {
       release();
+      void this.shell.closeView(this.coreKey, ticket.id).catch(() => {});
+      this.viewId = undefined;
+      this.viewClosed = true;
       fail("mount", cause);
       return;
     }
@@ -307,7 +344,7 @@ export class PanelInstance {
       panel.registrationId === this.registrationId && panel.panelId === this.panelId,
     );
     // rpcAvailable:falseの登録は一覧に残るので、liveの代替があるなら
-    // 解決し直して移る（callToolが通る方を優先する）。
+    // 解決し直して移る（view channelが繋がる方を優先する）。
     if (same?.rpcAvailable) {
       if (this.state() === "missing" || same.uiSha256 !== this.uiSha256) {
         void this.mount(same);

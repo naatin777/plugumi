@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build"
   },
   "devDependencies": {
-    "@plugumi/plugin-view": "workspace:*",
+    "@plugumi/view": "workspace:*",
     "@solidjs/vite-plugin": "3.0.0",
     "@types/node": "24.19.2",
     "typescript": "6.0.3",

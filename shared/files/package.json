@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@plugumi/plugin-view": "workspace:*"
+    "@plugumi/view": "workspace:*"
   },
   "peerDependencies": {
     "@solidjs/web": "2.0.0",
