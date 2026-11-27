@@ -24,7 +24,7 @@ export type DropPreview = DropPreviewPiece[];
 
 export type DropTester = (
   element: HTMLElement, x: number, y: number, session: DragSession,
-) => { target: MoveTarget; preview: DropPreviewPiece } | null;
+) => { target: MoveTarget; preview: DropPreviewPiece[] } | null;
 
 export interface DragSession {
   instanceId: string;
@@ -104,7 +104,7 @@ export function createDragController(
               overArea = found.area;
               overTarget = hit.target;
             }
-            pieces.push(hit.preview);
+            pieces.push(...hit.preview);
           }
         }
       }
@@ -221,7 +221,7 @@ export const stripTest = (target: (index: number) => MoveTarget): DropTester =>
     }
     return {
       target: target(index),
-      preview: { kind: "caret", x: caretX, y: rect.top + 4, height: rect.height - 8 },
+      preview: [{ kind: "caret", x: caretX, y: rect.top + 4, height: rect.height - 8 }],
     };
   };
 
@@ -247,23 +247,41 @@ export const leafTest = (leafId: () => string): DropTester =>
     const halfH = rect.height / 2;
     const splitTarget = (edge: "left" | "right" | "top" | "bottom") => ({
       target: { region: "split", leafId: id, edge } as MoveTarget,
-      preview: {
+      preview: [{
         kind: "region", split: true,
         x: edge === "right" ? rect.left + halfW : rect.left,
         y: edge === "bottom" ? rect.top + halfH : rect.top,
         width: edge === "left" || edge === "right" ? halfW : rect.width,
         height: edge === "top" || edge === "bottom" ? halfH : rect.height,
-      } as DropPreviewPiece,
+      } as DropPreviewPiece],
     });
     if (nearLeft && rect.width >= SPLIT_MIN_SIZE) return splitTarget("left");
     if (nearRight && rect.width >= SPLIT_MIN_SIZE) return splitTarget("right");
     if (nearTop && rect.height >= SPLIT_MIN_SIZE) return splitTarget("top");
     if (nearBottom && rect.height >= SPLIT_MIN_SIZE) return splitTarget("bottom");
+    // 末尾挿入はregion + tab列の末尾のcaret — 「全体のどこか」と
+    // 「末尾に入る」を同時に示す。class名では探さず構造を辿る:
+    // sectionの最初の子はheader、その最初の子がtab stripで、
+    // stripの子はtab。ただしポインタがstrip上にあるときはend-caretを
+    // 出さない — strip自身のcaretが挿入位置を示すので二重になる。
+    const pieces: DropPreviewPiece[] = [{
+      kind: "region", split: false,
+      x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+    }];
+    const stripEl = element.firstElementChild?.firstElementChild as HTMLElement | undefined;
+    if (stripEl) {
+      const sr = stripEl.getBoundingClientRect();
+      const overStrip = y >= sr.top && y <= sr.bottom;
+      if (!overStrip) {
+        const tabs = [...stripEl.children] as HTMLElement[];
+        const caretX = tabs.length > 0
+          ? tabs[tabs.length - 1].getBoundingClientRect().right
+          : sr.left + 4;
+        pieces.push({ kind: "caret", x: caretX, y: sr.top + 4, height: sr.height - 8 });
+      }
+    }
     return {
       target: { region: "leaf", leafId: id, index: -1 },
-      preview: {
-        kind: "region", split: false,
-        x: rect.left, y: rect.top, width: rect.width, height: rect.height,
-      },
+      preview: pieces,
     };
   };
