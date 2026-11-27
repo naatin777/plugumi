@@ -192,9 +192,12 @@
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 12em;
-  background: var(--plugumi-colors-background-secondary);
-  z-index: 1;
-  box-shadow: 2px 0 8px var(--plugumi-colors-scrim, rgb(0 0 0 / 0.4));
+  /* このoverlay自体もdrawer — shellのpatternに揃える:
+     端にぴったりの不透明な台、影なし、内側の辺にだけ1px線。 */
+  background: var(--shell-frame-color, var(--plugumi-colors-background-secondary));
+  border-right: 1px solid var(--plugumi-colors-border);
+  z-index: var(--plugumi-z-side-drawer);
+  box-shadow: none;
 }
 .lab.narrow.nav-open .lab-nav { display: flex; }
 .lab.narrow .lab-resizer { display: none; }
@@ -255,4 +258,37 @@
   padding: var(--plugumi-spacing-sm);
   font-size: var(--plugumi-font-size-xs);
   color: var(--plugumi-colors-text-muted);
+}
+
+/* Drawers entryのminiature。patternの写し — 実物はshell.module.cssと
+   work-shape.module.css。台の扱いと開閉の作法を対応させる。 */
+.lab-drawer-frame {
+  position: relative;
+  height: 12em;
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  /* hiddenだとscroll containerになり、画面外のdrawer内へfocusが
+     入るとずれる — shellと同じ理由でclip。 */
+  overflow: clip;
+  margin-bottom: var(--plugumi-spacing-md);
+}
+.lab-drawer-behind {
+  padding: var(--plugumi-spacing-sm);
+}
+.lab-drawer {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: min(11em, 85%);
+  padding: var(--plugumi-spacing-sm);
+  box-sizing: border-box;
+  background: var(--shell-frame-color, var(--plugumi-colors-background-secondary));
+  border-left: 1px solid var(--plugumi-colors-border);
+  box-shadow: none;
+  z-index: var(--plugumi-z-sub-drawer);
+  transition: transform 180ms ease, visibility 0s;
+}
+.lab-drawer[data-closed] {
+  transform: translateX(calc(100% + 16px));
+  visibility: hidden;
+  transition: transform 180ms ease, visibility 0s 180ms;
 }

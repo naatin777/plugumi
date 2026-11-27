@@ -106,6 +106,36 @@ function WidthProbe(): JSX.Element {
   );
 }
 
+// drawerのminiature demo。実物はshellのgrid文脈に深く埋まっているため
+// cssの直接共有はできず、ここはpatternを忠実に写したminiature —
+// 台の扱い（不透明・影なし・内側の辺だけ1px線）とtransformによる
+// 開閉はshell.module.css/work-shape.module.cssの実装に対応させる。
+// ずれたら嘘になるので、shell側を変えたらここも更新する。
+function DrawerDemo(): JSX.Element {
+  const [open, setOpen] = createSignal(false);
+  // 外をpointerdownしたら畳む — shellと同じ作法。drawer自身と
+  // toggle buttonは「内側」扱い。
+  const outsideDown = (event: PointerEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("[data-drawer-keep]")) return;
+    setOpen(false);
+  };
+  return (
+    <div class="lab-drawer-frame" onPointerDown={outsideDown}>
+      <div class="lab-drawer-behind">
+        <p class="lab-note" style={{ margin: "0 0 0.5em" }}>背後のcontent — drawerはこの上に重なる</p>
+        <button class="plugumi-button" data-drawer-keep onClick={() => setOpen(!open())}>
+          {open() ? "drawerを畳む" : "drawerを開く"}
+        </button>
+      </div>
+      <div class="lab-drawer" data-drawer-keep data-closed={open() ? undefined : ""}>
+        <p class="lab-note" style={{ margin: 0 }}>drawer</p>
+        <p class="lab-note">端にぴったり・不透明・影なし。外をclickすると畳まれる。</p>
+      </div>
+    </div>
+  );
+}
+
 // Responsive entryの本体。panelはsplitで幅が変わるのでviewportではなく
 // containerの幅が基準、というplugumiのresponsiveの原則をカタログする。
 function ResponsiveEntry(): JSX.Element {
@@ -354,6 +384,34 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
       </>
     ),
   },
+  {
+    group: "components", id: "drawers", title: "Drawers",
+    render: () => (
+      <>
+        <p class="lab-note">
+          幅が足りないときに副構造（Sub / Area list）を重ねるpattern。
+          shell専有 — 発動はshell幅で、Subは1100px未満・Area listは800px未満
+          （幅の適応はResponsive entry参照）。
+        </p>
+        <h3>demo — 開いて外をclickしてみる</h3>
+        <DrawerDemo />
+        <table class="lab-spec">
+          <tbody>
+            <tr><td class="lab-spec-prop">台</td><td class="lab-spec-value">shell-frame-color — 不透明。影・角丸・blurは付けない（明示的にbox-shadow: none）</td></tr>
+            <tr><td class="lab-spec-prop">線</td><td class="lab-spec-value">colors-border — 内側の辺にだけ1px（右drawerはborder-left、左はborder-right）</td></tr>
+            <tr><td class="lab-spec-prop">幅</td><td class="lab-spec-value">min(raw幅, 85-90%) — 全面を覆わず背後を残す</td></tr>
+            <tr><td class="lab-spec-prop">閉じ方</td><td class="lab-spec-value">transform: translateX(±100%+16px) + visibility — unmountせずstateを保つ</td></tr>
+            <tr><td class="lab-spec-prop">畳み方</td><td class="lab-spec-value">Escape / 外をpointerdown（開くbuttonとdrawer自身はdata-drawer-keepで内側扱い）</td></tr>
+            <tr><td class="lab-spec-prop">重なり</td><td class="lab-spec-value">z-side-drawer / z-sub-drawer — 列線（z-divider）より上</td></tr>
+          </tbody>
+        </table>
+        <p class="lab-note">
+          描画はminiature — 実物はshell.module.css（Sub）とwork-shape.module.css
+          （Area list）。spec表は手書き注釈なのでshell側を変えたら更新する。
+        </p>
+      </>
+    ),
+  },
 ];
 
 const GROUPS = [...new Set(ENTRIES.map((entry) => entry.group))];
@@ -403,9 +461,18 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
     event.preventDefault();
   };
 
+  // narrow時に開いているoverlay navはdrawer — 外をpointerdownしたら畳む。
+  // shellと同じく、nav自身とhamburgerはdata-drawer-keepで内側扱い。
+  const outsideDown = (event: PointerEvent) => {
+    if (!narrow() || !navOpen()) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("[data-drawer-keep]")) return;
+    setNavOpen(false);
+  };
+
   return (
-    <div class={{ "lab": true, narrow: narrow(), "nav-open": navOpen() }} ref={((el) => observer.observe(el)) as (el: HTMLDivElement) => void}>
-      <nav class="lab-nav" style={narrow() ? undefined : { width: `${width()}px` }}>
+    <div class={{ "lab": true, narrow: narrow(), "nav-open": navOpen() }} ref={((el) => observer.observe(el)) as (el: HTMLDivElement) => void} onPointerDown={outsideDown}>
+      <nav class="lab-nav" data-drawer-keep style={narrow() ? undefined : { width: `${width()}px` }}>
         <For each={GROUPS}>
           {(group) => (
             <>
@@ -427,7 +494,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
       <div class="lab-resizer" onPointerDown={startResize} />
       <div class="lab-content">
         <div class="lab-topbar">
-          <button class="lab-hamburger" aria-label="menu" onClick={() => setNavOpen(!navOpen())}>☰</button>
+          <button class="lab-hamburger" data-drawer-keep aria-label="menu" onClick={() => setNavOpen(!navOpen())}>☰</button>
           <div class="lab-summary">{usedTokens.size} / {entries.length} tokens in use — 薄いものは未使用</div>
         </div>
         <h2>{current().title}</h2>
