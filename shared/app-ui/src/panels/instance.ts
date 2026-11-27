@@ -93,6 +93,8 @@ export class PanelInstance {
   private readonly coreKey: string;
   // context.inputへ渡す開き時の入力。AreaControllerがInstance作成時に入れる。
   input: unknown;
+  // context.openPanelAcrossの実体。openSiblingと同じくAreaControllerが差す。
+  openAcross?: (providerId: string, panelId: string, input?: unknown) => void;
   // context.openPanelの実体。AreaControllerがInstance作成時に差す —
   // Instance自身は自分がどのleafに居るか知らないので、呼び出し時点の
   // layoutから探す側に任せる。
@@ -213,6 +215,8 @@ export class PanelInstance {
           setActivity: (activity) => this.setActivity(normalizeActivity(activity)),
           input: this.input,
           openPanel: (panelId, input) => this.openSibling?.(panelId, input),
+          openPanelAcross: (providerId, panelId, input) =>
+            this.openAcross?.(providerId, panelId, input),
           shell: this.controller,
         });
       } catch (cause) {

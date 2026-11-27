@@ -42,6 +42,10 @@ export interface CoreEntry {
 // （Coreを経由しない）のでconnectionは形だけのものを入れる。
 export interface BuiltinPanelContext extends PanelContext {
   shell: ShellController;
+  // 任意のprovider/panelを開く。view contextのopenPanelは同じpluginの
+  // panelだけだが、組み込みpanel（Files等）は別providerのpanelを
+  // 開きたい（file clickでeditorを開く等）。自分が居るAreaへ開く。
+  openPanelAcross?(providerId: string, panelId: string, input?: unknown): void;
 }
 
 export type BuiltinPanelMount =

@@ -392,6 +392,9 @@ export function createAreaController(
       // context.openPanel — 呼び出し時点のlayoutから自分が居るleafを
       // 探して、隣に同じPluginの別Panelを足す。leafから外れていれば無視。
       const source = found;
+      found.openAcross = (providerId, panelId, next) => {
+        openPanel(providerId, panelId, undefined, next);
+      };
       found.openSibling = (panelId, next) => {
         const leaf = leafOf(layoutState.center.root, source.id);
         if (!leaf) return;

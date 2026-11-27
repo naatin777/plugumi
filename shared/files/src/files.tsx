@@ -20,6 +20,8 @@ export interface FilesShell {
 // builtin panelはview channelを持たないので、contextのうちshellだけを使う。
 export interface FilesPanelContext extends ViewContext {
   shell: FilesShell;
+  // file clickでeditorを開く口。shellが自分の居るAreaへ配線する。
+  openPanelAcross?(providerId: string, panelId: string, input?: unknown): void;
 }
 
 interface RegistrationEntry {
@@ -40,7 +42,10 @@ interface ListResult {
 }
 
 export function mount(host: ShadowRoot, context: FilesPanelContext): ViewHandle {
-  const dispose = render(() => <FilesPanel shell={context.shell} />, host);
+  const dispose = render(
+    () => <FilesPanel shell={context.shell} openPanelAcross={context.openPanelAcross} />,
+    host,
+  );
   return { destroy: () => dispose() };
 }
 
@@ -52,7 +57,10 @@ function fsProviders(registrations: RegistrationEntry[]): RegistrationEntry[] {
     registration.operations.some((operation) => operation.path === "filesystem/list"));
 }
 
-function FilesPanel(props: { shell: FilesShell }): JSX.Element {
+function FilesPanel(props: {
+  shell: FilesShell;
+  openPanelAcross?: (providerId: string, panelId: string, input?: unknown) => void;
+}): JSX.Element {
   // providerは接続・切断しうるので3秒ごとに取り直す。中身が変わらなければ
   // 通知しない（shellのpollと同じ作法）。
   const [registrations, setRegistrations] = createSignal<RegistrationEntry[]>([], {
@@ -122,9 +130,17 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
     setDraft(next);
   };
 
+  const join = (name: string) => path() === "/" ? `/${name}` : `${path()}/${name}`;
   const open = (entry: Entry) => {
-    if (entry.kind !== "directory") return;
-    changePath(path() === "/" ? `/${entry.name}` : `${path()}/${entry.name}`);
+    if (entry.kind === "directory") {
+      changePath(join(entry.name));
+      return;
+    }
+    if (entry.kind === "file") {
+      // editorはenvironment（filesystem provider）のpanel。同じpluginが
+      // read/writeも受けるので、pathの解決はprovider内で一貫する。
+      props.openPanelAcross?.("filesystem", "editor", { path: join(entry.name) });
+    }
   };
 
   const up = () => {
@@ -192,7 +208,14 @@ function FilesPanel(props: { shell: FilesShell }): JSX.Element {
                 when={entry.kind === "directory"}
                 fallback={
                   <>
-                    <span class="files-entry">{entry.name}</span>
+                    {/* fileもclickで開く — editorを起動するのはopen側 */}
+                    <button
+                      type="button"
+                      class="files-entry"
+                      onClick={() => open(entry)}
+                    >
+                      {entry.name}
+                    </button>
                     <span class="files-meta">{entry.kind} {entry.size}B</span>
                   </>
                 }

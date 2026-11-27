@@ -4,6 +4,7 @@
 import { readdir, readFile, writeFile, stat, mkdir, rm, rename } from "node:fs/promises";
 import path from "node:path";
 import { PluginRuntime, coreURL } from "@plugumi/runtime";
+import type { RuntimeMessage, ViewMessage } from "./shared.js";
 
 const arg = (name: string): string | undefined =>
   process.argv.find((_, index) => process.argv[index - 1] === `--${name}`);
@@ -106,6 +107,29 @@ const runtime = new PluginRuntime({
     { path: "filesystem/remove", description: "remove a file or directory", handle: remove },
     { path: "filesystem/move", description: "move/rename a file or directory", handle: move },
   ],
+  ui: {
+    root: new URL("../dist-ui", import.meta.url).pathname,
+    panels: [{ panelId: "editor", title: "Editor", entry: "editor.js" }],
+  },
+  // editor viewからのread/write。operationと同じfs関数に流す —
+  // channel経由だからといって別実装は置かない。
+  onView(channel) {
+    const typed = channel.typed<RuntimeMessage, ViewMessage>();
+    typed.onMessage(async (message) => {
+      try {
+        if (message.type === "read") {
+          const result = await read({ path: message.path });
+          typed.send({ type: "content", path: message.path, content: result.content });
+        }
+        if (message.type === "write") {
+          await write({ path: message.path, content: message.content });
+          typed.send({ type: "saved", path: message.path });
+        }
+      } catch (cause) {
+        typed.send({ type: "error", message: cause instanceof Error ? cause.message : String(cause) });
+      }
+    });
+  },
   log: (message) => console.log(`[filesystem] ${message}`),
 });
 
