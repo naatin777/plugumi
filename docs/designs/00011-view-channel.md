@@ -69,10 +69,32 @@ view channelの両端は同じ作者・同じパッケージである。runtime�
 
 なおoperationは公開契約なので、`inputSchema` / `resultSchema` からの型生成は別の論題として意味がある。view channelとは混ぜない。
 
+## 接続のbinding — host事前登録 + ticket（決定）
+
+viewがWSで繋いできたとき、Coreはroutingのためにその接続がどのinstanceかを特定する必要がある。viewの自己申告ではなく、**hostが事前登録しCore発行のticketでviewをbindする**。理由はセキュリティというよりlifecycleの正確さである：Coreがinstanceの存在を接続前から知っていれば、「開かれたが未接続」「接続せず閉じられた」を表現でき、runtimeへの通知やembedのdegrade判定が正確になる。hostはpanelをCoreからfetchする立場で既にCoreのclientなので、開くときの登録呼び出しは追加コストが小さい。
+
+### lifecycle
+
+```text
+1. hostがpanelを開くことを決める（ユーザー操作・layout復元）
+2. host → Core REST: instance登録（registrationId + panelIdを渡す）
+   Core: instance idとticketを発行して返す。statusは pending
+3. hostはview JSをmountし、contextに Core URL + ticket を渡す
+4. view → Core WS: 接続し、ticketを提示してbind
+   Core: ticketを検証し接続をinstanceにbind。statusは open
+   Core → runtime: instanceが開いたことを通知
+5. message交換。envelopeは {instance, payload} でpayloadはopaque
+6. close:
+   - viewのWS切断（unmount・UI App終了）→ Coreはinstanceを closed にしruntimeへ通知
+   - runtimeの切断 → Coreはview接続へchannelが死んだことを通知
+   - runtime側からのclose → Coreはviewへ通知しinstanceを閉じる
+```
+
+- 1つのWS接続は1つのinstanceにbindする。同一webview内の複数viewが接続を共有するmultiplexingは将来の最適化とし、まずはinstanceごとに接続する（loopback WSは安い）。
+- ticketはinstanceのlifetime中有効とし、再接続に使える。loopbackの脅威モデルではこれで十分。
+
 ## 未決事項
 
-- wire上のmethod名とenvelope形式（`views.message` 等）。Contract 00004への反映時に決める。
-- open handshakeの正確な手順。view側の最初のmessageをもって開くか、明示的なopen requestを挟むか。
-- close通知の発生者と保証。hostが明示closeした場合、UI App切断で死んだ場合、runtime側から閉じたい場合。
-- **view接続の認証とbinding**。viewはWSで直接繋ぐので、Coreはその接続がどのview instanceかを知る必要がある。hostがmount時にCoreへinstance登録し、接続用のticketを受け取ってviewへ渡す形が候補。shellはpanelをCoreからfetchする立場なので、この仲介は通信仲介とは別物で残る。
-- instance idの発行と登録の正確な手順。host mintか、Core発行か。
+- wire上の正確なmethod名とenvelope形式。REST path、`views.connect` / `views.message` / `views.event` 等の命名。Contract 00004への反映時に決める。
+- runtime側から能動的にviewを開く逆方向の要否。現状はhostが開く方向のみ。
+- UI Appが死んだときのinstance cleanupのタイミング。
