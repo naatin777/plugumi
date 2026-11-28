@@ -50,6 +50,8 @@
     gap: 2px;
     border-top: 1px solid var(--plugumi-colors-border);
     padding-top: var(--plugumi-spacing-sm);
+    /* list itemがsidebarの縁に吸い付かないよう、左右に息を入れる。 */
+    padding-inline: var(--plugumi-spacing-xs);
   }
   .nav-label {
     margin: 0 0 var(--plugumi-spacing-xs);
