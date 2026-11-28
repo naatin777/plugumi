@@ -10,9 +10,11 @@
   "scripts": {
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
-    "lint:css": "stylelint \"shared/**/*.css\" \"packages/**/*.css\" \"apps/**/*.css\""
+    "lint:css": "stylelint \"shared/**/*.css\" \"packages/**/*.css\" \"apps/**/*.css\"",
+    "gen:api": "cd apps/web && go run ./cmd/plugumi-web --print-openapi > ../../shared/app-ui/src/gen/openapi.json && cd ../.. && pnpm exec openapi-typescript shared/app-ui/src/gen/openapi.json -o shared/app-ui/src/gen/api-types.ts"
   },
   "devDependencies": {
+    "openapi-typescript": "7.10.1",
     "stylelint": "^18.1.0",
     "stylelint-config-recommended": "^19.1.0"
   }

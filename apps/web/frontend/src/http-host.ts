@@ -1,7 +1,7 @@
-// ShellHost の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
+// Host の HTTP 実装。plugumi-web の /api と /ui へ fetch する。
 import type {
   CoreEntry, InvokeBody, PluginPanelEntry, ProjectTree, RegistrationEntry,
-  ShellHost, ViewTicket, WorkspaceState,
+  Host, ViewTicket, WorkspaceState,
 } from "@plugumi/app-ui";
 
 async function errorMessage(response: Response): Promise<string> {
@@ -23,12 +23,12 @@ declare global {
   }
 }
 
-export function httpShellHost(): ShellHost {
+export function httpHost(): Host {
   return {
     async listCores(): Promise<CoreEntry[]> {
       const response = await fetch("/api/cores");
       if (!response.ok) throw new Error(`GET /api/cores: HTTP ${response.status}`);
-      return response.json();
+      return (await response.json()) ?? [];
     },
     async getCore(key: string): Promise<CoreEntry> {
       const response = await fetch(`/api/cores/${encodeURIComponent(key)}`);
@@ -51,7 +51,7 @@ export function httpShellHost(): ShellHost {
       const response = await fetch(`/api/cores/${encodeURIComponent(key)}/panels`);
       if (!response.ok) throw new Error(`GET panels: HTTP ${response.status}`);
       // Coreが返すのはPlugin Panelだけ — kindを付けてdecodeする。
-      const entries = (await response.json()) as Omit<PluginPanelEntry, "kind">[];
+      const entries = ((await response.json()) ?? []) as Omit<PluginPanelEntry, "kind">[];
       return entries.map((entry) => ({ ...entry, kind: "plugin" as const }));
     },
     async listRegistrations(key: string): Promise<RegistrationEntry[]> {
@@ -87,7 +87,13 @@ export function httpShellHost(): ShellHost {
     async listProjects(key: string): Promise<ProjectTree[]> {
       const response = await fetch(base(key));
       if (!response.ok) throw new Error(`GET projects: HTTP ${response.status}`);
-      return response.json();
+      // wireのareasは末端がnull（Goのnil slice）— host境界で[]へ正規化する。
+      type WireArea = { key: string; title: string; areas: WireArea[] | null };
+      const normalize = (area: WireArea): ProjectTree["areas"][number] => ({
+        key: area.key, title: area.title, areas: (area.areas ?? []).map(normalize),
+      });
+      const trees = ((await response.json()) ?? []) as { key: string; title: string; areas: WireArea[] | null }[];
+      return trees.map((tree) => ({ key: tree.key, title: tree.title, areas: (tree.areas ?? []).map(normalize) }));
     },
     async createProject(key: string, title: string): Promise<string> {
       const response = await fetch(base(key), {
@@ -106,16 +112,19 @@ export function httpShellHost(): ShellHost {
       return (await response.json()).key as string;
     },
     async deleteArea(key: string, project: string, areaPath: string[]): Promise<void> {
-      const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}`, { method: "DELETE" });
+      const response = await fetch(
+        `${base(key)}/${project}/areas?path=${encodeURIComponent(areaPath.join("/"))}`,
+        { method: "DELETE" },
+      );
       if (!response.ok) throw new Error(await errorMessage(response));
     },
     async getWorkspace(key: string, project: string, areaPath: string[]): Promise<unknown> {
-      const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}/workspace`);
+      const response = await fetch(`${base(key)}/${project}/workspace?path=${encodeURIComponent(areaPath.join("/"))}`);
       if (!response.ok) throw new Error(`GET workspace: HTTP ${response.status}`);
       return response.json();
     },
     async putWorkspace(key: string, project: string, areaPath: string[], workspace: WorkspaceState): Promise<void> {
-      const response = await fetch(`${base(key)}/${project}/areas/${areaPath.join("/")}/workspace`, {
+      const response = await fetch(`${base(key)}/${project}/workspace?path=${encodeURIComponent(areaPath.join("/"))}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(workspace),
       });

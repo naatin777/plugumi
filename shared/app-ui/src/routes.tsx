@@ -4,7 +4,7 @@ import CoreListPage from "./pages/core-list.tsx";
 import CoreRedirect from "./pages/core-redirect.tsx";
 import ProjectPage from "./pages/project.tsx";
 
-export const shellRoutes = defineRoutes([
+export const appRoutes = defineRoutes([
   { path: "/", component: CoreListPage },
   { path: "/:core", component: CoreRedirect },
   { path: "/:core/:project", component: ProjectPage },

@@ -36,14 +36,14 @@ flowchart LR
 - 概念階層は Project > Area > Workspace > Panel とする。ProjectはAreaをまとめ、AreaはWorkspaceをまとめ、WorkspaceはPanelとそのtab構成をまとめる。Areaは以前Collectionと呼ばれていたものに相当する。
 - AreaとWorkspaceの対応関係は現時点では確定しない。いまは「1つのAreaを開くとWorkspaceという領域が開き、その中にPanelがtabや分割で並ぶ」という理解に留め、詳細は実装時に決める。
 - Workspaceはcenterのsplit treeだけを持つ。固定されたleft・bottom・rightのDockは存在しない。「縁に常設する」配置は、利用者がtreeの端にleafを作ることで表現する。
-- 各leafはPanelのタブを並べる。centerのsplit treeは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分かれる。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式と保存の形は[Design 00005](00005-shell-region-model.md)に従う。
+- 各leafはPanelのタブを並べる。centerのsplit treeは`axis`と`ratio`を持つsplitの再帰ツリーで区画に分かれる。タブを区画の四辺にドラッグ&ドロップすると、その方向に分割する。表示方式と保存の形は[Design 00005](00005-app-region-model.md)に従う。
 - 画面は左の**Area list**（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。上部にProject切替）と、右の**Main**（選択中Areaを表示、URLが正本）と**Sub**（別のAreaを右に表示、開閉できる）からなる。Detachは「別windowに出す」と印を付けたAreaで、Area listの行メニュー「別windowで開く」から移す（Electronのみ）。
 - Panelはregionをまたいでドラッグできる。Area内の全領域の相互移動に対応し、ドロップ先のタブ帯上では位置を計算して挿入する。分割後の葉が小さくなりすぎる場合はsplitせず挿入にフォールバックする。Areaをまたぐ移動はArea listの行で行う。Panelは同じwindowのMain・Subの間でもdragで移せる（Panel Instanceは作り直さず移譲する）。ただし同じAreaをMainとSubの両方に出しているときは移せない（両者が別々にworkspaceを保存するため）。
 - AreaがWorkspace以外に何を持つか（参照するリソースや種類の表し方）、Areaが入れ子になるかは未決定。
 
 ## 画面の構成
 
-Workbench shell（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb appとElectron appが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
+app（[Decision 00015](../decisions/00015-electron-plugin-shares-plugin-shell.md)によりWeb appとElectron appが共有する画面）の外枠は、上から OS帯・本体・ステータス帯 の3段で構成する。
 
 - **OS帯（最上段）**: PWAのWindow Controls OverlayやElectronのtitleBarOverlayが重なる帯。ここに置く操作はShell固有で、Pluginからのカスタマイズは受け付けない。左端にArea listの開閉とCore switcher（現在のCore名と接続状態、Coreの切り替えとCoreの管理への入口）、work区間にPanel追加（「+」のpicker）とSubの開閉を持つ（位置は固定）。テーマや背景の切替はSettingsのPanelへ移す予定。
 - **本体**: 左のArea list（今のProjectの全AreaをMain・Sub・Detachの3セクションで一覧する。Areaの選択・作成・削除・Projectの切替と作成もここ）、中央のMain（選択中AreaのWorkspace）と右のSub（開閉できる2枚目）。
@@ -57,7 +57,7 @@ Project・Area・Workspaceの状態は、Web appのサーバーが `~/.plugumi/w
 
 - Core名をキーにする。`coreId` はCoreの再起動で変わるので、Core名のないCoreではProjectを作れない。
 - PanelはPanel InstanceのIDと、Pluginの識別子（`providerId`）と `panelId` で保存する。登録の識別子（`registrationId`）はPluginの再起動で変わるので保存しない。表示するときに、同じPluginの同じPanelを提供している登録を探す。
-- Workspaceの中身はWorkbench shellが所有するJSONで、Web appのサーバーは解釈せずに保存する。形は[Design 00005](00005-shell-region-model.md)の「保存の形」に従う。
+- Workspaceの中身はWorkbench shellが所有するJSONで、Web appのサーバーは解釈せずに保存する。形は[Design 00005](00005-app-region-model.md)の「保存の形」に従う。
 - 同じWorkspaceを複数のタブで同時に編集した場合は、後から保存した内容が残る。
 - `~/.plugumi/` には旧リポジトリのファイルが残っている場合がある。Web appは `~/.plugumi/web/` の下だけを使い、それ以外には触れない。
 

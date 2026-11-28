@@ -11,7 +11,7 @@ const plugin = (registrationId: string, panelId = "p", rpcAvailable = true): Plu
 });
 
 const builtin = (panelId: string): BuiltinPanelEntry => ({
-  kind: "builtin", providerId: "shell", panelId,
+  kind: "builtin", providerId: "app", panelId,
   title: panelId, mount: () => ({ destroy() {} }),
 });
 
@@ -23,7 +23,7 @@ describe("resolvePanel", () => {
 
   it("組み込みPanelを解決できる", () => {
     const panels: PanelEntry[] = [plugin("r1"), builtin("theme")];
-    const found = resolvePanel({ providerId: "shell", panelId: "theme" }, panels);
+    const found = resolvePanel({ providerId: "app", panelId: "theme" }, panels);
     assert.equal(found?.kind, "builtin");
     assert.equal(found?.panelId, "theme");
   });

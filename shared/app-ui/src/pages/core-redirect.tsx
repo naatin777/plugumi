@@ -5,13 +5,13 @@
 import { createSignal, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useNavigate, useParams } from "@solidjs/router";
-import { useShellHost } from "../host.tsx";
+import { useHost } from "../host.tsx";
 import { loadLastLocation } from "../storage.ts";
-import { findArea } from "../shell/controller.tsx";
+import { findArea } from "../app/controller.tsx";
 import ProjectPage from "./project.tsx";
 
 export default function CoreRedirect(): JSX.Element {
-  const host = useShellHost();
+  const host = useHost();
   const params = useParams();
   const navigate = useNavigate();
   const key = () => params.core ?? "";

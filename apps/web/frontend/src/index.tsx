@@ -1,16 +1,16 @@
 import { render } from "@solidjs/web";
 import { browserHistory, createRouter } from "@solidjs/router";
-import { ShellHostProvider, initTheme, loadPrefs, shellRoutes } from "@plugumi/app-ui";
-import { httpShellHost } from "./http-host";
+import { HostProvider, initTheme, loadPrefs, appRoutes } from "@plugumi/app-ui";
+import { httpHost } from "./http-host";
 
-const host = httpShellHost();
-const Router = createRouter({ routes: shellRoutes, history: browserHistory() });
+const host = httpHost();
+const Router = createRouter({ routes: appRoutes, history: browserHistory() });
 initTheme(() => loadPrefs().theme);
 render(
   () => (
-    <ShellHostProvider value={host}>
+    <HostProvider value={host}>
       <Router />
-    </ShellHostProvider>
+    </HostProvider>
   ),
   document.getElementById("root")!,
 );

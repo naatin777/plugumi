@@ -70,7 +70,7 @@
   width: 12em;
   /* このoverlay自体もdrawer — shellのpatternに揃える:
      端にぴったりの不透明な台、影なし、内側の辺にだけ1px線。 */
-  background: var(--shell-frame-color, var(--plugumi-colors-background-secondary));
+  background: var(--app-frame-color, var(--plugumi-colors-background-secondary));
   border-right: 1px solid var(--plugumi-colors-border);
   z-index: var(--plugumi-z-side-drawer);
   box-shadow: none;

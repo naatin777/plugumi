@@ -2,17 +2,17 @@
 // hostだけin-memory実装に差し替える（本物のCore/Goサーバーには触れない）。
 import { render } from "@solidjs/web";
 import { browserHistory, createRouter } from "@solidjs/router";
-import { ShellHostProvider, initTheme, loadPrefs, shellRoutes } from "../../src/index.ts";
+import { HostProvider, initTheme, loadPrefs, appRoutes } from "../../src/index.ts";
 import { createMemoryHost } from "./memory-host.ts";
 
 const host = createMemoryHost();
-const Router = createRouter({ routes: shellRoutes, history: browserHistory() });
+const Router = createRouter({ routes: appRoutes, history: browserHistory() });
 initTheme(() => loadPrefs().theme);
 render(
   () => (
-    <ShellHostProvider value={host}>
+    <HostProvider value={host}>
       <Router />
-    </ShellHostProvider>
+    </HostProvider>
   ),
   document.getElementById("root")!,
 );

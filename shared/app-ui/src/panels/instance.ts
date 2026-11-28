@@ -3,11 +3,11 @@
 // （Plugin再起動で変わるため保存しない。0件ならmissing、複数なら昇順の先頭）。
 import { createSignal } from "solid-js";
 import type { PanelMount, PanelHandle } from "../host.tsx";
-import type { PanelEntry, PluginPanelEntry, ShellHost } from "../host.tsx";
-import type { ShellController } from "../shell/controller.tsx";
+import type { PanelEntry, PluginPanelEntry, Host } from "../host.tsx";
+import type { AppController } from "../app/controller.tsx";
 import type { PanelRef } from "../layout/model.ts";
 import { acquirePanelStyles } from "./styles.ts";
-import type { ActivityState } from "../shell/activity.ts";
+import type { ActivityState } from "../app/activity.ts";
 import type { ViewActivity } from "@plugumi/view";
 
 // context.setActivityの入力をShell内部の形へ。effect省略はstatic。
@@ -57,7 +57,7 @@ export class PanelInstance {
   readonly id: string;
   readonly providerId: string;
   readonly panelId: string;
-  readonly host: HTMLDivElement;
+  readonly element: HTMLDivElement;
   registrationId = "";
   uiSha256 = "";
 
@@ -88,8 +88,8 @@ export class PanelInstance {
   private mounting = false;
 
   private kind: "plugin" | "builtin";
-  private readonly shell: ShellHost;
-  private readonly controller: ShellController;
+  private readonly host: Host;
+  private readonly controller: AppController;
   private readonly coreKey: string;
   // context.inputへ渡す開き時の入力。AreaControllerがInstance作成時に入れる。
   input: unknown;
@@ -105,19 +105,19 @@ export class PanelInstance {
   openSibling: ((panelId: string, input?: unknown) => void) | undefined;
 
   constructor(
-    shell: ShellHost, coreKey: string, ref: PanelRef, title: string,
-    controller: ShellController, kind: PanelEntry["kind"] = "plugin",
+    host: Host, coreKey: string, ref: PanelRef, title: string,
+    controller: AppController, kind: PanelEntry["kind"] = "plugin",
   ) {
-    this.shell = shell;
+    this.host = host;
     this.controller = controller;
     this.kind = kind;
     this.coreKey = coreKey;
     this.id = ref.instanceId;
     this.providerId = ref.providerId;
     this.panelId = ref.panelId;
-    this.host = document.createElement("div");
-    this.host.dataset.part = "panel-host";
-    this.host.dataset.plugumiPlugin = "";
+    this.element = document.createElement("div");
+    this.element.dataset.part = "panel-host";
+    this.element.dataset.plugumiPlugin = "";
     const [titleSignal, setTitle] = createSignal(title);
     const [state, setState] = createSignal<InstanceState>("mounting");
     const [error, setError] = createSignal<MountError>();
@@ -153,7 +153,7 @@ export class PanelInstance {
       const viewId = this.viewId;
       this.viewClosed = true;
       // best effort — 既にclosedなら404、Coreが死んでいても構わない。
-      void this.shell.closeView(this.coreKey, viewId).catch(() => {});
+      void this.host.closeView(this.coreKey, viewId).catch(() => {});
     }
     this.viewId = undefined;
     if (this.shadow) {
@@ -185,7 +185,7 @@ export class PanelInstance {
     this.setTitle(panel.title);
     this.teardown();
     const token = this.mountToken;
-    this.host.replaceChildren();
+    this.element.replaceChildren();
     this.setState("mounting");
     this.setError(undefined);
     this.setActivity(undefined);
@@ -195,7 +195,7 @@ export class PanelInstance {
       this.setError({ kind, message: String(cause) });
     };
 
-    const root = this.shadow ?? this.host.attachShadow({ mode: "open" });
+    const root = this.shadow ?? this.element.attachShadow({ mode: "open" });
     this.shadow = root;
 
     if (panel.kind === "builtin") {
@@ -203,7 +203,7 @@ export class PanelInstance {
       // bundle同梱のmountとcssを使う。DOMの置き場はPluginと同じ
       // ShadowRootで、呼ぶcontractも同じ。
       this.kind = "builtin";
-      this.host.dataset.plugumiPlugin = "shell";
+      this.element.dataset.plugumiPlugin = "app";
       if (panel.css) {
         const sheet = new CSSStyleSheet();
         sheet.replaceSync(panel.css);
@@ -223,7 +223,7 @@ export class PanelInstance {
           openPanel: (panelId, input) => this.openSibling?.(panelId, input),
           openPanelAcross: (providerId, panelId, input) =>
             this.openAcross?.(providerId, panelId, input),
-          shell: this.controller,
+          host: this.controller,
         });
       } catch (cause) {
         fail("mount", cause);
@@ -241,13 +241,13 @@ export class PanelInstance {
     this.registrationId = panel.registrationId;
     this.uiSha256 = panel.uiSha256;
     const entry = panel.entry;
-    this.host.dataset.plugumiPlugin = panel.registrationId;
+    this.element.dataset.plugumiPlugin = panel.registrationId;
 
     let release: () => void;
     let sheet: CSSStyleSheet;
     let module: PanelModule;
     try {
-      const styles = await acquirePanelStyles(this.shell, this.coreKey, panel);
+      const styles = await acquirePanelStyles(this.host, this.coreKey, panel);
       release = styles.release;
       sheet = styles.sheet;
     } catch (cause) {
@@ -260,7 +260,7 @@ export class PanelInstance {
     }
     root.adoptedStyleSheets = [sheet];
     try {
-      const url = this.shell.uiURL(
+      const url = this.host.uiURL(
         this.coreKey, this.registrationId, entry, this.uiSha256,
       );
       module = (await import(/* @vite-ignore */ url)) as PanelModule;
@@ -284,10 +284,10 @@ export class PanelInstance {
     let coreUrl;
     try {
       [ticket, coreUrl] = await Promise.all([
-        this.shell.createView(this.coreKey, {
+        this.host.createView(this.coreKey, {
           registrationId: this.registrationId, panelId: panel.panelId,
         }),
-        this.shell.getCore(this.coreKey).then((core) => core.url),
+        this.host.getCore(this.coreKey).then((core) => core.url),
       ]);
     } catch (cause) {
       release();
@@ -296,7 +296,7 @@ export class PanelInstance {
     }
     if (token !== this.mountToken) {
       release();
-      void this.shell.closeView(this.coreKey, ticket.id).catch(() => {});
+      void this.host.closeView(this.coreKey, ticket.id).catch(() => {});
       return;
     }
     this.viewId = ticket.id;
@@ -315,7 +315,7 @@ export class PanelInstance {
       });
     } catch (cause) {
       release();
-      void this.shell.closeView(this.coreKey, ticket.id).catch(() => {});
+      void this.host.closeView(this.coreKey, ticket.id).catch(() => {});
       this.viewId = undefined;
       this.viewClosed = true;
       fail("mount", cause);
@@ -372,12 +372,12 @@ export class PanelInstance {
       return;
     }
     this.teardown();
-    this.host.replaceChildren();
+    this.element.replaceChildren();
     this.setState("missing");
   }
 
   dispose(): void {
     this.teardown();
-    this.host.remove();
+    this.element.remove();
   }
 }

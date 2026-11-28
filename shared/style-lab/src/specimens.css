@@ -161,7 +161,7 @@
 }
 
 /* Drawers entryのminiature。patternの写し — 実物はshell.cssと
-   work-shape.css。台の扱いと開閉の作法を対応させる。 */
+   app-shape.css。台の扱いと開閉の作法を対応させる。 */
 .lab-drawer-frame {
   position: relative;
   height: 12em;
@@ -181,7 +181,7 @@
   width: min(11em, 85%);
   padding: var(--plugumi-spacing-sm);
   box-sizing: border-box;
-  background: var(--shell-frame-color, var(--plugumi-colors-background-secondary));
+  background: var(--app-frame-color, var(--plugumi-colors-background-secondary));
   border-left: 1px solid var(--plugumi-colors-border);
   box-shadow: none;
   z-index: var(--plugumi-z-sub-drawer);
@@ -193,7 +193,7 @@
   transition: transform 180ms ease, visibility 0s 180ms;
 }
 
-/* drawerのscrimとresizer — 実物のshell-scrimと同じ作法 */
+/* drawerのscrimとresizer — 実物のapp-scrimと同じ作法 */
 .lab-drawer-scrim {
   position: absolute;
   inset: 0;

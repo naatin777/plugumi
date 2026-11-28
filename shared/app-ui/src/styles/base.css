@@ -8,7 +8,7 @@
 
   body {
     margin: 0;
-    background: var(--shell-frame-color);
+    background: var(--app-frame-color);
     color: var(--plugumi-colors-text);
     font-family: var(--plugumi-font-family-sans);
     font-size: var(--plugumi-font-size-sm);
@@ -17,7 +17,7 @@
   #root { height: 100vh; }
 
   /* vibrancy宿主（Electron、preloadが属性を立てる）ではbodyを透かし、
-     main.shellの半透明なframe色の向こうにデスクトップを見せる。
+     main.appの半透明なframe色の向こうにデスクトップを見せる。
      ブラウザではこの属性が無くbodyは不透明のまま。 */
   :root[data-plugumi-vibrancy] body { background: transparent; }
 }

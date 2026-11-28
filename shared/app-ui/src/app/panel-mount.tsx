@@ -9,12 +9,12 @@ import "./panel-mount.css";
 import "./activity.css";
 
 export function PanelMount(props: { instance: PanelInstance }): JSX.Element {
-  const host = props.instance.host;
+  const element = props.instance.element;
   return (
     <div class={"panel-frame"}>
       <ActivityProgress instance={props.instance} />
       <PanelState instance={props.instance} />
-      {host}
+      {element}
     </div>
   );
 }
@@ -47,7 +47,7 @@ export function PanelState(props: { instance: PanelInstance }): JSX.Element {
           {(error) => (
             <>
               <p>Panelを開けませんでした（{error().kind}）</p>
-              <button class="plugumi-button" onClick={() => props.instance.retry(area.shell.panels())}>
+              <button class="plugumi-button" onClick={() => props.instance.retry(area.app.panels())}>
                 再試行
               </button>
             </>

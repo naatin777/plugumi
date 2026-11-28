@@ -32,9 +32,10 @@ Cores may also come from PLUGUMI_CORE_URL and cores saved via the UI.
 
 // arguments はCLI引数の解析結果。位置引数は--coreと同じくCoreのURL。
 type arguments struct {
-	coreURLs []string
-	listen   string
-	help     bool
+	coreURLs     []string
+	listen       string
+	help         bool
+	printOpenAPI bool
 }
 
 func parseArgs(args []string) (arguments, error) {
@@ -59,6 +60,8 @@ func parseArgs(args []string) (arguments, error) {
 				return parsed, fmt.Errorf("--core: %w", err)
 			}
 			parsed.coreURLs = append(parsed.coreURLs, coreURL)
+		case "--print-openapi":
+			parsed.printOpenAPI = true
 		case "--listen":
 			listen, err := value(&index, inline)
 			if err != nil {
@@ -121,6 +124,15 @@ func run(args []string) error {
 	}
 	if parsed.help {
 		fmt.Println(usage)
+		return nil
+	}
+	if parsed.printOpenAPI {
+		// spec生成だけの経路 — Core接続やlistenは要らない。
+		spec, err := server.New(nil, nil, "", staticDist(), "").OpenAPIJSON()
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(spec))
 		return nil
 	}
 	configured := parsed.coreURLs

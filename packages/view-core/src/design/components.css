@@ -119,7 +119,7 @@
 /* ---- list item ----
    縦に並ぶ選択/操作項目のただ1つの primitive。list・menu・nav・picker・
    sidebarなど文脈が違っても項目の解剖学は同じ: [icon?] + label + [meta?]。
-   shell・pluginの区別なく全てこれを使う。 */
+   app・pluginの区別なく全てこれを使う。 */
 .plugumi-list-item {
   display: flex;
   align-items: center;

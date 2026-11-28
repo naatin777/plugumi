@@ -7,9 +7,9 @@ import { render } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
 import type { ViewContext, ViewHandle } from "@plugumi/view";
 
-// shellから受け取る最小の口。ShellControllerの型は引かず、
+// shellから受け取る最小の口。AppControllerの型は引かず、
 // このPanelが触るsliceだけを宣言する。
-export interface FilesShell {
+export interface FilesHost {
   coreKey(): string;
   host: {
     listRegistrations(key: string): Promise<RegistrationEntry[]>;
@@ -19,7 +19,7 @@ export interface FilesShell {
 
 // builtin panelはview channelを持たないので、contextのうちshellだけを使う。
 export interface FilesPanelContext extends ViewContext {
-  shell: FilesShell;
+  host: FilesHost;
   // file clickでeditorを開く口。shellが自分の居るAreaへ配線する。
   openPanelAcross?(providerId: string, panelId: string, input?: unknown): void;
 }
@@ -46,7 +46,7 @@ export function mount(host: ShadowRoot, context: FilesPanelContext): ViewHandle 
   const dispose = render(
     () => (
       <FilesPanel
-        shell={context.shell}
+        host={context.host}
         openPanelAcross={context.openPanelAcross}
         initialPath={typeof saved?.path === "string" ? saved.path : undefined}
         saveState={context.saveState}
@@ -66,7 +66,7 @@ function fsProviders(registrations: RegistrationEntry[]): RegistrationEntry[] {
 }
 
 function FilesPanel(props: {
-  shell: FilesShell;
+  host: FilesHost;
   openPanelAcross?: (providerId: string, panelId: string, input?: unknown) => void;
   initialPath?: string;
   saveState?: (state: unknown) => void;
@@ -79,7 +79,7 @@ function FilesPanel(props: {
   const [registrationsLoaded, setRegistrationsLoaded] = createSignal(false);
   const refresh = async () => {
     try {
-      setRegistrations(await props.shell.host.listRegistrations(props.shell.coreKey()));
+      setRegistrations(await props.host.host.listRegistrations(props.host.coreKey()));
       setRegistrationsLoaded(true);
     } catch {
       // 巡回の失敗は握る — 次の巡回かTool呼び出しのerrorで分かる。
@@ -104,7 +104,7 @@ function FilesPanel(props: {
 
   createEffect(
     () => ({
-      core: props.shell.coreKey(),
+      core: props.host.coreKey(),
       registrationId: provider()?.registrationId,
       directory: path(),
     }),
@@ -120,7 +120,7 @@ function FilesPanel(props: {
       // providerを選ぶUIは残すが、それは「どの環境の一覧を見たいか」の
       // 表示上の選択で、呼び出しのroutingはCoreに委ねる。
       void registrationId;
-      props.shell.host.invoke(core, {
+      props.host.host.invoke(core, {
         operation: "filesystem/list", input: { path: directory },
       }).then((result) => {
         if (stale) return;

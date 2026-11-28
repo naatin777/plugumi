@@ -1,4 +1,4 @@
-// file explorer Panel。providerId "shell" のlocal Pluginとしてworkbenchの
+// file explorer Panel。providerId "app" のlocal Pluginとしてworkbenchの
 // bundleに同梱される（Core経由のUI Bundleではない）。
 // Environment ProviderはheadlessなのでUIを持たず、このPanelが
 // fs/listを宣言した登録を見つけてcapabilityを呼ぶ。

@@ -1,4 +1,4 @@
-// Plugin Shell（リポジトリ内専用の画面共有物）。利用側のVite+vite pluginが
+// plugumi app（リポジトリ内専用の画面共有物）。利用側のVite+vite pluginが
 // そのままコンパイルするため、srcを直接exportする。
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
@@ -17,12 +17,12 @@ import "./styles/base.css";
 import "./styles/layout.css";
 
 export type {
-  ShellHost, CoreEntry, PanelEntry, PluginPanelEntry, BuiltinPanelEntry,
+  Host, CoreEntry, PanelEntry, PluginPanelEntry, BuiltinPanelEntry,
   AreaTree, ProjectTree, InvokeBody, ViewTicket, RegistrationEntry,
   PanelContext, PanelHandle, PanelMount,
 } from "./host.tsx";
-export { ShellHostContext, ShellHostProvider, useShellHost } from "./host.tsx";
-export { shellRoutes } from "./routes.tsx";
+export { HostContext, HostProvider, useHost } from "./host.tsx";
+export { appRoutes } from "./routes.tsx";
 export { initTheme } from "./theme.ts";
 export { loadPrefs } from "./prefs.ts";
 export type { WorkspaceState, PanelRef } from "./layout/model.ts";

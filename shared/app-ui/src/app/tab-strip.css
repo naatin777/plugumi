@@ -8,7 +8,7 @@
   .leaf-strip {
     position: relative;
     display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
-    height: var(--shell-strip-h); box-sizing: border-box;
+    height: var(--app-strip-h); box-sizing: border-box;
     padding: 0 var(--plugumi-spacing-xs);
     border-bottom: 1px solid var(--plugumi-colors-border);
     flex: none;

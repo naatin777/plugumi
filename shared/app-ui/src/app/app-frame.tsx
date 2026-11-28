@@ -1,21 +1,21 @@
-// Project画面の外枠。main.shellに既知の幅をCSS変数として供給し、
+// Project画面の外枠。main.appに既知の幅をCSS変数として供給し、
 // work面の形はCSSだけで決まる。
 // （Area list＋Sub）をまとめて畳む。キーはe.codeで見る（⌥⌘1-2, ⌥⌘Z）。
-// main.shellの幅はResizeObserverで測りshellSizeへ — 狭いときはSubと
-// Area listがdrawerになる（shell.css・work-shape.cssのdata-size規則）。
+// main.appの幅はResizeObserverで測りappSizeへ — 狭いときはSubと
+// Area listがdrawerになる（app-frame.css・app-shape.cssのdata-size規則）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import { useShell, createAreaController } from "./controller.tsx";
+import { useApp, createAreaController } from "./controller.tsx";
 import { findLeaf, selectPanel } from "../layout/model.ts";
 import { flipPage } from "./pages.tsx";
-import { WorkShape } from "./work-shape.tsx";
+import { AppShape } from "./app-shape.tsx";
 import { StatusBar } from "./status-bar.tsx";
 import { TitleToolsLeft, TitleSegmentMain, TitleToolsRight } from "./title-tools.tsx";
 import { SidebarView } from "./sidebar.tsx";
 import { AreaView, AreaEmpty, DragGhost } from "./area-view.tsx";
 import { Resizer } from "./resizer.tsx";
 import { resolveBackgroundImage } from "plugumi-theme-panel";
-import "./shell.css";
+import "./app-frame.css";
 import "./area-view.css";
 
 // prefの既定値は同梱フォント自身なので、fallback連結の前に重複を除く。
@@ -34,30 +34,30 @@ const fontStack = (preferred: string, bundled: string, rest: string[]): string =
     .join(", ");
 };
 
-export function ShellFrame(): JSX.Element {
-  const shell = useShell();
-  const prefs = () => shell.prefs();
+export function AppFrame(): JSX.Element {
+  const app = useApp();
+  const prefs = () => app.prefs();
   // work面の形に使う幅。drawer化している列はgridから外すので0を渡す。
   const sideWidth = () => (
-    shell.sideDrawerMode() || !shell.sideShown() ? 0 : prefs().sidebarWidth
+    app.sideDrawerMode() || !app.sideShown() ? 0 : prefs().sidebarWidth
   );
-  const subInline = () => !shell.subDrawerMode() && shell.subShown();
+  const subInline = () => !app.subDrawerMode() && app.subShown();
 
   // Main/SubのAreaController。MainはURLが指すArea、SubはArea listの選択。
-  const mainArea = createAreaController(shell, () => shell.mainRef());
-  const subArea = createAreaController(shell, () => shell.subRef());
+  const mainArea = createAreaController(app, () => app.mainRef());
+  const subArea = createAreaController(app, () => app.subRef());
 
   const keydown = (event: KeyboardEvent) => {
     if (event.code === "Escape") {
       // 開いている一時drawerを全部畳む。
-      shell.closeDrawers();
+      app.closeDrawers();
       return;
     }
     if (!event.metaKey && !event.ctrlKey) return;
     if (!event.altKey) return;
     if (event.code === "BracketLeft" || event.code === "BracketRight") {
       // 触っている側のArea（無ければMain）のfocused leafのpageを前後へ
-      const area = shell.focusedArea() ?? mainArea;
+      const area = app.focusedArea() ?? mainArea;
       const center = area.layout().center;
       const leaf = findLeaf(center.root, center.focusedLeaf);
       const next = leaf && flipPage(
@@ -72,8 +72,8 @@ export function ShellFrame(): JSX.Element {
     const which = event.code === "Digit1" ? "sidebar"
       : event.code === "Digit2" ? "sub" : null;
     if (!which) return;
-    if (which === "sidebar") shell.toggleSide();
-    else shell.toggleSub();
+    if (which === "sidebar") app.toggleSide();
+    else app.toggleSub();
     event.preventDefault();
   };
 
@@ -87,17 +87,17 @@ export function ShellFrame(): JSX.Element {
   const outsideDown = (event: PointerEvent) => {
     const target = event.target as HTMLElement | null;
     if (target?.closest("[data-drawer-keep]")) return;
-    shell.closeDrawers();
+    app.closeDrawers();
   };
   document.addEventListener("pointerdown", outsideDown, true);
   onCleanup(() => document.removeEventListener("pointerdown", outsideDown, true));
 
-  // shellの幅はResizeObserverで測りshellSizeへ（<1100でSub、<800で
+  // shellの幅はResizeObserverで測りappSizeへ（<1100でSub、<800で
   // Area listがdrawer）。callback内でoffsetWidth等は読まない。
   let ro: ResizeObserver | undefined;
   onCleanup(() => ro?.disconnect());
   const measure = (w: number) =>
-    shell.setShellSize(w >= 1100 ? "wide" : w >= 800 ? "medium" : "compact");
+    app.setAppSize(w >= 1100 ? "wide" : w >= 800 ? "medium" : "compact");
   const observe = (node: HTMLElement) => {
     // 初回はpaint前に同期的に測る — 既定値"wide"のままpaintされると
     // 狭い窓でinlineの列が一瞬見えてからdrawerへ飛ぶ（reload時のflash）。
@@ -113,8 +113,8 @@ export function ShellFrame(): JSX.Element {
   return (
     <main
       ref={observe}
-      class={{ ["shell"]: true }}
-      data-part="shell"
+      class={{ ["app"]: true }}
+      data-part="app"
       // Layer 0の床の種類。imageが選ばれていても画像が無ければnoneに
       // 落とす（画像を消したあとprefだけ残る経路がある）。
       data-bg={
@@ -123,7 +123,7 @@ export function ShellFrame(): JSX.Element {
           : prefs().background
       }
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
-      data-size={shell.shellSize()}
+      data-size={app.appSize()}
       data-side={sideWidth() > 0 ? "" : undefined}
       data-sub={subInline() ? "" : undefined}
       style={{
@@ -136,12 +136,12 @@ export function ShellFrame(): JSX.Element {
         "--sub-raw-width": `${prefs().subWidth}px`,
         // テーマPanelのスライダーが動かす表示設定。
         "--aurora-vivid": prefs().auroraVivid / 100,
-        "--shell-frame-alpha": prefs().frameAlpha / 100,
+        "--app-frame-alpha": prefs().frameAlpha / 100,
         // 膜（Layer 1）のblur量。床の要素にかかる。
         "--membrane-blur": `${prefs().membraneBlur}px`,
         // 床の画像。preset参照は解決してURLにする。data URLなので
         // 引用符を含まずCSS varに載せられる。
-        "--shell-bg-image":
+        "--app-bg-image":
           prefs().background === "image" && prefs().backgroundImage
             ? `url(${resolveBackgroundImage(prefs().backgroundImage)})`
             : "none",
@@ -162,7 +162,7 @@ export function ShellFrame(): JSX.Element {
           data-subで切り替える。 */}
       <div class={"col-divider"} data-part="col-divider" data-divider="side" />
       <div class={"col-divider"} data-part="col-divider" data-divider="sub" />
-      <WorkShape
+      <AppShape
         titleLeft={<TitleToolsLeft />}
         titleMain={<TitleSegmentMain area={mainArea} />}
         titleRight={<TitleToolsRight />}
@@ -171,48 +171,48 @@ export function ShellFrame(): JSX.Element {
           // 同じ構造。閉じた後のfocus隔離はdata-closedのvisibilityが担う。
           <SidebarView />
         }
-        sidebarDrawer={shell.sideDrawerMode()}
-        sidebarClosed={!shell.sideShown()}
+        sidebarDrawer={app.sideDrawerMode()}
+        sidebarClosed={!app.sideShown()}
         scrimOpen={
-          (shell.subDrawerMode() && shell.subShown()) ||
-          (shell.sideDrawerMode() && shell.sideShown())
+          (app.subDrawerMode() && app.subShown()) ||
+          (app.sideDrawerMode() && app.sideShown())
         }
       >
-        <Show when={shell.mainRef()} fallback={<AreaEmpty />}>
+        <Show when={app.mainRef()} fallback={<AreaEmpty />}>
           <AreaView area={mainArea} />
         </Show>
-        <Show when={subInline() || shell.subDrawerMode()}>
+        <Show when={subInline() || app.subDrawerMode()}>
           <Resizer
             axis="x"
             direction={-1}
-            drawerKeep={shell.subDrawerMode()}
+            drawerKeep={app.subDrawerMode()}
             value={() => prefs().subWidth}
             apply={(size) => {
               // drawerでも同じsubWidthを共有する。上限はdrawerの上限
-              // （work-mat幅の90%）でclampし、越えた値は保存しない。
-              const max = shell.subDrawerMode()
+              // （mat幅の90%）でclampし、越えた値は保存しない。
+              const max = app.subDrawerMode()
                 ? 0.9 * (document.querySelector('[data-part="main-slot"]')?.clientWidth ?? innerWidth)
                 : 960;
               const clamped = Math.min(max, Math.max(240, size));
-              shell.updatePrefs((prefs) => { prefs.subWidth = clamped; });
+              app.updatePrefs((prefs) => { prefs.subWidth = clamped; });
             }}
           />
         </Show>
         <div
           class={"sub-pane"}
           data-part="sub-slot"
-          data-closed={!shell.subShown() || undefined}
+          data-closed={!app.subShown() || undefined}
           // drawerのSubの中へのclickは「外」にしない。
-          data-drawer-keep={shell.subDrawerMode() ? "" : undefined}
+          data-drawer-keep={app.subDrawerMode() ? "" : undefined}
         >
           <Show
-            when={shell.subRef()}
+            when={app.subRef()}
             fallback={<p class={"area-view-empty"}>Subに表示するAreaを選んでください</p>}
           >
             <AreaView area={subArea} />
           </Show>
         </div>
-      </WorkShape>
+      </AppShape>
       <StatusBar />
       <DragGhost />
     </main>

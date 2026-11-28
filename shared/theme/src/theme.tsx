@@ -1,6 +1,6 @@
 // テーマ切替Panelの本体。Pluginと同じく `mount(host, context)` で
 // ShadowRootへ描く。テーマの読み書きはCore Toolではなく端末localの
-// prefsなので、同梱Panelにだけ渡される context.shell を使う —
+// prefsなので、同梱Panelにだけ渡される context.host を使う —
 // signalがそのまま届くので、他のtheme Panelや別経路の変更にも追従する。
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { render } from "@solidjs/web";
@@ -10,17 +10,17 @@ import { backgroundPresets } from "./presets.ts";
 
 type ThemeMode = "system" | "light" | "dark";
 
-// shellから受け取る最小の口。ShellControllerの型は引かず、
+// shellから受け取る最小の口。AppControllerの型は引かず、
 // このPanelが触るsliceだけを宣言する。
 type BackgroundKind = "none" | "aurora" | "image";
 
-export interface ThemeShell {
+export interface ThemeHost {
   prefs(): { theme: ThemeMode; background: BackgroundKind; backgroundImage: string; auroraVivid: number; membraneBlur: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string };
   updatePrefs(mutate: (prefs: { theme: ThemeMode; background: BackgroundKind; backgroundImage: string; auroraVivid: number; membraneBlur: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string }) => void): void;
 }
 
 export interface ThemePanelContext extends ViewContext {
-  shell: ThemeShell;
+  host: ThemeHost;
 }
 
 const MODES: readonly (readonly [ThemeMode, string])[] = [
@@ -64,8 +64,8 @@ async function compressImage(file: File): Promise<string | null> {
   }
 }
 
-function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
-  const theme = () => props.shell.prefs().theme;
+function ThemePanel(props: { host: ThemeHost }): JSX.Element {
+  const theme = () => props.host.prefs().theme;
   // 「システム」選択時に今OSがどちらかを添える。OS側の変更にも追従する
   // （prefsが別経路で変わってもtheme()が追う）。
   const systemQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -83,7 +83,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
               class={{ "theme-item": true, selected: theme() === mode }}
               role="radio"
               aria-checked={theme() === mode ? "true" : "false"}
-              onClick={() => props.shell.updatePrefs((prefs) => {
+              onClick={() => props.host.updatePrefs((prefs) => {
                 prefs.theme = mode;
               })}
             >
@@ -101,10 +101,10 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
         <For each={BACKGROUNDS}>
           {([kind, label]) => (
             <button
-              class={{ "theme-item": true, selected: props.shell.prefs().background === kind }}
+              class={{ "theme-item": true, selected: props.host.prefs().background === kind }}
               role="radio"
-              aria-checked={props.shell.prefs().background === kind ? "true" : "false"}
-              onClick={() => props.shell.updatePrefs((prefs) => {
+              aria-checked={props.host.prefs().background === kind ? "true" : "false"}
+              onClick={() => props.host.updatePrefs((prefs) => {
                 prefs.background = kind;
               })}
             >
@@ -113,7 +113,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
           )}
         </For>
       </div>
-      <Show when={props.shell.prefs().background === "image"}>
+      <Show when={props.host.prefs().background === "image"}>
         <div class="theme-image-row">
           <label class="theme-image-pick">
             <input
@@ -125,7 +125,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
                 if (!file) return;
                 void compressImage(file).then((dataUrl) => {
                   if (dataUrl) {
-                    props.shell.updatePrefs((prefs) => {
+                    props.host.updatePrefs((prefs) => {
                       prefs.backgroundImage = dataUrl;
                     });
                   }
@@ -136,10 +136,10 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
             />
             <span class="plugumi-button theme-image-button">画像を選ぶ</span>
           </label>
-          <Show when={props.shell.prefs().backgroundImage}>
+          <Show when={props.host.prefs().backgroundImage}>
             <button
               class="plugumi-button theme-image-clear"
-              onClick={() => props.shell.updatePrefs((prefs) => {
+              onClick={() => props.host.updatePrefs((prefs) => {
                 prefs.backgroundImage = "";
               })}
             >
@@ -152,9 +152,9 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
           <For each={backgroundPresets}>
             {(preset) => (
               <button
-                class={{ "theme-preset": true, selected: props.shell.prefs().backgroundImage === `preset:${preset.id}` }}
+                class={{ "theme-preset": true, selected: props.host.prefs().backgroundImage === `preset:${preset.id}` }}
                 title={preset.label}
-                onClick={() => props.shell.updatePrefs((prefs) => {
+                onClick={() => props.host.updatePrefs((prefs) => {
                   prefs.backgroundImage = `preset:${preset.id}`;
                 })}
               >
@@ -168,8 +168,8 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
         <span class="theme-slider-label">膜のぼかし</span>
         <input
           type="range" min={0} max={100}
-          value={props.shell.prefs().membraneBlur}
-          onInput={(event) => props.shell.updatePrefs((prefs) => {
+          value={props.host.prefs().membraneBlur}
+          onInput={(event) => props.host.updatePrefs((prefs) => {
             prefs.membraneBlur = Number(event.currentTarget.value);
           })}
         />
@@ -178,19 +178,19 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
         <span class="theme-slider-label">背景の濃さ</span>
         <input
           type="range" min={0} max={100}
-          value={props.shell.prefs().frameAlpha}
-          onInput={(event) => props.shell.updatePrefs((prefs) => {
+          value={props.host.prefs().frameAlpha}
+          onInput={(event) => props.host.updatePrefs((prefs) => {
             prefs.frameAlpha = Number(event.currentTarget.value);
           })}
         />
       </label>
-      <Show when={props.shell.prefs().background === "aurora"}>
+      <Show when={props.host.prefs().background === "aurora"}>
         <label class="theme-slider">
           <span class="theme-slider-label">背景の鮮やかさ</span>
           <input
             type="range" min={0} max={200}
-            value={props.shell.prefs().auroraVivid}
-            onInput={(event) => props.shell.updatePrefs((prefs) => {
+            value={props.host.prefs().auroraVivid}
+            onInput={(event) => props.host.updatePrefs((prefs) => {
               prefs.auroraVivid = Number(event.currentTarget.value);
             })}
           />
@@ -200,8 +200,8 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
         <span class="theme-slider-label">sansフォント</span>
         <input
           type="text" class="plugumi-input theme-text"
-          value={props.shell.prefs().sansFont}
-          onInput={(event) => props.shell.updatePrefs((prefs) => {
+          value={props.host.prefs().sansFont}
+          onInput={(event) => props.host.updatePrefs((prefs) => {
             prefs.sansFont = event.currentTarget.value;
           })}
         />
@@ -210,8 +210,8 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
         <span class="theme-slider-label">monoフォント</span>
         <input
           type="text" class="plugumi-input theme-text"
-          value={props.shell.prefs().monoFont}
-          onInput={(event) => props.shell.updatePrefs((prefs) => {
+          value={props.host.prefs().monoFont}
+          onInput={(event) => props.host.updatePrefs((prefs) => {
             prefs.monoFont = event.currentTarget.value;
           })}
         />
@@ -221,6 +221,6 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
 }
 
 export function mount(host: ShadowRoot, context: ThemePanelContext): ViewHandle {
-  const dispose = render(() => <ThemePanel shell={context.shell} />, host);
+  const dispose = render(() => <ThemePanel host={context.host} />, host);
   return { destroy: () => dispose() };
 }
