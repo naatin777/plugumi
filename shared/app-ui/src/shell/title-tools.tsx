@@ -72,7 +72,7 @@ function CoreMenuItem(props: { key: string; name: string; status: string }): JSX
   };
   return (
     <a
-      class="plugumi-menu-item"
+      class="plugumi-list-item"
       href={href()}
       onClick={select}
     >
@@ -105,14 +105,14 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
           <For each={shell.panels()}>
             {(entry) => (
               <button
-                class="plugumi-menu-item"
+                class="plugumi-list-item"
                 onClick={(event) => {
                   closePopover(event);
                   shell.pickPanel(entry);
                 }}
               >
                 {entry.title}
-                <span class="plugumi-menu-item-meta">{entry.providerId}</span>
+                <span class="plugumi-list-item-meta">{entry.providerId}</span>
               </button>
             )}
           </For>

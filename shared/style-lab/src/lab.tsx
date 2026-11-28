@@ -519,38 +519,38 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     ),
   },
   {
-    group: "components", id: "menus", title: "Menus",
+    group: "components", id: "list-items", title: "List items",
     render: () => (
       <>
         {/* menu itemはただ1つのprimitive — menu・nav・picker・sidebarの
             文脈が違っても項目の解剖学は同じ。このlabのsidebar自体が
             これを使っている。 */}
-        <h3>.plugumi-menu-item — shell・plugin共通</h3>
+        <h3>.plugumi-list-item — shell・plugin共通</h3>
         <Stage>
           <div class="lab-states">
             <Labeled label="default">
-              <button class="plugumi-menu-item" style={{ "min-width": "180px" }}>menu item</button>
+              <button class="plugumi-list-item" style={{ "min-width": "180px" }}>menu item</button>
             </Labeled>
             <Labeled label="selected">
-              <button class="plugumi-menu-item plugumi-menu-item--selected" style={{ "min-width": "180px" }}>menu item</button>
+              <button class="plugumi-list-item plugumi-list-item--selected" style={{ "min-width": "180px" }}>menu item</button>
             </Labeled>
             <Labeled label="disabled">
-              <button class="plugumi-menu-item" disabled style={{ "min-width": "180px" }}>menu item</button>
+              <button class="plugumi-list-item" disabled style={{ "min-width": "180px" }}>menu item</button>
             </Labeled>
             <Labeled label="danger">
-              <button class="plugumi-menu-item plugumi-menu-item--danger" style={{ "min-width": "180px" }}>menu item</button>
+              <button class="plugumi-list-item plugumi-list-item--danger" style={{ "min-width": "180px" }}>menu item</button>
             </Labeled>
             <Labeled label="with meta">
-              <button class="plugumi-menu-item" style={{ "min-width": "180px" }}>
+              <button class="plugumi-list-item" style={{ "min-width": "180px" }}>
                 <span>menu item</span>
-                <span class="plugumi-menu-item-meta">meta</span>
+                <span class="plugumi-list-item-meta">meta</span>
               </button>
             </Labeled>
           </div>
         </Stage>
         <Spec rows={[
-          ["class", ".plugumi-menu-item — view-core/components.css"],
-          ["anatomy", "[icon?] + label + [meta?] — metaは.plugumi-menu-item-metaで右端に"],
+          ["class", ".plugumi-list-item — view-core/components.css"],
+          ["anatomy", "[icon?] + label + [meta?] — metaは.plugumi-list-item-metaで右端に"],
           ["hover", "fill / selected: fill-strong + text-strong / danger: error"],
           ["used by", "core menu・panel picker・sidebar project menu・このlabのnav"],
         ]} />
@@ -713,7 +713,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
               <For each={ENTRIES.filter((entry) => entry.group === group && !entry.parent)}>
                 {(entry) => (
                   <button
-                    class={{ "plugumi-menu-item": true, "plugumi-menu-item--selected": active() === entry.id }}
+                    class={{ "plugumi-list-item": true, "plugumi-list-item--selected": active() === entry.id }}
                     onClick={() => select(entry.id)}
                   >
                     {entry.title}
@@ -738,7 +738,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
                         <For each={ENTRIES.filter((entry) => entry.group === group && entry.parent === folder)}>
                           {(entry) => (
                             <button
-                              class={{ "plugumi-menu-item": true, "lab-nav-child": true, "plugumi-menu-item--selected": active() === entry.id }}
+                              class={{ "plugumi-list-item": true, "lab-nav-child": true, "plugumi-list-item--selected": active() === entry.id }}
                               onClick={() => select(entry.id)}
                             >
                               {entry.title}
