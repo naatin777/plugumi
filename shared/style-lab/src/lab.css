@@ -436,22 +436,17 @@
 }
 .lab-nav-child { padding-left: var(--plugumi-spacing-lg); }
 
-/* folder見出し — 開閉できるbutton。chevronは状態で回転。 */
-.lab-nav-folder {
-  display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
-  width: 100%;
+
+/* 木構造のnav — 親はrowとして並べ、chevronは右端に小さく。 */
+.lab-nav-row {
+  display: flex; align-items: center;
+}
+.lab-nav-row .lab-nav-item { flex: 1; }
+.lab-nav-chevron {
   background: none; border: none; cursor: pointer;
-  font: inherit;
-  font-size: var(--plugumi-font-size-2xs);
-  text-transform: capitalize;
   color: var(--plugumi-colors-text-muted);
-  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm) 2px;
-  text-align: left;
-}
-.lab-nav-folder:hover { color: var(--plugumi-colors-text); }
-.lab-nav-folder-chevron {
-  display: inline-block;
+  font-size: 7px;
+  padding: 2px var(--plugumi-spacing-xs);
   transition: transform 120ms;
-  font-size: 8px;
 }
-.lab-nav-folder[data-open] .lab-nav-folder-chevron { transform: rotate(90deg); }
+.lab-nav-chevron[data-open] { transform: rotate(90deg); }

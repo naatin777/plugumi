@@ -247,7 +247,7 @@ function ResponsiveEntry(): JSX.Element {
   );
 }
 
-const ENTRIES: { group: string; id: string; title: string; folder?: string; render: () => JSX.Element }[] = [
+const ENTRIES: { group: string; id: string; title: string; parent?: string; render: () => JSX.Element }[] = [
   {
     group: "foundations", id: "color", title: "Color",
     render: () => (
@@ -441,7 +441,7 @@ const ENTRIES: { group: string; id: string; title: string; folder?: string; rend
     ),
   },
   {
-    group: "components", id: "buttons", title: "Buttons", folder: "buttons",
+    group: "components", id: "buttons", title: "Buttons",
     render: () => (
       <>
         {/* buttonはfamily。text button（plugumi-button、plugin-facing）と
@@ -462,7 +462,7 @@ const ENTRIES: { group: string; id: string; title: string; folder?: string; rend
     ),
   },
   {
-    group: "components", id: "icon-buttons", title: "Icon buttons", folder: "buttons",
+    group: "components", id: "icon-buttons", title: "Icon buttons", parent: "buttons",
     render: () => (
       <>
         <p class="lab-note">icon button — .icon-button / shell専有。panelのchromeに並ぶ小さい操作。</p>
@@ -604,7 +604,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
   // media queryではなくpanelの実サイズ基準（splitで狭くなることがある）。
   const [narrow, setNarrow] = createSignal(false);
   const [navOpen, setNavOpen] = createSignal(false);
-  const [openFolders, setOpenFolders] = createSignal<ReadonlySet<string>>(new Set(ENTRIES.map((entry) => entry.folder).filter((f): f is string => !!f)));
+  const [openFolders, setOpenFolders] = createSignal<ReadonlySet<string>>(new Set(ENTRIES.map((entry) => entry.parent).filter((f): f is string => !!f)));
   const current = () => ENTRIES.find((entry) => entry.id === active()) ?? ENTRIES[0];
   const observer = new ResizeObserver((records) => {
     for (const record of records) setNarrow(record.contentRect.width < widths.compact);
@@ -685,40 +685,45 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
           {(group) => (
             <>
               <div class="lab-nav-group">{group}</div>
-              {/* folderのあるentryはfolder見出しの下にインデントして
-                  木にする。folderは展開/折畳なしの常時展開。 */}
-              <For each={ENTRIES.filter((entry) => entry.group === group && !entry.folder)}>
-                {(entry) => (
-                  <button
-                    class={{ "lab-nav-item": true, selected: active() === entry.id }}
-                    onClick={() => select(entry.id)}
-                  >
-                    {entry.title}
-                  </button>
-                )}
-              </For>
-              <For each={[...new Set(ENTRIES.filter((entry) => entry.group === group && entry.folder).map((entry) => entry.folder!))]}>
-                {(folder) => {
-                  const open = () => openFolders().has(folder);
+              {/* parentを持つentryは親の下にインデントして木にする。
+                  親entry自体が開閉を兼ねる — 重複するfolder行はない。 */}
+              <For each={ENTRIES.filter((entry) => entry.group === group && !entry.parent)}>
+                {(entry) => {
+                  const children = () => ENTRIES.filter((child) => child.parent === entry.id);
+                  const open = () => openFolders().has(entry.id);
                   const toggle = () => setOpenFolders((prev) => {
                     const next = new Set(prev);
-                    if (next.has(folder)) next.delete(folder); else next.add(folder);
+                    if (next.has(entry.id)) next.delete(entry.id); else next.add(entry.id);
                     return next;
                   });
                   return (
                     <>
-                      <button class="lab-nav-folder" data-open={open() ? "" : undefined} onClick={() => toggle()}>
-                        <span class="lab-nav-folder-chevron">▶</span>
-                        {folder}
-                      </button>
+                      <div class="lab-nav-row">
+                        <button
+                          class={{ "lab-nav-item": true, selected: active() === entry.id }}
+                          onClick={() => select(entry.id)}
+                        >
+                          {entry.title}
+                        </button>
+                        {children().length > 0 && (
+                          <button
+                            class={{ "lab-nav-chevron": true }}
+                            data-open={open() ? "" : undefined}
+                            aria-label="開閉"
+                            onClick={() => toggle()}
+                          >
+                            ▶
+                          </button>
+                        )}
+                      </div>
                       {open() && (
-                        <For each={ENTRIES.filter((entry) => entry.group === group && entry.folder === folder)}>
-                          {(entry) => (
+                        <For each={children()}>
+                          {(child) => (
                             <button
-                              class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === entry.id }}
-                              onClick={() => select(entry.id)}
+                              class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === child.id }}
+                              onClick={() => select(child.id)}
                             >
-                              {entry.title}
+                              {child.title}
                             </button>
                           )}
                         </For>
