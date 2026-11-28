@@ -207,7 +207,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
   return (
     <>
       <div
-        class={{ [styles["area-row"]]: true, [styles["selected"]]: selected() }}
+        class={{ [styles["area-row"]]: true, "plugumi-menu-item": true, "plugumi-menu-item--selected": selected() }}
           data-part="area-list-row"
         style={{ "padding-left": `${props.area.depth * 12}px` }}
       >

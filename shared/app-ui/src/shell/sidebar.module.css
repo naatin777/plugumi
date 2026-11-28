@@ -42,16 +42,6 @@
     padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
     font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
   }
-  .area-row {
-    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
-    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-    border-radius: var(--plugumi-radii-md);
-  }
-  /* 選択中のArea行はtabと同じ言語で — 透けた面＋輪郭のchip。 */
-  .area-row.selected {
-    background: color-mix(in oklab, var(--plugumi-colors-raised) 50%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--plugumi-colors-raised-edge) 55%, transparent);
-  }
   .area-row a { color: var(--plugumi-colors-text); text-decoration: none; flex: 1; }
 
   /* ---- Main/Subセクション（Areaの一覧） ---- */
