@@ -22,6 +22,10 @@
   .leaf-surface {
     position: absolute; inset: 0; z-index: 0;
     backdrop-filter: blur(12px) saturate(1.2);
+    /* leafのclipはoverflow-clip-marginで8px外まで許されるので、
+       四角いままだと角がleafの丸みの外に飛び出す。面自体も丸める。
+       （leafのborder分の1px差は無視できるスケール） */
+    border-radius: var(--plugumi-radii-lg);
     /* 穴 — --hole-*が書き込まれるとそのrectだけblurが抜ける。
        mask-composite: excludeは全面layerと穴layerのXOR。 */
     mask:
