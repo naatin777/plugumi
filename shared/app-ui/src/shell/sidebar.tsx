@@ -290,7 +290,7 @@ function AreaCreate(props: { slot: ListSlot; parent: string[] }): JSX.Element {
     <Show
       when={adding()}
       fallback={
-        <button class={styles["area-add"]} onClick={() => setAdding(true)}>
+        <button class="plugumi-list-item" onClick={() => setAdding(true)}>
           <IconPlus size={12} /> Areaを追加
         </button>
       }
