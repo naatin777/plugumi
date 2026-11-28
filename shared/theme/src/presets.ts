@@ -5,9 +5,13 @@
 //   land:  空（低周波）+山・川（高周波）の典型的なwallpaper
 //   city:  都市 — 全体が高周波。最悪に近い実画像
 //   light: 明るい画像 — lightな背後での見え方の確認用
+//   dark:  暗い画像 — dark theme向け
+//   night: 中程度の暗さ — 夜景
 import landUrl from "./presets/land.jpg";
 import cityUrl from "./presets/city.jpg";
 import lightUrl from "./presets/light.jpg";
+import darkUrl from "./presets/dark.jpg";
+import nightUrl from "./presets/night.jpg";
 
 export interface BackgroundPreset {
   id: string;
@@ -19,6 +23,8 @@ export const backgroundPresets: readonly BackgroundPreset[] = [
   { id: "land", label: "山と川", url: landUrl },
   { id: "city", label: "都市", url: cityUrl },
   { id: "light", label: "明るい風景", url: lightUrl },
+  { id: "dark", label: "暗い風景", url: darkUrl },
+  { id: "night", label: "夜景", url: nightUrl },
 ];
 
 // prefsのbackgroundImageは「preset:<id>」かdata URL。描画側はこれで
