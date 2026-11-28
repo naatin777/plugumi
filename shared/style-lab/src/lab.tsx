@@ -377,19 +377,7 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
             カード面、その中のholeには何も塗らない。素材はholeの中に
             浮かべる — hole自体がtransparentの参照なので、素材ごとに
             「何もない場合との差」が直接読み取れる。 */}
-        <div class="lab-hole-surface">
-          {/* 穴の周りを囲む8枚のstrip — 全部leafと同じガラス素材
-              (blur(12px) saturate(1.2))。gridで敷き詰めるので穴の
-              位置合わせにJSは要らない。面はpanelが自分でつける。 */}
-          <div class="lab-strip" style={{ "grid-area": "1/1", "border-top-left-radius": "var(--plugumi-radii-lg)" }} />
-          <div class="lab-strip" style={{ "grid-area": "1/2" }} />
-          <div class="lab-strip" style={{ "grid-area": "1/3", "border-top-right-radius": "var(--plugumi-radii-lg)" }} />
-          <div class="lab-strip" style={{ "grid-area": "2/1" }} />
-          <div class="lab-strip" style={{ "grid-area": "2/3" }} />
-          <div class="lab-strip" style={{ "grid-area": "3/1", "border-bottom-left-radius": "var(--plugumi-radii-lg)" }} />
-          <div class="lab-strip" style={{ "grid-area": "3/2" }} />
-          <div class="lab-strip" style={{ "grid-area": "3/3", "border-bottom-right-radius": "var(--plugumi-radii-lg)" }} />
-          <div class="lab-hole">
+        <div class="lab-hole">
             <span class="lab-hole-caption">↑ この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える</span>
             <div class="lab-hole-row">
               <div class="lab-surface-box lab-hole-item" style={{ background: "var(--plugumi-colors-fill)" }}>
@@ -414,7 +402,6 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
                 )}
               </For>
             </div>
-          </div>
         </div>
         <p class="lab-note">
           階層は「文字を置く面は濃く、chrome的な面は薄く」。両テーマとも
@@ -675,8 +662,30 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
     setNavOpen(false);
   };
 
+  // panel全体を覆うsurface — shellのglassを外してもらっているので、
+  // panelが自分でつける面。maskで穴のrectだけ除外する（穴は素の
+  // Layer 1が見える）。穴の位置はDOMから定期測定 — labは実験装置
+  // なのでResizeObserverの配線より単純なintervalで十分。
+  let surfaceEl: HTMLDivElement | undefined;
+  const trackHole = setInterval(() => {
+    if (!surfaceEl) return;
+    const hole = surfaceEl.parentElement?.querySelector(".lab-hole");
+    if (!hole) {
+      surfaceEl.style.setProperty("--hole-w", "0px");
+      return;
+    }
+    const surfaceRect = surfaceEl.getBoundingClientRect();
+    const holeRect = hole.getBoundingClientRect();
+    surfaceEl.style.setProperty("--hole-x", `${holeRect.left - surfaceRect.left}px`);
+    surfaceEl.style.setProperty("--hole-y", `${holeRect.top - surfaceRect.top}px`);
+    surfaceEl.style.setProperty("--hole-w", `${holeRect.width}px`);
+    surfaceEl.style.setProperty("--hole-h", `${holeRect.height}px`);
+  }, 300);
+  onCleanup(() => clearInterval(trackHole));
+
   return (
     <div class={{ "lab": true, narrow: narrow(), "nav-open": navOpen() }} ref={((el) => observer.observe(el)) as (el: HTMLDivElement) => void} onPointerDown={outsideDown}>
+      <div class="lab-surface" ref={(el) => { surfaceEl = el; }} />
       <nav class="lab-nav" data-drawer-keep style={narrow() ? undefined : { width: `${width()}px` }}>
         <For each={GROUPS}>
           {(group) => (
