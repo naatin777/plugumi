@@ -96,15 +96,4 @@
     color: var(--plugumi-colors-text-muted);
     font-size: var(--plugumi-font-size-2xs, 10px);
   }
-  .area-menu-item {
-    display: flex; width: 100%;
-    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-    border: none; border-radius: var(--plugumi-radii-sm);
-    background: transparent; color: var(--plugumi-colors-text);
-    font: inherit; font-size: var(--plugumi-font-size-xs);
-    cursor: pointer; text-align: left;
-  }
-  .area-menu-item:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
-  .area-menu-item.selected { font-weight: 600; }
-  .area-menu-item.danger { color: var(--plugumi-colors-error); }
 }

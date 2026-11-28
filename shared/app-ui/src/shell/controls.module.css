@@ -80,17 +80,6 @@
     /* 位置はopenPopoverがanchorのrectからfixedで置く。 */
     margin: 0; inset: auto;
   }
-  .core-menu-item, .picker-item {
-    display: flex; align-items: center; gap: var(--plugumi-spacing-sm);
-    width: 100%;
-    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-    border: none; border-radius: var(--plugumi-radii-md);
-    background: transparent; color: inherit;
-    font: inherit; text-align: left; text-decoration: none;
-    cursor: pointer;
-  }
-  .core-menu-item:hover, .picker-item:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
-  .picker-plugin { margin-left: auto; color: var(--plugumi-colors-text-muted); font-size: var(--plugumi-font-size-2xs); }
   .picker-empty { margin: var(--plugumi-spacing-sm); color: var(--plugumi-colors-text-muted); }
 
   /* ---- drag ---- */

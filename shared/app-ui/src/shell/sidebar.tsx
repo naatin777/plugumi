@@ -75,7 +75,7 @@ function ProjectSwitcher(): JSX.Element {
         <For each={shell.projects()}>
           {(item) => (
             <button
-              class={{ [styles["area-menu-item"]]: true, [styles["selected"]]: item.key === shell.project() }}
+              class={{ "plugumi-menu-item": true, "plugumi-menu-item--selected": item.key === shell.project() }}
               onClick={(event) => {
                 closePopover(event);
                 navigate(`/${shell.coreKey()}/${item.key}/`);
@@ -88,7 +88,7 @@ function ProjectSwitcher(): JSX.Element {
         <Show
           when={adding()}
           fallback={
-            <button class={styles["area-menu-item"]} onClick={() => setAdding(true)}>
+            <button class="plugumi-menu-item" onClick={() => setAdding(true)}>
               <IconPlus size={12} /> Projectを追加
             </button>
           }
@@ -225,25 +225,25 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
         <div class={styles["area-menu"]} data-part="popover" popover="auto" ref={menu}>
           {/* 配置の移動はMain/Sub/Detachの3方向。自分のslotは出さない。 */}
           <Show when={props.slot !== "main"}>
-            <button class={styles["area-menu-item"]} onClick={moveToMain}>
+            <button class="plugumi-menu-item" onClick={moveToMain}>
               Mainへ
             </button>
           </Show>
           <Show when={props.slot !== "sub"}>
-            <button class={styles["area-menu-item"]} onClick={moveToSub}>
+            <button class="plugumi-menu-item" onClick={moveToSub}>
               Subへ
             </button>
           </Show>
           {/* detachはElectronのみ（host.windowsがnullなら出さない）。 */}
           <Show when={props.slot !== "detach" && shell.host.windows}>
             {(windows) => (
-              <button class={styles["area-menu-item"]} onClick={moveToDetach(windows())}>
+              <button class="plugumi-menu-item" onClick={moveToDetach(windows())}>
                 別windowで開く
               </button>
             )}
           </Show>
           <button
-            class={styles["area-menu-item"]}
+            class="plugumi-menu-item"
             onClick={(event) => {
               closePopover(event);
               setAddingChild(true);
@@ -252,7 +252,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
             子Areaを追加
           </button>
           <ConfirmButton
-            class={`${styles["area-menu-item"]} ${styles["danger"]}`}
+            class="plugumi-menu-item plugumi-menu-item--danger"
             label="Areaを削除"
             confirmLabel={`「${title()}」とその下のAreaを削除します`}
             confirm={() => {

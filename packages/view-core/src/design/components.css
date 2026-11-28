@@ -106,3 +106,48 @@
   color: var(--plugumi-colors-text-muted);
   font-size: var(--plugumi-font-size-xs);
 }
+
+/* ---- menu item ----
+   縦に並ぶ選択/操作項目のただ1つの primitive。menu・nav・picker・
+   sidebarなど文脈が違っても項目の解剖学は同じ: [icon?] + label + [meta?]。
+   shell・pluginの区別なく全てこれを使う。 */
+.plugumi-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--plugumi-spacing-sm);
+  width: 100%;
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+  border: none;
+  border-radius: var(--plugumi-radii-md);
+  background: transparent;
+  color: var(--plugumi-colors-text);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+.plugumi-menu-item:hover:not(:disabled) {
+  background: var(--plugumi-colors-fill);
+}
+.plugumi-menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plugumi-menu-item--selected {
+  background: var(--plugumi-colors-fill-strong);
+  color: var(--plugumi-colors-text-strong);
+}
+.plugumi-menu-item--selected:hover:not(:disabled) {
+  background: var(--plugumi-colors-fill-strong);
+}
+.plugumi-menu-item--danger {
+  color: var(--plugumi-colors-error);
+}
+/* 右端に寄る副情報（provider名・shortcutなど）。 */
+.plugumi-menu-item-meta {
+  margin-left: auto;
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-2xs);
+}

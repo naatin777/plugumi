@@ -16,26 +16,6 @@
   border-right: 1px solid var(--plugumi-colors-border);
   flex-shrink: 0;
 }
-.lab-nav-item {
-  background: none;
-  border: none;
-  border-radius: var(--plugumi-radii-sm);
-  color: var(--plugumi-colors-text-muted);
-  font: inherit;
-  font-size: var(--plugumi-font-size-sm);
-  text-align: left;
-  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-  border-radius: var(--plugumi-radii-md);
-  cursor: pointer;
-}
-.lab-nav-item:hover {
-  background: var(--plugumi-colors-fill);
-  color: var(--plugumi-colors-text);
-}
-.lab-nav-item.selected {
-  background: var(--plugumi-colors-fill-strong);
-  color: var(--plugumi-colors-text-strong);
-}
 .lab-content {
   flex: 1;
   overflow: auto;
@@ -442,8 +422,7 @@
 .lab-nav-row {
   display: flex; align-items: center;
 }
-.lab-nav-row .lab-nav-item { flex: 1; }
-.lab-nav-chevron {
+.lab-nav-row .lab-nav-chevron {
   background: none; border: none; cursor: pointer;
   color: var(--plugumi-colors-text-muted);
   font-size: 7px;
