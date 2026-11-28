@@ -457,10 +457,13 @@
 .lab-hole-item { flex: 1; min-width: 120px; }
 
 /* 穴は参照窓なので、空でも見え方を評価できる高さを持つ。
-   輪郭は描かない — 穴は効果（素のLayer 1が見えること）で読む。 */
+   輪郭は実線で示す — 穴の位置の印で、surfaceの一部ではない。 */
 .lab-hole {
   min-height: 240px;
   align-items: center; justify-content: center;
+  outline: 1px solid var(--plugumi-colors-border);
+  outline-offset: -1px;
+  border-radius: var(--plugumi-radii-md);
 }
 /* 穴の中央に置くsurface specimen — 現行のpanel surfaceの素材を再現。
    穴の中なのでbackdrop-filterは素のLayer 1にかかる。 */
