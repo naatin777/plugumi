@@ -19,6 +19,7 @@
 .lab-nav-item {
   background: none;
   border: none;
+  border-radius: var(--plugumi-radii-sm);
   color: var(--plugumi-colors-text-muted);
   font: inherit;
   font-size: var(--plugumi-font-size-sm);
@@ -450,3 +451,23 @@
   transition: transform 120ms;
 }
 .lab-nav-chevron[data-open] { transform: rotate(90deg); }
+
+/* folder — 開閉だけのcontainer。ページを持たないので弱い見た目。 */
+.lab-nav-folder {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+  width: 100%;
+  background: none; border: none; cursor: pointer;
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+  text-transform: capitalize;
+  color: var(--plugumi-colors-text-muted);
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
+  border-radius: var(--plugumi-radii-sm);
+  text-align: left;
+}
+.lab-nav-folder:hover { color: var(--plugumi-colors-text); }
+.lab-nav-folder-chevron {
+  font-size: 7px;
+  transition: transform 120ms;
+}
+.lab-nav-folder[data-open] .lab-nav-folder-chevron { transform: rotate(90deg); }

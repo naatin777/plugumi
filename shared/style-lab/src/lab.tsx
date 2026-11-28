@@ -441,7 +441,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     ),
   },
   {
-    group: "components", id: "buttons", title: "Buttons",
+    group: "components", id: "buttons", title: "Text buttons", parent: "buttons-folder",
     render: () => (
       <>
         {/* buttonはfamily。text button（plugumi-button、plugin-facing）と
@@ -462,7 +462,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     ),
   },
   {
-    group: "components", id: "icon-buttons", title: "Icon buttons", parent: "buttons",
+    group: "components", id: "icon-buttons", title: "Icon buttons", parent: "buttons-folder",
     render: () => (
       <>
         <p class="lab-note">icon button — .icon-button / shell専有。panelのchromeに並ぶ小さい操作。</p>
@@ -685,45 +685,40 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
           {(group) => (
             <>
               <div class="lab-nav-group">{group}</div>
-              {/* parentを持つentryは親の下にインデントして木にする。
-                  親entry自体が開閉を兼ねる — 重複するfolder行はない。 */}
+              {/* parentを持つentryはfolderの中。folderは開閉だけを
+                  するcontainerで、ページを持たない。 */}
               <For each={ENTRIES.filter((entry) => entry.group === group && !entry.parent)}>
-                {(entry) => {
-                  const children = () => ENTRIES.filter((child) => child.parent === entry.id);
-                  const open = () => openFolders().has(entry.id);
+                {(entry) => (
+                  <button
+                    class={{ "lab-nav-item": true, selected: active() === entry.id }}
+                    onClick={() => select(entry.id)}
+                  >
+                    {entry.title}
+                  </button>
+                )}
+              </For>
+              <For each={[...new Set(ENTRIES.filter((entry) => entry.group === group && entry.parent).map((entry) => entry.parent!))]}>
+                {(folder) => {
+                  const open = () => openFolders().has(folder);
                   const toggle = () => setOpenFolders((prev) => {
                     const next = new Set(prev);
-                    if (next.has(entry.id)) next.delete(entry.id); else next.add(entry.id);
+                    if (next.has(folder)) next.delete(folder); else next.add(folder);
                     return next;
                   });
                   return (
                     <>
-                      <div class="lab-nav-row">
-                        <button
-                          class={{ "lab-nav-item": true, selected: active() === entry.id }}
-                          onClick={() => select(entry.id)}
-                        >
-                          {entry.title}
-                        </button>
-                        {children().length > 0 && (
-                          <button
-                            class={{ "lab-nav-chevron": true }}
-                            data-open={open() ? "" : undefined}
-                            aria-label="開閉"
-                            onClick={() => toggle()}
-                          >
-                            ▶
-                          </button>
-                        )}
-                      </div>
+                      <button class="lab-nav-folder" data-open={open() ? "" : undefined} onClick={() => toggle()}>
+                        <span class="lab-nav-folder-chevron">▶</span>
+                        {folder.replace("-folder", "")}
+                      </button>
                       {open() && (
-                        <For each={children()}>
-                          {(child) => (
+                        <For each={ENTRIES.filter((entry) => entry.group === group && entry.parent === folder)}>
+                          {(entry) => (
                             <button
-                              class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === child.id }}
-                              onClick={() => select(child.id)}
+                              class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === entry.id }}
+                              onClick={() => select(entry.id)}
                             >
-                              {child.title}
+                              {entry.title}
                             </button>
                           )}
                         </For>
@@ -750,8 +745,6 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
 }
 
 export function mount(host: ShadowRoot, context: ViewContext): ViewHandle {
-  // 穴を開けるleaf — host要素から辿る。class名はhash化されているので
-  // 部分一致で探す（実験装置なのでこの粗さは許容）。
   // 穴を開けるleaf本体 — class名はhash化されているので部分一致で
   // 辿るが、leaf-body・leaf-emptyも「leaf」を含むので除外する
   // （実験装置なのでこの粗さは許容）。
