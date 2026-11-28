@@ -249,7 +249,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-block: var(--plugumi-spacing-xs);
+  /* containerの外周の息はここが持つ — 行はこの内側でfull-bleed。 */
+  padding: var(--plugumi-spacing-xs);
 }
 /* display:flexがpopoverの閉状態（UAのdisplay:none）を上書きして
    常時表示になってしまうのを防ぐ。 */
