@@ -458,7 +458,15 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
           </div>
         </Stage>
         <p class="lab-note">実使用はdemo pluginのみ。accent/danger variantは契約にあるが使われていない。</p>
-        <h3>icon button — .icon-button / shell専有</h3>
+
+      </>
+    ),
+  },
+  {
+    group: "components", id: "icon-buttons", title: "Icon buttons",
+    render: () => (
+      <>
+        <p class="lab-note">.icon-button — shell専有。panelのchromeに並ぶ小さい操作。</p>
         <Stage>
           <div class="lab-states">
             <Labeled label="off">
