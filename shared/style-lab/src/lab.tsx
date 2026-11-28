@@ -384,7 +384,7 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
             <span class="lab-glass-text">surface Aa</span>
             <span class="lab-glass-text-muted">blur(12px) + transparent — 現行のpanelの面</span>
           </div>
-          <span class="lab-hole-caption">破線の内側は素のLayer 1 — 中央の面との差がsurfaceのしていること</span>
+          <span class="lab-hole-caption">この領域は素のLayer 1 — 中央の面との差がsurfaceのしていること</span>
         </div>
         <p class="lab-note">
           階層は「文字を置く面は濃く、chrome的な面は薄く」。両テーマとも
@@ -649,21 +649,33 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
   // 穴 — shellのleaf surfaceに開ける。panelにはデフォルトでsurfaceが
   // つくので、labは面を自作せず、leafに穴のrectだけ書き込む。
   // leaf側は--hole-*をmaskに使う（実験装置なのでinterval測定）。
-  const trackHole = setInterval(() => {
-    const hole = labRootEl?.querySelector(".lab-hole");
+  // rAFで毎frame追従 — intervalだとscrollやresizeに遅れる。
+  // rectが変わったときだけ書き込むので無駄なstyle invalidationはない。
+  let rafId = 0;
+  let lastRect = "";
+  const trackHole = () => {
+    rafId = requestAnimationFrame(trackHole);
     if (!leafEl) return;
+    const hole = labRootEl?.querySelector(".lab-hole");
     if (!hole) {
-      leafEl.style.setProperty("--hole-w", "0px");
+      if (lastRect !== "none") {
+        lastRect = "none";
+        leafEl.style.setProperty("--hole-w", "0px");
+      }
       return;
     }
     const leafRect = leafEl.getBoundingClientRect();
     const holeRect = hole.getBoundingClientRect();
+    const key = `${holeRect.left - leafRect.left},${holeRect.top - leafRect.top},${holeRect.width},${holeRect.height}`;
+    if (key === lastRect) return;
+    lastRect = key;
     leafEl.style.setProperty("--hole-x", `${holeRect.left - leafRect.left}px`);
     leafEl.style.setProperty("--hole-y", `${holeRect.top - leafRect.top}px`);
     leafEl.style.setProperty("--hole-w", `${holeRect.width}px`);
     leafEl.style.setProperty("--hole-h", `${holeRect.height}px`);
-  }, 300);
-  onCleanup(() => clearInterval(trackHole));
+  };
+  rafId = requestAnimationFrame(trackHole);
+  onCleanup(() => cancelAnimationFrame(rafId));
 
   let labRootEl: HTMLDivElement | undefined;
   return (
