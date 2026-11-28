@@ -441,7 +441,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     ),
   },
   {
-    group: "components", id: "buttons", title: "Text buttons", parent: "buttons-folder",
+    group: "components", id: "buttons", title: "Buttons",
     render: () => (
       <>
         {/* buttonはfamily。text button（plugumi-button、plugin-facing）と
@@ -458,14 +458,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
           </div>
         </Stage>
         <p class="lab-note">実使用はdemo pluginのみ。accent/danger variantは契約にあるが使われていない。</p>
-      </>
-    ),
-  },
-  {
-    group: "components", id: "icon-buttons", title: "Icon buttons", parent: "buttons-folder",
-    render: () => (
-      <>
-        <p class="lab-note">icon button — .icon-button / shell専有。panelのchromeに並ぶ小さい操作。</p>
+        <h3>icon button — .icon-button / shell専有</h3>
         <Stage>
           <div class="lab-states">
             <Labeled label="off">
