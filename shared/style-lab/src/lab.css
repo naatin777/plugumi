@@ -425,17 +425,8 @@
   font-size: var(--plugumi-font-size-xs);
   color: var(--plugumi-colors-text-muted);
 }
-/* Surfaces entry — 階層のspecimen。cardはtabと同じレシピ（fill+edge+
-   上端highlight）を再現する。 */
-.lab-surface-grid {
-  /* stageはflex rowなので、幅いっぱいに広がるには明示が要る。 */
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--plugumi-spacing-sm);
-  padding: var(--plugumi-spacing-sm);
-}
-.lab-surface-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* Surfaces entry — 穴構造のspecimen。baseはpanelの現実のcontext
+   （カード面）、holeには何も塗らず参照窓とする。 */
 .lab-surface-box {
   min-height: 72px;
   padding: var(--plugumi-spacing-sm);
@@ -448,4 +439,29 @@
     inset 0 0 0 1px var(--plugumi-colors-raised-edge),
     inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
 }
-.lab-surface-dense { border-radius: 0; }
+.lab-hole-base {
+  /* 現実のpanelが持つsurface contextの再現 — カード面。 */
+  background: color-mix(in oklab, var(--plugumi-colors-raised) 40%, transparent);
+  box-shadow:
+    inset 0 0 0 1px var(--plugumi-colors-raised-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
+  border-radius: var(--plugumi-radii-lg);
+  padding: var(--plugumi-spacing-md);
+  margin-bottom: var(--plugumi-spacing-md);
+}
+.lab-hole {
+  /* 穴 — ここには何も塗らない。破線は「意図的に空である」ことを示す
+     catalog上の注釈で、surfaceではない。 */
+  border: 1px dashed var(--plugumi-colors-border-strong);
+  border-radius: var(--plugumi-radii-md);
+  padding: var(--plugumi-spacing-md);
+  display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
+}
+.lab-hole-caption {
+  font-size: var(--plugumi-font-size-2xs);
+  color: var(--plugumi-colors-text-muted);
+}
+.lab-hole-row {
+  display: flex; gap: var(--plugumi-spacing-sm); flex-wrap: wrap;
+}
+.lab-hole-item { flex: 1; min-width: 120px; }

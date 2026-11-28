@@ -365,72 +365,51 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
     render: () => (
       <>
         <p class="lab-note">
-          Layer 2の素材（decisions/00041）。panelはdefaultで透明 — 何も
-          塗らず、面はsurfaceを被せて作る。階層は「文字を置く面は濃く、
-          chrome的な面は薄く」。両テーマとも操作は共通で「白を足して
-          浮かせる」— 暗く重ねるとガラスの上で穴に見えるため。
+          Layer 2の素材（decisions/00041）。現実のpanelは基本surfaceを
+          つけるもの — leafのガラスカードが既にそうだ。だからここでも
+          まずsurfaceを敷き、その中に穴を開ける。穴には何も塗らない
+          — 素の状態の参照窓で、見えるのは本物のleaf越しの世界そのもの
+          （panel contentが実際に見るもの）。テストするsurfaceは穴の
+          中に置く — 素の状態と素材を被せた状態が同じ視野で比較できる。
         </p>
-        <Stage>
-          <div class="lab-surface-grid">
-            {/* transparent — default。何も塗らない */}
-            <div class="lab-surface-cell">
-              <div class="lab-surface-box">
-                <span class="lab-glass-text">透明 Aa</span>
-                <span class="lab-glass-text-muted">default — 何も塗らない</span>
+        {/* 穴の構造。baseは実際のpanelのsurface contextを再現する
+            カード面、その中のholeには何も塗らない。素材はholeの中に
+            浮かべる — hole自体がtransparentの参照なので、素材ごとに
+            「何もない場合との差」が直接読み取れる。 */}
+        <div class="lab-hole-base">
+          <div class="lab-hole">
+            <span class="lab-hole-caption">↑ この領域は何も塗っていない — 本物のleaf越しの世界がそのまま見える</span>
+            <div class="lab-hole-row">
+              <div class="lab-surface-box lab-hole-item" style={{ background: "var(--plugumi-colors-fill)" }}>
+                <span class="lab-glass-text">thin Aa</span>
+                <span class="lab-glass-text-muted">fill — 操作面</span>
               </div>
-              <div class="lab-state-label">transparent — panelのdefault</div>
-            </div>
-            {/* thin chrome — fill token */}
-            <div class="lab-surface-cell">
-              <div class="lab-surface-box" style={{ background: "var(--plugumi-colors-fill)" }}>
-                <span class="lab-glass-text">薄いchrome Aa</span>
-                <span class="lab-glass-text-muted">hover・操作面</span>
+              <div class="lab-surface-box lab-hole-item lab-surface-card">
+                <span class="lab-glass-text">card Aa</span>
+                <span class="lab-glass-text-muted">raised — 浮いた面</span>
               </div>
-              <div class="lab-state-label">thin — --plugumi-colors-fill</div>
             </div>
-            {/* card — raisedのレシピ（fill+edge+上端highlight） */}
-            <div class="lab-surface-cell">
-              <div class="lab-surface-box lab-surface-card">
-                <span class="lab-glass-text">カード Aa</span>
-                <span class="lab-glass-text-muted">浮いた面</span>
-              </div>
-              <div class="lab-state-label">card — raised fill + edge + 上端highlight</div>
-            </div>
-            {/* flat — frame色の不透明な面 */}
-            <div class="lab-surface-cell">
-              <div class="lab-surface-box" style={{ background: "var(--plugumi-colors-background-secondary)", color: "var(--plugumi-colors-text)" }}>
-                <span>平らな面 Aa</span>
-                <span style={{ color: "var(--plugumi-colors-text-muted)", "font-size": "var(--plugumi-font-size-2xs)", display: "block" }}>構造面</span>
-              </div>
-              <div class="lab-state-label">flat — 不透明（sidebar・drawerの台）</div>
-            </div>
-          </div>
-        </Stage>
-        <p class="lab-note">
-          dense端のtuning — 文字を直に置く面はどのくらい濃くあるべきか。
-          背後をbusyにして見ると、透過の許容限界が分かる。drawerの台は
-          背後が「自分のworkspace」（文字だらけの高周波）なので、
-          薄いと背後の文字がシャープに透けて読めない — blurは膜だけの
-          決まりなので、Layer 2の面は濃さで解決する。
-        </p>
-        <Stage>
-          <div class="lab-surface-grid">
-            <For each={[100, 92, 85, 70]}>
-              {(opacity) => (
-                <div class="lab-surface-cell">
+            <div class="lab-hole-row">
+              <For each={[100, 92, 85]}>
+                {(opacity) => (
                   <div
-                    class="lab-surface-box lab-surface-dense"
+                    class="lab-surface-box lab-hole-item"
                     style={{ background: `color-mix(in oklab, var(--plugumi-colors-background-primary) ${opacity}%, transparent)` }}
                   >
-                    <span class="lab-glass-text">dense {opacity}% Aa</span>
-                    <span class="lab-glass-text-muted">文字を直に置く面の候補</span>
+                    <span class="lab-glass-text">dense {opacity}%</span>
+                    <span class="lab-glass-text-muted">{opacity === 100 ? "opaque — 現行の台" : "わずかに透ける"}</span>
                   </div>
-                  <div class="lab-state-label">{opacity === 100 ? "opaque — 現行の台" : `${opacity}% — わずかに透ける`}</div>
-                </div>
-              )}
-            </For>
+                )}
+              </For>
+            </div>
           </div>
-        </Stage>
+        </div>
+        <p class="lab-note">
+          階層は「文字を置く面は濃く、chrome的な面は薄く」。両テーマとも
+          操作は共通で「白を足して浮かせる」— 暗く重ねるとガラスの上で
+          穴に見える。dense端の選択はdrawerの台に関係する — 92%あたりが
+          奥行きを残しつつ文字を守れる候補。
+        </p>
         <Spec rows={[
           ["transparent", "panelのdefault — 何も塗らない。面が要らない場所はこれ"],
           ["thin", "--plugumi-colors-fill（dark: 白10%）— hover・pressedなど操作面"],
