@@ -441,9 +441,8 @@
 }
 .lab-hole-base {
   /* 切り抜きの外枠 — 中身はholeの巨大shadowが塗り、ここではclipする
-     だけ。面はdense寄りでないと穴が穴として読めない（薄い面だと
-     穴との差が出ない）— 現実のpanelの面もどうせdense側なので、
-     それの再現でもある。 */
+     だけ。面は「浮くほど明るく」に従いraised系でなければならない —
+     暗い面にすると面自体が穴に見えて構造が逆転する。 */
   overflow: hidden;
   border-radius: var(--plugumi-radii-lg);
   margin-bottom: var(--plugumi-spacing-md);
@@ -454,7 +453,7 @@
   /* 穴 — 自身は何も塗らず、巨大なspreadのshadowで外側を塗りつぶす
      逆転技法。shadowはradiusに追従し、baseのoverflow hiddenで
      clipされる。 */
-  box-shadow: 0 0 0 100vmax var(--plugumi-colors-background-secondary);
+  box-shadow: 0 0 0 100vmax var(--plugumi-colors-raised);
   border-radius: var(--plugumi-radii-md);
   padding: var(--plugumi-spacing-md);
   display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
