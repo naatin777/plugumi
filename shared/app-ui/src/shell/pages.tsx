@@ -14,7 +14,7 @@ import { useArea } from "./controller.tsx";
 import { PanelMount } from "./panel-mount.tsx";
 import { Resizer } from "./resizer.tsx";
 import { surfaceAttrs } from "./activity.ts";
-import styles from "./pages.module.css";
+import "./pages.css";
 
 // 選択中から±1へ。端で止める（回らない）。移動したかを返す。
 export const flipPage = (
@@ -64,6 +64,10 @@ export function PagesTrack(props: {
   // 掴んで全列共通の幅を変えられる。
   colWidth?: number;
   onColWidth?: (width: number) => void;
+  // 選択変更時のscroll挙動を呼び出し側が書き込むhint。flip（横スワイプ
+  // 系のpageめくり）は"smooth"、それ以外は"instant"のまま。scrollToに
+  // 使うたびinstantへ戻すので、hintを立てない選択変更は常に瞬時。
+  scrollHint?: { behavior: "smooth" | "instant" };
 }): JSX.Element {
   const area = useArea();
   let viewport!: HTMLDivElement;
@@ -127,6 +131,10 @@ export function PagesTrack(props: {
     // colWidthはdeckのpitchへ効くので、変化時にも寄せ直しの判定を走らせる。
     () => ({ i: index(), deck: props.deck === true, colWidth: props.colWidth }),
     ({ i, deck }) => {
+      // hintはこのeffectの1回で必ず消費する — deck・colWidthへの反応で
+      // 先に走ったeffectが後の選択変更へ残すことがないように。
+      const behavior = props.scrollHint?.behavior ?? "instant";
+      if (props.scrollHint) props.scrollHint.behavior = "instant";
       if (deck) {
         // gesture scrollの追従で選択が動いただけなら寄せない — 列の
         // 途中で止めたいのに選択した列へscrollが引っ張られる。
@@ -138,13 +146,13 @@ export function PagesTrack(props: {
           : left + colW > end ? left + colW - viewport.clientWidth
           : undefined;
         if (target !== undefined) {
-          viewport.scrollTo({ left: target, behavior: "smooth" });
+          viewport.scrollTo({ left: target, behavior });
         }
         return;
       }
       const left = pageLeft(i);
       if (Math.abs(viewport.scrollLeft - left) > 1) {
-        viewport.scrollTo({ left, behavior: "smooth" });
+        viewport.scrollTo({ left, behavior });
       }
     },
   );
@@ -216,7 +224,7 @@ export function PagesTrack(props: {
   return (
     <div
       ref={registerViewport}
-      class={styles["pages-viewport"]}
+      class={"pages-viewport"}
       data-layout={props.deck ? "deck" : "pages"}
       style={props.deck && props.colWidth !== undefined
         ? { "--deck-col-w": `${props.colWidth}px` }
@@ -229,7 +237,7 @@ export function PagesTrack(props: {
       }}
       onTouchMove={() => { lastInputAt = Date.now(); }}
     >
-      <div class={styles["pages-track"]}>
+      <div class={"pages-track"}>
         {/* <For each={store配列}>はeachの評価がuntracked setupで走り
             警告になるのでmapArrayを直接使う（mapper内は各itemがtracked）。 */}
         {mapArray(
@@ -239,7 +247,7 @@ export function PagesTrack(props: {
             const instance = area.instance(ref);
             return (
               <div
-                class={styles["pages-page"]}
+                class={"pages-page"}
                 data-part="pages-page"
                 style={{
                   "content-visibility": visible(instanceId) ? "visible" : "hidden",

@@ -2,7 +2,7 @@
    resizer自身に効く規則は全てここに集める — 親がresizerの位置・
    margin・z-indexを調整する規則も、layerが違うと基底の
    position/marginが必ず勝ってしまうのでcomponents層で揃える。
-   親は各componentのlocal classなのでdata-part属性で拾う。 */
+   親のclassはcomponentごとのものなのでdata-part属性で拾う。 */
 @layer components {
 
   /* ---- resizer溝 ---- */

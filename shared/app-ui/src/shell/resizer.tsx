@@ -1,7 +1,7 @@
 // 溝のresizer。pointerを掴んで、開始値+変位（direction込み）を
 // applyへ渡す。clampや保存は呼び側が行う。
 import type { JSX } from "@solidjs/web";
-import styles from "./resizer.module.css";
+import "./resizer.css";
 
 export interface ResizerProps {
   axis: "x" | "y";
@@ -39,7 +39,7 @@ export function Resizer(props: ResizerProps): JSX.Element {
   };
   return (
     <div
-      class={styles["resizer"]}
+      class={"resizer"}
       data-part="resizer"
       data-axis={props.axis}
       data-drawer-keep={props.drawerKeep ? "" : undefined}

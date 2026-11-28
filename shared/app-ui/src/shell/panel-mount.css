@@ -21,13 +21,6 @@
     color: var(--plugumi-colors-text-muted);
     background: var(--plugumi-colors-background-secondary);
   }
-  .panel-state button {
-    padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
-    border: 1px solid var(--plugumi-colors-border);
-    border-radius: var(--plugumi-radii-md);
-    background: var(--plugumi-colors-fill);
-    color: var(--plugumi-colors-text); cursor: pointer; font: inherit;
-  }
 
   /* panel-hostはPluginのShadowRootを抱えるhost要素（instance.tsが
      createElementで作る）。中身はshadowの内側なのでdocument側の規則は

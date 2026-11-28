@@ -105,6 +105,8 @@ title barのwork区間は1つ。列の開閉や位置には追従せず、区画
 | | 800–1099px `medium` | Area listはinline | Subが右からdrawer（`min(subWidth, 90%)`） |
 | | <800px `compact` | — | Area listも左からdrawer（`min(sidebarWidth, 85%)`） |
 
+> **改訂（2025-11）**: wideでのSub開閉アニメをwidthのtransitionから負margin方式に変えた。以前はpane自体の幅を0→rawへtransitionしていたため、panelの中身ごと潰しながら動いて見た目が不自然だった。現在はpaneの幅を常に`--sub-raw-width`で固定し、`margin-right: calc(var(--sub-width) - var(--sub-raw-width))`でmargin-boxの幅だけを0→rawへ滑らせる — 中身は潰れず再配置も起きず、台ごと右からslideして入るように見える。layout上の语义は変わらない（wideではinlineの列で、開くとMainが縮む）。
+
 - **drawerの開閉は一時的**: drawer化した領域はprefsではなくShellごとのsignalで開閉し、初期は閉。狭くなった瞬間に保存済みの「開」がcenterを覆わないため。同じボタン・ショートカットがdrawerのときはこのsignalを切り替える。開くdrawerはshell全体で1つ — 新しく開くと他（Area list・Sub）は畳まれる。台同士が重ならないため。
 - **scrim**: drawerが開いている間、台のすぐ下・外clickで閉じる範囲（作業域全体。横線2本の間、app bar・status barは暗くしない）に薄い暗幕（`--plugumi-colors-scrim`、ぼかしなし）を敷く。暗くする範囲の中の他の境界線はscrimで一緒に暗くなり、幕はpointerを通す（閉じる判定は従来どおり外click）。
 - **閉じ方**: drawerの外をpointerdownするかEscape。drawerでもPanelはunmountしない（`data-closed`で畳む、transformで画面外へ逃がす）。
@@ -210,3 +212,10 @@ panel.setActivity({
 | Panel Frame | Panelの枠（radius）。leafに依らず同じ輪郭 |
 | frame | Shell固有の帯（topbar/statusbar/sidebar）。不透明slab面 |
 | activity | Panelの活動状態。Pluginが意味を通知、Shellが描く |
+
+## 改訂（Area listの開閉も負margin方式・reload時のflash修正）
+
+Area list（左列）のinline開閉もSubと同じ負marginslide方式に揃えた —
+paneの幅は常に`--sidebar-raw-width`で固定し、`margin-left: calc(var(--side-width) - var(--sidebar-raw-width))`でmargin-boxの幅だけを滑らせる。中身は潰れず、閉じた姿はpaneがshellのclipの外（左）へはみ出した状態。開閉中のfocus隔離は`data-closed`のvisibility遅延が担い、sidebarの中身はsub-paneと同じく常時mountとする（閉じる途中で中身が消えないように）。
+
+また`shellSize`の初期値は常に`"wide"`だったため、狭い窓ではwideのlayoutで一瞬paintされてからResizeObserverの修正でdrawerへ飛び、reload時にArea listが一瞬見えるflashになっていた。ref callback内で初回paint前に`offsetWidth`を同期的に測り、正しいsizeで初回paintするように修正した。

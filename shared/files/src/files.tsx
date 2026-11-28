@@ -199,12 +199,13 @@ function FilesPanel(props: {
         }}
       >
         <input
+          class="plugumi-input"
           type="text"
           value={draft()}
           onInput={(event) => setDraft(event.currentTarget.value)}
         />
-        <button type="submit">移動</button>
-        <button type="button" onClick={up}>..</button>
+        <button class="plugumi-button" type="submit">移動</button>
+        <button class="plugumi-button" type="button" onClick={up}>..</button>
       </form>
       <p class="files-path">{path()}</p>
       <Show when={error() !== ""}>
@@ -213,10 +214,10 @@ function FilesPanel(props: {
       <Show when={loading()}>
         <p class="files-meta">読み込み中…</p>
       </Show>
-      <ul class="files-list">
+      <ul class="plugumi-list files-list">
         <For each={listing()}>
           {(entry) => (
-            <li class="files-row">
+            <li>
               <Show
                 when={entry.kind === "directory"}
                 fallback={
@@ -224,18 +225,18 @@ function FilesPanel(props: {
                     {/* fileもclickで開く — editorを起動するのはopen側 */}
                     <button
                       type="button"
-                      class="files-entry"
+                      class="plugumi-list-item files-entry"
                       onClick={() => open(entry)}
                     >
                       {entry.name}
+                      <span class="plugumi-list-item-meta">{entry.kind} {entry.size}B</span>
                     </button>
-                    <span class="files-meta">{entry.kind} {entry.size}B</span>
                   </>
                 }
               >
                 <button
                   type="button"
-                  class="files-entry files-directory"
+                  class="plugumi-list-item files-entry files-directory"
                   onClick={() => open(entry)}
                 >
                   {entry.name}/

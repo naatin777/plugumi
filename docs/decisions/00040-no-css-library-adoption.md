@@ -49,3 +49,7 @@ Style Labの構築を通じて見つかった痛みは以下であり、どれ�
 ### 例外の可能性
 
 shell内部のcss執筆が大規模化して苦痛になった場合、**shell内部だけ**vanilla-extractを再検討する価値はある（型つきでvar()参照を書く用途）。ただしplugin作者には強制しない — 彼らのtoolchainにbuild pluginを要求すると裾野が死ぬ。現時点ではその苦痛がないため導入しない。
+
+## 補足（00044の調査で判明）
+
+vanilla-extractのruntime theming能力についての記述は不正確だった。`createThemeContract`（値を持たないcontract）と`createVar` + `@vanilla-extract/dynamic`の`assignInlineVars`を使えば、値をruntimeに注入する「var()参照だけを書く」運用は公式にサポートされたパターンであり、「本領ではない」という評価は当たらない。ただし結論は変わらない — VEのscopingはCSS Modulesと同じhash方式をAPI違いで提供するもので、plugumiの課題（仕組みの混在）を減らす方向に寄与せず、build plugin必須の新しい仕組みを追加するだけである。00044を参照。

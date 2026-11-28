@@ -6,13 +6,13 @@ import type { Node, Split } from "../layout/model.ts";
 import { useArea, layoutOps } from "./controller.tsx";
 import { LeafView } from "./leaf.tsx";
 import { Resizer } from "./resizer.tsx";
-import styles from "./center.module.css";
+import "./center.css";
 
 export function CenterView(): JSX.Element {
   const area = useArea();
   const root = () => area.layout().center.root;
   return (
-    <div class={styles["center"]} data-region="center">
+    <div class={"center"} data-region="center">
       <NodeView node={root()} />
     </div>
   );
@@ -34,7 +34,7 @@ function SplitView(props: { split: Split }): JSX.Element {
   return (
     <div
       ref={element}
-      class={styles["split"]}
+      class={"split"}
       data-axis={props.split.axis}
       style={props.split.axis === "x"
         ? { "grid-template-columns": `${props.split.ratio}fr var(--area-gap) ${1 - props.split.ratio}fr` }

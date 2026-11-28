@@ -51,8 +51,8 @@
       radial-gradient(40% 40% at 55% 50%, rgb(255 200 80 / calc(0.06 * var(--aurora-vivid))), transparent 70%); /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
     filter: blur(var(--membrane-blur, 80px)) saturate(calc(var(--aurora-vivid) * 1.05));
     /* 名前はdocument全体で一意の契約（css-isolationがこの名前を数える）
-       ので、module化しても:global()で衝突しない形のまま残す。 */
-    animation: global(shell-aurora) 40s ease-in-out infinite alternate;
+       ので、衝突しない名前のまま残す。 */
+    animation: shell-aurora 40s ease-in-out infinite alternate;
   }
   main.shell[data-bg="image"]::before {
     background-image:
@@ -62,7 +62,7 @@
     background-size: cover;
     background-repeat: no-repeat;
   }
-  @keyframes :global(shell-aurora) {
+  @keyframes shell-aurora {
     from { transform: translate3d(-3%, -2%, 0) scale(1); }
     to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
   }
@@ -89,18 +89,27 @@
     display: block;
     right: var(--sub-width);
   }
-
-  /* Sub列。inlineのときは幅0への畳み込み（unmountしない）。 */
+  /* Sub列。wideではinlineの列で、開くとMainがflexで縮む（unmountしない）。
+     開閉は幅ではなく負marginで行う — pane自体の幅は常に--sub-raw-widthで
+     固定なので中身は潰れず再配置も起きない。margin-boxの幅は
+     （width + margin-right = --sub-width）で、--sub-widthが0→rawへ補間
+     されると台ごと右からslideして入るように見える。閉じた姿はpaneが
+     work-matのclipの外（右）へはみ出した状態。 */
   .sub-pane {
     flex: none;
     display: flex;
-    width: var(--sub-width, 0px);
+    width: var(--sub-raw-width, 480px);
+    margin-right: calc(var(--sub-width, 0px) - var(--sub-raw-width, 480px));
     min-width: 0;
     overflow: clip;
-    transition: width var(--plugumi-motion-duration-md) ease,
-      transform var(--plugumi-motion-duration-md) ease;
+    visibility: visible;
+    transition: visibility 0s;
   }
-  .sub-pane[data-closed] { width: 0; pointer-events: none; }
+  .sub-pane[data-closed] {
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s var(--plugumi-motion-duration-md);
+  }
   .sub-pane > [data-part="area-view"] { flex: 1; min-width: 0; }
 
   /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
@@ -112,11 +121,12 @@
   }
 
   /* <1100px: Subはdrawer — work-matの右端からMainの上に重ねる。
-     中身はunmountしないままtransformで画面外へ逃がす。 */
+     幅の値はinlineと共有し、marginではなくtransformで画面外へ逃がす。 */
   main.shell:is([data-size="medium"], [data-size="compact"]) .sub-pane {
     position: absolute;
     right: 0; top: 0; bottom: 0;
     width: min(var(--sub-raw-width, 480px), 90%);
+    margin-right: 0;
     z-index: var(--plugumi-z-sub-drawer);
     box-sizing: border-box;
     /* 端にぴったりの四角い不透明の「台」で、
@@ -124,12 +134,11 @@
     box-shadow: none;
     background: var(--shell-frame-color);
     border-left: 1px solid var(--plugumi-colors-border);
+    transition: transform var(--plugumi-motion-duration-md) ease, visibility 0s;
   }
   main.shell:is([data-size="medium"], [data-size="compact"])
       .sub-pane[data-closed] {
-    width: min(var(--sub-raw-width, 480px), 90%);
     transform: translateX(calc(100% + 16px));
-    visibility: hidden;
     transition: transform var(--plugumi-motion-duration-md) ease,
       visibility 0s var(--plugumi-motion-duration-md);
   }

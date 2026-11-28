@@ -2,7 +2,7 @@
 // inlineの部品で行う。2つの領域で重複実装しないようここにまとめる。
 import { createSignal, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import controlStyles from "./controls.module.css";
+import "./controls.css";
 
 export interface NameFormProps {
   label: string;
@@ -30,8 +30,9 @@ export function NameForm(props: NameFormProps): JSX.Element {
     }
   };
   return (
-    <form class={controlStyles["name-form"]} onSubmit={submit}>
+    <form class={"name-form"} onSubmit={submit}>
       <input
+        class="plugumi-input"
         ref={(node) => node.focus()}
         aria-label={props.label}
         placeholder={props.label}
@@ -46,9 +47,9 @@ export function NameForm(props: NameFormProps): JSX.Element {
           if (!busy() && name().trim() === "") props.cancel();
         }}
       />
-      <button type="submit" disabled={busy() || name().trim() === ""}>作成</button>
+      <button class="plugumi-button" type="submit" disabled={busy() || name().trim() === ""}>作成</button>
       <Show when={error()}>
-        <p class={controlStyles["name-form-error"]}>{error()}</p>
+        <p class={"name-form-error"}>{error()}</p>
       </Show>
     </form>
   );
@@ -89,7 +90,7 @@ export function ConfirmButton(props: ConfirmButtonProps): JSX.Element {
       onClick={press}
     >
       <Show when={confirming()} fallback={props.children}>
-        <span class={controlStyles["confirm-text"]}>{props.confirmLabel}</span>
+        <span class={"confirm-text"}>{props.confirmLabel}</span>
       </Show>
     </button>
   );

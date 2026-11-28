@@ -10,8 +10,8 @@ import { leafTest } from "./drag.ts";
 import { focusLeaf, selectPanel, setLeafLayout, setLeafColWidth } from "../layout/model.ts";
 import { dividerAttr, surfaceAttrs, busyAttr } from "./activity.ts";
 import { IconPlus, IconDeck } from "../icons.tsx";
-import styles from "./leaf.module.css";
-import stripStyles from "./tab-strip.module.css";
+import "./leaf.css";
+import "./tab-strip.css";
 
 export function LeafView(props: { leaf: Leaf }): JSX.Element {
   const area = useArea();
@@ -35,9 +35,16 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
     const ref = props.leaf.panels.find((entry) => entry.instanceId === props.leaf.selected);
     return ref ? area.instance(ref) : undefined;
   };
+  // page切替えのscroll挙動。flip（stripの横スワイプ・マウスの戻る/進む）
+  // は方向のあるpageめくりなので滑らせ、tabの直接選択やキーでは
+  // 瞬時に切り替える。PagesTrackがscrollToするときに読んでinstantへ戻す。
+  const scrollHint = { behavior: "instant" as "smooth" | "instant" };
   const flip = (direction: 1 | -1) => {
     const id = flipPage(props.leaf.panels, props.leaf.selected, direction);
-    if (id) area.applyLayout((state) => selectPanel(state, id));
+    if (id) {
+      scrollHint.behavior = "smooth";
+      area.applyLayout((state) => selectPanel(state, id));
+    }
   };
   const select = (index: number) => {
     const ref = props.leaf.panels[index];
@@ -45,7 +52,7 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
   };
   return (
     <section
-      class={{ [styles["leaf"]]: true, [styles["focused"]]: focused() }}
+      class={{ ["leaf"]: true, ["focused"]: focused() }}
       data-part="leaf"
       ref={registerLeaf}
       onPointerDown={markFocus}
@@ -56,8 +63,8 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
       {/* surface — panelの面。leafとは別要素なので、maskで穴を開けても
           コンテンツは消えない。穴のrectは--hole-*（panel内容が書き込む）
           で、継承でここに届く。 */}
-      <div class={styles["leaf-surface"]} data-part="leaf-surface" />
-      <header class={stripStyles["leaf-strip"]} data-part="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
+      <div class={"leaf-surface"} data-part="leaf-surface" />
+      <header class={"leaf-strip"} data-part="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
         <TabStrip
           refs={props.leaf.panels}
           selected={props.leaf.selected}
@@ -66,7 +73,7 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
         />
         {/* 列への展開。deckでは中身を固定幅の列にして横scrollで流し見する。 */}
         <button
-          class={`${stripStyles["strip-deck"]} ${props.leaf.layout === "deck" ? stripStyles["on"] : ""}`}
+          class={`plugumi-icon-button ${"strip-deck"}`}
           data-part="deck-toggle"
           aria-label="列に並べる"
           aria-pressed={props.leaf.layout === "deck" ? "true" : "false"}
@@ -78,7 +85,7 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
           <IconDeck size={13} />
         </button>
       </header>
-      <div class={styles["leaf-body"]}>
+      <div class={"leaf-body"}>
         <Show
           when={props.leaf.panels.length > 0}
           fallback={<LeafEmpty leafId={props.leaf.id} />}
@@ -87,6 +94,7 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
             refs={props.leaf.panels}
             selected={props.leaf.selected}
             onSelect={select}
+            scrollHint={scrollHint}
             deck={props.leaf.layout === "deck"}
             colWidth={props.leaf.colWidth}
             onColWidth={(width) =>
@@ -102,7 +110,7 @@ function LeafEmpty(props: { leafId: string }): JSX.Element {
   const area = useArea();
   return (
     <button
-      class={styles["leaf-empty"]}
+      class={"leaf-empty"}
       aria-label="Panelを開く"
       onClick={(event) => {
         event.stopPropagation();

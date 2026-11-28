@@ -5,13 +5,17 @@
    bundleにfoldされ、panelのstylesとしてshadow rootにadoptされる。
    classは全てopt-in。要素セレクタでは作者の要素を勝手に装飾しない。 */
 
-/* ---- button ---- */
-.plugumi-button {
+@layer components {
+
+
+/* ---- button ----
+   text buttonとicon buttonで面・輪郭・状態の色は同じ。違うのは寸法だけ。 */
+.plugumi-button,
+.plugumi-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--plugumi-spacing-xs);
-  padding: 4px var(--plugumi-spacing-md);
   border: 1px solid var(--plugumi-colors-border);
   border-radius: var(--plugumi-radii-md);
   background: var(--plugumi-colors-fill);
@@ -20,15 +24,23 @@
   font-size: var(--plugumi-font-size-sm);
   cursor: pointer;
   user-select: none;
+  /* icon buttonの26pxはborder込みの外寸。text buttonにも影響はない。 */
+  box-sizing: border-box;
 }
-.plugumi-button:hover:not(:disabled) {
+.plugumi-button {
+  padding: 4px var(--plugumi-spacing-md);
+}
+.plugumi-button:hover:not(:disabled),
+.plugumi-icon-button:hover:not(:disabled) {
   background: var(--plugumi-colors-fill-strong);
   border-color: var(--plugumi-colors-border-strong);
 }
-.plugumi-button:active:not(:disabled) {
+.plugumi-button:active:not(:disabled),
+.plugumi-icon-button:active:not(:disabled) {
   background: color-mix(in oklab, var(--plugumi-colors-fill-strong), var(--plugumi-colors-text) 6%);
 }
-.plugumi-button:disabled {
+.plugumi-button:disabled,
+.plugumi-icon-button:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -65,6 +77,7 @@
 }
 /* ---- focus ring（インタラクション要素共通の見た目ルール） ---- */
 .plugumi-button:focus-visible,
+.plugumi-icon-button:focus-visible,
 .plugumi-input:focus-visible {
   outline: 2px solid var(--plugumi-colors-accent);
   outline-offset: 1px;
@@ -150,30 +163,16 @@
 }
 
 /* ---- icon button ----
-   chromeに並ぶ小さい操作。frame（title帯・sidebar）の上ではhoverは
-   不透明 — 透けても見えるのは無地のframe色だけで、塗りが薄くなる
-   だけのため。透過fillはカードの内側（blur・auroraが見える場所）
-   だけで使う。 */
+   chromeに並ぶ小さい操作。面・輪郭はtext buttonと同じで、
+   寸法だけ正方形にする。 */
 .plugumi-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 26px;
   height: 26px;
-  border: none;
-  border-radius: var(--plugumi-radii-md);
-  background: transparent;
-  color: var(--plugumi-colors-text-muted);
-  cursor: pointer;
   padding: 0;
 }
-.plugumi-icon-button:hover {
-  background: var(--plugumi-colors-background-tertiary);
-  color: var(--plugumi-colors-text);
-}
 .plugumi-icon-button[aria-pressed="true"] {
-  background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%);
-  color: var(--plugumi-colors-text);
+  background: color-mix(in oklab, var(--plugumi-colors-fill-strong), var(--plugumi-colors-text) 6%);
+  border-color: var(--plugumi-colors-border-strong);
 }
 /* 確認待ちの状態（削除など二度押し確認）。 */
 .plugumi-icon-button--armed {
@@ -249,6 +248,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin: 0;
+  list-style: none;
   /* containerの外周の息はここが持つ — 行はこの内側でfull-bleed。 */
   padding: var(--plugumi-spacing-xs);
 }
@@ -256,4 +257,5 @@
    常時表示になってしまうのを防ぐ。 */
 .plugumi-list[popover]:not(:popover-open) {
   display: none;
+}
 }

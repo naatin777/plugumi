@@ -1,0 +1,99 @@
+/* sidebar — project/areaツリー。frame色の面に直接置く。
+   scopingはCSS Modulesではなく@scopeで行う（decisions/00044） —
+   class名はhash化されず、セレクタはsidebarの内側にだけ届く。 */
+@layer components {
+  @scope ([data-part="sidebar"]) {
+
+    :scope {
+      display: flex; flex-direction: column;
+      height: 100%;
+      /* 上辺はwork面のカードの上端に揃える（matのpaddingと同じtoken）。 */
+      padding: var(--work-gap) var(--plugumi-spacing-sm)
+        var(--plugumi-spacing-sm);
+      gap: var(--plugumi-spacing-sm);
+      overflow-y: auto;
+    }
+
+    /* ---- 上部のProject切替 ---- */
+    .project-switcher-button {
+      justify-content: space-between;
+      width: 100%;
+      font-weight: 600;
+    }
+    .project-switcher-name {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .project-menu {
+      margin: 0;
+      inset: auto;
+      position-anchor: auto;
+      top: calc(anchor(bottom) + var(--plugumi-spacing-xs));
+      left: anchor(left);
+      position-try-fallbacks: flip-block;
+      border: 1px solid var(--plugumi-colors-border);
+      border-radius: var(--plugumi-radii-md);
+      background: var(--plugumi-colors-background-secondary);
+    }
+    .area-child-form { padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm); }
+
+    /* Area listの行。 */
+    .area-row {
+      padding-inline-start: calc(var(--plugumi-spacing-md) + var(--area-indent, 0px));
+    }
+    .area-row a {
+      flex: 1; min-width: 0;
+      color: inherit; text-decoration: none;
+    }
+
+    /* ---- Main/Subセクション（Areaの一覧） ---- */
+    .area-slot {
+      border-top: 1px solid var(--plugumi-colors-border);
+      padding-top: var(--plugumi-spacing-sm);
+    }
+    .nav-label {
+      margin: 0 0 var(--plugumi-spacing-xs);
+      color: var(--plugumi-colors-text-muted);
+      font-size: var(--plugumi-font-size-2xs, 10px);
+    }
+    .nav-empty {
+      margin: 0;
+      padding: 2px var(--plugumi-spacing-xs);
+      color: var(--plugumi-colors-text-subtle);
+      font-size: var(--plugumi-font-size-xs);
+    }
+    .area-menu-button {
+      flex: none;
+      /* 行の高さはlist itemのprimitive（= style labの項目と同じ25px）に
+         揃える。行のcontent高はtextの17pxなので、buttonもborder込みで
+         その高さに収める。 */
+      width: auto;
+      height: 17px;
+      padding-inline: var(--plugumi-spacing-xs);
+      font-size: var(--plugumi-font-size-2xs);
+      line-height: 1;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .area-row:hover .area-menu-button,
+    .area-row:focus-within .area-menu-button {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .area-menu {
+      /* end揃え — 行の右端のbuttonに右辺を合わせる。 */
+      margin: 0;
+      inset: auto;
+      position-anchor: auto;
+      top: calc(anchor(bottom) + var(--plugumi-spacing-xs));
+      right: anchor(right);
+      position-try-fallbacks: flip-block;
+      border: 1px solid var(--plugumi-colors-border);
+      border-radius: var(--plugumi-radii-md);
+      background: var(--plugumi-colors-background-tertiary);
+      color: var(--plugumi-colors-text);
+      font: inherit; font-size: var(--plugumi-font-size-xs);
+      min-width: 160px;
+    }
+  }
+}

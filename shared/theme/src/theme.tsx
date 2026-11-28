@@ -119,7 +119,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
             <input
               type="file"
               accept="image/*"
-              style={{ display: "none" }}
+              class="theme-image-input"
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0];
                 if (!file) return;
@@ -134,11 +134,11 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
                 event.currentTarget.value = "";
               }}
             />
-            <span class="theme-image-button">画像を選ぶ</span>
+            <span class="plugumi-button theme-image-button">画像を選ぶ</span>
           </label>
           <Show when={props.shell.prefs().backgroundImage}>
             <button
-              class="theme-image-clear"
+              class="plugumi-button theme-image-clear"
               onClick={() => props.shell.updatePrefs((prefs) => {
                 prefs.backgroundImage = "";
               })}
@@ -199,7 +199,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
       <label class="theme-slider">
         <span class="theme-slider-label">sansフォント</span>
         <input
-          type="text" class="theme-text"
+          type="text" class="plugumi-input theme-text"
           value={props.shell.prefs().sansFont}
           onInput={(event) => props.shell.updatePrefs((prefs) => {
             prefs.sansFont = event.currentTarget.value;
@@ -209,7 +209,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
       <label class="theme-slider">
         <span class="theme-slider-label">monoフォント</span>
         <input
-          type="text" class="theme-text"
+          type="text" class="plugumi-input theme-text"
           value={props.shell.prefs().monoFont}
           onInput={(event) => props.shell.updatePrefs((prefs) => {
             prefs.monoFont = event.currentTarget.value;

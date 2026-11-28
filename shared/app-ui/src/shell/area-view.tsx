@@ -6,15 +6,15 @@ import type { AreaController } from "./controller.tsx";
 import { AreaContext, useShell } from "./controller.tsx";
 import type { DropPreview } from "./drag.ts";
 import { CenterView } from "./center.tsx";
-import styles from "./area-view.module.css";
-import controlStyles from "./controls.module.css";
+import "./area-view.css";
+import "./controls.css";
 
 export function AreaView(props: { area: AreaController }): JSX.Element {
   const shell = useShell();
   return (
     <AreaContext value={props.area}>
       <div
-        class={styles["area-view"]}
+        class={"area-view"}
         data-part="area-view"
         onPointerDown={() => shell.setFocusedArea(props.area)}
       >
@@ -27,8 +27,8 @@ export function AreaView(props: { area: AreaController }): JSX.Element {
 // Mainに表示するAreaが無い（URLがAreaを指していない）ときの案内。
 export function AreaEmpty(): JSX.Element {
   return (
-    <div class={styles["area-view"]} data-empty>
-      <p class={styles["area-view-empty"]}>
+    <div class={"area-view"} data-empty>
+      <p class={"area-view-empty"}>
         Areaを選んでください。左のArea listの「＋ Areaを追加」から追加できます。
       </p>
     </div>
@@ -43,7 +43,7 @@ export function DragGhost(): JSX.Element {
     <>
       <Show when={shell.ghost()}>
         {(ghost) => (
-          <div class={controlStyles["drag-ghost"]} style={{ left: `${ghost().x + 8}px`, top: `${ghost().y + 8}px` }}>
+          <div class={"drag-ghost"} style={{ left: `${ghost().x + 8}px`, top: `${ghost().y + 8}px` }}>
             {ghost().title}
           </div>
         )}
@@ -68,7 +68,7 @@ function PreviewShape(props: { preview: DropPreview }): JSX.Element {
           when={piece.kind === "region"}
           fallback={
             <div
-              class={controlStyles["drop-caret"]}
+              class={"drop-caret"}
               style={{
                 left: `${(piece as { x: number }).x - 1}px`,
                 top: `${(piece as { y: number }).y}px`,
@@ -78,7 +78,7 @@ function PreviewShape(props: { preview: DropPreview }): JSX.Element {
           }
         >
           <div
-            class={`${controlStyles["drop-region"]} ${(piece as { split: boolean }).split ? controlStyles["split"] : ""}`}
+            class={`${"drop-region"} ${(piece as { split: boolean }).split ? "drop-split" : ""}`}
             style={{
               left: `${piece.x}px`,
               top: `${piece.y}px`,

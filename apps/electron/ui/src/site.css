@@ -11,33 +11,8 @@
   gap: var(--plugumi-spacing-sm);
 }
 form { display: flex; gap: var(--plugumi-spacing-xs); }
-input {
-  flex: 1;
-  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-  background: var(--plugumi-colors-background-tertiary);
-  color: var(--plugumi-colors-text);
-  border: 1px solid var(--plugumi-colors-border);
-  border-radius: var(--plugumi-radii-sm);
-  font-family: var(--plugumi-font-family-mono);
-  font-size: var(--plugumi-font-size-sm);
-}
-button {
-  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-  background: var(--plugumi-colors-background-tertiary);
-  color: var(--plugumi-colors-text);
-  border: 1px solid var(--plugumi-colors-border);
-  border-radius: var(--plugumi-radii-sm);
-  cursor: pointer;
-}
-button.nav {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--plugumi-spacing-xs);
-}
-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
+input { flex: 1; min-width: 0; }
+
 .view {
   flex: 1;
   position: relative;

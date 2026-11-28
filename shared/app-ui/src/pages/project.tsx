@@ -11,8 +11,8 @@ import {
 } from "../shell/controller.tsx";
 import { ShellFrame } from "../shell/shell.tsx";
 import { AreaView, DragGhost } from "../shell/area-view.tsx";
-import styles from "../shell/shell.module.css";
-import workStyles from "../shell/work-shape.module.css";
+import "../shell/shell.css";
+import "../shell/work-shape.css";
 import { resolveBackgroundImage } from "plugumi-theme-panel";
 
 export default function ProjectPage(): JSX.Element {
@@ -44,7 +44,7 @@ function DetachedArea(): JSX.Element {
   });
   return (
     <main
-      class={{ [styles["shell"]]: true, [styles["detached"]]: true }}
+      class={{ ["shell"]: true, ["detached"]: true }}
       data-part="shell"
       data-bg={
         shell.prefs().background === "image" && !shell.prefs().backgroundImage
@@ -62,7 +62,7 @@ function DetachedArea(): JSX.Element {
       }}
     >
       {/* 最低限のtitle帯（窓のdrag領域）だけ残す。 */}
-      <header class={workStyles["work-title"]} />
+      <header class={"work-title"} />
       {/* Mainと同じ形で1個だけ描く。同じAreaを元windowと同時に
           開くと独立に保存されlast-write-winsになる。 */}
       <AreaView area={area} />

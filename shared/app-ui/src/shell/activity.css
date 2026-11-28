@@ -14,14 +14,14 @@
 @layer components {
 
   /* keyframesの名前はdocument全体で一意の契約（css-isolationが同名の
-     定義を数える）。moduleのhashに載せず:global()で残す。 */
-  @keyframes :global(plugumi-activity-spin) {
+     定義を数える）。衝突しないplugumi- prefixの名前にする。 */
+  @keyframes plugumi-activity-spin {
     to { --plugumi-activity-hue: 360deg; }
   }
-  @keyframes :global(plugumi-activity-flow) {
+  @keyframes plugumi-activity-flow {
     to { background-position: 200% 0; }
   }
-  @keyframes :global(plugumi-activity-glow) {
+  @keyframes plugumi-activity-glow {
     50% { opacity: 0.45; }
   }
 
@@ -58,8 +58,8 @@
     --activity-color: var(--plugumi-colors-error);
   }
 
-  /* header（tabのtint）の規則はtab-strip.module.css側が持つ —
-     .tabはそのmoduleのlocal classなのでここからは触れない。 */
+  /* header（tabのtint）の規則はtab-strip.css側が持つ —
+     tabはdata属性で拾う。 */
 
   /* border: Panel外周。カードはborderを持たないので、::afterのリングで
      描く（要素そのもののborderを使うとレイアウトがずれる）。 */
@@ -71,14 +71,14 @@
     pointer-events: none;
   }
   [data-activity-border~="flow"]::after {
-    animation: global(plugumi-activity-flow) 1.2s linear infinite;
+    animation: plugumi-activity-flow 1.2s linear infinite;
     border-image: repeating-linear-gradient(90deg,
       var(--activity-color) 0 8px, transparent 8px 16px) 1;
   }
-  [data-activity-border~="glow"]::after { animation: global(plugumi-activity-glow) 1.6s ease-in-out infinite; }
+  [data-activity-border~="glow"]::after { animation: plugumi-activity-glow 1.6s ease-in-out infinite; }
   [data-activity-border~="neutral"]::after {
     border-image: var(--activity-color) 1;
-    animation: global(plugumi-activity-spin) 2s linear infinite;
+    animation: plugumi-activity-spin 2s linear infinite;
   }
 
   /* divider: stripと内容の境界線 */
@@ -91,16 +91,16 @@
     background: var(--activity-color); opacity: 0.08;
     pointer-events: none;
   }
-  [data-activity-content~="glow"]::after { animation: global(plugumi-activity-glow) 1.6s ease-in-out infinite; }
+  [data-activity-content~="glow"]::after { animation: plugumi-activity-glow 1.6s ease-in-out infinite; }
   [data-activity-content~="flow"]::after {
     background: linear-gradient(90deg, transparent, var(--activity-color), transparent);
     background-size: 200% 100%;
-    animation: global(plugumi-activity-flow) 1.2s linear infinite;
+    animation: plugumi-activity-flow 1.2s linear infinite;
   }
 
   /* progress: Panelのheader/divider面の位置に出す細い帯。
      色はlayerのtoneから拾い、無ければinfo。 */
-  @keyframes :global(plugumi-activity-indeterminate) {
+  @keyframes plugumi-activity-indeterminate {
     0% { left: -40%; }
     100% { left: 100%; }
   }
@@ -114,7 +114,7 @@
   }
   .activity-progress[data-kind="indeterminate"] {
     width: 40%;
-    animation: global(plugumi-activity-indeterminate) 1.2s ease-in-out infinite;
+    animation: plugumi-activity-indeterminate 1.2s ease-in-out infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {

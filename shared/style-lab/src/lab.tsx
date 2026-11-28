@@ -101,14 +101,15 @@ function Stage(props: { children: JSX.Element }): JSX.Element {
 }
 
 // shellのchromeで実際に使われる形のicon。buttonには文字ではなく
-// こういう図形が入る。
-const plusIcon = (
+// こういう図形が入る。SolidのJSXは実DOM nodeなので、定数を複数箇所に
+// 置くと前の置き場所から移動してしまう — 毎回新しく作る関数にする。
+const plusIcon = () => (
   <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" fill="none" /></svg>
 );
-const closeIcon = (
+const closeIcon = () => (
   <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" fill="none" /></svg>
 );
-const gearIcon = (
+const gearIcon = () => (
   <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.4" /><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6L11 5M5 11l-1.4 1.4" stroke="currentColor" stroke-width="1.4" fill="none" /></svg>
 );
 
@@ -131,7 +132,7 @@ function WidthProbe(): JSX.Element {
 // drawerのminiature demo。実物はshellのgrid文脈に深く埋まっているため
 // cssの直接共有はできず、ここはpatternを忠実に写したminiature —
 // 台の扱い（不透明・影なし・内側の辺だけ1px線）とtransformによる
-// 開閉はshell.module.css/work-shape.module.cssの実装に対応させる。
+// 開閉はshell.css/work-shape.cssの実装に対応させる。
 // ずれたら嘘になるので、shell側を変えたらここも更新する。
 function DrawerDemo(): JSX.Element {
   const [open, setOpen] = createSignal(false);
@@ -470,25 +471,23 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
         <Stage>
           <div class="lab-states">
             <Labeled label="off">
-              <button class="plugumi-icon-button" aria-label="追加">{plusIcon}</button>
-              <button class="plugumi-icon-button" aria-label="閉じる">{closeIcon}</button>
-              <button class="plugumi-icon-button" aria-label="設定">{gearIcon}</button>
+              <button class="plugumi-icon-button" aria-label="追加">{plusIcon()}</button>
+              <button class="plugumi-icon-button" aria-label="閉じる">{closeIcon()}</button>
+              <button class="plugumi-icon-button" aria-label="設定">{gearIcon()}</button>
             </Labeled>
             <Labeled label="on (aria-pressed)">
-              <button class="plugumi-icon-button" aria-label="追加" aria-pressed="true">{plusIcon}</button>
-              <button class="plugumi-icon-button" aria-label="設定" aria-pressed="true">{gearIcon}</button>
+              <button class="plugumi-icon-button" aria-label="追加" aria-pressed="true">{plusIcon()}</button>
+              <button class="plugumi-icon-button" aria-label="設定" aria-pressed="true">{gearIcon()}</button>
             </Labeled>
           </div>
         </Stage>
         <Spec rows={[
-          ["size", "26×26px 固定"],
-          ["radius", "radii-md"],
-          ["border", "なし"],
-          ["off", "transparent / colors-text-muted"],
-          ["hover", "colors-background-tertiary / colors-text"],
-          ["on", "background-tertiary + text 8%混色 / colors-text"],
+          ["size", "26×26px 固定（border込みの外寸）"],
+          ["面・輪郭", "plugumi-buttonと同じ — fill / border / text"],
+          ["hover", "fill-strong / border-strong"],
+          ["on", "fill-strong + text 6%混色 / border-strong"],
         ]} />
-        <p class="lab-note">frameの上のbuttonは不透明fill。透過fillはcardの内側だけ。</p>
+        <p class="lab-note">見た目はtext buttonと同じで、違うのは寸法だけ。</p>
       </>
     ),
   },
@@ -602,7 +601,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
           </tbody>
         </table>
         <p class="lab-note">
-          描画はminiature — 実物はshell.module.css（Sub）とwork-shape.module.css
+          描画はminiature — 実物はshell.css（Sub）とwork-shape.css
           （Area list）。spec表は手書き注釈なのでshell側を変えたら更新する。
         </p>
       </>
@@ -703,7 +702,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
   let labRootEl: HTMLDivElement | undefined;
   return (
     <div class={{ "lab": true, narrow: narrow(), "nav-open": navOpen() }} ref={((el) => { labRootEl = el; observer.observe(el); }) as (el: HTMLDivElement) => void} onPointerDown={outsideDown}>
-      <nav class="lab-nav" data-drawer-keep style={narrow() ? undefined : { width: `${width()}px` }}>
+      <nav class="plugumi-list lab-nav" data-drawer-keep style={narrow() ? undefined : { "--lab-nav-width": `${width()}px` }}>
         <For each={GROUPS}>
           {(group) => (
             <>
@@ -730,7 +729,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
                   });
                   return (
                     <>
-                      <button class="lab-nav-folder" data-open={open() ? "" : undefined} onClick={() => toggle()}>
+                      <button class="plugumi-list-item lab-nav-folder" data-open={open() ? "" : undefined} onClick={() => toggle()}>
                         <span class="lab-nav-folder-chevron">▶</span>
                         {folder.replace("-folder", "")}
                       </button>

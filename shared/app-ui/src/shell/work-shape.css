@@ -5,7 +5,7 @@
   /* title帯の中でsegment（開閉区画）の端を決める変数。barの左端は
      sidebar列の端に揃える（sidebarがtool群より狭い時だけtool群が優先）。
      右端は窓の端 — 右列はmatの中の列なので揃える対象はtool群だけ。
-     data-partで拾う（classはcomponentごとにhashされるため）。 */
+     data-partで拾う（classはcomponentごとのものなのでここからは触れない）。 */
   [data-part="shell"] {
     /* env(titlebar-area-*)を読むのはここだけ（envは1箇所で変数へ
        読み替えるのが公式の推奨形）。fallbackはenv未対応の表示向け。
@@ -56,12 +56,12 @@
      中身の自然幅（min-width:max-content）を下限として割り込まない。
      --title-tools-*にはwork-shapeが実測footprintを書くので、
      bar側のmax()も実幅に追従する。 */
-  .title-tools.left {
+  .title-tools[data-edge="left"] {
     left: calc(var(--titlebar-x) + var(--work-gap));
     width: calc(var(--title-left) - var(--titlebar-x) - var(--work-gap));
     min-width: max-content;
   }
-  .title-tools.right {
+  .title-tools[data-edge="right"] {
     right: calc(var(--titlebar-inset-right) + var(--work-gap));
     width: calc(var(--title-right) - var(--titlebar-inset-right) - var(--work-gap));
     min-width: max-content;
@@ -120,9 +120,24 @@
     overflow: clip;
     /* resizerの帯が境界線をまたげるようclip領域を広げる。 */
     overflow-clip-margin: 8px;
-    width: var(--side-width);
+    /* 開閉は幅ではなく負marginで行う（sub-paneと同じ構造）— pane自体の
+       幅は常に--sidebar-raw-widthで固定なので中身は潰れず再配置も
+       起きない。margin-boxの幅は（width + margin-left = --side-width）
+       で、--side-widthが補間されるとgridのauto trackが滑り、paneは
+       左へslideしてshellのclipの外へ出る。 */
+    width: var(--sidebar-raw-width, 260px);
+    margin-left: calc(var(--side-width, 0px) - var(--sidebar-raw-width, 260px));
+    visibility: visible;
+    transition: visibility 0s;
   }
-  /* resizerの表示・帯の配置はresizer.module.cssが持つ（resizer自身に
+  /* 閉じた姿はpaneがshellのclipの外（左）へはみ出した状態。focusが
+     画面外へ取り残されないよう、アニメ後にvisibilityで隔てる。 */
+  .frame-side[data-closed] {
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s var(--plugumi-motion-duration-md);
+  }
+  /* resizerの表示・帯の配置はresizer.cssが持つ（resizer自身に
      効く規則はlayerを揃えるためそこへ集約）。drag中は変数transitionを
      切る — 値が毎move更新されるとアニメがポインタに遅れて追従する。 */
   .frame-side:has(> [data-part="resizer"][data-dragging]) {
@@ -168,6 +183,8 @@
   [data-part="shell"][data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
   [data-part="shell"][data-size="compact"] .frame-side {
     position: absolute;
+    /* drawerはtransformで滑らせるのでinline用の負marginは引かない。 */
+    margin-left: 0;
     /* 画面左端にぴったりの四角い不透明の「台」。
        上下はapp bar下の線〜status帯上の線、右辺にだけ1px線。 */
     box-shadow: none;

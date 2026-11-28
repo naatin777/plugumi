@@ -9,7 +9,7 @@ import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "@fontsource/ibm-plex-mono/700.css";
 // cascade layerの宣言順は最初の読み込みが効くので、layerの宣言を先頭に置く。
-// componentの*.module.cssは描くcomponent自身がimportする。
+// componentの*.cssは描くcomponent自身がimportする。
 import "./styles/layers.css";
 import "@plugumi/view/components.css";
 import "./styles/tokens.css";

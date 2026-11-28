@@ -12,7 +12,7 @@ import { surfaceAttrs, busyAttr } from "./activity.ts";
 import { useArea, layoutOps } from "./controller.tsx";
 import { IconClose } from "../icons.tsx";
 import { stripTest } from "./drag.ts";
-import styles from "./tab-strip.module.css";
+import "./tab-strip.css";
 
 export interface TabStripProps {
   refs: PanelRef[];
@@ -108,7 +108,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   };
 
   return (
-    <div class={styles["tab-strip"]} ref={register}>
+    <div class={"tab-strip"} ref={register}>
       <For each={props.refs}>
         {(ref) => {
           const inst = () => area.instance(ref);

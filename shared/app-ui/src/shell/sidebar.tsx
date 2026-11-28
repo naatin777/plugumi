@@ -14,7 +14,7 @@ import { openPopover } from "./popover.ts";
 import { NameForm, ConfirmButton } from "./inline.tsx";
 import { Resizer } from "./resizer.tsx";
 import { IconChevronRight, IconPlus } from "../icons.tsx";
-import styles from "./sidebar.module.css";
+import "./sidebar.css";
 
 // popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
 const closePopover = (event: MouseEvent) => {
@@ -41,7 +41,7 @@ export function SidebarView(): JSX.Element {
           });
         }}
       />
-      <nav class={styles["sidebar"]} data-part="sidebar">
+      <nav data-part="sidebar">
         <ProjectSwitcher />
         <AreaSlot slot="main" label="Main" />
         <AreaSlot slot="sub" label="Sub" />
@@ -60,18 +60,18 @@ function ProjectSwitcher(): JSX.Element {
   return (
     <div>
       <button
-        class={styles["project-switcher-button"]}
+        class={`plugumi-list-item ${"project-switcher-button"}`}
         onClick={(event) => {
           setAdding(false);
           openPopover(menu, event.currentTarget);
         }}
       >
-        <span class={styles["project-switcher-name"]}>
+        <span class={"project-switcher-name"}>
           {shell.projectTree()?.title ?? shell.project()}
         </span>
         <IconChevronRight size={12} />
       </button>
-      <div class={`plugumi-list ${styles["project-menu"]}`} data-part="popover" popover="auto" ref={menu}>
+      <div class={`plugumi-list ${"project-menu"}`} data-part="popover" popover="auto" ref={menu}>
         <For each={shell.projects()}>
           {(item) => (
             <button
@@ -127,10 +127,10 @@ function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
     // Detach節はwindowを開ける環境（Electron）かdetach済みのAreaが
     // あるときだけ出す — webで空のまま残しても辿れない。
     <Show when={props.slot !== "detach" || shell.host.windows !== null || entries().length > 0}>
-      <section class={`plugumi-list ${styles["area-slot"]}`}>
-        <p class={styles["nav-label"]}>{props.label}</p>
+      <section class={`plugumi-list ${"area-slot"}`}>
+        <p class={"nav-label"}>{props.label}</p>
         <Show when={entries().length === 0}>
-          <p class={styles["nav-empty"]}>{emptyLabel()}</p>
+          <p class={"nav-empty"}>{emptyLabel()}</p>
         </Show>
         <For each={entries()}>
           {(area) => <AreaRow slot={props.slot} area={area} />}
@@ -207,22 +207,22 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
   return (
     <>
       <div
-        class={{ [styles["area-row"]]: true, "plugumi-list-item": true, "plugumi-list-item--selected": selected() }}
-          data-part="area-list-row"
-        style={{ "padding-left": `calc(var(--plugumi-spacing-md) + ${props.area.depth * 12}px)` }}
+        class={{ ["area-row"]: true, "plugumi-list-item": true, "plugumi-list-item--selected": selected() }}
+        data-part="area-list-row"
+        style={{ "--area-indent": `${props.area.depth * 12}px` }}
       >
         <a href={href()} onClick={open}>{title()}</a>
         <button
-          class={styles["area-menu-button"]}
+          class={`plugumi-icon-button ${"area-menu-button"}`}
           aria-label="Areaのメニュー"
           onClick={(event) => {
             event.stopPropagation();
-            openPopover(menu, event.currentTarget, "end");
+            openPopover(menu, event.currentTarget);
           }}
         >
           …
         </button>
-        <div class={`plugumi-list ${styles["area-menu"]}`} data-part="popover" popover="auto" ref={menu}>
+        <div class={`plugumi-list ${"area-menu"}`} data-part="popover" popover="auto" ref={menu}>
           {/* 配置の移動はMain/Sub/Detachの3方向。自分のslotは出さない。 */}
           <Show when={props.slot !== "main"}>
             <button class="plugumi-list-item" onClick={moveToMain}>
@@ -265,7 +265,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
         </div>
       </div>
       <Show when={addingChild()}>
-        <div class={styles["area-child-form"]}>
+        <div class={"area-child-form"}>
           <NameForm
             label={`「${title()}」の子Area名`}
             submit={async (child) => {

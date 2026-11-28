@@ -1,6 +1,5 @@
-/* Shell共通の部品（icon-button・状態dot・名前入力・Core switcher・
-   picker・drag表示）。これらを描くcomponentがそれぞれこのmoduleを
-   importする。 */
+/* Shell共通の部品（状態dot・名前入力・Core switcher・picker・
+   drag表示）の文脈配線。component自体の見た目はcomponents.cssを使う。 */
 @layer components {
 
   /* ---- 共通 ---- */
@@ -8,23 +7,7 @@
 
   /* inlineの名前入力（promptを使わない） */
   .name-form { display: flex; flex-wrap: wrap; gap: var(--plugumi-spacing-xs); align-items: center; }
-  .name-form input {
-    flex: 1; min-width: 100px;
-    padding: 2px var(--plugumi-spacing-sm);
-    border: 1px solid var(--plugumi-colors-border-strong);
-    border-radius: var(--plugumi-radii-md);
-    background: var(--plugumi-colors-background-tertiary);
-    color: var(--plugumi-colors-text);
-    font: inherit; font-size: var(--plugumi-font-size-xs);
-  }
-  .name-form button {
-    padding: 2px var(--plugumi-spacing-sm);
-    border: 1px solid var(--plugumi-colors-border);
-    border-radius: var(--plugumi-radii-md);
-    background: var(--plugumi-colors-background-tertiary);
-    color: var(--plugumi-colors-text);
-    font: inherit; font-size: var(--plugumi-font-size-xs); cursor: pointer;
-  }
+  .name-form input { flex: 1; min-width: 8em; }
   .name-form-error { flex-basis: 100%; margin: 0; color: var(--plugumi-colors-error); font-size: var(--plugumi-font-size-2xs); }
 
   .status-dot {
@@ -38,21 +21,13 @@
 
   /* Core switcher（左区間は固定幅。名前はellipsisで収める） */
   .core-switcher { display: flex; min-width: 0; }
-  .core-button {
-    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
-    max-width: 180px; height: 26px;
-    padding: 0 var(--plugumi-spacing-sm);
-    border: none; border-radius: var(--plugumi-radii-md);
-    background: transparent; color: var(--plugumi-colors-text);
-    font: inherit; cursor: pointer;
+  .core-switcher-button {
+    width: auto;
+    max-width: 180px;
+    justify-content: flex-start;
+    padding-inline: var(--plugumi-spacing-sm);
   }
-  .core-button:hover { background: var(--plugumi-colors-background-tertiary); }
   .core-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* compactではcore名を畳んでアイコンだけにする（core名が出るのは
-     左tool群のswitcherとmenuだけ）。 */
-  [data-part="shell"][data-size="compact"] [data-part="titlebar"] .core-name {
-    display: none;
-  }
 
   .core-menu, .panel-picker {
     min-width: 200px; max-width: 280px;
@@ -60,8 +35,16 @@
     border-radius: var(--plugumi-radii-lg);
     background: var(--plugumi-colors-background-tertiary);
     color: var(--plugumi-colors-text);
-    /* 位置はopenPopoverがanchorのrectからfixedで置く。 */
-    margin: 0; inset: auto;
+    /* 位置はanchor positioning — showPopoverのsourceがimplicit anchor。
+       position-anchorの初期値はspec確定まで何度も変わり現在はnormal
+       （position-area無しではimplicit anchorを引かない）なので、autoを
+       明示してimplicit anchorに結び付ける。下端で溢れるときはflipで上へ。 */
+    margin: 0;
+    inset: auto;
+    position-anchor: auto;
+    top: calc(anchor(bottom) + var(--plugumi-spacing-xs));
+    left: anchor(left);
+    position-try-fallbacks: flip-block;
   }
   .picker-empty { margin: var(--plugumi-spacing-sm); color: var(--plugumi-colors-text-muted); }
 
@@ -86,7 +69,7 @@
     outline-offset: -2px;
     background: color-mix(in oklab, var(--plugumi-colors-accent) 6%, transparent);
   }
-  .drop-region.split {
+  .drop-region.drop-split {
     background: color-mix(in oklab, var(--plugumi-colors-accent) 12%, transparent);
     outline-color: var(--plugumi-colors-accent);
   }

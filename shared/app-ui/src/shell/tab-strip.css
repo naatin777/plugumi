@@ -3,8 +3,8 @@
 
   /* ---- tab帯はカードのheader ----
      leafは「tab帯（header）＋中身」の1枚のカード。stripは輪郭の内側の
-     上端に置き、中身との間はhairline（divider面）で区切る。tab自体は
-     面を持たず、selectedはtoneで示す。 */
+     上端に置き、中身との間はhairline（divider面）で区切る。tab自体の
+     見た目はcomponents.cssが持つ。 */
   .leaf-strip {
     position: relative;
     display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
@@ -25,24 +25,12 @@
     scrollbar-width: none;
   }
   /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と
-     toneのattrはactivity.module.cssが持つ（ここは.tabがlocalな
-     ため、attrを受けたtabだけを拾う）。 */
-  .plugumi-tab[data-activity-header] {
+     toneのattrはactivity.cssが持ち、ここではdata属性でtabだけを拾う。 */
+  [data-part="tab"][data-activity-header] {
     background: linear-gradient(var(--activity-color), var(--activity-color))
       0 0 / 100% 2px no-repeat;
   }
-  /* strip右端のdeck切替。普段は薄く、deck中は選択tabと同じ面で示す。 */
-  .strip-deck {
-    flex: none;
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; align-self: stretch;
-    border: none; border-radius: var(--plugumi-radii-sm);
-    background: transparent; color: var(--plugumi-colors-text-muted);
-    cursor: pointer;
-  }
-  .strip-deck:hover { background: var(--plugumi-colors-fill); }
-  .strip-deck.on {
-    background: var(--plugumi-colors-fill-strong);
-    color: var(--plugumi-colors-text);
-  }
+  /* strip右端のdeck切替。見た目はplugumi-icon-button、ここではstrip内の
+     配置だけを決める。 */
+  .strip-deck { flex: none; }
 }

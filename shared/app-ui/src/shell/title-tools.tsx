@@ -8,7 +8,7 @@ import { useShell, type AreaController } from "./controller.tsx";
 import { openPopover } from "./popover.ts";
 import { ToolButton } from "./tool-button.tsx";
 import { IconAreaList, IconSub, IconPlus } from "../icons.tsx";
-import controlStyles from "./controls.module.css";
+import "./controls.css";
 
 // popover内の項目を選んだら閉じる（選択後も残ると画面を覆う）。
 const closePopover = (event: MouseEvent) => {
@@ -38,19 +38,14 @@ function CoreSwitcher(): JSX.Element {
   const statusOf = (status: string | undefined) =>
     status === "connected" ? "connected" : status === "connecting" ? "connecting" : "error";
   return (
-    <div class={controlStyles["core-switcher"]}>
+    <div class={"core-switcher"}>
       <button
-        class={controlStyles["core-button"]}
+        class={`plugumi-icon-button ${"core-switcher-button"}`}
         onClick={(event) => openPopover(menu(), event.currentTarget)}
       >
-        <span
-          class={controlStyles["status-dot"]}
-          data-status={statusOf(shell.core()?.status)}
-          aria-hidden="true"
-        />
-        <span class={controlStyles["core-name"]}>{shell.core()?.name || shell.core()?.key || "Core"}</span>
+        <span class={"core-name"}>{shell.core()?.name || shell.core()?.key || "Core"}</span>
       </button>
-      <div class={`plugumi-list ${controlStyles["core-menu"]}`} id="core-menu" data-part="popover" popover="auto" ref={setMenu}>
+      <div class={`plugumi-list ${"core-menu"}`} id="core-menu" data-part="popover" popover="auto" ref={setMenu}>
         <For each={shell.cores()}>
           {(entry) => <CoreMenuItem key={entry.key} name={entry.name} status={statusOf(entry.status)} />}
         </For>
@@ -77,9 +72,9 @@ function CoreMenuItem(props: { key: string; name: string; status: string }): JSX
       onClick={select}
     >
       <Show when={props.status}>
-        <span class={controlStyles["status-dot"]} data-status={props.status} aria-hidden="true" />
+        <span class={"status-dot"} data-status={props.status} aria-hidden="true" />
       </Show>
-      <span class={controlStyles["core-name"]}>{props.name || props.key}</span>
+      <span class={"core-name"}>{props.name || props.key}</span>
     </a>
   );
 }
@@ -100,8 +95,8 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
       >
         <IconPlus />
       </ToolButton>
-      <div class={`plugumi-list ${controlStyles["panel-picker"]}`} id="panel-picker" data-part="picker" popover="auto" ref={shell.bindPicker}>
-        <Show when={shell.panels().length > 0} fallback={<p class={controlStyles["picker-empty"]}>開けるPanelがありません</p>}>
+      <div class={`plugumi-list ${"panel-picker"}`} id="panel-picker" data-part="picker" popover="auto" ref={shell.bindPicker}>
+        <Show when={shell.panels().length > 0} fallback={<p class={"picker-empty"}>開けるPanelがありません</p>}>
           <For each={shell.panels()}>
             {(entry) => (
               <button

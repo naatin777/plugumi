@@ -6,7 +6,7 @@
 //   --title-tools-left / --title-tools-right … tool群の実測footprint
 import type { JSX } from "@solidjs/web";
 import { createEffect, onCleanup, type ParentProps } from "solid-js";
-import styles from "./work-shape.module.css";
+import "./work-shape.css";
 
 export interface WorkShapeProps {
   titleLeft?: JSX.Element;
@@ -60,22 +60,22 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
 
   return (
     <>
-      <header class={styles["work-title"]} data-part="titlebar">
-        <div class={`${styles["title-tools"]} ${styles["left"]}`}>
-          <div class={styles["tools-inner"]} ref={leftInner}>{props.titleLeft}</div>
+      <header class={"work-title"} data-part="titlebar">
+        <div class="title-tools" data-edge="left">
+          <div class={"tools-inner"} ref={leftInner}>{props.titleLeft}</div>
         </div>
-        <div class={styles["work-segment"]} data-slot="main">{props.titleMain}</div>
-        <div class={`${styles["title-tools"]} ${styles["right"]}`}>
-          <div class={styles["tools-inner"]} ref={rightInner}>{props.titleRight}</div>
+        <div class={"work-segment"} data-slot="main">{props.titleMain}</div>
+        <div class="title-tools" data-edge="right">
+          <div class={"tools-inner"} ref={rightInner}>{props.titleRight}</div>
         </div>
       </header>
-      <div class={styles["work-body"]}>
+      <div class={"work-body"}>
         {/* Sub・Area listのdrawerが開いている間、台のすぐ下・作業域全体に
             敷く薄い暗幕（app bar・status barは暗くしない）。col-dividerは
             DOM順でこの下になるので線は一緒に暗くなる。pointerは通す。 */}
-        <div class={styles["shell-scrim"]} data-part="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
+        <div class={"shell-scrim"} data-part="shell-scrim" data-closed={props.scrimOpen ? undefined : ""} />
         <aside
-          class={styles["frame-side"]}
+          class={"frame-side"}
           data-part="area-list"
           data-drawer={props.sidebarDrawer ? "" : undefined}
           data-closed={props.sidebarClosed ? "" : undefined}
@@ -85,7 +85,7 @@ export function WorkShape(props: ParentProps<WorkShapeProps>) {
         >
           {props.sidebar}
         </aside>
-        <div class={styles["work-mat"]} data-part="main-slot">
+        <div class={"work-mat"} data-part="main-slot">
           {props.children}
         </div>
       </div>

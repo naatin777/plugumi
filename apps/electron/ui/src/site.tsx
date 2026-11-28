@@ -107,7 +107,7 @@ export function SitePanel(props: { context: ViewContext }): JSX.Element {
         >
           <button
             type="button"
-            class="nav"
+            class="plugumi-icon-button"
             disabled={!canBack()}
             onClick={() => view?.goBack()}
             aria-label="戻る"
@@ -118,7 +118,7 @@ export function SitePanel(props: { context: ViewContext }): JSX.Element {
           </button>
           <button
             type="button"
-            class="nav"
+            class="plugumi-icon-button"
             disabled={!canFwd()}
             onClick={() => view?.goForward()}
             aria-label="進む"
@@ -128,12 +128,13 @@ export function SitePanel(props: { context: ViewContext }): JSX.Element {
             </svg>
           </button>
           <input
+            class="plugumi-input"
             type="text"
             value={draft()}
             onInput={(event) => setDraft(event.currentTarget.value)}
             placeholder="https://…"
           />
-          <button type="submit">移動</button>
+          <button class="plugumi-button" type="submit">移動</button>
         </form>
         <div class="view" ref={(element) => { container = element; }}>
           <Show when={current() === ""}>

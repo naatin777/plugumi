@@ -9,6 +9,11 @@
   },
   "scripts": {
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "test": "pnpm -r run test",
+    "lint:css": "stylelint \"shared/**/*.css\" \"packages/**/*.css\" \"apps/**/*.css\""
+  },
+  "devDependencies": {
+    "stylelint": "^18.1.0",
+    "stylelint-config-recommended": "^19.1.0"
   }
 }

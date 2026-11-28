@@ -2,7 +2,7 @@
 // work面の形はCSSだけで決まる。
 // （Area list＋Sub）をまとめて畳む。キーはe.codeで見る（⌥⌘1-2, ⌥⌘Z）。
 // main.shellの幅はResizeObserverで測りshellSizeへ — 狭いときはSubと
-// Area listがdrawerになる（shell.module.css・work-shape.module.cssのdata-size規則）。
+// Area listがdrawerになる（shell.css・work-shape.cssのdata-size規則）。
 import { Show, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useShell, createAreaController } from "./controller.tsx";
@@ -15,8 +15,8 @@ import { SidebarView } from "./sidebar.tsx";
 import { AreaView, AreaEmpty, DragGhost } from "./area-view.tsx";
 import { Resizer } from "./resizer.tsx";
 import { resolveBackgroundImage } from "plugumi-theme-panel";
-import styles from "./shell.module.css";
-import areaStyles from "./area-view.module.css";
+import "./shell.css";
+import "./area-view.css";
 
 // prefの既定値は同梱フォント自身なので、fallback連結の前に重複を除く。
 // 空白を含むfamily名はquoteしておき、generic familyはCSSのkeywordのままにする。
@@ -96,11 +96,15 @@ export function ShellFrame(): JSX.Element {
   // Area listがdrawer）。callback内でoffsetWidth等は読まない。
   let ro: ResizeObserver | undefined;
   onCleanup(() => ro?.disconnect());
+  const measure = (w: number) =>
+    shell.setShellSize(w >= 1100 ? "wide" : w >= 800 ? "medium" : "compact");
   const observe = (node: HTMLElement) => {
+    // 初回はpaint前に同期的に測る — 既定値"wide"のままpaintされると
+    // 狭い窓でinlineの列が一瞬見えてからdrawerへ飛ぶ（reload時のflash）。
+    measure(node.offsetWidth);
     ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const w = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
-        shell.setShellSize(w >= 1100 ? "wide" : w >= 800 ? "medium" : "compact");
+        measure(entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width);
       }
     });
     ro.observe(node);
@@ -109,7 +113,7 @@ export function ShellFrame(): JSX.Element {
   return (
     <main
       ref={observe}
-      class={{ [styles["shell"]]: true }}
+      class={{ ["shell"]: true }}
       data-part="shell"
       // Layer 0の床の種類。imageが選ばれていても画像が無ければnoneに
       // 落とす（画像を消したあとprefだけ残る経路がある）。
@@ -125,7 +129,8 @@ export function ShellFrame(): JSX.Element {
       style={{
         "--side-width": `${sideWidth()}px`,
         "--sidebar-raw-width": `${prefs().sidebarWidth}px`,
-        // --sub-widthはinlineのSub列の幅（閉・drawer時は0）。
+        // --sub-widthはinlineのSub列がlayoutに占める幅（閉・drawer時は0）。
+        // 開閉はこの変数の補間で滑らせ、pane自体の幅は変えない。
         // --sub-raw-widthはdrawerの幅の計算に使う設定値。
         "--sub-width": `${subInline() ? prefs().subWidth : 0}px`,
         "--sub-raw-width": `${prefs().subWidth}px`,
@@ -155,16 +160,16 @@ export function ShellFrame(): JSX.Element {
     >
       {/* 列の境界線（Area list|Main / Main|Sub）。表示はdata-side/
           data-subで切り替える。 */}
-      <div class={styles["col-divider"]} data-part="col-divider" data-divider="side" />
-      <div class={styles["col-divider"]} data-part="col-divider" data-divider="sub" />
+      <div class={"col-divider"} data-part="col-divider" data-divider="side" />
+      <div class={"col-divider"} data-part="col-divider" data-divider="sub" />
       <WorkShape
         titleLeft={<TitleToolsLeft />}
         titleMain={<TitleSegmentMain area={mainArea} />}
         titleRight={<TitleToolsRight />}
         sidebar={
-          <Show when={shell.sideDrawerMode() || prefs().sidebarOpen}>
-            <SidebarView />
-          </Show>
+          // 常時mount — 閉じるときも中身ごとslideして出るのはsub-paneと
+          // 同じ構造。閉じた後のfocus隔離はdata-closedのvisibilityが担う。
+          <SidebarView />
         }
         sidebarDrawer={shell.sideDrawerMode()}
         sidebarClosed={!shell.sideShown()}
@@ -194,7 +199,7 @@ export function ShellFrame(): JSX.Element {
           />
         </Show>
         <div
-          class={styles["sub-pane"]}
+          class={"sub-pane"}
           data-part="sub-slot"
           data-closed={!shell.subShown() || undefined}
           // drawerのSubの中へのclickは「外」にしない。
@@ -202,7 +207,7 @@ export function ShellFrame(): JSX.Element {
         >
           <Show
             when={shell.subRef()}
-            fallback={<p class={areaStyles["area-view-empty"]}>Subに表示するAreaを選んでください</p>}
+            fallback={<p class={"area-view-empty"}>Subに表示するAreaを選んでください</p>}
           >
             <AreaView area={subArea} />
           </Show>
