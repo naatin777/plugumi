@@ -12,7 +12,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-    border-right: 1px solid var(--plugumi-colors-border);
+  padding: var(--plugumi-spacing-sm);
+  border-right: 1px solid var(--plugumi-colors-border);
   flex-shrink: 0;
 }
 .lab-content {
