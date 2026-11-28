@@ -151,3 +151,34 @@
   color: var(--plugumi-colors-text-muted);
   font-size: var(--plugumi-font-size-2xs);
 }
+
+/* ---- icon button ----
+   chromeに並ぶ小さい操作。frame（title帯・sidebar）の上ではhoverは
+   不透明 — 透けても見えるのは無地のframe色だけで、塗りが薄くなる
+   だけのため。透過fillはカードの内側（blur・auroraが見える場所）
+   だけで使う。 */
+.plugumi-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--plugumi-radii-md);
+  background: transparent;
+  color: var(--plugumi-colors-text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.plugumi-icon-button:hover {
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+}
+.plugumi-icon-button[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%);
+  color: var(--plugumi-colors-text);
+}
+/* 確認待ちの状態（削除など二度押し確認）。 */
+.plugumi-icon-button--armed {
+  color: var(--plugumi-colors-error);
+}

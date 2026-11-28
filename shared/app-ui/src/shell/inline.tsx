@@ -82,8 +82,8 @@ export function ConfirmButton(props: ConfirmButtonProps): JSX.Element {
   return (
     <button
       class={{
-        [props.class ?? controlStyles["icon-button"]]: true,
-        [controlStyles["confirm-armed"]]: confirming(),
+        [props.class ?? "plugumi-icon-button"]: true,
+        "plugumi-icon-button--armed": confirming(),
       }}
       aria-label={confirming() ? props.confirmLabel : props.label}
       onClick={press}

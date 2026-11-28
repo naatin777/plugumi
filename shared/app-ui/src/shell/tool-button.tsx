@@ -1,6 +1,5 @@
 // icon-buttonの定型。label・押下状態・clickをまとめる。
 import type { JSX } from "@solidjs/web";
-import controlStyles from "./controls.module.css";
 
 export function ToolButton(props: {
   label: string;
@@ -14,7 +13,7 @@ export function ToolButton(props: {
 }): JSX.Element {
   return (
     <button
-      class={props.class ?? controlStyles["icon-button"]}
+      class={props.class ?? "plugumi-icon-button"}
       aria-label={props.label}
       aria-pressed={props.pressed === undefined
         ? undefined

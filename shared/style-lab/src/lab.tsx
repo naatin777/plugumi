@@ -466,17 +466,17 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     group: "components", id: "icon-buttons", title: "Icon buttons",
     render: () => (
       <>
-        <p class="lab-note">.icon-button — shell専有。panelのchromeに並ぶ小さい操作。</p>
+        <p class="lab-note">.plugumi-icon-button — shell専有。panelのchromeに並ぶ小さい操作。</p>
         <Stage>
           <div class="lab-states">
             <Labeled label="off">
-              <button class="icon-button" aria-label="追加">{plusIcon}</button>
-              <button class="icon-button" aria-label="閉じる">{closeIcon}</button>
-              <button class="icon-button" aria-label="設定">{gearIcon}</button>
+              <button class="plugumi-icon-button" aria-label="追加">{plusIcon}</button>
+              <button class="plugumi-icon-button" aria-label="閉じる">{closeIcon}</button>
+              <button class="plugumi-icon-button" aria-label="設定">{gearIcon}</button>
             </Labeled>
             <Labeled label="on (aria-pressed)">
-              <button class="icon-button" aria-label="追加" aria-pressed="true">{plusIcon}</button>
-              <button class="icon-button" aria-label="設定" aria-pressed="true">{gearIcon}</button>
+              <button class="plugumi-icon-button" aria-label="追加" aria-pressed="true">{plusIcon}</button>
+              <button class="plugumi-icon-button" aria-label="設定" aria-pressed="true">{gearIcon}</button>
             </Labeled>
           </div>
         </Stage>

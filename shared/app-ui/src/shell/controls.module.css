@@ -4,22 +4,6 @@
 @layer components {
 
   /* ---- 共通 ---- */
-  .icon-button {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 26px; height: 26px;
-    border: none; border-radius: var(--plugumi-radii-md);
-    background: transparent; color: var(--plugumi-colors-text-muted);
-    cursor: pointer; padding: 0;
-  }
-  /* frame（title帯・sidebar）の上のbuttonは不透明 — 透けても見えるのは
-     無地のframe色だけで、塗りが薄くなるだけのため。透過fillはカードの
-     内側（blur・auroraが見える場所）だけで使う。 */
-  .icon-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
-  .icon-button[aria-pressed="true"] {
-    background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%);
-    color: var(--plugumi-colors-text);
-  }
-  .icon-button.confirm-armed { color: var(--plugumi-colors-error); }
   .confirm-text { font-size: var(--plugumi-font-size-2xs); white-space: nowrap; }
 
   /* inlineの名前入力（promptを使わない） */
