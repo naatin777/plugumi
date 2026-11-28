@@ -114,7 +114,7 @@
   /* 左右の息はitem自身が持つ — containerがなくても（drawer等でも）
      縁に吸い付かない。flex columnのstretchで幅は自然にmargin分だけ
      引かれるのでwidthは指定しない。 */
-  margin-inline: var(--plugumi-spacing-xs);
+  margin-inline: var(--plugumi-spacing-sm);
   padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
   border: none;
   border-radius: var(--plugumi-radii-md);
