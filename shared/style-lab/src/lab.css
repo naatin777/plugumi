@@ -456,5 +456,13 @@
 }
 .lab-hole-item { flex: 1; min-width: 120px; }
 
-/* 穴は参照窓なので、空でも見え方を評価できる高さを持つ。 */
-.lab-hole { min-height: 120px; align-items: center; justify-content: center; }
+/* 穴は参照窓なので、空でも見え方を評価できる高さを持つ。
+   破線の輪郭は穴の位置を示すためのもの（surfaceの一部ではなく
+   panel contentとして描かれる）。 */
+.lab-hole {
+  min-height: 240px;
+  align-items: center; justify-content: center;
+  outline: 1px dashed var(--plugumi-colors-border-highlight);
+  outline-offset: -1px;
+  border-radius: var(--plugumi-radii-md);
+}
