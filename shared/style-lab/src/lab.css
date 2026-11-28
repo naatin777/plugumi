@@ -339,29 +339,6 @@
 .lab-stage-wrap {
   margin-bottom: var(--plugumi-spacing-md);
 }
-.lab-stage-picker {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 2px;
-}
-.lab-stage-chip {
-  background: none;
-  border: none;
-  color: var(--plugumi-colors-text-muted);
-  font: inherit;
-  font-size: var(--plugumi-font-size-2xs);
-  padding: 2px var(--plugumi-spacing-xs);
-  border-radius: var(--plugumi-radii-sm);
-  cursor: pointer;
-}
-.lab-stage-chip:hover {
-  background: var(--plugumi-colors-fill);
-  color: var(--plugumi-colors-text);
-}
-.lab-stage-chip.selected {
-  background: var(--plugumi-colors-fill-strong);
-  color: var(--plugumi-colors-text-strong);
-}
 .lab-stage {
   position: relative;
   border: 1px solid var(--plugumi-colors-border);
@@ -371,30 +348,6 @@
   min-height: 6em;
   display: flex;
   align-items: center;
-}
-/* 各backdrop。busyはstripes+文字で最悪条件を作る */
-.lab-stage[data-backdrop="aurora"] {
-  background:
-    radial-gradient(60% 80% at 20% 30%, rgb(255 90 140 / 0.35), transparent 70%), /* token-check-ignore: 実験backdropのfixture — 製品色ではない */
-    radial-gradient(70% 70% at 80% 20%, rgb(80 130 255 / 0.35), transparent 70%), /* token-check-ignore: 実験backdropのfixture */
-    radial-gradient(60% 70% at 60% 85%, rgb(190 90 255 / 0.3), transparent 70%), /* token-check-ignore: 実験backdropのfixture */
-    #181818; /* token-check-ignore: 実験backdropのfixture */
-}
-.lab-stage[data-backdrop="light"] {
-  background: #e8e8e8; /* token-check-ignore: 実験backdropのfixture */
-}
-.lab-stage[data-backdrop="dark"] {
-  background: #101010; /* token-check-ignore: 実験backdropのfixture */
-}
-.lab-stage[data-backdrop="gradient"] {
-  background: linear-gradient(115deg, #ff5f9e, #8e5fff 45%, #38c6ff 80%); /* token-check-ignore: 実験backdropのfixture */
-}
-.lab-stage[data-backdrop="busy"] {
-  background:
-    repeating-linear-gradient(45deg, #c8c8c8 0 6px, #404040 6px 12px); /* token-check-ignore: 実験backdropのfixture — 最悪条件のstripes */
-}
-.lab-stage[data-backdrop="flat"] {
-  background: var(--plugumi-colors-background-tertiary);
 }
 
 /* Glass entry — 素材候補のgrid。cellはtextを乗せて読めるかを見る */

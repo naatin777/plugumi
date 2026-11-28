@@ -87,29 +87,13 @@ function Labeled(props: { label: string; children: JSX.Element }): JSX.Element {
   );
 }
 
-// 背景を切り替えて試せるstage。透明・半透明の素材は「背後に何があるか」
-// で見え方が決まるので、単色からbusyな柄まで背後を変えながら評価する。
-// auroraは実物のrecipeのminiature — blurの効いた虹色の床。
-const BACKDROPS = ["aurora", "light", "dark", "gradient", "busy", "flat"] as const;
-type Backdrop = (typeof BACKDROPS)[number];
-
+// specimenを配置する枠。偽の背景は用意しない — 評価は実環境で
+// 行う（テーマPanelでLayer 0/1を変えながら見る）。枠の中は
+// panelのsurfaceの上 — 実際にcomponentが置かれる条件そのもの。
 function Stage(props: { children: JSX.Element }): JSX.Element {
-  const [backdrop, setBackdrop] = createSignal<Backdrop>("aurora");
   return (
     <div class="lab-stage-wrap">
-      <div class="lab-stage-picker">
-        <For each={BACKDROPS}>
-          {(id) => (
-            <button
-              class={{ "lab-stage-chip": true, selected: backdrop() === id }}
-              onClick={() => setBackdrop(id)}
-            >
-              {id}
-            </button>
-          )}
-        </For>
-      </div>
-      <div class="lab-stage" data-backdrop={backdrop()}>
+      <div class="lab-stage">
         {props.children}
       </div>
     </div>

@@ -29,8 +29,8 @@
     /* 穴 — --hole-*が書き込まれるとそのrectだけblurが抜ける。
        mask-composite: excludeは全面layerと穴layerのXOR。 */
     mask:
-      linear-gradient(#000 0 0),
-      linear-gradient(#000 0 0);
+      linear-gradient(#000 0 0), /* token-check-ignore: maskのluminanceであって色ではない */
+      linear-gradient(#000 0 0); /* token-check-ignore: 同上 */
     mask-position: 0 0, var(--hole-x, 0px) var(--hole-y, 0px);
     mask-size: 100% 100%, var(--hole-w, 0px) var(--hole-h, 0px);
     mask-repeat: no-repeat, no-repeat;
