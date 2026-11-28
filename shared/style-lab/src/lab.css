@@ -440,19 +440,21 @@
     inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
 }
 .lab-hole-base {
-  /* 現実のpanelが持つsurface contextの再現 — カード面。 */
-  background: color-mix(in oklab, var(--plugumi-colors-raised) 40%, transparent);
-  box-shadow:
-    inset 0 0 0 1px var(--plugumi-colors-raised-edge),
-    inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
+  /* 切り抜きの外枠 — 中身はholeの巨大shadowが塗り、ここではclipする
+     だけ。面はdense寄りでないと穴が穴として読めない（薄い面だと
+     穴との差が出ない）— 現実のpanelの面もどうせdense側なので、
+     それの再現でもある。 */
+  overflow: hidden;
   border-radius: var(--plugumi-radii-lg);
-  padding: var(--plugumi-spacing-md);
   margin-bottom: var(--plugumi-spacing-md);
+  /* 穴の周りに面が見える幅。 */
+  padding: var(--plugumi-spacing-lg);
 }
 .lab-hole {
-  /* 穴 — ここには何も塗らない。破線は「意図的に空である」ことを示す
-     catalog上の注釈で、surfaceではない。 */
-  border: 1px dashed var(--plugumi-colors-border-strong);
+  /* 穴 — 自身は何も塗らず、巨大なspreadのshadowで外側を塗りつぶす
+     逆転技法。shadowはradiusに追従し、baseのoverflow hiddenで
+     clipされる。 */
+  box-shadow: 0 0 0 100vmax var(--plugumi-colors-background-secondary);
   border-radius: var(--plugumi-radii-md);
   padding: var(--plugumi-spacing-md);
   display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
