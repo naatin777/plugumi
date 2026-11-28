@@ -361,6 +361,88 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
     ),
   },
   {
+    group: "foundations", id: "surfaces", title: "Surfaces",
+    render: () => (
+      <>
+        <p class="lab-note">
+          Layer 2の素材（decisions/00041）。panelはdefaultで透明 — 何も
+          塗らず、面はsurfaceを被せて作る。階層は「文字を置く面は濃く、
+          chrome的な面は薄く」。両テーマとも操作は共通で「白を足して
+          浮かせる」— 暗く重ねるとガラスの上で穴に見えるため。
+        </p>
+        <Stage>
+          <div class="lab-surface-grid">
+            {/* transparent — default。何も塗らない */}
+            <div class="lab-surface-cell">
+              <div class="lab-surface-box">
+                <span class="lab-glass-text">透明 Aa</span>
+                <span class="lab-glass-text-muted">default — 何も塗らない</span>
+              </div>
+              <div class="lab-state-label">transparent — panelのdefault</div>
+            </div>
+            {/* thin chrome — fill token */}
+            <div class="lab-surface-cell">
+              <div class="lab-surface-box" style={{ background: "var(--plugumi-colors-fill)" }}>
+                <span class="lab-glass-text">薄いchrome Aa</span>
+                <span class="lab-glass-text-muted">hover・操作面</span>
+              </div>
+              <div class="lab-state-label">thin — --plugumi-colors-fill</div>
+            </div>
+            {/* card — raisedのレシピ（fill+edge+上端highlight） */}
+            <div class="lab-surface-cell">
+              <div class="lab-surface-box lab-surface-card">
+                <span class="lab-glass-text">カード Aa</span>
+                <span class="lab-glass-text-muted">浮いた面</span>
+              </div>
+              <div class="lab-state-label">card — raised fill + edge + 上端highlight</div>
+            </div>
+            {/* flat — frame色の不透明な面 */}
+            <div class="lab-surface-cell">
+              <div class="lab-surface-box" style={{ background: "var(--plugumi-colors-background-secondary)", color: "var(--plugumi-colors-text)" }}>
+                <span>平らな面 Aa</span>
+                <span style={{ color: "var(--plugumi-colors-text-muted)", "font-size": "var(--plugumi-font-size-2xs)", display: "block" }}>構造面</span>
+              </div>
+              <div class="lab-state-label">flat — 不透明（sidebar・drawerの台）</div>
+            </div>
+          </div>
+        </Stage>
+        <p class="lab-note">
+          dense端のtuning — 文字を直に置く面はどのくらい濃くあるべきか。
+          背後をbusyにして見ると、透過の許容限界が分かる。drawerの台は
+          背後が「自分のworkspace」（文字だらけの高周波）なので、
+          薄いと背後の文字がシャープに透けて読めない — blurは膜だけの
+          決まりなので、Layer 2の面は濃さで解決する。
+        </p>
+        <Stage>
+          <div class="lab-surface-grid">
+            <For each={[100, 92, 85, 70]}>
+              {(opacity) => (
+                <div class="lab-surface-cell">
+                  <div
+                    class="lab-surface-box lab-surface-dense"
+                    style={{ background: `color-mix(in oklab, var(--plugumi-colors-background-primary) ${opacity}%, transparent)` }}
+                  >
+                    <span class="lab-glass-text">dense {opacity}% Aa</span>
+                    <span class="lab-glass-text-muted">文字を直に置く面の候補</span>
+                  </div>
+                  <div class="lab-state-label">{opacity === 100 ? "opaque — 現行の台" : `${opacity}% — わずかに透ける`}</div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Stage>
+        <Spec rows={[
+          ["transparent", "panelのdefault — 何も塗らない。面が要らない場所はこれ"],
+          ["thin", "--plugumi-colors-fill（dark: 白10%）— hover・pressedなど操作面"],
+          ["card", "--plugumi-colors-raised + --plugumi-colors-raised-edge + 上端の白highlight — 浮いた面"],
+          ["flat", "不透明な面 — sidebar・drawerの台。--plugumi-colors-background-secondary 系"],
+          ["dense", "文字を直に置く面は濃く — 00041。現行はopaque、透過の余地を実験中"],
+          ["暗く重ねない", "両テーマとも白を足す — 暗い塗りはガラスの上で「穴」に見える"],
+        ]} />
+      </>
+    ),
+  },
+  {
     group: "foundations", id: "glass", title: "Glass (experimental)",
     render: () => (
       <>
@@ -549,7 +631,13 @@ const GROUPS = [...new Set(ENTRIES.map((entry) => entry.group))];
 
 function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => void }): JSX.Element {
   const saveState = props.saveState;
-  const [active, setActive] = createSignal(ENTRIES[0].id);
+  // 初期選択はrestorable stateから — signalの初期値として渡す。
+  // 生成後にbody内でsetするとSolid 2.0では「owned scopeでのwrite」
+  // になる（devではthrow）。無効な値なら先頭。
+  const initialActive = props.initialSelected && ENTRIES.some((entry) => entry.id === props.initialSelected)
+    ? props.initialSelected
+    : ENTRIES[0].id;
+  const [active, setActive] = createSignal(initialActive);
   const [width, setWidth] = createSignal(180);
   // 幅が狭いときはsidebarを畳む。ResizeObserverでpanel自体の幅を見る —
   // media queryではなくpanelの実サイズ基準（splitで狭くなることがある）。
@@ -569,11 +657,6 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
   };
   navigateTo = select;
   onCleanup(() => { if (navigateTo === select) navigateTo = null; });
-  // 初期選択はrestorable stateから。無効な値なら先頭のまま。
-  if (props.initialSelected && ENTRIES.some((entry) => entry.id === props.initialSelected)) {
-    setActive(props.initialSelected);
-  }
-
   // sidebarのresize。handleを掴んで動かす — shellのsplit resizerと
   // 同じくpointer captureで追う。幅はpanel localで永続化しない。
   const startResize = (event: PointerEvent) => {

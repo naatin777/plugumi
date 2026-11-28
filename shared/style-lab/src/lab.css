@@ -425,3 +425,27 @@
   font-size: var(--plugumi-font-size-xs);
   color: var(--plugumi-colors-text-muted);
 }
+/* Surfaces entry — 階層のspecimen。cardはtabと同じレシピ（fill+edge+
+   上端highlight）を再現する。 */
+.lab-surface-grid {
+  /* stageはflex rowなので、幅いっぱいに広がるには明示が要る。 */
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--plugumi-spacing-sm);
+  padding: var(--plugumi-spacing-sm);
+}
+.lab-surface-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lab-surface-box {
+  min-height: 72px;
+  padding: var(--plugumi-spacing-sm);
+  border-radius: var(--plugumi-radii-md);
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+}
+.lab-surface-card {
+  background: color-mix(in oklab, var(--plugumi-colors-raised) 70%, transparent);
+  box-shadow:
+    inset 0 0 0 1px var(--plugumi-colors-raised-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
+}
+.lab-surface-dense { border-radius: 0; }
