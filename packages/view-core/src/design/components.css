@@ -250,3 +250,8 @@
   gap: 2px;
   padding: var(--plugumi-spacing-xs);
 }
+/* display:flexがpopoverの閉状態（UAのdisplay:none）を上書きして
+   常時表示になってしまうのを防ぐ。 */
+.plugumi-list[popover]:not(:popover-open) {
+  display: none;
+}
