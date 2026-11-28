@@ -1,4 +1,4 @@
-// Plugin Shell の画面が外（web pluginのサーバー、Electron main等）と話す口。
+// plugumiの画面が外（web pluginのサーバー、Electron main等）と話す口。
 // 画面側はこのinterfaceだけを使い、fetch先やURLの組み立ては宿主が実装する。
 // WorkspaceはShell所有のJSON: getはunknownのまま受け取り、
 // Shellがdecodeする。putはShellのstateをそのまま渡す。
@@ -6,7 +6,7 @@ import { createContext, useContext, type ParentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { ViewContext, ViewHandle } from "@plugumi/view";
 import type { WorkspaceState } from "./layout/model.ts";
-import type { ShellController } from "./shell/controller.tsx";
+import type { AppController } from "./app/controller.tsx";
 
 // Panelのmountに渡すcontext。view channelの接続情報に加えて、
 // workbenchはactivity通知とopenPanelを必ず提供する。
@@ -20,28 +20,30 @@ export interface PanelContext extends ViewContext {
 export type PanelHandle = ViewHandle;
 export type PanelMount = (host: ShadowRoot, context: PanelContext) => PanelHandle | Promise<PanelHandle>;
 
-// ---- /api/cores 系の型（Go側のJSONフィールド名と一致） ----
+// ---- /api/cores 系の型。spec駆動 — apps/webのhumaが生成するOpenAPI
+// specからopenapi-typescriptで作られる（pnpm run gen:api）。
+// 手書きでGoと同期する時代のものはgen/api-types.tsが正義。
+import type { components } from "./gen/api-types.ts";
+
+type ApiSchema = components["schemas"];
+
+// enum相当はGo側が素のstringなので、TS側でunionへ絞る。
 export type CoreSource = "command" | "saved";
 export type CoreStatus = "connecting" | "connected" | "rejected" | "unreachable";
 
-export interface CoreEntry {
-  url: string;
+export type CoreEntry = Omit<ApiSchema["Core"], "source" | "status"> & {
   source: CoreSource;
-  coreId: string;
-  name: string;
-  key: string;
   status: CoreStatus;
-  error?: string;
-}
+};
 
-// Shell組み込みPanel。providerId "shell" のlocal PluginとしてShellの
+// Shell組み込みPanel。providerId "app" のlocal PluginとしてShellの
 // bundleに同梱され、Pluginと同じくShadowRootへmountする。
 // contextはPluginと同じPanelContextに、Shell内部へ届くshellを足した
 // もの — 同梱コードなので信頼境界はなく、端末localのprefsのような
 // Shell状態に届けるためにある。組み込みはview channelを持たない
 // （Coreを経由しない）のでconnectionは形だけのものを入れる。
 export interface BuiltinPanelContext extends PanelContext {
-  shell: ShellController;
+  host: AppController;
   // 任意のprovider/panelを開く。view contextのopenPanelは同じpluginの
   // panelだけだが、組み込みpanel（Files等）は別providerのpanelを
   // 開きたい（file clickでeditorを開く等）。自分が居るAreaへ開く。
@@ -51,24 +53,17 @@ export interface BuiltinPanelContext extends PanelContext {
 export type BuiltinPanelMount =
   (host: ShadowRoot, context: BuiltinPanelContext) => PanelHandle | Promise<PanelHandle>;
 
-export interface PluginPanelEntry {
+// CoreのJSONはgeneratedのPanelEntryが正義。kindはfrontendが付ける
+// 識別子（builtinとのunionを作るため）。rpcAvailable=falseの宣言はmount
+// はできるがview channelが繋がらないので、同じpanelIdにliveの宣言が
+// あればそちらを優先する。
+export type PluginPanelEntry = ApiSchema["PanelEntry"] & {
   kind: "plugin";
-  registrationId: string;
-  providerId: string;
-  panelId: string;
-  title: string;
-  entry: string;
-  // CoreのJSONでは未宣言だとnullで来るのでoptional扱いにする。
-  styles?: string[] | null;
-  uiSha256: string;
-  // 提供元の登録のRPC接続が生きているか。falseの宣言はmountはできるが
-  // view channelが繋がらないので、同じpanelIdにliveの宣言があればそちらを優先する。
-  rpcAvailable: boolean;
-}
+};
 
 export interface BuiltinPanelEntry {
   kind: "builtin";
-  providerId: "shell";
+  providerId: "app";
   panelId: string;
   title: string;
   mount: BuiltinPanelMount;
@@ -81,6 +76,8 @@ export type PanelEntry = PluginPanelEntry | BuiltinPanelEntry;
 
 // keyはURL path segmentとして使う識別子（serverが発行する）、
 // titleは自由な表示名。nameを兼ねない — 日本語・大文字・記号をそのまま出せる。
+// wire上は末端のareasがnullで来る（Goのnil slice）が、host境界で[]へ
+// 正規化する — Hostの契約としては常に配列。
 export interface AreaTree {
   key: string;
   title: string;
@@ -93,33 +90,17 @@ export interface ProjectTree {
   areas: AreaTree[];
 }
 
-export interface InvokeBody {
-  operation: string;
-  input: unknown;
-}
+export type InvokeBody = ApiSchema["InvokeInputBody"];
 
 // view instanceの登録応答（POST /api/cores/{key}/views）。
 // shellはticketとCore URLをpanelのcontext.connectionへ入れる。
-export interface ViewTicket {
-  id: string;
-  registrationId: string;
-  panelId: string;
-  status: string;
-  ticket: string;
-}
+export type ViewTicket = ApiSchema["ViewTicket"];
 
 // Registryの1登録。Shell同梱Viewがcapability宣言から呼び出し先を
 // 選ぶために使う（file explorerがfilesystem/listを探す等）。
-export interface RegistrationEntry {
-  registrationId: string;
-  providerId: string;
-  environment?: string;
-  ready: boolean;
-  rpcAvailable: boolean;
-  operations: { path: string; description?: string }[];
-}
+export type RegistrationEntry = ApiSchema["RegistryRegistration"];
 
-export interface ShellHost {
+export interface Host {
   listCores(): Promise<CoreEntry[]>;
   getCore(key: string): Promise<CoreEntry>;
   addCore(url: string): Promise<void>;
@@ -154,17 +135,17 @@ export interface ShellHost {
   windows: { open(path: string): void } | null;
 }
 
-export const ShellHostContext = createContext<ShellHost>();
+export const HostContext = createContext<Host>();
 
-export function ShellHostProvider(props: ParentProps<{ value: ShellHost }>): JSX.Element {
+export function HostProvider(props: ParentProps<{ value: Host }>): JSX.Element {
   return (
-    <ShellHostContext value={props.value}>
+    <HostContext value={props.value}>
       {props.children}
-    </ShellHostContext>
+    </HostContext>
   );
 }
 
-export function useShellHost(): ShellHost {
+export function useHost(): Host {
   // default-lessなのでProvider不在ならuseContextが投げる。
-  return useContext(ShellHostContext);
+  return useContext(HostContext);
 }

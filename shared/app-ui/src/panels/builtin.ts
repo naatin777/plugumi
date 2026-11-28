@@ -1,4 +1,4 @@
-// Shell同梱の組み込みPanel一覧。providerId "shell" のlocal Pluginとして
+// Shell同梱の組み込みPanel一覧。providerId "app" のlocal Pluginとして
 // bundleされるものをここに並べる。中身はPluginと同じ
 // `mount(host, context)` で書かれた独立package（shared/theme等）。
 import * as theme from "plugumi-theme-panel";
@@ -9,7 +9,7 @@ import type { BuiltinPanelEntry } from "../host.tsx";
 export const builtinPanels: BuiltinPanelEntry[] = [
   {
     kind: "builtin",
-    providerId: "shell",
+    providerId: "app",
     panelId: theme.panelId,
     title: theme.title,
     mount: theme.mount,
@@ -17,7 +17,7 @@ export const builtinPanels: BuiltinPanelEntry[] = [
   },
   {
     kind: "builtin",
-    providerId: "shell",
+    providerId: "app",
     panelId: files.panelId,
     title: files.title,
     mount: files.mount,
@@ -25,7 +25,7 @@ export const builtinPanels: BuiltinPanelEntry[] = [
   },
   {
     kind: "builtin",
-    providerId: "shell",
+    providerId: "app",
     panelId: styleLab.panelId,
     title: styleLab.title,
     mount: styleLab.mount,

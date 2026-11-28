@@ -1,5 +1,5 @@
 // CSS分離テスト。hostile/victim fixture Panelを使い、Plugin CSSが
-// Shell・他Panelへ漏れないことを確認する。PanelはShadow DOMへ描かれ、
+// app・他Panelへ漏れないことを確認する。PanelはShadow DOMへ描かれ、
 // 宣言のstylesはそのshadowにだけ入る（@font-faceだけdocumentへ出る）。
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -122,7 +122,7 @@ test("css isolation", { timeout: 600000 }, async (t) => {
         // Shellの定義1つだけなら、hostileのものはshadow内に閉じている。
         const counts = await abEval<Record<string, number>>(`
           (() => {
-            const names = ['shell-aurora', 'plugumi-activity-spin'];
+            const names = ['app-aurora', 'plugumi-activity-spin'];
             const counts = {};
             const walk = (rules) => {
               for (const rule of rules) {
@@ -138,7 +138,7 @@ test("css isolation", { timeout: 600000 }, async (t) => {
             }
             return counts;
           })()`);
-        assert.equal(counts["shell-aurora"], 1, "shell-auroraが上書き・複製されている");
+        assert.equal(counts["app-aurora"], 1, "app-auroraが上書き・複製されている");
         assert.equal(counts["plugumi-activity-spin"], 1, "plugumi-activity-spinが上書き・複製されている");
       });
 

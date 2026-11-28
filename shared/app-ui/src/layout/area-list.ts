@@ -144,7 +144,7 @@ export function selectSub(state: AreaListState, key: string): AreaListState {
 // ---- 保存（localStorage。prefsと同じく読み書きはtry/catchで包む） ----
 
 const KEY = (coreKey: string, project: string) =>
-  `plugumi:shell:area-list:${coreKey}:${project}`;
+  `plugumi:app:area-list:${coreKey}:${project}`;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

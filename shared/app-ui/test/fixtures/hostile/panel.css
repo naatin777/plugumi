@@ -5,7 +5,7 @@ button { border: 3px solid rgb(255, 0, 0); }
 
 /* Shellと同名のkeyframes（定義はshell.css側で別名に見える場合がある。
    差し替えが効くかどうかはスコープ処理次第）。 */
-@keyframes shell-aurora { from { transform: translateX(0); } to { transform: translateX(50%); } }
+@keyframes app-aurora { from { transform: translateX(0); } to { transform: translateX(50%); } }
 @keyframes plugumi-activity-spin { from { transform: rotate(90deg); } to { transform: rotate(90deg); } }
 
 @font-face {

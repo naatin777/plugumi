@@ -6,10 +6,10 @@ import { For, Show, createSignal, onSettled } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref } from "@solidjs/router";
 
-import { useShellHost, type CoreEntry } from "../host.tsx";
-import { ConfirmButton } from "../shell/inline.tsx";
+import { useHost, type CoreEntry } from "../host.tsx";
+import { ConfirmButton } from "../app/inline.tsx";
 import "./core-list.css";
-import "../shell/controls.css";
+import "../app/controls.css";
 
 const statusText = (entry: CoreEntry): string => {
   switch (entry.status) {
@@ -22,7 +22,7 @@ const statusText = (entry: CoreEntry): string => {
 };
 
 export default function CoreListPage(): JSX.Element {
-  const host = useShellHost();
+  const host = useHost();
   const [cores, setCores] = createSignal<CoreEntry[] | undefined>();
   const [adding, setAdding] = createSignal(false);
   const [error, setError] = createSignal("");
@@ -85,7 +85,7 @@ export default function CoreListPage(): JSX.Element {
 }
 
 function CoreRow(props: { entry: CoreEntry; refresh: () => Promise<void> }): JSX.Element {
-  const host = useShellHost();
+  const host = useHost();
   const href = useHref(() => `/${props.entry.key}/`);
   return (
     <li>

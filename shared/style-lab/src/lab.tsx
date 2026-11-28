@@ -132,7 +132,7 @@ function WidthProbe(): JSX.Element {
 // drawerのminiature demo。実物はshellのgrid文脈に深く埋まっているため
 // cssの直接共有はできず、ここはpatternを忠実に写したminiature —
 // 台の扱い（不透明・影なし・内側の辺だけ1px線）とtransformによる
-// 開閉はshell.css/work-shape.cssの実装に対応させる。
+// 開閉はshell.css/app-shape.cssの実装に対応させる。
 // ずれたら嘘になるので、shell側を変えたらここも更新する。
 function DrawerDemo(): JSX.Element {
   const [open, setOpen] = createSignal(false);
@@ -333,7 +333,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     render: () => (
       <>
         <p class="lab-note">
-          shellの--work-anim（180ms）が昇格したもの。panelがアニメーション
+          shellの--app-anim（180ms）が昇格したもの。panelがアニメーション
           するときも同じ感覚を使う — hoverのchipに触れるとこの速度で動く。
         </p>
         <For each={prefixed("motion")}>
@@ -446,7 +446,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
     render: () => (
       <>
         {/* buttonはfamily。text button（plugumi-button、plugin-facing）と
-            icon button（shell chrome）をvariantとして並べる。 */}
+            icon button（host chrome）をvariantとして並べる。 */}
         <h3>text button — .plugumi-button / pluginでも使える</h3>
         <Stage>
           <div class="lab-states">
@@ -497,7 +497,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
       <>
         {/* 実物と同じ構造: header.leaf-strip > .tab-strip。
             tabはstripの高さとhairlineの文脈でこそ正しく見える部品で、
-            裸で描くと別物になる。--shell-strip-hは:root定義なので
+            裸で描くと別物になる。--app-strip-hは:root定義なので
             shadow越しに継承され、そのまま使える。 */}
         <header class="leaf-strip">
           <div class="tab-strip">
@@ -524,7 +524,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
         {/* menu itemはただ1つのprimitive — menu・nav・picker・sidebarの
             文脈が違っても項目の解剖学は同じ。このlabのsidebar自体が
             これを使っている。 */}
-        <h3>.plugumi-list-item — shell・plugin共通</h3>
+        <h3>.plugumi-list-item — host・plugin共通</h3>
         <Stage>
           <div class="lab-states">
             <Labeled label="default">
@@ -589,7 +589,7 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
         <DrawerDemo />
         <table class="lab-spec">
           <tbody>
-            <tr><td class="lab-spec-prop">台</td><td class="lab-spec-value">shell-frame-color — 不透明。影・角丸・blurは付けない（明示的にbox-shadow: none）</td></tr>
+            <tr><td class="lab-spec-prop">台</td><td class="lab-spec-value">host-frame-color — 不透明。影・角丸・blurは付けない（明示的にbox-shadow: none）</td></tr>
             <tr><td class="lab-spec-prop">線</td><td class="lab-spec-value">colors-border — 内側の辺にだけ1px（右drawerはborder-left、左はborder-right）</td></tr>
             <tr><td class="lab-spec-prop">幅</td><td class="lab-spec-value">min(raw幅, 85-90%) — 全面を覆わず背後を残す</td></tr>
             <tr><td class="lab-spec-prop">閉じ方</td><td class="lab-spec-value">transform: translateX(±100%+16px) + visibility — unmountせずstateを保つ</td></tr>
@@ -597,11 +597,11 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
             <tr><td class="lab-spec-prop">重なり</td><td class="lab-spec-value">z-side-drawer / z-sub-drawer — scrim（z-scrim）の上、列線はscrimより下で一緒に暗くなる</td></tr>
             <tr><td class="lab-spec-prop">scrim</td><td class="lab-spec-value">colors-scrim — 作業域を薄く暗くする幕。pointer-eventsは通す</td></tr>
             <tr><td class="lab-spec-prop">resize</td><td class="lab-spec-value">幅prefはinline表示と共有 — drawerは別物ではなく同じ列が重なった姿</td></tr>
-            <tr><td class="lab-spec-prop">animation</td><td class="lab-spec-value">--work-anim 180ms ease — shell内部変数。visibilityの遅延は閉じる側にだけ書く</td></tr>
+            <tr><td class="lab-spec-prop">animation</td><td class="lab-spec-value">--app-anim 180ms ease — shell内部変数。visibilityの遅延は閉じる側にだけ書く</td></tr>
           </tbody>
         </table>
         <p class="lab-note">
-          描画はminiature — 実物はshell.css（Sub）とwork-shape.css
+          描画はminiature — 実物はshell.css（Sub）とapp-shape.css
           （Area list）。spec表は手書き注釈なのでshell側を変えたら更新する。
         </p>
       </>

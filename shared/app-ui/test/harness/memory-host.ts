@@ -1,9 +1,9 @@
-// E2Eハーネスのin-memory ShellHost。Core/Goサーバー・実データには触れない。
+// E2Eハーネスのin-memory Host。Core/Goサーバー・実データには触れない。
 // Projects/Areas/workspaceはsessionStorageに保持する（reloadに耐え、
 // タブを閉じれば消える）。
 import type {
   CoreEntry, PluginPanelEntry, ProjectTree, RegistrationEntry,
-  ShellHost, ViewTicket, WorkspaceState,
+  Host, ViewTicket, WorkspaceState,
 } from "../../src/host.tsx";
 import { pathKey } from "../../src/layout/area-list.ts";
 
@@ -35,7 +35,7 @@ interface Stored {
 const ref = (id: string, providerId: string) =>
   ({ instanceId: id, providerId, panelId: "panel" });
 const themeRef = (id: string) =>
-  ({ instanceId: id, providerId: "shell", panelId: "theme" });
+  ({ instanceId: id, providerId: "app", panelId: "theme" });
 
 const empty = (): WorkspaceState => ({
   version: 1,
@@ -73,7 +73,7 @@ const seeds: Record<string, () => Stored> = {
   }),
 };
 
-export function createMemoryHost(): ShellHost {
+export function createMemoryHost(): Host {
   const seedName =
     new URLSearchParams(window.location.search).get("seed") ?? "basic";
   const stored: Stored = (() => {

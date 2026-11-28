@@ -16,7 +16,7 @@ export { widths } from "./design/widths.js";
 export type { TokenKey, TokenName } from "./design/tokens.js";
 
 // 作者のmount関数。hostはShadowRoot、channelは接続済み・型付きで渡る。
-// Ctxはhost固有のcontext拡張（shell service等）を効かせるための型で、
+// Ctxはhost固有のcontext拡張（host service等）を効かせるための型で、
 // 既定は標準のViewContext。
 export type ViewMount<SendMsg, RecvMsg, Ctx extends ViewContext = ViewContext> = (
   host: ShadowRoot,

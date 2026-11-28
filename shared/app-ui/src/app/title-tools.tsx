@@ -4,7 +4,7 @@
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
-import { useShell, type AreaController } from "./controller.tsx";
+import { useApp, type AreaController } from "./controller.tsx";
 import { openPopover } from "./popover.ts";
 import { ToolButton } from "./tool-button.tsx";
 import { IconAreaList, IconSub, IconPlus } from "../icons.tsx";
@@ -17,13 +17,13 @@ const closePopover = (event: MouseEvent) => {
 };
 
 export function TitleToolsLeft(): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   return (
     <>
       <ToolButton
         label="Area list" keep
-        pressed={shell.sideShown()}
-        onClick={() => shell.toggleSide()}
+        pressed={app.sideShown()}
+        onClick={() => app.toggleSide()}
       >
         <IconAreaList />
       </ToolButton>
@@ -33,7 +33,7 @@ export function TitleToolsLeft(): JSX.Element {
 }
 
 function CoreSwitcher(): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   const [menu, setMenu] = createSignal<HTMLElement>(null!);
   const statusOf = (status: string | undefined) =>
     status === "connected" ? "connected" : status === "connecting" ? "connecting" : "error";
@@ -43,10 +43,10 @@ function CoreSwitcher(): JSX.Element {
         class={`plugumi-icon-button ${"core-switcher-button"}`}
         onClick={(event) => openPopover(menu(), event.currentTarget)}
       >
-        <span class={"core-name"}>{shell.core()?.name || shell.core()?.key || "Core"}</span>
+        <span class={"core-name"}>{app.core()?.name || app.core()?.key || "Core"}</span>
       </button>
       <div class={`plugumi-list ${"core-menu"}`} id="core-menu" data-part="popover" popover="auto" ref={setMenu}>
-        <For each={shell.cores()}>
+        <For each={app.cores()}>
           {(entry) => <CoreMenuItem key={entry.key} name={entry.name} status={statusOf(entry.status)} />}
         </For>
         <CoreMenuItem key="" name="Core の管理" status="" />
@@ -56,13 +56,13 @@ function CoreSwitcher(): JSX.Element {
 }
 
 function CoreMenuItem(props: { key: string; name: string; status: string }): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   const navigate = useNavigate();
   const href = useHref(() => (props.key ? `/${props.key}/` : "/"));
   const select = (event: MouseEvent) => {
     event.preventDefault();
     closePopover(event);
-    if (props.key && props.key !== shell.coreKey()) navigate(`/${props.key}/`);
+    if (props.key && props.key !== app.coreKey()) navigate(`/${props.key}/`);
     if (!props.key) navigate("/");
   };
   return (
@@ -82,7 +82,7 @@ function CoreMenuItem(props: { key: string; name: string; status: string }): JSX
 // work帯のロケーション。projectとarea階層をcrumbとして出す
 // 列ごとの開閉ボタンを持たせるため、work区間はMain/Subで別segment。
 export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   return (
     <>
       <ToolButton
@@ -91,19 +91,19 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
         // popovertargetを併用するとtoggleとshowPopoverが二重に効いて
         // 閉じてしまうので、onClickから開く。
         onClick={(event) =>
-          shell.openPicker(shell.focusedArea() ?? props.area, undefined, event.currentTarget as HTMLElement)}
+          app.openPicker(app.focusedArea() ?? props.area, undefined, event.currentTarget as HTMLElement)}
       >
         <IconPlus />
       </ToolButton>
-      <div class={`plugumi-list ${"panel-picker"}`} id="panel-picker" data-part="picker" popover="auto" ref={shell.bindPicker}>
-        <Show when={shell.panels().length > 0} fallback={<p class={"picker-empty"}>開けるPanelがありません</p>}>
-          <For each={shell.panels()}>
+      <div class={`plugumi-list ${"panel-picker"}`} id="panel-picker" data-part="picker" popover="auto" ref={app.bindPicker}>
+        <Show when={app.panels().length > 0} fallback={<p class={"picker-empty"}>開けるPanelがありません</p>}>
+          <For each={app.panels()}>
             {(entry) => (
               <button
                 class="plugumi-list-item"
                 onClick={(event) => {
                   closePopover(event);
-                  shell.pickPanel(entry);
+                  app.pickPanel(entry);
                 }}
               >
                 {entry.title}
@@ -120,13 +120,13 @@ export function TitleSegmentMain(props: { area: AreaController }): JSX.Element {
 }
 
 export function TitleToolsRight(): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   return (
     // Sub開閉は右pillの先頭（Sub列寄り）で固定 — Sub列の有無で
     // segment側が伸縮してもボタンの位置は変わらない。
     <ToolButton
-      label="Sub" keep pressed={shell.subShown()}
-      onClick={() => shell.toggleSub()}
+      label="Sub" keep pressed={app.subShown()}
+      onClick={() => app.toggleSub()}
     >
       <IconSub />
     </ToolButton>

@@ -1,4 +1,4 @@
-// Shellの状態を2段に分ける。ShellControllerはページ（URL・Core・Project・
+// Shellの状態を2段に分ける。AppControllerはページ（URL・Core・Project・
 // Area list・表示設定・panel picker）を持ち、AreaControllerは1つのAreaView
 // が持つ状態（workspaceのlayout・Panel Instance・drag）を持つ。
 // 同じAreaをMainとSubに同時に出した場合は別々のAreaControllerになり、
@@ -8,7 +8,7 @@ import {
   flush, onCleanup, reconcile, untrack, useContext,
 } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import type { ShellHost, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
+import type { Host, CoreEntry, PanelEntry, ProjectTree, AreaTree } from "../host.tsx";
 import type { WorkspaceState, PanelRef, MoveTarget } from "../layout/model.ts";
 import {
   emptyWorkspace, addPanel, closePanel, selectPanel, movePanel, detachPanel,
@@ -22,7 +22,7 @@ import {
 } from "../layout/area-list.ts";
 import { PanelInstance, resolvePanel } from "../panels/instance.ts";
 import { builtinPanels } from "../panels/builtin.ts";
-import { loadPrefs, savePrefs, type ShellPrefs } from "../prefs.ts";
+import { loadPrefs, savePrefs, type AppPrefs } from "../prefs.ts";
 import { applyTheme } from "../theme.ts";
 import { saveLastLocation } from "../storage.ts";
 import { createDragController, type DragController, type DropPreview } from "./drag.ts";
@@ -44,8 +44,8 @@ export function findArea(areas: AreaTree[], path: string[]): AreaTree | undefine
   return found;
 }
 
-export interface ShellController {
-  host: ShellHost;
+export interface AppController {
+  host: Host;
   coreKey(): string;
   project(): string;
   areaPath(): string[];
@@ -56,8 +56,8 @@ export interface ShellController {
   panels(): PanelEntry[];
   projects(): ProjectTree[];
 
-  prefs(): ShellPrefs;
-  updatePrefs(mutate: (prefs: ShellPrefs) => void): void;
+  prefs(): AppPrefs;
+  updatePrefs(mutate: (prefs: AppPrefs) => void): void;
 
   // Area list（左の列）。表示はProjectの全Areaから導出し、保存するのは
   // Subに移したAreaと表示形式の差分だけ（Projectごとの状態）。
@@ -77,8 +77,8 @@ export interface ShellController {
 
   // Shellの横幅に応じた段階（ResizeObserverがセット）。
   // <1100pxでSubがdrawer、<800pxでArea listもdrawerになる。
-  shellSize(): ShellSize;
-  setShellSize(size: ShellSize): void;
+  appSize(): AppSize;
+  setAppSize(size: AppSize): void;
   // drawer化した領域の一時的な開閉。prefsの開閉とは別signal — 狭くなった
   // 瞬間に保存済みの「開」がcenterを覆わないよう、初期は閉。
   subDrawer(): boolean;
@@ -106,11 +106,11 @@ export interface ShellController {
   removeArea(project: string, path: string[]): Promise<void>;
 }
 
-export type ShellSize = "wide" | "medium" | "compact";
+export type AppSize = "wide" | "medium" | "compact";
 
 // 1つのAreaViewが持つ状態。layout・Panel Instance・dragは全部Area単位。
 export interface AreaController {
-  shell: ShellController;
+  app: AppController;
   ref(): AreaRef | null;
 
   layout(): WorkspaceState;
@@ -154,10 +154,10 @@ function poll<T>(fetcher: () => Promise<T>, ms: number): () => T | undefined {
 const layoutKey = (item: { id?: string; instanceId?: string }): string | undefined =>
   item.id ?? item.instanceId;
 
-export function createShellController(
-  host: ShellHost,
+export function createAppController(
+  host: Host,
   params: () => { core?: string; project?: string; areaPath?: string },
-): ShellController {
+): AppController {
   const navigate = useNavigate();
   const coreKey = () => params().core ?? "";
   const project = () => params().project ?? "";
@@ -174,8 +174,8 @@ export function createShellController(
   const projectTree = () => projectsList()?.find((tree) => tree.key === project());
 
   // ---- 表示設定 ----
-  const [prefs, setPrefs] = createSignal<ShellPrefs>(loadPrefs());
-  const updatePrefs = (mutate: (prefs: ShellPrefs) => void) => {
+  const [prefs, setPrefs] = createSignal<AppPrefs>(loadPrefs());
+  const updatePrefs = (mutate: (prefs: AppPrefs) => void) => {
     const next = { ...prefs() };
     mutate(next);
     setPrefs(next);
@@ -224,11 +224,11 @@ export function createShellController(
     setSubDrawer(false);
     setSideDrawer(false);
   };
-  const [shellSize, setShellSize] = createSignal<ShellSize>("wide");
+  const [appSize, setAppSize] = createSignal<AppSize>("wide");
   const [subDrawer, setSubDrawer] = createSignal(false);
   const [sideDrawer, setSideDrawer] = createSignal(false);
-  const subDrawerMode = () => shellSize() !== "wide";
-  const sideDrawerMode = () => shellSize() === "compact";
+  const subDrawerMode = () => appSize() !== "wide";
+  const sideDrawerMode = () => appSize() === "compact";
   const subShown = () =>
     subDrawerMode() ? subDrawer() : prefs().subOpen;
   const sideShown = () =>
@@ -299,7 +299,7 @@ export function createShellController(
     }
   };
 
-  const controller: ShellController = {
+  const controller: AppController = {
     host, coreKey, project, areaPath, projectTree,
     cores, core, panels, projects,
     prefs, updatePrefs,
@@ -307,7 +307,7 @@ export function createShellController(
     mainRef, subRef,
     focusedArea, setFocusedArea,
     drag, ghost, dropPreview,
-    shellSize, setShellSize,
+    appSize, setAppSize,
     subDrawer,
     sideDrawer,
     subDrawerMode, sideDrawerMode,
@@ -343,10 +343,10 @@ export function createShellController(
 
 // AreaViewごとに1個作る。refが変わる（選択の切替）とworkspaceを読み直す。
 export function createAreaController(
-  shell: ShellController,
+  app: AppController,
   ref: () => AreaRef | null,
 ): AreaController {
-  const host = shell.host;
+  const host = app.host;
 
   // ---- layout（workspaceを1つの状態に持つ） ----
   // store+reconcileで、変わらないleaf/PanelRefのproxyを保つ。
@@ -364,7 +364,7 @@ export function createAreaController(
     // 発火時ではなく操作時点のAreaへ保存する（300ms以内の切替で隣へ書かない）
     const current = ref();
     if (!current) return;
-    const key = shell.coreKey();
+    const key = app.coreKey();
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
       void host.putWorkspace(key, current.project, current.path, layoutState);
@@ -385,9 +385,9 @@ export function createAreaController(
   const instance = (panelRef: PanelRef, input?: unknown): PanelInstance => {
     let found = instances.get(panelRef.instanceId);
     if (!found) {
-      const declaration = resolvePanel(panelRef, shell.panels());
-      found = new PanelInstance(host, shell.coreKey(), panelRef,
-        declaration?.title ?? panelRef.panelId, shell,
+      const declaration = resolvePanel(panelRef, app.panels());
+      found = new PanelInstance(host, app.coreKey(), panelRef,
+        declaration?.title ?? panelRef.panelId, app,
         declaration?.kind ?? "plugin");
       // 復元時はinput引数が来ない — 永続化されたPanelRef側を使う。
       found.input = input !== undefined ? input : panelRef.input;
@@ -417,7 +417,7 @@ export function createAreaController(
       const mounted = found;
       queueMicrotask(() => {
         if (declaration) void mounted.mount(declaration);
-        else mounted.retry(shell.panels());
+        else mounted.retry(app.panels());
       });
     }
     return found;
@@ -425,7 +425,7 @@ export function createAreaController(
   // panels一覧・layoutの変化を追従し、layoutから外れたInstanceは捨てる
   // （effect本体は下部。reload/applyLayoutからも即時呼ぶ）。
   const syncInstances = () => {
-    const list = shell.panels();
+    const list = app.panels();
     for (const found of instances.values()) found.update(list);
     const alive = new Set(allPanelRefs(layoutState).map((panelRef) => panelRef.instanceId));
     for (const [id, found] of instances) {
@@ -455,7 +455,7 @@ export function createAreaController(
   };
 
   const openPanel = (providerId: string, panelId: string, target?: MoveTarget, input?: unknown) => {
-    const declaration = shell.panels().find(
+    const declaration = app.panels().find(
       (entry) => entry.providerId === providerId && entry.panelId === panelId,
     );
     if (!declaration) return;
@@ -487,16 +487,16 @@ export function createAreaController(
   });
 
   const controller: AreaController = {
-    shell, ref,
+    app, ref,
     layout, applyLayout,
     instance, openPanel, detach, adopt,
-    drag: shell.drag,
+    drag: app.drag,
   };
 
   // effectは2系統だけ: (a) refの変化 → 読み直し、(b) panels一覧の変化 →
   // Instance追従。
   createEffect(
-    () => ({ current: ref(), core: shell.coreKey() }),
+    () => ({ current: ref(), core: app.coreKey() }),
     ({ current, core }) => {
       if (current) void reload(current, core);
     },
@@ -509,7 +509,7 @@ export function createAreaController(
     // compute側で回す（書き込みはInstance内部のsignalだけ）。
     // panels一覧とlayoutの両方をdepに取る（update自体はcallback内のmicrotask）。
     () => {
-      shell.panels();
+      app.panels();
       return allPanelRefs(layoutState).map((panelRef) => panelRef.instanceId);
     },
     () => {
@@ -525,12 +525,12 @@ export function createAreaController(
   return controller;
 }
 
-export const ShellContext = createContext<ShellController>();
+export const AppControllerContext = createContext<AppController>();
 
-export function useShell(): ShellController {
-  const shell = useContext(ShellContext);
-  if (!shell) throw new Error("ShellContext の外で使われました");
-  return shell;
+export function useApp(): AppController {
+  const host = useContext(AppControllerContext);
+  if (!host) throw new Error("AppControllerContext の外で使われました");
+  return host;
 }
 
 export const AreaContext = createContext<AreaController>();

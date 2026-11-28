@@ -45,7 +45,7 @@
   --plugumi-letter-spacing-normal: 0;
   --plugumi-letter-spacing-wide: 0.02em;
 
-  /* 動き。shellの--work-anim（180ms）が昇格したもの — panelが
+  /* 動き。shellの--app-anim（180ms）が昇格したもの — panelが
      アニメーションするときも同じ感覚を使う。 */
   --plugumi-motion-duration-md: 180ms;
 

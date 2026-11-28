@@ -7,7 +7,7 @@ import components from "@plugumi/view/components.css?inline";
 // shellの実際のtab部品css。ruleをコピーするとlabが嘘をつくので、
 // 実物をinline importして共有する — shell側の見た目が変われば
 // labも変わる（= カタログが常に真実）。
-import chromeTabs from "../../app-ui/src/shell/tab-strip.css?raw";
+import chromeTabs from "../../app-ui/src/app/tab-strip.css?raw";
 import chrome from "./lab.css?inline";
 import specimens from "./specimens.css?inline";
 

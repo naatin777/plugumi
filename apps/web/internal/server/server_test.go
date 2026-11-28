@@ -519,26 +519,26 @@ func TestProjectAPIs(t *testing.T) {
 	}
 	// workspaceのPUT/GET。
 	docks := `{"version":1,"center":{"root":{"kind":"leaf","id":"leaf-a","panels":[{"instanceId":"panel-a1","providerId":"standard","panelId":"files"}],"selected":"panel-a1"}}}`
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", docks); response.Code != http.StatusNoContent {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/workspace?path="+main+"/"+feature, docks); response.Code != http.StatusNoContent {
 		t.Fatalf("put workspace: %d %s", response.Code, response.Body)
 	}
-	response = do(t, fixture.handler, http.MethodGet, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", "")
+	response = do(t, fixture.handler, http.MethodGet, base+"/projects/"+project+"/workspace?path="+main+"/"+feature, "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "panel-a1") {
 		t.Fatalf("get workspace: %d %s", response.Code, response.Body)
 	}
 	// objectでもnullでもないJSONは400。中身はserverが解釈しない。
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/workspace", `[1,2]`); response.Code != http.StatusBadRequest {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/workspace?path="+main, `[1,2]`); response.Code != http.StatusBadRequest {
 		t.Fatalf("array body: %d", response.Code)
 	}
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/workspace", `"x"`); response.Code != http.StatusBadRequest {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/workspace?path="+main, `"x"`); response.Code != http.StatusBadRequest {
 		t.Fatalf("string body: %d", response.Code)
 	}
 	// nullは消去として受け付ける。
-	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/areas/"+main+"/"+feature+"/workspace", `null`); response.Code != http.StatusNoContent {
+	if response := do(t, fixture.handler, http.MethodPut, base+"/projects/"+project+"/workspace?path="+main+"/"+feature, `null`); response.Code != http.StatusNoContent {
 		t.Fatalf("null body: %d", response.Code)
 	}
 	// Area削除は子ごと。workspaceも一緒に消える。
-	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/"+project+"/areas/"+main, ""); response.Code != http.StatusNoContent {
+	if response := do(t, fixture.handler, http.MethodDelete, base+"/projects/"+project+"/areas?path="+main, ""); response.Code != http.StatusNoContent {
 		t.Fatalf("delete area: %d", response.Code)
 	}
 	response = do(t, fixture.handler, http.MethodGet, base+"/projects", "")

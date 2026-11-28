@@ -115,7 +115,7 @@ function LeafEmpty(props: { leafId: string }): JSX.Element {
       onClick={(event) => {
         event.stopPropagation();
         // 空区画の「+」はtitleの「+」と同じpickerを開き、足し先をこの区画にする
-        area.shell.openPicker(area, { region: "leaf", leafId: props.leafId, index: -1 }, event.currentTarget);
+        area.app.openPicker(area, { region: "leaf", leafId: props.leafId, index: -1 }, event.currentTarget);
       }}
     >
       <IconPlus />

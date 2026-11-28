@@ -3,7 +3,7 @@
 // localStorageが使えない環境でも落ちないよう、読み書きはtry/catchで包む。
 export type ThemeMode = "system" | "light" | "dark";
 
-export interface ShellPrefs {
+export interface AppPrefs {
   // Area list（左の列）の開閉と幅。
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -34,9 +34,9 @@ export interface ShellPrefs {
   monoFont: string;
 }
 
-const KEY = "plugumi:shell:prefs";
+const KEY = "plugumi:app:prefs";
 
-const defaults = (): ShellPrefs => ({
+const defaults = (): AppPrefs => ({
   sidebarOpen: true,
   sidebarWidth: 260,
   subOpen: false,
@@ -64,7 +64,7 @@ const clampPercent = (value: unknown, min: number, max: number, fallback: number
     : fallback;
 
 // 形が合わないフィールドだけ既定に戻す。キー全体が壊れていれば全既定。
-export function loadPrefs(): ShellPrefs {
+export function loadPrefs(): AppPrefs {
   const base = defaults();
   let raw: unknown;
   try {
@@ -100,7 +100,7 @@ export function loadPrefs(): ShellPrefs {
   };
 }
 
-export function savePrefs(prefs: ShellPrefs): void {
+export function savePrefs(prefs: AppPrefs): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(prefs));
   } catch {

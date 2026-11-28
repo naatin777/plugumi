@@ -3,7 +3,7 @@
 // @font-faceだけはshadow内では登録できないためdocumentへ出し、
 // rid+shaで共有する。共有分は参照カウントで管理し、その登録の
 // Instanceが全て閉じたら外す。
-import type { PluginPanelEntry, ShellHost } from "../host.tsx";
+import type { PluginPanelEntry, Host } from "../host.tsx";
 
 // 1回のmountで用意するstyle。sheetは呼び側がshadow rootへadoptし、
 // releaseは@font-faceの共有参照を手放す。
@@ -22,7 +22,7 @@ interface FontFaces {
 const installed = new Map<string, FontFaces>();
 
 async function fetchText(
-  host: ShellHost, coreKey: string, panel: PluginPanelEntry,
+  host: Host, coreKey: string, panel: PluginPanelEntry,
 ): Promise<string> {
   const parts: string[] = [];
   for (const path of panel.styles ?? []) {
@@ -63,7 +63,7 @@ function splitFontFaces(registrationId: string, text: string): {
 // その登録のstyleを用意して、shadowへadoptするsheetと、@font-faceの
 // 共有参照を手放すreleaseを返す。
 export async function acquirePanelStyles(
-  host: ShellHost, coreKey: string, panel: PluginPanelEntry,
+  host: Host, coreKey: string, panel: PluginPanelEntry,
 ): Promise<PanelStyles> {
   const { sheet, fontFaces } = splitFontFaces(
     panel.registrationId,

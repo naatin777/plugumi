@@ -6,16 +6,16 @@
      sidebar列の端に揃える（sidebarがtool群より狭い時だけtool群が優先）。
      右端は窓の端 — 右列はmatの中の列なので揃える対象はtool群だけ。
      data-partで拾う（classはcomponentごとのものなのでここからは触れない）。 */
-  [data-part="shell"] {
+  [data-part="app"] {
     /* env(titlebar-area-*)を読むのはここだけ（envは1箇所で変数へ
        読み替えるのが公式の推奨形）。fallbackはenv未対応の表示向け。
        inset-right = 窓の右端からtitlebar area右端までの距離
        （macならtraffic lightが占める幅）。 */
     --titlebar-x: env(titlebar-area-x, var(--os-inset-x, 0px));
     --titlebar-h: env(titlebar-area-height, var(--os-inset-height, 40px));
-    --titlebar-w: env(titlebar-area-width, var(--os-inset-width, var(--shell-viewport, 100vw)));
+    --titlebar-w: env(titlebar-area-width, var(--os-inset-width, var(--app-viewport, 100vw)));
     --titlebar-inset-right: calc(
-      var(--shell-viewport, 100vw) - var(--titlebar-x) - var(--titlebar-w));
+      var(--app-viewport, 100vw) - var(--titlebar-x) - var(--titlebar-w));
     /* tool群の端は中身の自然幅で決まる。列の開閉（--side-width）には
        追従しない — sidebarを動かしてもtitleの区画は動かない。 */
     --title-left: calc(var(--titlebar-x) + var(--title-tools-left));
@@ -27,17 +27,17 @@
      ための見えない区画で、列の区切りは境界線（.col-divider）だけ。 ---- */
   /* title帯の下端は全幅の横線。縦の境界線はこの線とstatus帯上の線の
      間だけを通る。 */
-  .work-title {
+  .titlebar {
     position: relative;
     app-region: drag;
     -webkit-app-region: drag;
     border-bottom: 1px solid var(--plugumi-colors-border);
   }
-  .work-title .title-tools { app-region: drag; -webkit-app-region: drag; }
-  .work-title .work-segment { app-region: drag; -webkit-app-region: drag; }
+  .titlebar .title-tools { app-region: drag; -webkit-app-region: drag; }
+  .titlebar .titlebar-segment { app-region: drag; -webkit-app-region: drag; }
   /* 帯は全体drag、中の操作・popoverだけno-drag（segment区画ごと
      no-dragにすると帯の大半が掴めなくなる）。 */
-  .work-title :is(button, a, input, [popovertarget], [popover]) {
+  .titlebar :is(button, a, input, [popovertarget], [popover]) {
     app-region: no-drag; -webkit-app-region: no-drag;
   }
 
@@ -54,16 +54,16 @@
   }
   /* tool群は内側をbarの端（=--title-left/right）まで伸ばすが、
      中身の自然幅（min-width:max-content）を下限として割り込まない。
-     --title-tools-*にはwork-shapeが実測footprintを書くので、
+     --title-tools-*にはapp-shapeが実測footprintを書くので、
      bar側のmax()も実幅に追従する。 */
   .title-tools[data-edge="left"] {
-    left: calc(var(--titlebar-x) + var(--work-gap));
-    width: calc(var(--title-left) - var(--titlebar-x) - var(--work-gap));
+    left: calc(var(--titlebar-x) + var(--app-gap));
+    width: calc(var(--title-left) - var(--titlebar-x) - var(--app-gap));
     min-width: max-content;
   }
   .title-tools[data-edge="right"] {
-    right: calc(var(--titlebar-inset-right) + var(--work-gap));
-    width: calc(var(--title-right) - var(--titlebar-inset-right) - var(--work-gap));
+    right: calc(var(--titlebar-inset-right) + var(--app-gap));
+    width: calc(var(--title-right) - var(--titlebar-inset-right) - var(--app-gap));
     min-width: max-content;
     justify-content: flex-end;
   }
@@ -77,7 +77,7 @@
 
   /* segmentはtool群の間の見えない区画。下はbodyのpaddingが溝になるので
      行の下端まで伸ばす。 */
-  .work-segment {
+  .titlebar-segment {
     position: absolute;
     top: 0; bottom: 0;
     display: flex; align-items: center;
@@ -88,7 +88,7 @@
     overflow: clip;
   }
   /* Mainのsegmentは左右のtool群の間。列の開閉には追従しない。 */
-  .work-segment[data-slot="main"] {
+  .titlebar-segment[data-slot="main"] {
     left: calc(var(--title-left));
     right: var(--title-right);
     min-width: 0;
@@ -98,7 +98,7 @@
      幅0に畳まれる。溝はgapではなく領域のmarginで作る — gapは
      常時発生して空きレーンになるが、marginは閉じた側で0に畳め、
      しかもtransitionできるため。上下のpaddingはタイルの周りの溝。 */
-  .work-body {
+  .app-body {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     /* 行をautoにすると中身の高さで行が伸び、全列がbodyをはみ出す。
@@ -113,7 +113,7 @@
   }
   /* 列自体はasideの幅に追従。閉じると--side-widthが0になって消える。
      面は枠・溝の無い平らなframe色で、区切りは境界線だけ。 */
-  .frame-side {
+  .area-list {
     position: relative;
     box-sizing: border-box;
     min-width: 0;
@@ -132,7 +132,7 @@
   }
   /* 閉じた姿はpaneがshellのclipの外（左）へはみ出した状態。focusが
      画面外へ取り残されないよう、アニメ後にvisibilityで隔てる。 */
-  .frame-side[data-closed] {
+  .area-list[data-closed] {
     visibility: hidden;
     pointer-events: none;
     transition: visibility 0s var(--plugumi-motion-duration-md);
@@ -140,24 +140,24 @@
   /* resizerの表示・帯の配置はresizer.cssが持つ（resizer自身に
      効く規則はlayerを揃えるためそこへ集約）。drag中は変数transitionを
      切る — 値が毎move更新されるとアニメがポインタに遅れて追従する。 */
-  .frame-side:has(> [data-part="resizer"][data-dragging]) {
+  .area-list:has(> [data-part="resizer"][data-dragging]) {
     transition: none;
   }
 
-  .work-mat {
+  .mat {
     min-width: 0; min-height: 0;
     position: relative;
     /* [AreaView(main) flex:1 | Resizer | sub-pane(--sub-width)]。 */
     display: flex;
     overflow: clip;
   }
-  .work-mat > [data-part="area-view"] { flex: 1; min-width: 0; }
+  .mat > [data-part="area-view"] { flex: 1; min-width: 0; }
 
   /* scrim — Sub・Area listのdrawerが開いている間、作業域全体（app bar
      下の線〜status bar上の線）を暗くする薄い幕。台(sub-pane・
-     frame-side)のすぐ下、col-dividerの上（線は一緒に暗くなる）。
+     area-list)のすぐ下、col-dividerの上（線は一緒に暗くなる）。
      pointerは通す（閉じるのは今の外click判定のまま）。 */
-  .shell-scrim {
+  .app-scrim {
     position: absolute;
     left: 0; right: 0;
     top: var(--titlebar-h);
@@ -170,7 +170,7 @@
   }
   /* visibilityの遅延は閉じる側にだけ書く — base側に書くと開くときも
      hiddenのまま遷移が進み、最後に一気に暗く見える。 */
-  .shell-scrim[data-closed] {
+  .app-scrim[data-closed] {
     opacity: 0;
     visibility: hidden;
     transition: opacity var(--plugumi-motion-duration-md) ease,
@@ -179,16 +179,16 @@
 
   /* <800px: Area listもdrawer — title barの下からstatus帯の上まで、
      左から重ねる。abs-posでもauto-placementの枠を消費するので、
-     matは明示的に全列を使う（frame-side側のauto列は0になる）。 */
-  [data-part="shell"][data-size="compact"] .work-mat { grid-column: 1 / -1; grid-row: 1; }
-  [data-part="shell"][data-size="compact"] .frame-side {
+     matは明示的に全列を使う（area-list側のauto列は0になる）。 */
+  [data-part="app"][data-size="compact"] .mat { grid-column: 1 / -1; grid-row: 1; }
+  [data-part="app"][data-size="compact"] .area-list {
     position: absolute;
     /* drawerはtransformで滑らせるのでinline用の負marginは引かない。 */
     margin-left: 0;
     /* 画面左端にぴったりの四角い不透明の「台」。
        上下はapp bar下の線〜status帯上の線、右辺にだけ1px線。 */
     box-shadow: none;
-    background: var(--shell-frame-color);
+    background: var(--app-frame-color);
     border-right: 1px solid var(--plugumi-colors-border);
     box-sizing: border-box;
     left: 0;
@@ -199,7 +199,7 @@
     visibility: visible;
     transition: transform var(--plugumi-motion-duration-md) ease, visibility 0s;
   }
-  [data-part="shell"][data-size="compact"] .frame-side[data-closed] {
+  [data-part="app"][data-size="compact"] .area-list[data-closed] {
     transform: translateX(calc(-100% - 16px));
     visibility: hidden;
     transition: transform var(--plugumi-motion-duration-md) ease,

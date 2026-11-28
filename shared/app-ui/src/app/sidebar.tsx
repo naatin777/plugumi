@@ -9,7 +9,7 @@ import type { JSX } from "@solidjs/web";
 import { useHref, useNavigate } from "@solidjs/router";
 import type { ListSlot, FlatArea } from "../layout/area-list.ts";
 import { detachedAreas, mainAreas, pathKey, selectSub, subAreas, toDetach, toMain, toSub } from "../layout/area-list.ts";
-import { useShell } from "./controller.tsx";
+import { useApp } from "./controller.tsx";
 import { openPopover } from "./popover.ts";
 import { NameForm, ConfirmButton } from "./inline.tsx";
 import { Resizer } from "./resizer.tsx";
@@ -23,20 +23,20 @@ const closePopover = (event: MouseEvent) => {
 };
 
 export function SidebarView(): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   return (
     <>
       {/* 列の幅のresizer（溝を掴む）。 */}
       <Resizer
         axis="x"
         direction={1}
-        value={() => shell.prefs().sidebarWidth}
+        value={() => app.prefs().sidebarWidth}
         apply={(size) => {
           // drawerでも同じsidebarWidthを共有する。上限はdrawerの上限
           // （画面幅の85%）でclampし、越えた値は保存しない。
-          const max = shell.sideDrawerMode() ? 0.85 * innerWidth : 640;
+          const max = app.sideDrawerMode() ? 0.85 * innerWidth : 640;
           const clamped = Math.min(max, Math.max(120, size));
-          shell.updatePrefs((prefs) => {
+          app.updatePrefs((prefs) => {
             prefs.sidebarWidth = clamped;
           });
         }}
@@ -53,7 +53,7 @@ export function SidebarView(): JSX.Element {
 
 // 上部のProject切替。押すとProject一覧のpopover。
 function ProjectSwitcher(): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   const navigate = useNavigate();
   const [adding, setAdding] = createSignal(false);
   let menu!: HTMLDivElement;
@@ -67,18 +67,18 @@ function ProjectSwitcher(): JSX.Element {
         }}
       >
         <span class={"project-switcher-name"}>
-          {shell.projectTree()?.title ?? shell.project()}
+          {app.projectTree()?.title ?? app.project()}
         </span>
         <IconChevronRight size={12} />
       </button>
       <div class={`plugumi-list ${"project-menu"}`} data-part="popover" popover="auto" ref={menu}>
-        <For each={shell.projects()}>
+        <For each={app.projects()}>
           {(item) => (
             <button
-              class={{ "plugumi-list-item": true, "plugumi-list-item--selected": item.key === shell.project() }}
+              class={{ "plugumi-list-item": true, "plugumi-list-item--selected": item.key === app.project() }}
               onClick={(event) => {
                 closePopover(event);
-                navigate(`/${shell.coreKey()}/${item.key}/`);
+                navigate(`/${app.coreKey()}/${item.key}/`);
               }}
             >
               {item.title}
@@ -96,7 +96,7 @@ function ProjectSwitcher(): JSX.Element {
           <NameForm
             label="Project名"
             submit={async (name) => {
-              await shell.createProject(name);
+              await app.createProject(name);
               closePopover({ currentTarget: menu } as unknown as MouseEvent);
             }}
             cancel={() => setAdding(false)}
@@ -111,14 +111,14 @@ function ProjectSwitcher(): JSX.Element {
 // Main = sub/detachedに無い全Area（tree順・入れ子はインデント）、
 // Sub = subの順、Detach = detachedの順。
 function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
-  const shell = useShell();
-  const areas = () => shell.projectTree()?.areas ?? [];
+  const app = useApp();
+  const areas = () => app.projectTree()?.areas ?? [];
   const entries = () =>
     props.slot === "main"
-      ? mainAreas(shell.areaList(), areas())
+      ? mainAreas(app.areaList(), areas())
       : props.slot === "sub"
-        ? subAreas(shell.areaList(), areas())
-        : detachedAreas(shell.areaList(), areas());
+        ? subAreas(app.areaList(), areas())
+        : detachedAreas(app.areaList(), areas());
   const emptyLabel = () =>
     props.slot === "main" ? "Areaがありません"
       : props.slot === "sub" ? "Subに移したAreaはありません"
@@ -126,7 +126,7 @@ function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
   return (
     // Detach節はwindowを開ける環境（Electron）かdetach済みのAreaが
     // あるときだけ出す — webで空のまま残しても辿れない。
-    <Show when={props.slot !== "detach" || shell.host.windows !== null || entries().length > 0}>
+    <Show when={props.slot !== "detach" || app.host.windows !== null || entries().length > 0}>
       <section class={`plugumi-list ${"area-slot"}`}>
         <p class={"nav-label"}>{props.label}</p>
         <Show when={entries().length === 0}>
@@ -147,20 +147,20 @@ const samePath = (a: string[] | undefined, b: string[]) =>
 // Area1行。clickでMainはURL移動・Subは選択・Detachは別windowを開く。
 // prop名はrefにしない — refはJSXの予約属性で、転送の対象になる。
 function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   const navigate = useNavigate();
   const key = () => pathKey(props.area.path);
   const title = () => props.area.title;
   const href = useHref(() =>
-    `/${shell.coreKey()}/${shell.project()}/` +
+    `/${app.coreKey()}/${app.project()}/` +
     `${props.area.path.map(encodeURIComponent).join("/")}/`);
   // 強調は「そのAreaが実際にそのslotに出ているか」で決める。
   // MainはURL（areaPath）が正本。Detachはwindowの有無を追わないので
   // 常に未選択。
   const selected = () =>
     props.slot === "main"
-      ? samePath(shell.areaPath(), props.area.path)
-      : props.slot === "sub" && shell.areaList().selectedSub === key();
+      ? samePath(app.areaPath(), props.area.path)
+      : props.slot === "sub" && app.areaList().selectedSub === key();
   const [addingChild, setAddingChild] = createSignal(false);
 
   const open = (event: MouseEvent) => {
@@ -170,37 +170,37 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
       return;
     }
     if (props.slot === "detach") {
-      const windows = shell.host.windows;
+      const windows = app.host.windows;
       if (windows) windows.open(`${href()}?window=detached`);
       else navigate(href()); // bridgeが無い環境ではMain表示にフォールバック
       return;
     }
-    shell.applyAreaList((state) => selectSub(state, key()));
-    shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+    app.applyAreaList((state) => selectSub(state, key()));
+    app.updatePrefs((prefs) => { prefs.subOpen = true; });
   };
 
   const moveToMain = (event: MouseEvent) => {
     closePopover(event);
-    shell.applyAreaList((state) => toMain(state, key()));
+    app.applyAreaList((state) => toMain(state, key()));
     navigate(href());
   };
 
   const moveToSub = (event: MouseEvent) => {
     closePopover(event);
-    shell.applyAreaList((state) => toSub(state, key()));
-    shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+    app.applyAreaList((state) => toSub(state, key()));
+    app.updatePrefs((prefs) => { prefs.subOpen = true; });
   };
 
   const moveToDetach = (windows: { open(path: string): void }) => (event: MouseEvent) => {
     closePopover(event);
-    shell.applyAreaList((state) => toDetach(state, key()));
+    app.applyAreaList((state) => toDetach(state, key()));
     windows.open(`${href()}?window=detached`);
   };
 
   const remove = () => {
     // URLが指しているArea（またはその祖先）を消すとURLが無効になるので
     // 先に入口へ戻す（controller.removeAreaも同じ判定を持つ）。
-    void shell.removeArea(shell.project(), props.area.path);
+    void app.removeArea(app.project(), props.area.path);
   };
 
   let menu!: HTMLDivElement;
@@ -234,8 +234,8 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
               Subへ
             </button>
           </Show>
-          {/* detachはElectronのみ（host.windowsがnullなら出さない）。 */}
-          <Show when={props.slot !== "detach" && shell.host.windows}>
+          {/* detachはElectronのみ（app.windowsがnullなら出さない）。 */}
+          <Show when={props.slot !== "detach" && app.host.windows}>
             {(windows) => (
               <button class="plugumi-list-item" onClick={moveToDetach(windows())}>
                 別windowで開く
@@ -269,7 +269,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
           <NameForm
             label={`「${title()}」の子Area名`}
             submit={async (child) => {
-              await shell.createArea(shell.project(), props.area.path, child);
+              await app.createArea(app.project(), props.area.path, child);
               setAddingChild(false);
             }}
             cancel={() => setAddingChild(false)}
@@ -283,7 +283,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
 // 「＋ Areaを追加」= 新しいAreaの作成（parentはProject直下）。
 // Subの「＋」で作ったAreaはそのままSubへ入れる。
 function AreaCreate(props: { slot: ListSlot; parent: string[] }): JSX.Element {
-  const shell = useShell();
+  const app = useApp();
   const navigate = useNavigate();
   const [adding, setAdding] = createSignal(false);
   return (
@@ -298,15 +298,15 @@ function AreaCreate(props: { slot: ListSlot; parent: string[] }): JSX.Element {
       <NameForm
         label="Area名"
         submit={async (title) => {
-          const key = await shell.createArea(shell.project(), props.parent, title);
+          const key = await app.createArea(app.project(), props.parent, title);
           const placement = pathKey([key]);
-          const path = `/${shell.coreKey()}/${shell.project()}/${encodeURIComponent(key)}/`;
+          const path = `/${app.coreKey()}/${app.project()}/${encodeURIComponent(key)}/`;
           if (props.slot === "sub") {
-            shell.applyAreaList((state) => toSub(state, placement));
-            shell.updatePrefs((prefs) => { prefs.subOpen = true; });
+            app.applyAreaList((state) => toSub(state, placement));
+            app.updatePrefs((prefs) => { prefs.subOpen = true; });
           } else if (props.slot === "detach") {
-            shell.applyAreaList((state) => toDetach(state, placement));
-            shell.host.windows?.open(`${path}?window=detached`);
+            app.applyAreaList((state) => toDetach(state, placement));
+            app.host.windows?.open(`${path}?window=detached`);
           } else {
             navigate(path);
           }
