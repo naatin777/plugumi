@@ -239,3 +239,14 @@
   cursor: pointer;
 }
 .plugumi-tab-close:hover { background: var(--plugumi-colors-fill-strong); }
+
+/* ---- list ----
+   list itemを縦に並べるcontainer。左右の息（padding-inline）と
+   item間のgapはここが持つ — itemは中でflushに並ぶ。
+   menu popover・sidebar・navなど文脈を問わず使う。 */
+.plugumi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--plugumi-spacing-xs);
+}

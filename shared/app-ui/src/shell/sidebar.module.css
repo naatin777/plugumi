@@ -46,12 +46,8 @@
 
   /* ---- Main/Subセクション（Areaの一覧） ---- */
   .area-slot {
-    display: flex; flex-direction: column;
-    gap: 2px;
     border-top: 1px solid var(--plugumi-colors-border);
     padding-top: var(--plugumi-spacing-sm);
-    /* list itemがsidebarの縁に吸い付かないよう、左右に息を入れる。 */
-    padding-inline: var(--plugumi-spacing-xs);
   }
   .nav-label {
     margin: 0 0 var(--plugumi-spacing-xs);
@@ -75,7 +71,6 @@
   .area-menu-button:hover { background: var(--plugumi-colors-background-tertiary); color: var(--plugumi-colors-text); }
 
   .area-menu {
-    padding: var(--plugumi-spacing-xs);
     border: 1px solid var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-md);
     background: var(--plugumi-colors-background-tertiary);

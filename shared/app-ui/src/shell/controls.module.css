@@ -56,7 +56,6 @@
 
   .core-menu, .panel-picker {
     min-width: 200px; max-width: 280px;
-    padding: var(--plugumi-spacing-xs);
     border: 1px solid var(--plugumi-colors-border);
     border-radius: var(--plugumi-radii-lg);
     background: var(--plugumi-colors-background-tertiary);

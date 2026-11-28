@@ -71,7 +71,7 @@ function ProjectSwitcher(): JSX.Element {
         </span>
         <IconChevronRight size={12} />
       </button>
-      <div class={styles["project-menu"]} data-part="popover" popover="auto" ref={menu}>
+      <div class={`plugumi-list ${styles["project-menu"]}`} data-part="popover" popover="auto" ref={menu}>
         <For each={shell.projects()}>
           {(item) => (
             <button
@@ -127,7 +127,7 @@ function AreaSlot(props: { slot: ListSlot; label: string }): JSX.Element {
     // Detach節はwindowを開ける環境（Electron）かdetach済みのAreaが
     // あるときだけ出す — webで空のまま残しても辿れない。
     <Show when={props.slot !== "detach" || shell.host.windows !== null || entries().length > 0}>
-      <section class={styles["area-slot"]}>
+      <section class={`plugumi-list ${styles["area-slot"]}`}>
         <p class={styles["nav-label"]}>{props.label}</p>
         <Show when={entries().length === 0}>
           <p class={styles["nav-empty"]}>{emptyLabel()}</p>
@@ -222,7 +222,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
         >
           …
         </button>
-        <div class={styles["area-menu"]} data-part="popover" popover="auto" ref={menu}>
+        <div class={`plugumi-list ${styles["area-menu"]}`} data-part="popover" popover="auto" ref={menu}>
           {/* 配置の移動はMain/Sub/Detachの3方向。自分のslotは出さない。 */}
           <Show when={props.slot !== "main"}>
             <button class="plugumi-list-item" onClick={moveToMain}>
