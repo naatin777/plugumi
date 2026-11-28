@@ -1,5 +1,5 @@
 // Package corerpc は呼び出し専用のWS接続（registrationIdを付けない
-// /v1/rpc）でtools.callを送る（contracts/00004）。
+// /v1/rpc）でoperations.invokeを送る（contracts/00004）。
 // 接続はCoreごとに1本を使い回し、切れたら次の呼び出しで張り直す。
 package corerpc
 
@@ -78,8 +78,23 @@ type Client struct {
 	pending map[string]chan callResult
 }
 
-// Call はsync Toolを呼んでresultを返す。JSON-RPC errorは*Errorで返す。
-func (c *Client) Call(ctx context.Context, registrationID, toolPath string, input json.RawMessage) (json.RawMessage, *Error, error) {
+// Execution はoperations.invokeの応答に含まれる実行record。
+// terminal応答のoperationはstatusがsucceeded/failedでresultやerrorを持つ。
+type Execution struct {
+	ID        string          `json:"id"`
+	Operation string          `json:"operation"`
+	Status    string          `json:"status"`
+	Result    json.RawMessage `json:"result,omitempty"`
+	Error     *struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
+// Invoke はoperationを呼んで応答のExecutionを返す。JSON-RPC errorは*Errorで返す。
+// operationはpathだけで解決し、登録先の指定やkindの概念はない（contracts/00004）。
+// runningで返るstream系operationの終端追跡はこのClientでは行わない。
+func (c *Client) Invoke(ctx context.Context, operation string, input json.RawMessage) (*Execution, *Error, error) {
 	socket, err := c.connection(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -96,10 +111,10 @@ func (c *Client) Call(ctx context.Context, registrationID, toolPath string, inpu
 		c.mu.Unlock()
 	}()
 	request, err := json.Marshal(rpcRequest{
-		JSONRPC: "2.0", ID: id, Method: "tools.call",
+		JSONRPC: "2.0", ID: id, Method: "operations.invoke",
 		Params: map[string]any{
-			"target": map[string]string{"registrationId": registrationID, "toolPath": toolPath},
-			"input":  input,
+			"operation": operation,
+			"input":     input,
 		},
 	})
 	if err != nil {
@@ -111,7 +126,16 @@ func (c *Client) Call(ctx context.Context, registrationID, toolPath string, inpu
 	}
 	select {
 	case result := <-waiting:
-		return result.result, result.err, nil
+		if result.err != nil {
+			return nil, result.err, nil
+		}
+		var invocation struct {
+			Execution *Execution `json:"execution"`
+		}
+		if err := json.Unmarshal(result.result, &invocation); err != nil || invocation.Execution == nil {
+			return nil, nil, fmt.Errorf("invalid invoke response: %s", result.result)
+		}
+		return invocation.Execution, nil, nil
 	case <-ctx.Done():
 		return nil, nil, ctx.Err()
 	}
@@ -155,7 +179,8 @@ func (c *Client) connection(ctx context.Context) (*websocket.Conn, error) {
 }
 
 // readLoop はResponseをpendingへ振り分ける。Notificationは呼び出し専用接続では
-// 読み捨てる（async ToolはWeb UIから呼ばない）。切断時は待機中の呼び出しを全て失敗させる。
+// 読み捨てる（executions.eventの自動pushはここでは使わない）。
+// 切断時は待機中の呼び出しを全て失敗させる。
 func (c *Client) readLoop(socket *websocket.Conn) {
 	for {
 		_, data, err := socket.Read(context.Background())

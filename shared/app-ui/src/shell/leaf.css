@@ -1,0 +1,60 @@
+/* leaf — 「tab帯＋中身」の1枚のカード。scrollのleafも1枚で、
+   列はその中に並ぶ。 */
+@layer layout {
+
+  .leaf {
+    position: relative;
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    min-width: 0; min-height: 0;
+    border: 1px solid var(--plugumi-colors-border);
+    /* カードは4角とも丸い独立タイル。splitの内側だから角を落とす、
+       という段階はない。 */
+    border-radius: var(--plugumi-radii-lg);
+    background: transparent;
+    overflow: clip;
+    overflow-clip-margin: 8px;
+  }
+  /* surface — panelの面（Layer 2の背景）。leafと別要素にすることで
+     maskの穴開けがコンテンツに影響しなくなる。absoluteで全面に
+     張り、後続の兄弟（strip・leaf-body）がpositionedなので
+     DOM順で自然に上に乗る。角はleafのoverflow clipが処理する。 */
+  .leaf-surface {
+    position: absolute; inset: 0; z-index: 0;
+    backdrop-filter: blur(12px) saturate(1.2);
+    /* leafのclipはoverflow-clip-marginで8px外まで許されるので、
+       四角いままだと角がleafの丸みの外に飛び出す。面自体も丸める。
+       （leafのborder分の1px差は無視できるスケール） */
+    border-radius: var(--plugumi-radii-lg);
+    /* 穴 — --hole-*が書き込まれるとそのrectだけblurが抜ける。
+       mask-composite: excludeは全面layerと穴layerのXOR。 */
+    mask:
+      linear-gradient(#000 0 0), /* token-check-ignore: maskのluminanceであって色ではない */
+      linear-gradient(#000 0 0); /* token-check-ignore: 同上 */
+    mask-position: 0 0, var(--hole-x, 0px) var(--hole-y, 0px);
+    mask-size: 100% 100%, var(--hole-w, 0px) var(--hole-h, 0px);
+    mask-repeat: no-repeat, no-repeat;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .leaf-body { flex: 1; min-width: 0; min-height: 0; position: relative; }
+  .leaf-empty {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    border: none;
+    background: transparent; color: var(--plugumi-colors-text-muted);
+    cursor: pointer;
+    /* 狭い葉で折り返して変な位置に出ないようにする。 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+@layer components {
+  /* focusedのleafの選択tabは文字色で区別する（線は使わない）。
+     .tabのcolorはcomponents層にあるので、ここもcomponents層で無いと
+     layout層からは必ず負ける。.focusedはleafのclassなのでこの
+     moduleのまま、tabはdata属性で拾う。 */
+  .leaf.focused [data-part="tab"][data-selected] {
+    color: var(--plugumi-colors-text-strong);
+  }
+}

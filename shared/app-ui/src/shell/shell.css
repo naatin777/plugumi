@@ -1,0 +1,153 @@
+/* Shellの骨格（designs/00005）。Panelの中身はShadow DOMで隔てられて
+   いるので、ここの規則はPanelへ届かず、Panelへ届くのはTokenと継承値
+   だけである。変数の既定値・@propertyの登録はstyles/layout.cssが持つ。 */
+@layer layout {
+
+  main.shell {
+    position: relative;
+    isolation: isolate;
+    /* hiddenだとscroll containerになり、画面外のdrawer内へfocusが
+       入るとブラウザがshell全体を横にscrollして中身がずれる。 */
+    overflow: clip;
+    display: grid;
+    grid-template-rows: var(--titlebar-h) 1fr 40px;
+    /* 登録済み変数の値が変わると補間される。これを参照する列幅・
+       margin・title barの端がまとめて滑る。drag中は遅延になるので
+       別途transitionを無効化する。 */
+    transition: --side-width var(--plugumi-motion-duration-md) ease,
+      --sub-width var(--plugumi-motion-duration-md) ease;
+    height: 100vh;
+    /* 窓が透過な宿主（Electronのvibrancy）ではデスクトップが見える。
+       濃度は--shell-frame-alpha（0で完全透過）。ブラウザ上では
+       このalphaの向こうに見えるものがないだけ。 */
+    background: color-mix(in oklab, var(--shell-frame-color) calc(var(--shell-frame-alpha, 0.6) * 100%), transparent);
+    color: var(--plugumi-colors-text);
+    font-family: var(--plugumi-font-family-sans);
+    font-size: var(--plugumi-font-size-sm);
+  }
+  /* Layer 0の床（decisions/00041）。aurora=虹色もやもや、image=ユーザー
+     の画像、none=要素ごと無し。膜（Layer 1）の加工はこの要素に焼き込む
+     — tintは最上background layerとして重ね、blurはsource側にかける。
+     backdrop-filterを全面に張ると毎frame合成が走るので、静止する床に
+     一度だけかける方が安い。Electronで床がデスクトップのときはOSの
+     vibrancyがblurを、shell本体のbackgroundがtintを担う。 */
+  main.shell::before {
+    content: "";
+    position: absolute; inset: -20%;
+    z-index: var(--plugumi-z-floor);
+    /* insetのoverscanはblurの縁の滲みを画面外へ逃がすため。 */
+    filter: blur(var(--membrane-blur, 80px));
+  }
+  main.shell[data-bg="none"]::before { display: none; }
+  /* 膜のtintはどの床でも最上layerに同じ式で乗る（線形gradientの単色）。 */
+  main.shell[data-bg="aurora"]::before {
+    /* alphaとsaturateの両方を--aurora-vividで増減する（0で無彩色）。 */
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--shell-frame-color) calc(var(--shell-frame-alpha, 0.6) * 100%), transparent) 0 0),
+      radial-gradient(45% 60% at 15% 20%, rgb(255 90 140 / calc(0.11 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(50% 55% at 85% 15%, rgb(80 130 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(45% 55% at 75% 85%, rgb(110 255 170 / calc(0.08 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(50% 50% at 25% 90%, rgb(190 90 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(40% 40% at 55% 50%, rgb(255 200 80 / calc(0.06 * var(--aurora-vivid))), transparent 70%); /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+    filter: blur(var(--membrane-blur, 80px)) saturate(calc(var(--aurora-vivid) * 1.05));
+    /* 名前はdocument全体で一意の契約（css-isolationがこの名前を数える）
+       ので、衝突しない名前のまま残す。 */
+    animation: shell-aurora 40s ease-in-out infinite alternate;
+  }
+  main.shell[data-bg="image"]::before {
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--shell-frame-color) calc(var(--shell-frame-alpha, 0.6) * 100%), transparent) 0 0),
+      var(--shell-bg-image, none);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+  @keyframes shell-aurora {
+    from { transform: translate3d(-3%, -2%, 0) scale(1); }
+    to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
+  }
+
+  /* 列の境界線。Area list|MainとMain|Subの2本だけ、title帯の上端から
+     status帯の上まで通す。閉じた側・drawerの側は出さない。 */
+  .col-divider {
+    position: absolute;
+    /* title帯下の線からstatus帯上の線まで。 */
+    top: var(--titlebar-h);
+    bottom: 40px;
+    width: 1px;
+    background: var(--plugumi-colors-border);
+    pointer-events: none;
+    display: none;
+    /* 列線はSubの台より上に描く（台は境界線に接して開く）。 */
+    z-index: var(--plugumi-z-divider);
+  }
+  main.shell[data-side] .col-divider[data-divider="side"] {
+    display: block;
+    left: var(--side-width);
+  }
+  main.shell[data-sub] .col-divider[data-divider="sub"] {
+    display: block;
+    right: var(--sub-width);
+  }
+  /* Sub列。wideではinlineの列で、開くとMainがflexで縮む（unmountしない）。
+     開閉は幅ではなく負marginで行う — pane自体の幅は常に--sub-raw-widthで
+     固定なので中身は潰れず再配置も起きない。margin-boxの幅は
+     （width + margin-right = --sub-width）で、--sub-widthが0→rawへ補間
+     されると台ごと右からslideして入るように見える。閉じた姿はpaneが
+     work-matのclipの外（右）へはみ出した状態。 */
+  .sub-pane {
+    flex: none;
+    display: flex;
+    width: var(--sub-raw-width, 480px);
+    margin-right: calc(var(--sub-width, 0px) - var(--sub-raw-width, 480px));
+    min-width: 0;
+    overflow: clip;
+    visibility: visible;
+    transition: visibility 0s;
+  }
+  .sub-pane[data-closed] {
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s var(--plugumi-motion-duration-md);
+  }
+  .sub-pane > [data-part="area-view"] { flex: 1; min-width: 0; }
+
+  /* resizerのdrag中は変数transitionを切る — 値が毎move更新されると
+     アニメがポインタに遅れて追従してしまう。 */
+  main.shell:has([data-part="resizer"][data-dragging]) { transition: none; }
+  [data-part="main-slot"]:has(> [data-part="resizer"][data-dragging])
+      > [data-part="sub-slot"] {
+    transition: none;
+  }
+
+  /* <1100px: Subはdrawer — work-matの右端からMainの上に重ねる。
+     幅の値はinlineと共有し、marginではなくtransformで画面外へ逃がす。 */
+  main.shell:is([data-size="medium"], [data-size="compact"]) .sub-pane {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: min(var(--sub-raw-width, 480px), 90%);
+    margin-right: 0;
+    z-index: var(--plugumi-z-sub-drawer);
+    box-sizing: border-box;
+    /* 端にぴったりの四角い不透明の「台」で、
+       center側の辺にだけ1px線。影・角丸・blurは付けない。 */
+    box-shadow: none;
+    background: var(--shell-frame-color);
+    border-left: 1px solid var(--plugumi-colors-border);
+    transition: transform var(--plugumi-motion-duration-md) ease, visibility 0s;
+  }
+  main.shell:is([data-size="medium"], [data-size="compact"])
+      .sub-pane[data-closed] {
+    transform: translateX(calc(100% + 16px));
+    transition: transform var(--plugumi-motion-duration-md) ease,
+      visibility 0s var(--plugumi-motion-duration-md);
+  }
+
+  /* detached window: AreaView1個だけを全面に出す。 */
+  main.shell.detached {
+    grid-template-rows: var(--titlebar-h) minmax(0, 1fr);
+  }
+  main.shell.detached > [data-part="area-view"] {
+    margin: 0 var(--work-gap) var(--work-gap);
+  }
+}

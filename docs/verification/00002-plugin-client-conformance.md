@@ -9,7 +9,7 @@ relations:
     - '00004'
     - '00005'
   architecture:
-    - '00002'
+    - '00003'
   contract:
     - '00004'
   design:
@@ -20,18 +20,18 @@ relations:
 
 ## 対象と前提
 
-[採用した接続方針](../decisions/00012-plugin-initiated-connections.md)の合格条件と、[接続契約](../contracts/00004-plugin-client-protocol.md)・[新構成](../architecture/00002-plugin-client-system.md)で比較する方式の検証計画。草案の候補を試すシナリオが通っても、方式を採用したことにはならない。
+[採用した接続方針](../decisions/00012-plugin-initiated-connections.md)の合格条件と、[接続契約](../contracts/00004-plugin-client-protocol.md)・[現行構成](../architecture/00003-daemon-centric-workbench-platform.md)で比較する方式の検証計画。草案の候補を試すシナリオが通っても、方式を採用したことにはならない。
 
 [旧方式の検証](00001-core-plugin-mvp-conformance.md)を置き換える。
 
-最初は分離したloopback環境でCoreを起動する。用意するのは待受のないCLI Plugin、読み取り専用の購読クライアント、認可済みUI Host、文字列echoのoperationとPanel API。二つ目のCore、期限を短くできるテスト設定、接続を切れるテスト用Proxyを異常系で使う。テスト用資格情報と組織・実サービスの資格情報を共用しない。
+最初は分離したloopback環境でCoreを起動する。用意するのは待受のないCLI Plugin、読み取り専用の購読クライアント、認可済みUI App、文字列echoのoperationとPanel API。二つ目のCore、期限を短くできるテスト設定、接続を切れるテスト用Proxyを異常系で使う。テスト用資格情報と組織・実サービスの資格情報を共用しない。
 
 ## 最初の縦断テスト
 
 1. 購読側がSSEに接続し、`registry.reset` 後の空Snapshotを読む。CLI PluginはCore URLを指定されて登録する。購読側が `provider.added` を受け取る。Pluginは待受ソケットを作らず、CoreからPluginへの発信接続も発生しない。
 2. CLI PluginがRESTでechoのoperation宣言を登録し、後から変更する。購読側が `operations.changed` と新しいSnapshotを観測する。途中でSSEを切断して更新しても、再購読後に最新内容へ収束する。
 3. CLI Pluginが同じ認証主体・登録でWSを開く。呼び出し元が `operations.invoke` でoperation pathとinputを指定してechoを実行し、Coreがcontextから対象を解決して既存WSへ配送する。応答はterminal状態のExecutionとして結果を返す。Coreは別の対象を暗黙に選ばない。
-4. UI Hostで最小のPanelを表示する。Panel専用のecho操作をBridgeから呼び、Coreが同じPluginへ配送した結果をPanelに表示する。その操作はoperation catalogへ出ない。UI Hostを閉じてもPlugin自体の接続と他の呼び出し元は継続する。
+4. UI Appで最小のPanelを表示する。Panel専用のecho操作をBridgeから呼び、Coreが同じPluginへ配送した結果をPanelに表示する。その操作はoperation catalogへ出ない。UI Appを閉じてもPlugin自体の接続と他の呼び出し元は継続する。
 5. Pluginが登録を取り消す。購読側が `provider.removed` を受け、Snapshotから登録と宣言が消える。旧登録への呼び出しは失敗する。
 
 ## 適合シナリオと失敗条件

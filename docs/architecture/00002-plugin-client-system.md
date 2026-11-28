@@ -1,8 +1,8 @@
 ---
 type: architecture
 title: PluginからCoreへ接続するシステム構成
-description: Coreの接続・配送境界と、Web・Electron、UI Bundle、メディア、外部到達性の候補を示す。
-status: accepted
+description: Coreの接続・配送境界と、Web・Electron、UI Bundle、メディア、外部到達性の候補を示す旧構成。
+status: deprecated
 relations:
   architecture:
     - '00001'
@@ -16,9 +16,11 @@ relations:
     - '00004'
 ---
 
+> この文書は歴史資料である。現行のシステム構成の正本は[Architecture 00003](00003-daemon-centric-workbench-platform.md)。ここに残る接続方向や通信基盤の判断は、[Decision 00012](../decisions/00012-plugin-initiated-connections.md)と[Contract 00004](../contracts/00004-plugin-client-protocol.md)側で現行用語へ整理して引き継ぐ。特に「Web / ElectronもPlugin」という構成は廃止する。
+
 ## 合意済みの方針と責務
 
-旧[システム構成 00001](00001-system-structure.md)を置き換える。合意の範囲は[Decision 00012](../decisions/00012-plugin-initiated-connections.md)を正本とする。以降の構成図と通信例は実装済みの姿ではなく、PoCで比較する推奨案。
+旧[システム構成 00001](00001-system-structure.md)を置き換えた当時の構成である。接続方向の合意範囲は[Decision 00012](../decisions/00012-plugin-initiated-connections.md)を参照する。以降の構成図と通信例は、Web / ElectronをPluginとして扱っていた旧モデルの記録であり、現行のUI Appモデルへそのまま適用しない。
 
 | 構成要素 | 責務 | 担わないこと |
 |---|---|---|

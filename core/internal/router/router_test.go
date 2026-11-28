@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/naatin777/plugumi/core/internal/execution"
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/rpc"
 	"github.com/naatin777/plugumi/core/internal/wire"
@@ -30,7 +31,9 @@ func testConnection(t *testing.T) (*rpc.Connection, *websocket.Conn) {
 		t.Fatal(err)
 	}
 	connection := rpc.NewConnection(<-accepted, "test-")
-	t.Cleanup(func() { peer.CloseNow(); connection.Close() })
+	ctx, cancel := context.WithCancel(context.Background())
+	go connection.Run(ctx)
+	t.Cleanup(func() { cancel(); peer.CloseNow(); connection.Close() })
 	return connection, peer
 }
 
@@ -49,230 +52,239 @@ func readMessage(t *testing.T, connection *websocket.Conn) wire.Incoming {
 	return message
 }
 
-func TestCloseForwardsTerminalResult(t *testing.T) {
-	caller, callerPeer := testConnection(t)
-	target, targetPeer := testConnection(t)
-	router := New(nil)
-	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", accepted: true, requestWritten: true, ready: make(chan struct{}), dropped: make(chan struct{})}
-	close(route.ready)
-	router.routes[routeKey(target, route.TargetID)] = route
-	router.byCaller[routeKey(caller, route.CallerID)] = route
-
-	router.HandleCallerNotification(caller, &wire.Incoming{Params: wire.Marshal(wire.CallCloseParams{CallID: route.CallerID})})
-	forwarded := readMessage(t, targetPeer)
-	var closeParams wire.CallCloseParams
-	if err := wire.Unmarshal(forwarded.Params, &closeParams); err != nil || forwarded.Method != wire.MethodCallClose || string(closeParams.CallID) != string(route.TargetID) {
-		t.Fatalf("unexpected close: %+v", forwarded)
-	}
-	router.HandleTargetNotification(target, &wire.Incoming{Method: wire.MethodCallResult, Params: wire.Marshal(wire.CallResultParams{CallID: route.TargetID, Result: wire.Marshal("closed")})})
-	result := readMessage(t, callerPeer)
-	var resultParams wire.CallResultParams
-	if err := wire.Unmarshal(result.Params, &resultParams); err != nil || result.Method != wire.MethodCallResult || string(resultParams.CallID) != string(route.CallerID) || string(resultParams.Result) != `"closed"` {
-		t.Fatalf("unexpected result: %+v", result)
-	}
-	if len(router.routes) != 0 || len(router.byCaller) != 0 {
-		t.Fatal("terminal result did not remove route")
-	}
-}
-
-// call のrequest書き込み前に届いたcloseは、callの後に送られなければならない。
-// 先に届くとtargetは未知callIdのcloseを捨て、callが取消なしで実行される。
-func TestCloseBeforeForwardWriteWaitsForCallWrite(t *testing.T) {
-	caller, _ := testConnection(t)
-	target, targetPeer := testConnection(t)
-	callRouter := New(nil)
-	route := &Route{Caller: caller, CallerID: wire.Marshal("caller-id"), Target: target, TargetID: wire.Marshal("forward-id"), Kind: "async", ready: make(chan struct{}), dropped: make(chan struct{})}
-	callRouter.routes[routeKey(target, route.TargetID)] = route
-	callRouter.byCaller[routeKey(caller, route.CallerID)] = route
-	// coder/websocket は読み取り失敗後に再読み取りできないため、
-	// 受信は別goroutineで受け続ける。
-	received := make(chan wire.Incoming, 4)
-	go func() {
-		for {
-			_, data, err := targetPeer.Read(context.Background())
-			if err != nil {
-				return
-			}
-			var message wire.Incoming
-			if json.Unmarshal(data, &message) == nil {
-				received <- message
-			}
-		}
-	}()
-
-	callRouter.HandleCallerNotification(caller, &wire.Incoming{Params: wire.Marshal(wire.CallCloseParams{CallID: route.CallerID})})
-	// まだcloseは送られない。書き込み前に転送されるとcallより先に届く。
-	select {
-	case early := <-received:
-		t.Fatalf("close was forwarded before the call request was written: %+v", early)
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	callRouter.markRequestSent(route)
-	select {
-	case forwarded := <-received:
-		var closeParams wire.CallCloseParams
-		if err := wire.Unmarshal(forwarded.Params, &closeParams); err != nil || forwarded.Method != wire.MethodCallClose || string(closeParams.CallID) != string(route.TargetID) {
-			t.Fatalf("deferred close was not forwarded after the call write: %+v", forwarded)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("deferred close was not forwarded after the call write")
-	}
-}
-
-func TestCancelBeforeAcceptanceReportsUnknownWhenTargetDoesNotFinish(t *testing.T) {
-	caller, callerPeer := testConnection(t)
-	target, targetPeer := testConnection(t)
-	callRouter, registrationID := registerTarget(t, target, wire.ToolDeclaration{ToolPath: "ticks", Kind: "async"})
-	callRouter.cancelGrace = 20 * time.Millisecond
-	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
-		return callRouter.HandleCall(caller, message)
-	}
-	caller.OnNotification = func(message *wire.Incoming) { callRouter.DispatchNotification(caller, message) }
-	caller.OnResponded = func(id json.RawMessage) { callRouter.NotifyResponded(caller, id) }
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go caller.Run(ctx)
-	go target.Run(ctx)
-
-	callerID := wire.Marshal("caller-1")
-	writeMessage(t, callerPeer, wire.Request{JSONRPC: "2.0", ID: callerID, Method: wire.MethodCall,
-		Params: wire.Marshal(wire.CallParams{Target: wire.CallTarget{RegistrationID: registrationID, ToolPath: "ticks"}})})
-	forwarded := readMessage(t, targetPeer)
-	writeMessage(t, callerPeer, wire.Notification{JSONRPC: "2.0", Method: wire.MethodCallClose,
-		Params: wire.Marshal(wire.CallCloseParams{CallID: callerID})})
-	if forwardedClose := readMessage(t, targetPeer); forwardedClose.Method != wire.MethodCallClose {
-		t.Fatalf("unexpected cancellation: %+v", forwardedClose)
-	}
-	writeMessage(t, targetPeer, wire.Response{JSONRPC: "2.0", ID: forwarded.ID, Result: json.RawMessage(`{"accepted":true}`)})
-	if response := readMessage(t, callerPeer); string(response.ID) != string(callerID) || string(response.Result) != `{"accepted":true}` {
-		t.Fatalf("expected acceptance before terminal notification: %+v", response)
-	}
-	terminal := readMessage(t, callerPeer)
-	var result wire.CallResultParams
-	if err := wire.Unmarshal(terminal.Params, &result); err != nil || terminal.Method != wire.MethodCallResult ||
-		string(result.CallID) != string(callerID) || result.Error == nil || result.Error.Code != -32004 {
-		t.Fatalf("expected outcome unknown: %+v", terminal)
-	}
-	callRouter.mu.Lock()
-	routeCount := len(callRouter.routes) + len(callRouter.byCaller)
-	callRouter.mu.Unlock()
-	if routeCount != 0 {
-		t.Fatal("timed-out cancellation did not remove the route")
-	}
-	callRouter.HandleTargetNotification(target, &wire.Incoming{Method: wire.MethodCallResult,
-		Params: wire.Marshal(wire.CallResultParams{CallID: forwarded.ID, Result: wire.Marshal("too late")})})
-	callRouter.DropConnection(target)
-	if err := caller.Notify("test.marker", nil); err != nil {
-		t.Fatal(err)
-	}
-	if message := readMessage(t, callerPeer); message.Method != "test.marker" {
-		t.Fatalf("received another terminal result: %+v", message)
-	}
-}
-
 func writeMessage(t *testing.T, connection *websocket.Conn, message any) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := connection.Write(ctx, websocket.MessageText, wire.Marshal(message)); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func registerTarget(t *testing.T, target *rpc.Connection, tools ...wire.ToolDeclaration) (*Router, string) {
-	t.Helper()
-	pluginRegistry := registry.New("test-core")
-	lease, _, err := pluginRegistry.Create(wire.ProviderIdentity{ProviderID: "test-plugin", InstanceID: "instance"})
+	data, err := json.Marshal(message)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginRegistry.ReplaceTools(lease.RegistrationID, tools); err != nil {
+	if err := connection.Write(ctx, websocket.MessageText, data); err != nil {
 		t.Fatal(err)
 	}
-	reservation, err := pluginRegistry.ReserveConnection(lease.RegistrationID)
-	if err != nil || !reservation.Complete(target) {
-		t.Fatalf("failed to attach target: %v", err)
-	}
-	return New(pluginRegistry), lease.RegistrationID
 }
 
-func TestSyncOutputArrivesBeforeResponse(t *testing.T) {
-	caller, callerPeer := testConnection(t)
-	target, targetPeer := testConnection(t)
-	callRouter, registrationID := registerTarget(t, target, wire.ToolDeclaration{ToolPath: "echo", Kind: "sync"})
-	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
-		return callRouter.HandleCall(caller, message)
+// setupProvider はoperationを宣言し、接続済みのproviderをregistryへ登録する。
+func setupProvider(t *testing.T, reg *registry.Registry, connection *rpc.Connection, operations ...string) {
+	t.Helper()
+	lease, _, err := reg.Create(wire.ProviderIdentity{ProviderID: "test-provider", InstanceID: "instance"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	target.OnNotification = func(message *wire.Incoming) {
-		callRouter.DispatchNotification(target, message)
+	declarations := make([]wire.OperationDeclaration, 0, len(operations))
+	for _, path := range operations {
+		declarations = append(declarations, wire.OperationDeclaration{Path: path})
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go caller.Run(ctx)
-	go target.Run(ctx)
-
-	callerID := wire.Marshal("caller-1")
-	writeMessage(t, callerPeer, wire.Request{JSONRPC: "2.0", ID: callerID, Method: wire.MethodCall,
-		Params: wire.Marshal(wire.CallParams{Target: wire.CallTarget{RegistrationID: registrationID, ToolPath: "echo"}})})
-	forwarded := readMessage(t, targetPeer)
-	writeMessage(t, targetPeer, wire.Notification{JSONRPC: "2.0", Method: wire.MethodCallChunk,
-		Params: wire.Marshal(wire.CallChunkParams{CallID: forwarded.ID, Payload: wire.Marshal("step 1")})})
-	output := readMessage(t, callerPeer)
-	var params wire.CallChunkParams
-	if err := wire.Unmarshal(output.Params, &params); err != nil || output.Method != wire.MethodCallChunk || string(params.CallID) != string(callerID) {
-		t.Fatalf("途中出力が届かなかった: %+v", output)
+	if err := reg.ReplaceOperations(lease.RegistrationID, declarations); err != nil {
+		t.Fatal(err)
 	}
-
-	writeMessage(t, targetPeer, wire.Notification{JSONRPC: "2.0", Method: wire.MethodCallChunk,
-		Params: wire.Marshal(wire.CallChunkParams{CallID: forwarded.ID, Payload: wire.Marshal("step 2")})})
-	writeMessage(t, targetPeer, wire.Response{JSONRPC: "2.0", ID: forwarded.ID, Result: wire.Marshal("done")})
-	if output := readMessage(t, callerPeer); output.Method != wire.MethodCallChunk {
-		t.Fatalf("最終応答より先に最後の途中出力が届かなかった: %+v", output)
+	reservation, err := reg.ReserveConnection(lease.RegistrationID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if response := readMessage(t, callerPeer); string(response.ID) != string(callerID) || string(response.Result) != `"done"` {
-		t.Fatalf("最終応答が届かなかった: %+v", response)
+	if !reservation.Complete(connection) {
+		t.Fatal("could not attach provider connection")
+	}
+	if err := reg.SetReady(lease.RegistrationID); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestTargetDisconnectWaitsForAcceptanceResponse(t *testing.T) {
-	caller, callerPeer := testConnection(t)
-	target, targetPeer := testConnection(t)
-	callRouter, registrationID := registerTarget(t, target, wire.ToolDeclaration{ToolPath: "ticks", Kind: "async"})
-	caller.OnResponded = func(id json.RawMessage) { callRouter.NotifyResponded(caller, id) }
-	accepted, respond := make(chan struct{}), make(chan struct{})
-	caller.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
-		result, rpcError := callRouter.HandleCall(caller, message)
-		close(accepted)
-		select {
-		case <-respond:
-		case <-caller.Done():
-		}
-		return result, rpcError
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go caller.Run(ctx)
-	go target.Run(ctx)
+type invokeOutcome struct {
+	result json.RawMessage
+	rpcErr *wire.RPCError
+}
 
-	callerID := wire.Marshal("caller-1")
-	writeMessage(t, callerPeer, wire.Request{JSONRPC: "2.0", ID: callerID, Method: wire.MethodCall,
-		Params: wire.Marshal(wire.CallParams{Target: wire.CallTarget{RegistrationID: registrationID, ToolPath: "ticks"}})})
-	forwarded := readMessage(t, targetPeer)
-	writeMessage(t, targetPeer, wire.Response{JSONRPC: "2.0", ID: forwarded.ID, Result: json.RawMessage(`{"accepted":true}`)})
-	select {
-	case <-accepted:
-	case <-time.After(time.Second):
-		t.Fatal("受理されなかった")
+func invoke(t *testing.T, router *Router, caller *rpc.Connection, params wire.InvokeParams) chan invokeOutcome {
+	t.Helper()
+	outcome := make(chan invokeOutcome, 1)
+	go func() {
+		result, rpcErr := router.HandleInvoke(caller, &wire.Incoming{
+			Method: wire.MethodOperationsInvoke,
+			Params: wire.Marshal(params),
+		})
+		outcome <- invokeOutcome{result: result, rpcErr: rpcErr}
+	}()
+	return outcome
+}
+
+func parseExecution(t *testing.T, result json.RawMessage) *wire.Execution {
+	t.Helper()
+	var invokeResult wire.InvokeResult
+	if err := wire.Unmarshal(result, &invokeResult); err != nil || invokeResult.Execution == nil {
+		t.Fatalf("invoke result is not an execution: %s", result)
 	}
-	callRouter.DropConnection(target)
-	close(respond)
-	if response := readMessage(t, callerPeer); string(response.ID) != string(callerID) || string(response.Result) != `{"accepted":true}` {
-		t.Fatalf("終端通知より先に受理応答が届かなかった: %+v", response)
+	return invokeResult.Execution
+}
+
+func TestInvokeForwardsAndReturnsTerminalExecution(t *testing.T) {
+	reg := registry.New("test-core", "")
+	store := execution.NewStore()
+	r := New(reg, store)
+	caller, _ := testConnection(t)
+	provider, providerPeer := testConnection(t)
+	setupProvider(t, reg, provider, "test/echo")
+
+	outcome := invoke(t, r, caller, wire.InvokeParams{
+		Operation: "test/echo",
+		Input:     wire.Marshal(map[string]string{"text": "hello"}),
+	})
+
+	// provider側: 転送されたinvokeを読み、executionId付き・input引き継ぎを検証
+	forwarded := readMessage(t, providerPeer)
+	if forwarded.Method != wire.MethodOperationsInvoke {
+		t.Fatalf("unexpected method: %s", forwarded.Method)
 	}
-	terminal := readMessage(t, callerPeer)
-	var params wire.CallResultParams
-	if err := wire.Unmarshal(terminal.Params, &params); err != nil || terminal.Method != wire.MethodCallResult || string(params.CallID) != string(callerID) || params.Error == nil || params.Error.Code != -32000 {
-		t.Fatalf("対象切断の終端通知が届かなかった: %+v", terminal)
+	var forwardParams wire.ForwardInvokeParams
+	if err := wire.Unmarshal(forwarded.Params, &forwardParams); err != nil {
+		t.Fatal(err)
+	}
+	if forwardParams.ExecutionID == "" || forwardParams.Operation != "test/echo" {
+		t.Fatalf("unexpected forward params: %+v", forwardParams)
+	}
+	if string(forwardParams.Input) != `{"text":"hello"}` {
+		t.Fatalf("input not forwarded: %s", forwardParams.Input)
+	}
+
+	// terminal応答を返す
+	writeMessage(t, providerPeer, wire.Response{
+		JSONRPC: "2.0",
+		ID:      forwarded.ID,
+		Result: wire.Marshal(wire.ProviderInvokeResult{
+			Status: wire.ExecutionSucceeded,
+			Result: wire.Marshal(map[string]string{"echo": "hello"}),
+		}),
+	})
+
+	res := <-outcome
+	if res.rpcErr != nil {
+		t.Fatalf("invoke failed: %+v", res.rpcErr)
+	}
+	exec := parseExecution(t, res.result)
+	if exec.Status != wire.ExecutionSucceeded {
+		t.Fatalf("execution not succeeded: %+v", exec)
+	}
+	if exec.ID != forwardParams.ExecutionID {
+		t.Fatalf("execution id mismatch: %s vs %s", exec.ID, forwardParams.ExecutionID)
+	}
+	if string(exec.Result) != `{"echo":"hello"}` {
+		t.Fatalf("unexpected result: %s", exec.Result)
+	}
+
+	// storeにも終端が記録されている
+	stored, err := store.Get(exec.ID)
+	if err != nil || stored.Status != wire.ExecutionSucceeded {
+		t.Fatalf("stored execution: %+v, %v", stored, err)
+	}
+}
+
+func TestInvokeRunningThenTerminalEvent(t *testing.T) {
+	reg := registry.New("test-core", "")
+	store := execution.NewStore()
+	r := New(reg, store)
+	caller, _ := testConnection(t)
+	provider, providerPeer := testConnection(t)
+	setupProvider(t, reg, provider, "test/slow")
+
+	outcome := invoke(t, r, caller, wire.InvokeParams{Operation: "test/slow"})
+
+	forwarded := readMessage(t, providerPeer)
+	var forwardParams wire.ForwardInvokeParams
+	if err := wire.Unmarshal(forwarded.Params, &forwardParams); err != nil {
+		t.Fatal(err)
+	}
+	// running応答: callerにはrunningのexecutionが返る
+	writeMessage(t, providerPeer, wire.Response{
+		JSONRPC: "2.0",
+		ID:      forwarded.ID,
+		Result:  wire.Marshal(wire.ProviderInvokeResult{Status: wire.ExecutionRunning}),
+	})
+
+	res := <-outcome
+	exec := parseExecution(t, res.result)
+	if exec.Status != wire.ExecutionRunning {
+		t.Fatalf("execution should still be running: %+v", exec)
+	}
+
+	// progress event → progressが記録される
+	r.HandleOperationsEvent(provider, &wire.Incoming{
+		Method: wire.MethodOperationsEvent,
+		Params: wire.Marshal(wire.OperationsEventParams{
+			ExecutionID: forwardParams.ExecutionID,
+			Seq:         1,
+			Type:        "progress",
+			Payload:     wire.Marshal(map[string]int{"percent": 50}),
+		}),
+	})
+	stored, _ := store.Get(exec.ID)
+	if string(stored.Progress) != `{"percent":50}` {
+		t.Fatalf("progress not recorded: %s", stored.Progress)
+	}
+
+	// result event → succeededへ進む
+	r.HandleOperationsEvent(provider, &wire.Incoming{
+		Method: wire.MethodOperationsEvent,
+		Params: wire.Marshal(wire.OperationsEventParams{
+			ExecutionID: forwardParams.ExecutionID,
+			Seq:         2,
+			Type:        "result",
+			Payload:     wire.Marshal(map[string]string{"done": "yes"}),
+		}),
+	})
+	stored, _ = store.Get(exec.ID)
+	if stored.Status != wire.ExecutionSucceeded || string(stored.Result) != `{"done":"yes"}` {
+		t.Fatalf("execution not completed: %+v", stored)
+	}
+}
+
+func TestDropConnectionFailsInflightExecution(t *testing.T) {
+	reg := registry.New("test-core", "")
+	store := execution.NewStore()
+	r := New(reg, store)
+	caller, _ := testConnection(t)
+	provider, providerPeer := testConnection(t)
+	setupProvider(t, reg, provider, "test/slow")
+
+	outcome := invoke(t, r, caller, wire.InvokeParams{Operation: "test/slow"})
+
+	forwarded := readMessage(t, providerPeer)
+	var forwardParams wire.ForwardInvokeParams
+	if err := wire.Unmarshal(forwarded.Params, &forwardParams); err != nil {
+		t.Fatal(err)
+	}
+	writeMessage(t, providerPeer, wire.Response{
+		JSONRPC: "2.0",
+		ID:      forwarded.ID,
+		Result:  wire.Marshal(wire.ProviderInvokeResult{Status: wire.ExecutionRunning}),
+	})
+	<-outcome
+
+	// provider切断: in-flightのexecutionはproviderDisconnectedでfailedへ
+	r.DropConnection(provider)
+	stored, err := store.Get(forwardParams.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != wire.ExecutionFailed {
+		t.Fatalf("execution should be failed: %+v", stored)
+	}
+	if stored.Error == nil || stored.Error.Kind != wire.ErrorKindProviderDisconnected {
+		t.Fatalf("error kind should be providerDisconnected: %+v", stored.Error)
+	}
+}
+
+func TestInvokeUnknownOperation(t *testing.T) {
+	reg := registry.New("test-core", "")
+	store := execution.NewStore()
+	r := New(reg, store)
+	caller, _ := testConnection(t)
+
+	result, rpcErr := r.HandleInvoke(caller, &wire.Incoming{
+		Method: wire.MethodOperationsInvoke,
+		Params: wire.Marshal(wire.InvokeParams{Operation: "no/such"}),
+	})
+	if result != nil || rpcErr == nil || rpcErr.Code != -32003 {
+		t.Fatalf("expected -32003: %+v", rpcErr)
 	}
 }

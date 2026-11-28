@@ -33,10 +33,6 @@ type Connection struct {
 
 	OnRequest      func(*wire.Incoming) (json.RawMessage, *wire.RPCError)
 	OnNotification func(*wire.Incoming)
-	// OnResponded は受信requestへのresponseを書き終えた直後に呼ばれる。
-	// 中継側が「responseを先に届けてからnotificationを流す」順序を
-	// 組むためのhook（contracts/00004）。
-	OnResponded func(id json.RawMessage)
 
 	done      chan struct{}
 	closeOnce sync.Once
@@ -44,7 +40,6 @@ type Connection struct {
 
 type notificationWork struct {
 	message *wire.Incoming
-	drained chan struct{}
 }
 
 func NewConnection(socket *websocket.Conn, idPrefix string) *Connection {
@@ -57,23 +52,21 @@ func NewConnection(socket *websocket.Conn, idPrefix string) *Connection {
 		done:       make(chan struct{}),
 	}
 	// notificationは単一goroutineでFIFO配送する。messageごとにgoroutineを
-	// 起こすと、output→resultが逆転し、result処理でrouteが消えたあとの
-	// 遅れてきたoutputが取りこぼされる。WSの受信順を守るため単一goroutineにする。
+	// 起こすとevent列が逆転する。WSの受信順を守るため単一goroutineにする。
 	go connection.dispatchNotifications()
 	return connection
 }
 
-// dispatchNotifications はnotifQueueを受信順に捌く。呼び出しは接続をまたがないので、
-// 接続終了時に残りの通知は破棄する（contracts/00004）。
+// dispatchNotifications はnotifQueueを受信順に捌く。operations.eventのような
+// 順序を持つevent列が逆転しないよう単一goroutineで配送する。
+// 接続終了時に残りの通知は破棄する。
 func (c *Connection) dispatchNotifications() {
 	for {
 		select {
 		case <-c.done:
 			return
 		case work := <-c.notifQueue:
-			if work.drained != nil {
-				close(work.drained)
-			} else if c.OnNotification != nil {
+			if c.OnNotification != nil {
 				c.OnNotification(work.message)
 			}
 		}
@@ -133,30 +126,6 @@ func (c *Connection) handleRequest(message *wire.Incoming) {
 		result, rpcErr = c.OnRequest(message)
 	}
 	_ = c.write(wire.Response{JSONRPC: "2.0", ID: message.ID, Result: result, Error: rpcErr})
-	if c.OnResponded != nil {
-		c.OnResponded(message.ID)
-	}
-}
-
-// WaitNotifications は受信済みの通知の配送を待つ。同期Toolの終端応答を
-// 先行する途中出力より後に返すために使う（contracts/00004）。
-func (c *Connection) WaitNotifications(ctx context.Context) error {
-	drained := make(chan struct{})
-	select {
-	case c.notifQueue <- notificationWork{drained: drained}:
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-c.done:
-		return errors.New("connection closed")
-	}
-	select {
-	case <-drained:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-c.done:
-		return errors.New("connection closed")
-	}
 }
 
 func (c *Connection) Request(ctx context.Context, method string, params any) (*wire.Incoming, error) {

@@ -2,10 +2,10 @@
 package server
 
 import (
-	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
+	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,13 +15,16 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
 
+	"github.com/naatin777/plugumi/core/internal/execution"
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/router"
 	"github.com/naatin777/plugumi/core/internal/rpc"
+	"github.com/naatin777/plugumi/core/internal/view"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
@@ -35,12 +38,18 @@ type Server struct {
 	name     string
 	registry *registry.Registry
 	router   *router.Router
+	views    *view.Manager
 	token    string
+
+	execMu   sync.Mutex
+	execSubs map[chan wire.OperationsEventParams]struct{}
 }
 
-func New(ctx context.Context, coreID, name, token string) *Server {
-	pluginRegistry := registry.New(coreID)
-	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry), registry: pluginRegistry, token: token}
+func New(ctx context.Context, coreID, name, token, cacheDir string) *Server {
+	pluginRegistry := registry.New(coreID, cacheDir)
+	s := &Server{ctx: ctx, coreID: coreID, name: name, router: router.New(pluginRegistry, execution.NewStore()), registry: pluginRegistry, token: token, execSubs: make(map[chan wire.OperationsEventParams]struct{})}
+	s.views = view.NewManager(view.NewStore(), pluginRegistry)
+	s.router.OnExecutionEvent = s.broadcastExecutionEvent
 	go pluginRegistry.Expire(ctx)
 	return s
 }
@@ -50,11 +59,18 @@ func (s *Server) Handler() http.Handler {
 	s.registerREST(mux)
 	mux.HandleFunc("GET "+prefix+"/events", s.events)
 	mux.HandleFunc("GET "+prefix+"/rpc", s.websocket)
+	mux.HandleFunc("GET "+prefix+"/views/rpc", s.viewWebsocket)
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		writeAPIError(w, http.StatusNotFound, "unknown_endpoint", "unknown endpoint")
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !loopbackHost(r.Host) || r.Header.Get("Origin") != "" {
+		// view endpointはbrowser内のview JSが直接繋ぐための制限付き入口。
+		// browserは必ずOriginを送りAuthorizationを送れないので、
+		// このpathだけOrigin拒否とtoken認証を外す。代わりにendpoint側で
+		// views.connect/message以外を一切受け付けず、ticketをcapabilityとする
+		// （designs/00011）。loopback host制約は全endpointで維持する。
+		viewRPC := r.URL.Path == prefix+"/views/rpc"
+		if !loopbackHost(r.Host) || (r.Header.Get("Origin") != "" && !viewRPC) {
 			writeAPIError(w, http.StatusForbidden, "forbidden", "local native clients only")
 			return
 		}
@@ -62,7 +78,7 @@ func (s *Server) Handler() http.Handler {
 			writeAPIError(w, http.StatusUpgradeRequired, "protocol_mismatch", "unsupported protocol version")
 			return
 		}
-		if s.token != "" && !isDocsPath(r.URL.Path) && subtle.ConstantTimeCompare(
+		if s.token != "" && !viewRPC && !isDocsPath(r.URL.Path) && subtle.ConstantTimeCompare(
 			[]byte(r.Header.Get("Authorization")), []byte("Bearer "+s.token),
 		) != 1 {
 			w.Header().Set("WWW-Authenticate", "Bearer")
@@ -95,6 +111,8 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	stream := http.NewResponseController(w)
 	events, unsubscribe := s.registry.Subscribe()
 	defer unsubscribe()
+	execEvents, unsubscribeExec := s.subscribeExecutions()
+	defer unsubscribeExec()
 	heartbeat := time.NewTicker(15 * time.Second)
 	defer heartbeat.Stop()
 	for {
@@ -111,12 +129,118 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			frame = fmt.Sprintf("id: %s\nevent: %s\ndata: {\"revision\":%q}\n\n", event.Revision, event.Name, event.Revision)
+		case params := <-execEvents:
+			// execution eventはidを持たない。再開はRegistry系列だけに意味を持ち、
+			// execution系列はlive限定（contracts/00004）。
+			data, err := json.Marshal(params)
+			if err != nil {
+				continue
+			}
+			frame = fmt.Sprintf("event: executions.event\ndata: %s\n\n", data)
 		}
 		_ = stream.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if _, err := io.WriteString(w, frame); err != nil || stream.Flush() != nil {
 			return
 		}
 	}
+}
+
+// subscribeExecutions はSSE clientごとのexecution event受信口を作る。
+// バッファを超えた分は落とす。outputなどの途中経過はrecordに残らず
+// live限定なので、遅いclientへの追いつき配信はしない（contracts/00004）。
+func (s *Server) subscribeExecutions() (chan wire.OperationsEventParams, func()) {
+	ch := make(chan wire.OperationsEventParams, 256)
+	s.execMu.Lock()
+	s.execSubs[ch] = struct{}{}
+	s.execMu.Unlock()
+	return ch, func() {
+		s.execMu.Lock()
+		delete(s.execSubs, ch)
+		s.execMu.Unlock()
+	}
+}
+
+func (s *Server) broadcastExecutionEvent(params wire.OperationsEventParams) {
+	s.execMu.Lock()
+	defer s.execMu.Unlock()
+	for ch := range s.execSubs {
+		select {
+		case ch <- params:
+		default:
+		}
+	}
+}
+
+// viewWebsocket はbrowser内view専用の制限付きWS endpoint（designs/00011）。
+// views.connectによるticket bindとviews.messageだけを受け付け、
+// operationsやexecutionsには触れない。ticketは推測不能なcapabilityで、
+// bind前の接続は何もできない。悪意あるwebページからの接続放置を防ぐため、
+// bindされない接続は一定時間で閉じる。
+func (s *Server) viewWebsocket(w http.ResponseWriter, request *http.Request) {
+	if !strings.EqualFold(request.Header.Get("Upgrade"), "websocket") {
+		writeAPIError(w, http.StatusBadRequest, "invalid_params", "websocket upgrade required")
+		return
+	}
+	// browserのOriginはloopback起源だけ許可する。悪意あるwebサイト
+	// （evil.com等）のoriginはここで弾かれ、loopbackのshellからの
+	// 接続だけが通る。ticketのcapabilityと併せて多層防御。
+	// Originのないclient（Node等）にはこの検査はかからない。
+	socket, err := websocket.Accept(w, request, &websocket.AcceptOptions{
+		OriginPatterns: []string{"localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*", "[::1]", "[::1]:*"},
+	})
+	if err != nil {
+		return
+	}
+	socket.SetReadLimit(1 << 20)
+	connection := rpc.NewConnection(socket, "view-")
+	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+		if message.Method == wire.MethodViewsConnect {
+			return s.views.HandleConnect(connection, message)
+		}
+		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
+	}
+	connection.OnNotification = func(message *wire.Incoming) {
+		if message.Method == wire.MethodViewsMessage {
+			s.views.HandleMessage(connection, message)
+		}
+	}
+	defer connection.Close()
+	heartbeatContext, stopHeartbeat := context.WithCancel(s.ctx)
+	defer stopHeartbeat()
+	go func() {
+		heartbeat := time.NewTicker(15 * time.Second)
+		defer heartbeat.Stop()
+		for {
+			select {
+			case <-heartbeatContext.Done():
+				return
+			case <-heartbeat.C:
+				pingContext, cancel := context.WithTimeout(heartbeatContext, 5*time.Second)
+				err := socket.Ping(pingContext)
+				cancel()
+				if err != nil {
+					connection.CloseNow()
+					return
+				}
+			}
+		}
+	}()
+	// bind期限。ticketを持つ正規のviewは接続後すぐbindするので、
+	// この時間内にbindされない接続は放置された悪意ある接続とみなす。
+	go func() {
+		timer := time.NewTimer(30 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-heartbeatContext.Done():
+		case <-connection.Done():
+		case <-timer.C:
+			if s.views.Store().BoundInstance(connection.ID) == nil {
+				connection.CloseNow()
+			}
+		}
+	}()
+	_ = connection.Run(s.ctx)
+	s.views.DropViewConnection(connection)
 }
 
 func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
@@ -146,15 +270,32 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 	socket.SetReadLimit(1 << 20)
 	connection := rpc.NewConnection(socket, "core-")
 	connection.OnRequest = func(message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
-		if message.Method == wire.MethodCall {
-			return s.router.HandleCall(connection, message)
+		switch message.Method {
+		case wire.MethodOperationsInvoke:
+			return s.router.HandleInvoke(connection, message)
+		case wire.MethodOperationsList:
+			return s.router.HandleOperationsList(connection, message)
+		case wire.MethodExecutionsGet:
+			return s.router.HandleExecutionsGet(connection, message)
+		case wire.MethodExecutionsList:
+			return s.router.HandleExecutionsList(connection, message)
+		case wire.MethodExecutionsCancel:
+			return s.router.HandleExecutionsCancel(connection, message)
+		case wire.MethodViewsConnect:
+			return s.views.HandleConnect(connection, message)
 		}
 		return nil, &wire.RPCError{Code: -32601, Message: "method not found"}
 	}
 	connection.OnNotification = func(message *wire.Incoming) {
-		s.router.DispatchNotification(connection, message)
+		switch message.Method {
+		case wire.MethodViewsMessage:
+			s.views.HandleMessage(connection, message)
+		case wire.MethodViewsClose:
+			s.views.HandleClose(connection, message)
+		default:
+			s.router.DispatchNotification(connection, message)
+		}
 	}
-	connection.OnResponded = func(id json.RawMessage) { s.router.NotifyResponded(connection, id) }
 	if reservation != nil && !reservation.Complete(connection) {
 		connection.CloseNow()
 		return
@@ -183,46 +324,34 @@ func (s *Server) websocket(w http.ResponseWriter, request *http.Request) {
 	_ = connection.Run(s.ctx)
 	if reservation != nil {
 		s.registry.Detach(registrationID, connection)
+		s.views.DropRuntime(registrationID)
 	}
+	s.views.DropViewConnection(connection)
 	s.router.DropConnection(connection)
 }
 
-// assetMaxSize はPUT /v1/assets/{sha256}が受け付ける1ファイルの上限。
-const assetMaxSize = 16 << 20
-
-// putAsset は生バイトのassetを受け取る。sha256はURLで宣言したものと
-// 内容が一致しなければならない（内容アドレスなので配送時に再照合しない）。
-func (s *Server) putAsset(w http.ResponseWriter, r *http.Request) {
-	hash := r.PathValue("sha256")
-	if len(hash) != 64 || strings.ToLower(hash) != hash {
-		writeAPIError(w, http.StatusBadRequest, "invalid_params", "sha256 must be 64 lowercase hex characters")
-		return
-	}
-	if _, err := hex.DecodeString(hash); err != nil {
-		writeAPIError(w, http.StatusBadRequest, "invalid_params", "sha256 must be 64 lowercase hex characters")
-		return
-	}
-	body := http.MaxBytesReader(w, r.Body, assetMaxSize+1)
-	data, err := io.ReadAll(body)
-	if err != nil || len(data) > assetMaxSize {
-		writeAPIError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "asset exceeds 16 MiB")
-		return
-	}
-	if sum := sha256.Sum256(data); hex.EncodeToString(sum[:]) != hash {
-		writeAPIError(w, http.StatusBadRequest, "invalid_params", "body does not match the declared sha256")
-		return
-	}
-	s.registry.PutAsset(hash, data)
-	w.WriteHeader(http.StatusNoContent)
-}
-
 // uiAsset はUI manifestに登録されたファイルを配信する。
+// cacheに無ければproviderからlazy fetchしてから返す（pull model）。
 // 内容はsha256照合済みなのでETagにそのハッシュをそのまま使う。
 func (s *Server) uiAsset(w http.ResponseWriter, r *http.Request) {
-	hash, data, found := s.registry.UIAsset(r.PathValue("registrationId"), r.PathValue("path"))
-	if !found {
+	registrationID := r.PathValue("registrationId")
+	filePath := r.PathValue("path")
+	hash, declared := s.registry.UIAssetRef(registrationID, filePath)
+	if !declared {
 		writeAPIError(w, http.StatusNotFound, "not_found", "no such UI asset")
 		return
+	}
+	data, cached := s.registry.ReadAsset(hash)
+	if !cached {
+		if err := s.registry.FetchAsset(r.Context(), registrationID, filePath); err != nil {
+			writeAPIError(w, http.StatusServiceUnavailable, "asset_unavailable", "asset could not be fetched from the provider")
+			return
+		}
+		data, cached = s.registry.ReadAsset(hash)
+		if !cached {
+			writeAPIError(w, http.StatusServiceUnavailable, "asset_unavailable", "asset could not be read from the cache")
+			return
+		}
 	}
 	etag := `"` + hash + `"`
 	w.Header().Set("ETag", etag)
@@ -230,13 +359,41 @@ func (s *Server) uiAsset(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	contentType := mime.TypeByExtension(path.Ext(r.PathValue("path")))
+	contentType := mime.TypeByExtension(path.Ext(filePath))
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
 	_, _ = w.Write(data)
+}
+
+// uploadUIAsset はproviderがasset内容をpushする口。manifestで宣言された
+// pathだけを受け付け、sha256が宣言と一致したときだけcacheへ書く。
+// 内容はWSを通らずRESTで来るので1MBのframe制限はかからない。
+func (s *Server) uploadUIAsset(w http.ResponseWriter, r *http.Request) {
+	registrationID := r.PathValue("registrationId")
+	filePath := r.PathValue("path")
+	hash, declared := s.registry.UIAssetRef(registrationID, filePath)
+	if !declared {
+		writeAPIError(w, http.StatusNotFound, "not_found", "no such UI asset in the manifest")
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<20))
+	if err != nil {
+		writeAPIError(w, http.StatusRequestEntityTooLarge, "too_large", "asset body could not be read")
+		return
+	}
+	sum := sha256.Sum256(body)
+	if hex.EncodeToString(sum[:]) != hash {
+		writeAPIError(w, http.StatusBadRequest, "hash_mismatch", "asset content does not match the declared sha256")
+		return
+	}
+	if err := s.registry.WriteAsset(hash, body); err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "http_error", "asset could not be stored")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeAPIError(w http.ResponseWriter, status int, code, message string) {

@@ -104,7 +104,7 @@ UI connectionはExecutionを所有しない。Electronを閉じたり、Web tab�
 
 別Hostから開いた場合、execution centerまたはWorkbench状態から同じExecutionを見つけられる。inline embedが元のHostでしか見えなくても、Executionへの参照が残っていれば状態を復元できる。
 
-host-session capabilityを使う実行は例外であり、Electron quitなどでruntimeが失われた場合は、Executionを失敗、中断、またはruntime unavailableとして記録する。詳細な記録方法は未決定である。
+host-session operationを使う実行は例外であり、Electron quitなどでruntimeが失われた場合は、Executionを失敗、中断、またはruntime unavailableとして記録する。詳細な記録方法は未決定である。
 
 ## cancel / retry / attention
 
@@ -132,7 +132,7 @@ presentation hintはあってよいが、最終的な表示はHostと呼び出�
 
 - fastなoperationの呼び出しをどこまで履歴へ残すか。
 - parent execution / child executionの関係をoperation側がどう宣言するか。
-- execution centerの標準UIをHost bundledにするか。
+- execution centerの標準UIをbuilt-inにするか。
 - inline embedを後から閉じた場合、同じExecutionを再表示する入口をどこへ置くか。
 - notificationとbadgeの条件、通知済み状態の保存場所。
 - artifact完成時に自動でpanelを開くことを許すか。

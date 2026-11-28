@@ -55,7 +55,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/cores/{key}", s.getCore)
 	mux.HandleFunc("GET /api/cores/{key}/panels", s.listPanels)
 	mux.HandleFunc("GET /api/cores/{key}/registrations", s.listRegistrations)
-	mux.HandleFunc("POST /api/cores/{key}/call", s.callTool)
+	mux.HandleFunc("POST /api/cores/{key}/invoke", s.invokeOperation)
+	mux.HandleFunc("POST /api/cores/{key}/views", s.createView)
+	mux.HandleFunc("DELETE /api/cores/{key}/views/{viewId}", s.closeView)
 	mux.HandleFunc("GET /api/cores/{key}/projects", s.listProjects)
 	mux.HandleFunc("POST /api/cores/{key}/projects", s.addProject)
 	mux.HandleFunc("POST /api/cores/{key}/projects/{project}/areas", s.addArea)
@@ -263,8 +265,8 @@ func (s *Server) listPanels(w http.ResponseWriter, r *http.Request) {
 }
 
 // listRegistrations は/api/cores/{key}/registrationsでRegistryの登録を
-// そのまま返す。Shell同梱のfile explorerのように、capability（toolPath）から
-// 呼び出し先を選ぶHost側のViewがproviderIdやtool宣言を調べるために使う。
+// そのまま返す。Shell同梱のfile explorerのように、capability（operation path）から
+// 呼び出し先を選ぶHost側のViewがproviderIdやoperation宣言を調べるために使う。
 func (s *Server) listRegistrations(w http.ResponseWriter, r *http.Request) {
 	core, found := s.coreByKey(w, r)
 	if !found {
@@ -309,39 +311,25 @@ func (s *Server) uiAsset(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, response.Body)
 }
 
-// callTool は/api/cores/{key}/callを呼び出し専用WS接続のtools.callへ変換する。
-// 今回はsync Toolのみ。asyncは実処理が走ったまま終端を取りこぼすため事前に400で止める。
-func (s *Server) callTool(w http.ResponseWriter, r *http.Request) {
+// invokeOperation は/api/cores/{key}/invokeをoperations.invokeへ変換する。
+// shell（host）は操作対象のUIを持つcallerであり、builtin panelなどが
+// environment operationを呼ぶのに使う。registrationIdの指定やkindの概念はない。
+// terminal（succeeded/failed）のExecutionだけを扱い、runningで返るstream系は
+// ここでは扱わない（終端追跡の接続が別途必要なため）。
+func (s *Server) invokeOperation(w http.ResponseWriter, r *http.Request) {
 	core, found := s.coreByKey(w, r)
 	if !found {
 		return
 	}
 	var body struct {
-		RegistrationID string          `json:"registrationId"`
-		ToolPath       string          `json:"toolPath"`
-		Input          json.RawMessage `json:"input"`
+		Operation string          `json:"operation"`
+		Input     json.RawMessage `json:"input"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RegistrationID == "" || body.ToolPath == "" {
-		writeError(w, http.StatusBadRequest, "request body must be JSON with registrationId, toolPath and input")
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Operation == "" {
+		writeError(w, http.StatusBadRequest, "request body must be JSON with operation and input")
 		return
 	}
-	snapshot, err := corerest.FetchRegistry(r.Context(), s.coreHTTP, s.token, core.URL)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not read Core registry: %v", err))
-		return
-	}
-	for _, registration := range snapshot.Registrations {
-		if registration.RegistrationID != body.RegistrationID {
-			continue
-		}
-		for _, tool := range registration.Tools {
-			if tool.ToolPath == body.ToolPath && tool.Kind == "async" {
-				writeError(w, http.StatusBadRequest, "async Tools are not supported yet")
-				return
-			}
-		}
-	}
-	result, rpcError, err := s.calls.For(core.URL).Call(r.Context(), body.RegistrationID, body.ToolPath, body.Input)
+	execution, rpcError, err := s.calls.For(core.URL).Invoke(r.Context(), body.Operation, body.Input)
 	if rpcError != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{
 			"error": map[string]any{"message": rpcError.Message, "code": rpcError.Code},
@@ -349,14 +337,53 @@ func (s *Server) callTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not call Tool: %v", err))
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not invoke operation: %v", err))
 		return
 	}
-	if len(result) == 0 {
-		result = json.RawMessage("null")
+	if execution.Status != "succeeded" && execution.Status != "failed" {
+		writeError(w, http.StatusBadRequest,
+			fmt.Sprintf("operation %s is still %s; streaming operations are not supported here", body.Operation, execution.Status))
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"result":` + string(result) + `}`))
+	_ = json.NewEncoder(w).Encode(map[string]any{"execution": execution})
+}
+
+// createView はhostとしてview instanceを登録し、ticketをshellへ返す
+// （designs/00011）。shellはpanelのmount時にこれを呼び、
+// ticketとCoreのURLをviewのcontextへ入れる。
+func (s *Server) createView(w http.ResponseWriter, r *http.Request) {
+	core, found := s.coreByKey(w, r)
+	if !found {
+		return
+	}
+	var body struct {
+		RegistrationID string `json:"registrationId"`
+		PanelID        string `json:"panelId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RegistrationID == "" || body.PanelID == "" {
+		writeError(w, http.StatusBadRequest, "request body must be JSON with registrationId and panelId")
+		return
+	}
+	ticket, err := corerest.CreateViewInstance(r.Context(), s.coreHTTP, s.token, core.URL, body.RegistrationID, body.PanelID)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not create view instance: %v", err))
+		return
+	}
+	writeJSON(w, http.StatusCreated, ticket)
+}
+
+// closeView はhost主導でview instanceを閉じる。
+func (s *Server) closeView(w http.ResponseWriter, r *http.Request) {
+	core, found := s.coreByKey(w, r)
+	if !found {
+		return
+	}
+	if err := corerest.CloseViewInstance(r.Context(), s.coreHTTP, s.token, core.URL, r.PathValue("viewId")); err != nil {
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("could not close view instance: %v", err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- Project/Area/Workspace（~/.plugumi/web/<Core名>.json） ---

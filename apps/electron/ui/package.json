@@ -6,17 +6,17 @@
   "packageManager": "pnpm@12.21.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && svelte-check --tsconfig ./tsconfig.app.json && vite build"
-  },
-  "dependencies": {
-    "svelte": "5.57.3"
+    "build": "tsc -b && vite build"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@plugumi/view": "workspace:*",
+    "@solidjs/vite-plugin": "3.0.0",
     "@types/node": "24.19.2",
-    "svelte-check": "4.7.8",
     "typescript": "6.0.3",
-    "vite": "8.3.8",
-    "@plugumi/plugin-view": "workspace:*"
+    "vite": "8.3.8"
+  },
+  "dependencies": {
+    "@solidjs/web": "2.0.0",
+    "solid-js": "2.0.0"
   }
 }

@@ -1,6 +1,6 @@
 import { render } from "@solidjs/web";
 import { browserHistory, createRouter } from "@solidjs/router";
-import { ShellHostProvider, initTheme, loadPrefs, shellRoutes } from "@plugumi/workbench";
+import { ShellHostProvider, initTheme, loadPrefs, shellRoutes } from "@plugumi/app-ui";
 import { httpShellHost } from "./http-host";
 
 const host = httpShellHost();

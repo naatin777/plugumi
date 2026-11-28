@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
+  },
+  // runtimeとsharedだけtscでbuildする。panelはviteがbundleするので対象外
+  // （DOM型が混ざるとtscがdocument等を要求し、vite側と二重管理になる）。
+  "include": ["src/runtime.ts", "src/shared.ts"]
+}

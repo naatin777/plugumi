@@ -5,18 +5,21 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { render } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
-import type { PanelContext, PanelHandle } from "@plugumi/plugin-view";
+import type { ViewContext, ViewHandle } from "@plugumi/view";
+import { backgroundPresets } from "./presets.ts";
 
 type ThemeMode = "system" | "light" | "dark";
 
 // shellから受け取る最小の口。ShellControllerの型は引かず、
 // このPanelが触るsliceだけを宣言する。
+type BackgroundKind = "none" | "aurora" | "image";
+
 export interface ThemeShell {
-  prefs(): { theme: ThemeMode; aurora: boolean; auroraVivid: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string };
-  updatePrefs(mutate: (prefs: { theme: ThemeMode; aurora: boolean; auroraVivid: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string }) => void): void;
+  prefs(): { theme: ThemeMode; background: BackgroundKind; backgroundImage: string; auroraVivid: number; membraneBlur: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string };
+  updatePrefs(mutate: (prefs: { theme: ThemeMode; background: BackgroundKind; backgroundImage: string; auroraVivid: number; membraneBlur: number; frameAlpha: number; tabAlpha: number; sansFont: string; monoFont: string }) => void): void;
 }
 
-export interface ThemePanelContext extends PanelContext {
+export interface ThemePanelContext extends ViewContext {
   shell: ThemeShell;
 }
 
@@ -25,6 +28,41 @@ const MODES: readonly (readonly [ThemeMode, string])[] = [
   ["light", "ライト"],
   ["dark", "ダーク"],
 ];
+
+const BACKGROUNDS: readonly (readonly [BackgroundKind, string])[] = [
+  ["none", "なし"],
+  ["aurora", "オーロラ"],
+  ["image", "画像"],
+];
+
+// 画像をdownscaleしてJPEGのdata URLにする。localStorageに載る大きさ
+// （目安1MB強）まで順に落とす。それでも無理なら null。
+async function compressImage(file: File): Promise<string | null> {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement | null>((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = url;
+    });
+    if (!image) return null;
+    for (const [max, quality] of [[1600, 0.82], [1200, 0.7], [900, 0.6]] as const) {
+      const scale = Math.min(1, max / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length < 1_600_000) return dataUrl;
+    }
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
   const theme = () => props.shell.prefs().theme;
@@ -59,23 +97,80 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
           今は{resolved() === "dark" ? "ダーク" : "ライト"}
         </p>
       </Show>
-      <label class="theme-check">
-        <input
-          type="checkbox"
-          checked={props.shell.prefs().aurora}
-          onChange={(event) => props.shell.updatePrefs((prefs) => {
-            prefs.aurora = event.currentTarget.checked;
-          })}
-        />
-        <span>オーロラ</span>
-      </label>
+      <div class="theme-seg" role="radiogroup" aria-label="背景">
+        <For each={BACKGROUNDS}>
+          {([kind, label]) => (
+            <button
+              class={{ "theme-item": true, selected: props.shell.prefs().background === kind }}
+              role="radio"
+              aria-checked={props.shell.prefs().background === kind ? "true" : "false"}
+              onClick={() => props.shell.updatePrefs((prefs) => {
+                prefs.background = kind;
+              })}
+            >
+              {label}
+            </button>
+          )}
+        </For>
+      </div>
+      <Show when={props.shell.prefs().background === "image"}>
+        <div class="theme-image-row">
+          <label class="theme-image-pick">
+            <input
+              type="file"
+              accept="image/*"
+              class="theme-image-input"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (!file) return;
+                void compressImage(file).then((dataUrl) => {
+                  if (dataUrl) {
+                    props.shell.updatePrefs((prefs) => {
+                      prefs.backgroundImage = dataUrl;
+                    });
+                  }
+                });
+                // 同じファイルを続けて選べるよう値を戻す。
+                event.currentTarget.value = "";
+              }}
+            />
+            <span class="plugumi-button theme-image-button">画像を選ぶ</span>
+          </label>
+          <Show when={props.shell.prefs().backgroundImage}>
+            <button
+              class="plugumi-button theme-image-clear"
+              onClick={() => props.shell.updatePrefs((prefs) => {
+                prefs.backgroundImage = "";
+              })}
+            >
+              消す
+            </button>
+          </Show>
+        </div>
+        {/* 同梱preset — デバッグ・評価用にすぐ使える画像。 */}
+        <div class="theme-presets">
+          <For each={backgroundPresets}>
+            {(preset) => (
+              <button
+                class={{ "theme-preset": true, selected: props.shell.prefs().backgroundImage === `preset:${preset.id}` }}
+                title={preset.label}
+                onClick={() => props.shell.updatePrefs((prefs) => {
+                  prefs.backgroundImage = `preset:${preset.id}`;
+                })}
+              >
+                <img class="theme-preset-img" src={preset.url} alt={preset.label} />
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
       <label class="theme-slider">
-        <span class="theme-slider-label">tabの濃さ</span>
+        <span class="theme-slider-label">膜のぼかし</span>
         <input
           type="range" min={0} max={100}
-          value={props.shell.prefs().tabAlpha}
+          value={props.shell.prefs().membraneBlur}
           onInput={(event) => props.shell.updatePrefs((prefs) => {
-            prefs.tabAlpha = Number(event.currentTarget.value);
+            prefs.membraneBlur = Number(event.currentTarget.value);
           })}
         />
       </label>
@@ -89,20 +184,22 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
           })}
         />
       </label>
-      <label class="theme-slider">
-        <span class="theme-slider-label">背景の鮮やかさ</span>
-        <input
-          type="range" min={0} max={200}
-          value={props.shell.prefs().auroraVivid}
-          onInput={(event) => props.shell.updatePrefs((prefs) => {
-            prefs.auroraVivid = Number(event.currentTarget.value);
-          })}
-        />
-      </label>
+      <Show when={props.shell.prefs().background === "aurora"}>
+        <label class="theme-slider">
+          <span class="theme-slider-label">背景の鮮やかさ</span>
+          <input
+            type="range" min={0} max={200}
+            value={props.shell.prefs().auroraVivid}
+            onInput={(event) => props.shell.updatePrefs((prefs) => {
+              prefs.auroraVivid = Number(event.currentTarget.value);
+            })}
+          />
+        </label>
+      </Show>
       <label class="theme-slider">
         <span class="theme-slider-label">sansフォント</span>
         <input
-          type="text" class="theme-text"
+          type="text" class="plugumi-input theme-text"
           value={props.shell.prefs().sansFont}
           onInput={(event) => props.shell.updatePrefs((prefs) => {
             prefs.sansFont = event.currentTarget.value;
@@ -112,7 +209,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
       <label class="theme-slider">
         <span class="theme-slider-label">monoフォント</span>
         <input
-          type="text" class="theme-text"
+          type="text" class="plugumi-input theme-text"
           value={props.shell.prefs().monoFont}
           onInput={(event) => props.shell.updatePrefs((prefs) => {
             prefs.monoFont = event.currentTarget.value;
@@ -123,7 +220,7 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
   );
 }
 
-export function mount(host: ShadowRoot, context: ThemePanelContext): PanelHandle {
+export function mount(host: ShadowRoot, context: ThemePanelContext): ViewHandle {
   const dispose = render(() => <ThemePanel shell={context.shell} />, host);
   return { destroy: () => dispose() };
 }

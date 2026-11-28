@@ -1,8 +1,8 @@
 // hostが繋がっているCoreへelectronをTool providerとして登録する。
 // viewerが開いているhostの画面をこのwindowが映すので、繋ぐCoreも
 // hostの /api/cores に合わせ、一覧の増減は定期追従する。
-import { coreURL, PluginClient } from "plugumi-plugin-client";
-import type { Tool, UI } from "plugumi-plugin-client";
+import { coreURL, PluginRuntime } from "@plugumi/runtime";
+import type { Operation, UI } from "@plugumi/runtime";
 
 const POLL_MS = 5000;
 
@@ -10,11 +10,11 @@ interface CoreEntry {
   url?: string;
 }
 
-// hostの/api/coresを定期取得し、originごとにPluginClientを対応させる。
+// hostの/api/coresを定期取得し、originごとにPluginRuntimeを対応させる。
 // 取得に失敗した回は既存clientを維持する（host再起動中の瞬断で
 // 登録を落とさないため）。
 export function followHostCores(
-  hostURL: string, instanceId: string, tools: Tool[], ui: UI | undefined,
+  hostURL: string, instanceId: string, operations: Operation[], ui: UI | undefined,
   signal: AbortSignal,
 ): void {
   const clients = new Map<string, AbortController>();
@@ -50,12 +50,12 @@ export function followHostCores(
       if (clients.has(origin)) continue;
       const abort = new AbortController();
       clients.set(origin, abort);
-      const client = new PluginClient({
+      const client = new PluginRuntime({
         url: coreURL(origin),
         providerId: "electron",
         instanceId,
         token: process.env.PLUGUMI_TOKEN,
-        tools,
+        operations,
         ui,
         log: (message) => console.error(`[electron] ${message}`),
       });

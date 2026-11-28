@@ -45,7 +45,7 @@ func TestPaneLayoutStaysPutWhenFocusOrDataChanges(t *testing.T) {
 				Registrations: []wire.RegistryRegistration{{
 					RegistrationID: "registration",
 					RPCAvailable:   true,
-					Tools:          []wire.ToolDeclaration{{ToolPath: "echo"}},
+					Operations:     []wire.OperationDeclaration{{Path: "echo"}},
 				}},
 			}})
 			check("registration and tools arrive")

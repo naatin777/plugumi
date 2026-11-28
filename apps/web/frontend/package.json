@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\""
   },
   "dependencies": {
-    "@plugumi/workbench": "workspace:*",
+    "@plugumi/app-ui": "workspace:*",
     "@solidjs/router": "2.0.0",
     "@solidjs/web": "2.0.0",
     "solid-js": "2.0.0"

@@ -1,0 +1,21 @@
+{
+  "name": "plugumi-demo",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc && vite build",
+    "start": "node dist/runtime.js"
+  },
+  "dependencies": {
+    "@plugumi/runtime": "workspace:*",
+    "@plugumi/view": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/ws": "^8.18.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "ws": "^8.23.0"
+  }
+}

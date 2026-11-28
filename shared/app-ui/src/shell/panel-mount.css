@@ -1,0 +1,37 @@
+/* Panelの中身の枠と状態表示。 */
+@layer components {
+
+  /* ---- Panelの中身。外枠（border+radius）はカードが持つので
+     ここでは持たない。領域の区切り線は引かない。 ---- */
+  .panel-frame {
+    position: relative;
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0;
+    /* Panelの面自体は透明。カードの縁とガラスはタイル側が持つ。 */
+    background: transparent;
+    /* scrollしない箱はclip（hiddenだとscroll containerになって
+       Panel内のscrollIntoViewで面ごとずれる）。 */
+    overflow: clip;
+  }
+
+  .panel-state {
+    position: absolute; inset: 0; z-index: var(--plugumi-z-panel-state);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--plugumi-spacing-sm);
+    color: var(--plugumi-colors-text-muted);
+    background: var(--plugumi-colors-background-secondary);
+  }
+
+  /* panel-hostはPluginのShadowRootを抱えるhost要素（instance.tsが
+     createElementで作る）。中身はshadowの内側なのでdocument側の規則は
+     届かない — ここではhost要素自身だけをstyleし、中身のPluginの
+     DOMには触れない。classを持たせないのでdata-partで当てる。 */
+  [data-part="panel-host"] {
+    /* 中身のmin-contentが外側の大きさを押し広げないよう両方向0にする
+       （row/columnどちらのflex itemになっても効く）。 */
+    flex: 1; min-width: 0; min-height: 0; overflow: auto;
+    /* overscroll-behaviorは付けない — containするとPanel内をscroll
+       できない横deltaが外側のpages viewportへchainせず死んでしまう
+       （中身scrollの端からpage切替へ流れるのはchainingの仕事）。 */
+  }
+}

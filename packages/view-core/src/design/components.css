@@ -1,0 +1,261 @@
+/* Plugumi design systemのCSS-onlyコンポーネント（decisions/00038）。
+   値は一切ハードコードせず var(--plugumi-*) のみで書く — 値の定義は
+   host（UI Apps）が行い、panelのshadow DOMへはCSS変数の継承で届く。
+   使い方: entryで `import "@plugumi/view/components.css"` すると
+   bundleにfoldされ、panelのstylesとしてshadow rootにadoptされる。
+   classは全てopt-in。要素セレクタでは作者の要素を勝手に装飾しない。 */
+
+@layer components {
+
+
+/* ---- button ----
+   text buttonとicon buttonで面・輪郭・状態の色は同じ。違うのは寸法だけ。 */
+.plugumi-button,
+.plugumi-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--plugumi-spacing-xs);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-fill);
+  color: var(--plugumi-colors-text);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+  cursor: pointer;
+  user-select: none;
+  /* icon buttonの26pxはborder込みの外寸。text buttonにも影響はない。 */
+  box-sizing: border-box;
+}
+.plugumi-button {
+  padding: 4px var(--plugumi-spacing-md);
+}
+.plugumi-button:hover:not(:disabled),
+.plugumi-icon-button:hover:not(:disabled) {
+  background: var(--plugumi-colors-fill-strong);
+  border-color: var(--plugumi-colors-border-strong);
+}
+.plugumi-button:active:not(:disabled),
+.plugumi-icon-button:active:not(:disabled) {
+  background: color-mix(in oklab, var(--plugumi-colors-fill-strong), var(--plugumi-colors-text) 6%);
+}
+.plugumi-button:disabled,
+.plugumi-icon-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plugumi-button--accent {
+  background: var(--plugumi-colors-accent);
+  border-color: var(--plugumi-colors-accent-border);
+  color: var(--plugumi-colors-accent-contrast);
+}
+.plugumi-button--accent:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--plugumi-colors-accent), var(--plugumi-colors-accent-contrast) 12%);
+  border-color: var(--plugumi-colors-accent-border);
+}
+.plugumi-button--danger {
+  color: var(--plugumi-colors-error);
+  border-color: var(--plugumi-colors-error-border);
+}
+.plugumi-button--danger:hover:not(:disabled) {
+  background: var(--plugumi-colors-error-surface);
+  border-color: var(--plugumi-colors-error-border);
+}
+
+/* ---- テキスト入力（input[type=text]等とtextarea共通） ---- */
+.plugumi-input {
+  padding: 4px var(--plugumi-spacing-sm);
+  border: 1px solid var(--plugumi-colors-border-strong);
+  border-radius: var(--plugumi-radii-md);
+  background: var(--plugumi-colors-fill);
+  color: var(--plugumi-colors-text);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+}
+.plugumi-input::placeholder {
+  color: var(--plugumi-colors-text-subtle);
+}
+/* ---- focus ring（インタラクション要素共通の見た目ルール） ---- */
+.plugumi-button:focus-visible,
+.plugumi-icon-button:focus-visible,
+.plugumi-input:focus-visible {
+  outline: 2px solid var(--plugumi-colors-accent);
+  outline-offset: 1px;
+}
+
+/* ---- 面（panel内部で領域を分けたい要素用） ---- */
+.plugumi-surface {
+  background: var(--plugumi-colors-background-secondary);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+}
+
+/* ---- scroll bar（細く控えめに。hoverでだけ存在感を出す） ---- */
+.plugumi-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--plugumi-colors-fill) transparent;
+}
+.plugumi-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.plugumi-scroll::-webkit-scrollbar-thumb {
+  background: var(--plugumi-colors-fill);
+  border-radius: 4px;
+}
+.plugumi-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--plugumi-colors-fill-strong);
+}
+.plugumi-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- 補助テキスト ---- */
+.plugumi-text-muted {
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-xs);
+}
+
+/* ---- list item ----
+   縦に並ぶ選択/操作項目のただ1つの primitive。list・menu・nav・picker・
+   sidebarなど文脈が違っても項目の解剖学は同じ: [icon?] + label + [meta?]。
+   shell・pluginの区別なく全てこれを使う。 */
+.plugumi-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--plugumi-spacing-sm);
+  /* 行は全幅（click/hoverは端まで効く）。左右の息は中身のpaddingで
+     作る — barはfull-bleed、文字がinsetされる。 */
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-md);
+  border: none;
+  border-radius: var(--plugumi-radii-md);
+  background: transparent;
+  color: var(--plugumi-colors-text);
+  font: inherit;
+  font-size: var(--plugumi-font-size-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+.plugumi-list-item:hover:not(:disabled) {
+  background: var(--plugumi-colors-fill);
+}
+.plugumi-list-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plugumi-list-item--selected {
+  background: var(--plugumi-colors-fill-strong);
+  color: var(--plugumi-colors-text-strong);
+}
+.plugumi-list-item--selected:hover:not(:disabled) {
+  background: var(--plugumi-colors-fill-strong);
+}
+.plugumi-list-item--danger {
+  color: var(--plugumi-colors-error);
+}
+/* 右端に寄る副情報（provider名・shortcutなど）。 */
+.plugumi-list-item-meta {
+  margin-left: auto;
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-2xs);
+}
+
+/* ---- icon button ----
+   chromeに並ぶ小さい操作。面・輪郭はtext buttonと同じで、
+   寸法だけ正方形にする。 */
+.plugumi-icon-button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+.plugumi-icon-button[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--plugumi-colors-fill-strong), var(--plugumi-colors-text) 6%);
+  border-color: var(--plugumi-colors-border-strong);
+}
+/* 確認待ちの状態（削除など二度押し確認）。 */
+.plugumi-icon-button--armed {
+  color: var(--plugumi-colors-error);
+}
+
+/* ---- tab ----
+   stripに並ぶchip。非選択は薄い輪郭だけ、選択は強い輪郭＋面で一段
+   上げる。面はかなり透かす — カードのblurとauroraの上で、選択は
+   面より文字の濃さで読ませる。面の色は--raised。 */
+.plugumi-tab {
+  flex: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--plugumi-spacing-xs);
+  padding: 0 var(--plugumi-spacing-sm);
+  border: none;
+  border-radius: var(--plugumi-radii-sm);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--plugumi-colors-raised-edge) 35%, transparent);
+  background: transparent;
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.plugumi-tab .plugumi-tab-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.plugumi-tab .plugumi-tab-close { flex: none; }
+/* 「×」は選択中のtabだけ常時表示。非選択では居場所だけ確保して
+   透明にし、hover/focus-visibleで出す。 */
+.plugumi-tab:not(.plugumi-tab--selected) .plugumi-tab-close {
+  opacity: 0;
+  pointer-events: none;
+}
+.plugumi-tab:not(.plugumi-tab--selected):hover .plugumi-tab-close,
+.plugumi-tab:not(.plugumi-tab--selected) .plugumi-tab-close:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.plugumi-tab:hover {
+  background: color-mix(in oklab, var(--plugumi-colors-raised) 30%, transparent);
+}
+.plugumi-tab--selected {
+  background: color-mix(in oklab, var(--plugumi-colors-raised) 50%, transparent);
+  color: var(--plugumi-colors-text);
+  /* 透過fillだけだとガラスの上でのっぺりするので、選択tabは輪郭で
+     自立させる。box-shadowなのでlayoutは動かない。 */
+  box-shadow:
+    inset 0 0 0 1px var(--plugumi-colors-raised-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
+}
+.plugumi-tab-close {
+  display: inline-flex;
+  padding: 1px;
+  border: none;
+  border-radius: var(--plugumi-radii-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.plugumi-tab-close:hover { background: var(--plugumi-colors-fill-strong); }
+
+/* ---- list ----
+   list itemを縦に並べるcontainer。左右の息（padding-inline）と
+   item間のgapはここが持つ — itemは中でflushに並ぶ。
+   menu popover・sidebar・navなど文脈を問わず使う。 */
+.plugumi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  list-style: none;
+  /* containerの外周の息はここが持つ — 行はこの内側でfull-bleed。 */
+  padding: var(--plugumi-spacing-xs);
+}
+/* display:flexがpopoverの閉状態（UAのdisplay:none）を上書きして
+   常時表示になってしまうのを防ぐ。 */
+.plugumi-list[popover]:not(:popover-open) {
+  display: none;
+}
+}

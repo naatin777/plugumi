@@ -112,7 +112,7 @@ func (m *Model) applyClick(target locatedTarget, double bool) tea.Cmd {
 	case hitTool:
 		m.detailSelection = target.index
 		if double {
-			if row, ok := m.selectedRow(); ok && row.tool != nil {
+			if row, ok := m.selectedRow(); ok && row.operation != nil {
 				_, cmd := m.openCall(row)
 				return cmd
 			}

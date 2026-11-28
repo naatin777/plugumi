@@ -1,0 +1,42 @@
+/* work面の骨組みが使う既定値（designs/00005）。componentの
+   moduleとは別に常時読み込む — Core一覧やStyle Labなどshellを
+   描かないpageでも --shell-frame-color はbodyの背景に効く。 */
+
+/* 開閉アニメ用に登録する長さ変数。登録するとtransitionで値が補間され、
+   これを参照する幅・margin・barの端が一斉に滑る。登録はcascade layerの
+   外で行う（layerは規則の優先順位を決める仕組みで、@propertyの登録とは
+   無関係）。 */
+@property --side-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --sub-width { syntax: "<length>"; inherits: true; initial-value: 0px; }
+
+@layer layout {
+
+  /* 変数の既定値。--title-tools-*は実行時にwork-shapeが中身の自然幅を
+     実測して書き込む。ここは計測前とStyle Lab用の既定値。 */
+  :root {
+    /* work面のカード同士の溝と、カードの周りの余白。 */
+    --work-gap: var(--plugumi-spacing-xs);
+    /* AreaViewのタイル群と境界線・横線・窓端の間の余白。 */
+    --area-pad: var(--plugumi-spacing-sm);
+    /* AreaView内のタイル同士（left|center|right、上段|bottom）の溝。 */
+    --area-gap: var(--plugumi-spacing-sm);
+    /* frame（土台・title左右・sidebar・status帯）は全てこの1色。
+       work面（canvas）と明確に分ける色を決定済みのtokenから引く。 */
+    --shell-frame-color: var(--plugumi-colors-background-primary);
+    /* 操作面の塗り --plugumi-colors-fill / -strong はtheme別なので
+       tokens.css側。darkは白の透過（面を明るく浮かせる）、lightは
+       暗い透かし。 */
+    /* titleのtool群のfootprint。実行時はwork-shapeが中身の自然幅を
+       実測して書き込む。ここは計測前とStyle Lab用の既定値。 */
+    --title-tools-left: 260px;
+    --title-tools-right: 280px;
+    /* カードのheader帯（tab strip）の高さ */
+    --shell-strip-h: 36px;
+    /* deck表示の列幅。viewportの整数倍にならない値にして右端に次の
+       列が覗く形にする。 */
+    --deck-col-w: 340px;
+    /* 実行時にshellがprefsから書き込む。ここはStyle Lab・初期値。 */
+    --tab-fill: 50%;
+    --aurora-vivid: 1;
+  }
+}

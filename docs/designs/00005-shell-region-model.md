@@ -13,6 +13,8 @@ relations:
     - '00005'
 ---
 
+> 注意: [Decision 00030](../decisions/00030-environment-and-project-model.md)に従い、概念階層は Project > Area > Workspace > Panel とする。AreaとWorkspaceの対応関係は現時点では確定しない。このdesignの保存形式とArea-scopeの記述は現行実装寄りの前提を含むため、詳細は実装時に見直す。
+
 ## 対応するrequirement
 
 [Requirement 00004](../requirements/00004-common-protocol-contracts.md)は人間がPluginの機能を画面から利用することを求めている。本書は[Design 00004](00004-web-plugin-screen-hierarchy.md)の階層（Core > Project > Area > Workspace）の下で、Shellがパネルをどの領域にどう配置するかを定める。
@@ -103,6 +105,8 @@ title barのwork区間は1つ。列の開閉や位置には追従せず、区画
 | | 800–1099px `medium` | Area listはinline | Subが右からdrawer（`min(subWidth, 90%)`） |
 | | <800px `compact` | — | Area listも左からdrawer（`min(sidebarWidth, 85%)`） |
 
+> **改訂（2025-11）**: wideでのSub開閉アニメをwidthのtransitionから負margin方式に変えた。以前はpane自体の幅を0→rawへtransitionしていたため、panelの中身ごと潰しながら動いて見た目が不自然だった。現在はpaneの幅を常に`--sub-raw-width`で固定し、`margin-right: calc(var(--sub-width) - var(--sub-raw-width))`でmargin-boxの幅だけを0→rawへ滑らせる — 中身は潰れず再配置も起きず、台ごと右からslideして入るように見える。layout上の语义は変わらない（wideではinlineの列で、開くとMainが縮む）。
+
 - **drawerの開閉は一時的**: drawer化した領域はprefsではなくShellごとのsignalで開閉し、初期は閉。狭くなった瞬間に保存済みの「開」がcenterを覆わないため。同じボタン・ショートカットがdrawerのときはこのsignalを切り替える。開くdrawerはshell全体で1つ — 新しく開くと他（Area list・Sub）は畳まれる。台同士が重ならないため。
 - **scrim**: drawerが開いている間、台のすぐ下・外clickで閉じる範囲（作業域全体。横線2本の間、app bar・status barは暗くしない）に薄い暗幕（`--plugumi-colors-scrim`、ぼかしなし）を敷く。暗くする範囲の中の他の境界線はscrimで一緒に暗くなり、幕はpointerを通す（閉じる判定は従来どおり外click）。
 - **閉じ方**: drawerの外をpointerdownするかEscape。drawerでもPanelはunmountしない（`data-closed`で畳む、transformで画面外へ逃がす）。
@@ -134,10 +138,20 @@ Shellは「土台の上にタイルを並べる」だけで描く。外側のfra
 
 ## 保存の形
 
-Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web Pluginのサーバーは中身を解釈せずに保存し、そのまま返す。ElectronはWeb Pluginの画面を開くため、Workspaceの保存も同じWeb Pluginが担う。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
+Workspace（Areaごと）の保存内容は、Shellが所有するJSONである。Web appのサーバーは中身を解釈せずに保存し、そのまま返す。ElectronはWeb appの画面を開くため、Workspaceの保存も同じWeb appが担う。Shellは読み込み時に形を検査し、形が合わない内容は空のWorkspaceとして扱う（移行はしない）。
 
 ```ts
-type PanelRef = { instanceId: string; providerId: string; panelId: string };
+// inputは開き時の入力（editorのfile pathなど）。Workspaceと一緒に永続化され、
+// reloadで復元される。JSON直列化できる値に限る。なおinputは「同じものを
+// もう一度開くための情報」であって編集中の状態ではない — dirtyな編集内容
+// などの復元はこの仕組みの対象外とする。
+// stateはpanelが自分で書くrestorable state（UIの状態 — 選択・展開・
+// directoryなど）。inputは開く側が一度だけ渡すのに対し、stateは開かれた
+// panel自身がsaveStateで更新する。同じくWorkspaceと一緒に永続化される。
+// 書き込みはdebounce済みのWorkspace保存に乗るため、頻度は人間の操作
+// 速度程度を想定し、scroll位置のような高頻度のものは対象外とする。
+// dirtyな編集内容はinputと同じく対象外。
+type PanelRef = { instanceId: string; providerId: string; panelId: string; input?: unknown; state?: unknown };
 
 // leaf: tab切替の1区画。layout省略時はpages。colWidthはdeckの列幅（px）
 type Leaf = {
@@ -198,3 +212,10 @@ panel.setActivity({
 | Panel Frame | Panelの枠（radius）。leafに依らず同じ輪郭 |
 | frame | Shell固有の帯（topbar/statusbar/sidebar）。不透明slab面 |
 | activity | Panelの活動状態。Pluginが意味を通知、Shellが描く |
+
+## 改訂（Area listの開閉も負margin方式・reload時のflash修正）
+
+Area list（左列）のinline開閉もSubと同じ負marginslide方式に揃えた —
+paneの幅は常に`--sidebar-raw-width`で固定し、`margin-left: calc(var(--side-width) - var(--sidebar-raw-width))`でmargin-boxの幅だけを滑らせる。中身は潰れず、閉じた姿はpaneがshellのclipの外（左）へはみ出した状態。開閉中のfocus隔離は`data-closed`のvisibility遅延が担い、sidebarの中身はsub-paneと同じく常時mountとする（閉じる途中で中身が消えないように）。
+
+また`shellSize`の初期値は常に`"wide"`だったため、狭い窓ではwideのlayoutで一瞬paintされてからResizeObserverの修正でdrawerへ飛び、reload時にArea listが一瞬見えるflashになっていた。ref callback内で初回paint前に`offsetWidth`を同期的に測り、正しいsizeで初回paintするように修正した。

@@ -1,0 +1,36 @@
+/* tab帯（カードのheader）とtab。 */
+@layer components {
+
+  /* ---- tab帯はカードのheader ----
+     leafは「tab帯（header）＋中身」の1枚のカード。stripは輪郭の内側の
+     上端に置き、中身との間はhairline（divider面）で区切る。tab自体の
+     見た目はcomponents.cssが持つ。 */
+  .leaf-strip {
+    position: relative;
+    display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+    height: var(--shell-strip-h); box-sizing: border-box;
+    padding: 0 var(--plugumi-spacing-xs);
+    border-bottom: 1px solid var(--plugumi-colors-border);
+    flex: none;
+  }
+  .tab-strip {
+    display: flex; align-items: stretch; gap: var(--plugumi-spacing-xs);
+    /* stripの高さいっぱい（上下spacing-xsの余白）までtabが伸びる。
+       tab自体に固定heightは持たせない。 */
+    align-self: stretch; box-sizing: border-box;
+    padding: var(--plugumi-spacing-xs) 0;
+    flex: 1; min-width: 0;
+    overflow-x: auto;
+    min-height: 0;
+    scrollbar-width: none;
+  }
+  /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と
+     toneのattrはactivity.cssが持ち、ここではdata属性でtabだけを拾う。 */
+  [data-part="tab"][data-activity-header] {
+    background: linear-gradient(var(--activity-color), var(--activity-color))
+      0 0 / 100% 2px no-repeat;
+  }
+  /* strip右端のdeck切替。見た目はplugumi-icon-button、ここではstrip内の
+     配置だけを決める。 */
+  .strip-deck { flex: none; }
+}

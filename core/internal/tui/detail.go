@@ -33,10 +33,10 @@ type coreView struct {
 	confirmRemoveRegistrationID string
 }
 
-// detailRow はSnapshotから作る表示行。toolがnilなら登録行。
+// detailRow はSnapshotから作る表示行。operationがnilなら登録行。
 type detailRow struct {
 	registration *wire.RegistryRegistration
-	tool         *wire.ToolDeclaration
+	operation    *wire.OperationDeclaration
 }
 
 func registrationRows(registrations []wire.RegistryRegistration) []detailRow {
@@ -47,19 +47,19 @@ func registrationRows(registrations []wire.RegistryRegistration) []detailRow {
 		if !registration.RPCAvailable {
 			continue
 		}
-		for toolIndex := range registration.Tools {
-			rows = append(rows, detailRow{registration: registration, tool: &registration.Tools[toolIndex]})
+		for operationIndex := range registration.Operations {
+			rows = append(rows, detailRow{registration: registration, operation: &registration.Operations[operationIndex]})
 		}
 	}
 	return rows
 }
 
-func (row detailRow) identity() wire.CallTarget {
-	target := wire.CallTarget{RegistrationID: row.registration.RegistrationID}
-	if row.tool != nil {
-		target.ToolPath = row.tool.ToolPath
+// operationPath は行がoperationならそのpathを、登録行なら空を返す。
+func (row detailRow) operationPath() string {
+	if row.operation != nil {
+		return row.operation.Path
 	}
-	return target
+	return ""
 }
 
 type coreViewMsg struct {
@@ -141,15 +141,16 @@ func (view *coreView) updateCoreView(msg coreViewMsg) {
 	}
 	view.loaded = true
 
-	var selected wire.CallTarget
+	var selectedRegistration, selectedOperation string
 	if row, ok := view.selectedRow(); ok {
-		selected = row.identity()
+		selectedRegistration = row.registration.RegistrationID
+		selectedOperation = row.operationPath()
 	}
 	view.registrations = msg.snapshot.Registrations
 	view.rows = registrationRows(view.registrations)
 	view.detailSelection = -1
 	for index, row := range view.rows {
-		if row.identity() == selected {
+		if row.registration.RegistrationID == selectedRegistration && row.operationPath() == selectedOperation {
 			view.detailSelection = index
 			break
 		}
@@ -202,9 +203,9 @@ func (m *Model) updateDetailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch msg.String() {
 	case "left", "h":
-		if row, ok := m.selectedRow(); ok && row.tool != nil {
+		if row, ok := m.selectedRow(); ok && row.operation != nil {
 			for index, candidate := range m.rows {
-				if candidate.registration == row.registration && candidate.tool == nil {
+				if candidate.registration == row.registration && candidate.operation == nil {
 					m.detailSelection = index
 					break
 				}
@@ -225,7 +226,7 @@ func (m *Model) updateDetailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		if row.tool != nil {
+		if row.operation != nil {
 			return m.openCall(row)
 		}
 		m.descendIntoRegistration()
@@ -251,7 +252,7 @@ func (view *coreView) selectedRow() (detailRow, bool) {
 
 func (m *Model) descendIntoRegistration() {
 	row, ok := m.selectedRow()
-	if !ok || row.tool != nil {
+	if !ok || row.operation != nil {
 		return
 	}
 	next := m.detailSelection + 1
@@ -277,7 +278,7 @@ func (m *Model) requestRemoveRegistration() (tea.Model, tea.Cmd) {
 		m.statusMsg = "Loading registrations..."
 	case len(m.registrations) == 0:
 		m.statusMsg = styleDim.Render("No registrations to remove.")
-	case !ok || row.tool != nil:
+	case !ok || row.operation != nil:
 		m.statusMsg = "Choose a registration row, then press d."
 	default:
 		m.confirmRemoveRegistrationID = row.registration.RegistrationID
@@ -361,10 +362,6 @@ func registrationLabel(registration *wire.RegistryRegistration, width int) strin
 	return fitLine(strings.TrimSpace(registration.ProviderID+"  "+registration.RegistrationID), width-8)
 }
 
-func toolLabel(tool *wire.ToolDeclaration, pluginID string) string {
-	kind := tool.Kind
-	if kind == "" {
-		kind = "sync"
-	}
-	return strings.TrimSpace(fmt.Sprintf("%s [%s] %s", tool.ToolPath, kind, pluginID))
+func operationLabel(operation *wire.OperationDeclaration, pluginID string) string {
+	return strings.TrimSpace(fmt.Sprintf("%s [%s]", operation.Path, pluginID))
 }

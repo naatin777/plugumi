@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -9,36 +11,51 @@ import (
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
-func TestReplaceToolsNormalizesAndPublishesOnlyOnChange(t *testing.T) {
-	registry := New("test-core")
+func TestReplaceOperationsValidatesAndPublishesOnlyOnChange(t *testing.T) {
+	registry := New("test-core", "")
 	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
-	declarations := []wire.ToolDeclaration{
-		{ToolPath: "a/one"},
-		{ToolPath: "a/two", Kind: "async"},
+	declarations := []wire.OperationDeclaration{
+		{Path: "a/one"},
+		{Path: "a/two"},
 	}
-	if err := registry.ReplaceTools(lease.RegistrationID, declarations); err != nil {
+	if err := registry.ReplaceOperations(lease.RegistrationID, declarations); err != nil {
 		t.Fatal(err)
 	}
 	snapshot := registry.Snapshot()
-	tools := snapshot.Registrations[0].Tools
-	if tools[0].Kind != "sync" || tools[1].Kind != "async" {
-		t.Fatalf("unexpected Tool kinds: %+v", tools)
+	operations := snapshot.Registrations[0].Operations
+	if len(operations) != 2 || operations[0].Path != "a/one" {
+		t.Fatalf("unexpected operations: %+v", operations)
 	}
-	if err := registry.ReplaceTools(lease.RegistrationID, declarations); err != nil {
+	if err := registry.ReplaceOperations(lease.RegistrationID, declarations); err != nil {
 		t.Fatal(err)
 	}
 	if current := registry.Snapshot(); current.Revision != snapshot.Revision {
 		t.Fatalf("identical replacement changed the revision: %s", current.Revision)
 	}
+
+	// contracts/00004のpath制約: 重複・空segment・先頭末尾の /・空白・. / ..を拒否する
+	for _, invalid := range [][]wire.OperationDeclaration{
+		{{Path: "a/one"}, {Path: "a/one"}},   // 重複
+		{{Path: ""}},                        // 空
+		{{Path: "/a"}},                      // 先頭 /
+		{{Path: "a/"}},                      // 末尾 /
+		{{Path: "a//b"}},                    // 空segment
+		{{Path: "a/../b"}},                  // .. segment
+		{{Path: "a/b c"}},                   // 空白
+	} {
+		if err := registry.ReplaceOperations(lease.RegistrationID, invalid); err != ErrInvalidOperations {
+			t.Fatalf("invalid declarations accepted: %+v", invalid)
+		}
+	}
 }
 
 func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
-	registry := New("test-core")
+	registry := New("test-core", "")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
 	identity := wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"}
 	lease, _, _ := registry.Create(identity)
-	if err := registry.ReplaceTools(lease.RegistrationID, []wire.ToolDeclaration{{ToolPath: "echo"}}); err != nil {
+	if err := registry.ReplaceOperations(lease.RegistrationID, []wire.OperationDeclaration{{Path: "echo"}}); err != nil {
 		t.Fatal(err)
 	}
 	reservation, err := registry.ReserveConnection(lease.RegistrationID)
@@ -49,12 +66,17 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	if !reservation.Complete(connection) {
 		t.Fatal("Could not attach to live registration")
 	}
-	target := wire.CallTarget{RegistrationID: lease.RegistrationID, ToolPath: "echo"}
-	if got, kind, err := registry.ResolveTool(target); got != connection || kind != "sync" || err != nil {
-		t.Fatalf("live registration was not routable: %s, %v", kind, err)
+	if err := registry.SetReady(lease.RegistrationID); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := registry.ResolveOperation("echo"); got != connection || err != nil {
+		t.Fatalf("live registration was not routable: %v", err)
+	}
+	if _, err := registry.ResolveOperation("nonexistent"); err != ErrUnknownOperation {
+		t.Fatalf("unknown operation resolved: %v", err)
 	}
 	now = lease.ExpiresAt
-	if _, _, err := registry.ResolveTool(target); err != ErrUnknownRegistration {
+	if _, err := registry.ResolveOperation("echo"); err != ErrUnknownOperation {
 		t.Fatalf("expired registration is still routable: %v", err)
 	}
 	if _, found := registry.Renew(lease.RegistrationID); found {
@@ -81,8 +103,44 @@ func TestExpiredRegistrationIsNotRoutableBeforeCleanup(t *testing.T) {
 	}
 }
 
+// 接続の無い登録（zombie）はoperation解決で数えない。
+// processが死んでleaseだけ残った登録が、生きているproviderの
+// 解決をambiguousにしないことを確認する。
+func TestDisconnectedRegistrationDoesNotCauseAmbiguity(t *testing.T) {
+	registry := New("test-core", "")
+	first, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "fs", InstanceID: "instance-1"})
+	second, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "fs", InstanceID: "instance-2"})
+	for _, lease := range []wire.RegistrationLease{first, second} {
+		if err := registry.ReplaceOperations(lease.RegistrationID, []wire.OperationDeclaration{{Path: "echo"}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := registry.SetReady(lease.RegistrationID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// secondだけ接続する。firstは宣言・ready済みだが未接続のまま
+	// （process死亡でdetachされた状態と同じ）。
+	reservation, err := registry.ReserveConnection(second.RegistrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection := &rpc.Connection{}
+	if !reservation.Complete(connection) {
+		t.Fatal("Could not attach to live registration")
+	}
+	if got, err := registry.ResolveOperation("echo"); got != connection || err != nil {
+		t.Fatalf("disconnected registration caused ambiguity or wrong resolution: %v", err)
+	}
+	// 接続している方も切ると、unknownではなくunavailableになる
+	// （「居ない」と「居るが繋がらない」を区別する）。
+	registry.Detach(second.RegistrationID, connection)
+	if _, err := registry.ResolveOperation("echo"); err != ErrConnectionUnavailable {
+		t.Fatalf("fully disconnected resolution should be unavailable: %v", err)
+	}
+}
+
 func TestRepeatRegistrationRefreshesLeaseWithoutChangingTheRegistry(t *testing.T) {
-	registry := New("test-core")
+	registry := New("test-core", "")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
 	identity := wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"}
@@ -109,7 +167,7 @@ func TestRepeatRegistrationRefreshesLeaseWithoutChangingTheRegistry(t *testing.T
 // upgrade中に止まった予約はreservationTTLを過ぎると回収され、
 // 再登録でLeaseが延び続けても再接続が永久に失敗しない。
 func TestStaleReservationIsReclaimed(t *testing.T) {
-	registry := New("test-core")
+	registry := New("test-core", "")
 	now := time.Now()
 	registry.now = func() time.Time { return now }
 	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
@@ -134,7 +192,7 @@ func TestStaleReservationIsReclaimed(t *testing.T) {
 }
 
 func TestConnectionReservationDoesNotSurviveDeletion(t *testing.T) {
-	registry := New("test-core")
+	registry := New("test-core", "")
 	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	first, err := registry.ReserveConnection(lease.RegistrationID)
 	if err != nil {
@@ -154,13 +212,13 @@ func TestConnectionReservationDoesNotSurviveDeletion(t *testing.T) {
 }
 
 func TestReplaceUIPublishesPanelsChanged(t *testing.T) {
-	registry := New("test-core")
+	registry := New("test-core", "")
 	events, unsubscribe := registry.Subscribe()
 	defer unsubscribe()
 	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
 	drain(events)
 	hash := strings.Repeat("a", 64)
-	registry.PutAsset(hash, []byte("x"))
+	// pull modelでは宣言時に内容の存在を要求しない
 	manifest := wire.UIManifest{
 		Files:  []wire.UIFile{{Path: "panel.js", SHA256: hash}},
 		Panels: []wire.PanelDeclaration{{PanelID: "files", Title: "Files", Entry: "panel.js"}},
@@ -183,30 +241,90 @@ func drain(events <-chan Event) {
 	}
 }
 
-func TestReleasedAssetSurvivesUntilTTL(t *testing.T) {
-	registry := New("test-core")
+func TestAssetCacheSweepsOnlyUnreferencedStaleEntries(t *testing.T) {
+	registry := New("test-core", t.TempDir())
 	now := time.Now()
 	registry.now = func() time.Time { return now }
+
+	// 内容を正しいhashでcacheへ書く
+	content := []byte("x")
+	sum := sha256.Sum256(content)
+	hash := hex.EncodeToString(sum[:])
+	if err := registry.WriteAsset(hash, content); err != nil {
+		t.Fatal(err)
+	}
+	if data, ok := registry.ReadAsset(hash); !ok || string(data) != "x" {
+		t.Fatal("written asset was not readable")
+	}
+
+	// hashが一致しない内容は拒否する
+	if err := registry.WriteAsset(hash, []byte("wrong")); err == nil {
+		t.Fatal("mismatched content was written")
+	}
+
+	// manifestが参照している間は、古くなってもsweepされない
 	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
-	hash := strings.Repeat("b", 64)
-	registry.PutAsset(hash, []byte("x"))
-	manifest := wire.UIManifest{Files: []wire.UIFile{{Path: "panel.js", SHA256: hash}}}
+	manifest := wire.UIManifest{Files: []wire.UIFile{{Path: "panel.js", SHA256: hash, Size: 1}}}
 	if err := registry.ReplaceUI(lease.RegistrationID, manifest); err != nil {
 		t.Fatal(err)
 	}
-	if err := registry.ReplaceUI(lease.RegistrationID, wire.UIManifest{}); err != nil {
+	now = now.Add(unreferencedAssetTTL + time.Hour)
+	registry.collectStaleAssetsLocked(now)
+	if !registry.HasAsset(hash) {
+		t.Fatal("referenced asset was swept")
+	}
+
+	// 参照が外れてもTTL以内なら残る（再起動後の再宣言を待つ猶予）。
+	// 登録のleaseは既に切れているので、white-boxで直接参照を外す。
+	registry.mu.Lock()
+	registry.releaseFilesLocked(manifest.Files)
+	registry.mu.Unlock()
+	registry.collectStaleAssetsLocked(now)
+	if !registry.HasAsset(hash) {
+		t.Fatal("asset within TTL was swept")
+	}
+
+	// TTLを超えるとsweepされる
+	now = now.Add(unreferencedAssetTTL + time.Hour)
+	registry.collectStaleAssetsLocked(now)
+	if registry.HasAsset(hash) {
+		t.Fatal("stale unreferenced asset was not swept")
+	}
+}
+
+func TestReadyLatchesAndGatesOperationResolution(t *testing.T) {
+	registry := New("test-core", "")
+	lease, _, _ := registry.Create(wire.ProviderIdentity{ProviderID: "standard", InstanceID: "instance"})
+	if err := registry.ReplaceOperations(lease.RegistrationID, []wire.OperationDeclaration{{Path: "echo"}}); err != nil {
 		t.Fatal(err)
 	}
-	// 参照は0だがTTL以内なのでassetは残る（即時削除だと別登録のmissing_assets競合になる）。
-	if missing := registry.MissingAssets([]string{hash}); len(missing) != 0 {
-		t.Fatalf("asset released within TTL was removed: %v", missing)
+	reservation, err := registry.ReserveConnection(lease.RegistrationID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	now = now.Add(unreferencedAssetTTL + time.Second)
-	registry.collectStaleAssetsLocked(now)
-	if missing := registry.MissingAssets([]string{hash}); len(missing) != 1 {
-		t.Fatalf("stale asset was not swept: %v", missing)
+	connection := &rpc.Connection{}
+	if !reservation.Complete(connection) {
+		t.Fatal("could not attach")
 	}
-	if got := registry.MissingAssets(nil); got == nil {
-		t.Fatal("MissingAssets must return an empty slice, not nil")
+	// ready前は解決できない
+	if _, err := registry.ResolveOperation("echo"); err != ErrUnknownOperation {
+		t.Fatalf("operation resolved before ready: %v", err)
+	}
+	if snapshot := registry.Snapshot(); snapshot.Registrations[0].Ready {
+		t.Fatal("registration should not be ready")
+	}
+	// readyを立てると解決できる。one-way latch。
+	if err := registry.SetReady(lease.RegistrationID); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := registry.ResolveOperation("echo"); got != connection || err != nil {
+		t.Fatalf("operation did not resolve after ready: %v", err)
+	}
+	if snapshot := registry.Snapshot(); !snapshot.Registrations[0].Ready {
+		t.Fatal("snapshot did not show ready")
+	}
+	// 再送は冪等
+	if err := registry.SetReady(lease.RegistrationID); err != nil {
+		t.Fatal(err)
 	}
 }

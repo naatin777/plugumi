@@ -6,53 +6,157 @@ Plugumiドキュメントで使う用語の正本。一般的な技術用語で�
 
 ## 構成要素
 
-### Core
+### Core Daemon
 
-中央の仲介プロセス（`core/`、Go実装）。新方式ではHTTPの接続先となり、Plugin登録・通知・RPC配送を担う。個々のアプリケーションの機能ロジックは持たない。
+UI Appの寿命から独立して動く中央process（`core/`、Go実装）。operation routing、provider registration、Execution / Event / Resource参照、managed provider lifecycleの制御、Daemon management APIを担う。個々のアプリケーションの機能ロジックは持たない。単にCoreと書く場合も、文脈がprocessや接続先を指す限り同じものを指す。
 
-### Plugin
+### plugumi CLI
 
-機能を提供する任意言語のソフトウェア。Plugumi専用プロセスでも、既存CLI・アプリの拡張としても作れる。新方式では利用者が指定したCoreへ自ら接続する。
+Coreと同じ `plugumi` バイナリが提供する管理interface。Core Daemonの起動・停止、状態確認、Plugin管理、Execution参照などを行う。TUIもこのCLI側の操作面に含める。Plugin runtimeの標準的なspawn ownerではない。
+
+### UI App
+
+Web app / Electron appとして提供される公式UIアプリ。Workbench shell、Panel layout、Viewのmount、通知、tray、Daemon管理画面などを担う。installable pluginとして差し替えず、構造改造はforkまたはdownstream hostとして扱う。ExecutionやPlugumi管理のPlugin runtime processを所有しない。
+
+### Web app
+
+ブラウザ向けのUI App（`apps/web/`）。ブラウザ向けのHTTPサーバーとfrontendを持ち、ブラウザとCoreの間を仲介する。1つのprocessが複数のCoreへ接続できる。
+
+### Electron app
+
+Electron向けのUI App（`apps/electron/`）。Web appとWorkbench shellを共有しつつ、native browser、window操作、OS統合などのapp-local operationをCoreへ登録できる。
+
+### Environment
+
+local machine、SSH先、WSL、containerなどの実行環境。filesystem、terminal、shell、process、network接続などの標準operationを提供し、Plugumiの操作はEnvironmentの存在を前提にしてよい。Pluginではない。
 
 ### Environment Provider
 
-ファイルシステムやプロセス実行など、実行環境のcapabilityをoperationとして提供するProvider（`environment/`、Rust実装）。installable packageとして配布されるPluginとは区別し、登録時の`providerKind`は`environment`を使う。
+Environmentの標準operationをCoreへ提供するProvider（`environment/`、Rust実装）。利用者へはPluginではなく環境として見せる。SSH経由ではSSH先でremote Environmentを起動し、そのremote EnvironmentがCoreへ接続する。登録時の`providerKind`は`environment`を使う。
 
-### UI Host
+### Provider
 
-Plugin Viewsの実行・配信環境。Coreと接続し、環境固有の機能を担う役割。
-Web PluginやElectron Pluginが提供する。operation実行やPluginプロセス自体の寿命を管理しない。
+operationをCoreへ登録し、実行を受け付けるinteraction上の役割。componentの分類ではない。Plugin runtime、Environment Provider、UI App、AI agent runtimeなどがこの役割を演じ得る。Provider間はCoreをbypassして通信しない。
 
-### Web Plugin
+### Plugin
 
-ブラウザ向けのUIを提供するPlugin（`apps/web/`）。他のPluginと同じく、指定されたCoreへ自ら接続・登録する。ブラウザ向けのHTTPサーバーを持ち、ブラウザとCoreの間を仲介する。1つのプロセスが複数のCoreに接続できる（[Decision 00013](decisions/00013-web-plugin-gateway.md)）。
+operationやViewなどのcontributionを束ねるinstallable package。公式・第三者のいずれにもなり得るが、UI App / Environment Provider / Core built-in機能はPluginではない。PluginはPlugin runtimeとPlugin viewを持てる。
 
-### Plugin Views
+### built-in
 
-Panel・Embed・Indicator等を表示するための共通インターフェース（仕様）。
-実行環境ではなく、実行はUI Hostが担う。アセットの配信主体は構成によって異なる。
+利用者が追加installしなくても製品の基本体験として最初から使えるもの。実装場所を意味しない。`標準装備` / `標準搭載` という語は使わない。
 
-### Plugin View
+### View
 
-Pluginが提供する、画面にはめ込まれるUIの1つ1つ（Panel・Embed・Indicator）。作者向けの型とTokenの名前は、配布用のパッケージ `@plugumi/plugin-view`（`packages/plugin-view`）にある。
-
-### Plugin Shell
-
-Plugin Viewを並べて表示する画面の外枠。UI Hostの役割を担うWeb PluginとElectron Pluginが共有する（`shared/workbench`、リポジトリの中だけで使う）。Plugin Shellは `ShellHost` というinterfaceを通してだけ外とやりとりし、Web PluginとElectron Pluginがそれぞれ実装する。Tokenの値はPlugin Shellが持つ。
+Panel / Embed / Widgetなどの人間向けUI。resourceやExecutionを表示・操作する。operationやPlugin runtimeの所有とは分ける。Panel / Embed / WidgetはすべてJSで実装された完成品componentであり、違いはライフサイクルと置き場所だけである。詳細は[Design 00010](designs/00010-panel-embed-widget-view-types.md)を参照。
 
 ### Panel
 
-UI Host上に表示されるPlugin提供のView。新方式ではCore仲介RPCを操作通信の第一候補とし、Panel専用APIはoperationと分ける。Web Pluginは、Panelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
+UI App上に表示されるView。Core仲介RPCを操作通信の第一候補とし、Panel専用APIはoperationと分ける。現行のWeb appはPanelを隔離せずに自身の画面で動かす（[Decision 00014](decisions/00014-panel-runs-unisolated.md)）。
+
+### Widget
+
+旧称Indicator。状態表示やshortcutを担う独立したPlugin viewの種類。PanelやEmbedの特殊形ではない。常時見せるライブな表示で、pluginが供給し自己更新する。JSで実装された完成品componentであり、どこにでも埋め込める。status barへの固定配置、widget panel内への自由配置に加え、panel内などへの配置も許す方向。例はCPU / memory使用量、AI使用量、実行中件数、panel shortcut。詳細は[Design 00010](designs/00010-panel-embed-widget-view-types.md)を参照。
+
+### Plugin view
+
+Pluginが提供する、画面にはめ込まれるUI部分（Panel・Embed・Widget）。UI App / Workbench shellにmountされ、ProviderとしてCoreへ接続しない。作者向けの型とTokenの名前は、現行では `@plugumi/plugin-view`（`packages/plugin-view`）にある。
+
+### Workbench shell
+
+Plugin viewを並べて表示する画面の外枠。Web appとElectron appが共有する公式shell実装（`shared/app-ui`）であり、installable pluginではない。`ShellHost` interfaceを通して外とやりとりし、Tokenの値を持つ。
 
 ### UI Bundle
 
 Panel等を表示するためのビルド成果物。entrypointのほか、JS・CSS・画像・フォント・分割chunkなどの相対パス付きアセットを含む。Pluginはファイルごとに内容のsha256を付けてCoreへ送り、Coreが配信する（[Contract 00004](contracts/00004-plugin-client-protocol.md)）。
 
-## 接続・実行モデル
+## operation / Executionモデル
+
+### caller / provider
+
+operation invocationにおける役割。callerはoperationを呼ぶ側、providerはoperationをCoreへ登録して実行を受け付ける側。どちらもcomponentの分類ではなくinteractionごとの役割であり、1つのcomponentは両方を同時に演じ得る。例えばAI agent runtimeは、fs / terminalのoperationを呼ぶcallerであると同時に、自分自身を `agent/message/send` のようなoperationとして登録するproviderにもなり得る。呼び出しは常にCore経由で、provider間を直接接続しない。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
+
+### capability（廃止語）
+
+旧検討ではoperation pathのまとまりや機能領域をcapabilityと呼んでいたが、概念が曖昧なため現行の正式用語としては使わない。必要な場合は「機能領域」「operation group」などと普通に説明し、Coreの登録単位や第一級Objectにはしない。
+
+### Operation
+
+Providerが公開するsemanticな操作単位。`filesystem/list` のようなoperation pathで識別し、callerも同じpathで呼ぶ。中核概念はoperationであり、toolはoperationのcaller向け投影として区別する。
+
+### tool
+
+operationをcaller向けに投影したもの。AI SDK、MCP、function callingなどの適配層で使う語であり、Coreの登録対象やwire上の概念ではない。1つのoperationを用途やcallerごとに複数のtoolとして露出しうる。toolにはinput bind（引数の固定・隠蔽・既定値）や露出制御が乗りうるため、AIに見せるschemaとproviderへ実際に送るinputは一致しないことがある。現時点では第一級概念にせず、用語の使い分けだけを決める。Core、contract、routing、Executionの文脈ではoperationを使い、toolと混ぜない。
+
+### operation path
+
+Operationのcanonicalな識別子。slash区切りpathとし、CLI・MCP・HTTP API・AI tool catalogで共通に使う。slashを扱えない外部実装向けのencode/decodeはadapterだけで行う。
+
+### operation invocation
+
+Operationの実行呼び出し。callerはoperation pathとoperation inputを指定し、project / account / hostなどのrouting情報はinvocation context、resource ref、project bindingからCoreが解決する。AIへ見せるtool schemaにはoperation inputだけを含める。
+
+### invocation context
+
+operation inputとは別に、routingと記録のためにCoreが解決・付与する実行文脈。project、caller execution、host sessionなどを含み得る。AIに毎回入力させる項目ではない。
+
+### Execution
+
+Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から独立し、状態・途中出力・結果参照・cancelの対象になる。すべてのoperation invocationはExecutionとして記録し、`callId` のような接続相関IDとは区別する。fastなoperationは最初からterminal状態のExecutionになる。
+
+### operation schema
+
+operation宣言に付く入力・出力の型情報。`inputSchema`（呼び出し引数）、`acceptSchema`（受理・開始時のoperation固有データ）、`streamSchema`（実行中のchunk / progress / log）、`resultSchema`（最終結果）を分ける。曖昧な`outputSchema`は使わない。
+
+### scope（廃止語）
+
+provider sessionの所属を表す概念として使っていたが、独立した概念としては廃止する。実体は既存概念であるproviderの所属environment / host sessionの情報に過ぎず、新しい概念ではない。routingはinvocationの対象environment / sessionとproviderの所属をマッチングする行為であり、利用可能期間も所属から導出される。`env/local`、`host-session/electron-1` などの値自体は所属を表す識別子として残るが、「scope」という用語は立てない。
+
+### binding
+
+operationの部分適用としての設定。inputの一部をfixedまたはdefaultとして埋め、ユーザー全体 / project / agent session / 呼び出し時のレイヤーで重ねる。routing系と挙動系を分けない。fixedはcallerからの上書きを許さず、hiddenなfixedはschemaにも現れない。権限委譲（attenuation）と一体の概念でもある。詳細は[Decision 00034](decisions/00034-binding-instance-configuration-and-provider-sessions.md)を参照。
+
+### provider session
+
+providerがCoreへ登録・接続している1つのsession。processとは分離し、1つのPlugin runtime processが設定の異なる複数のprovider sessionを登録できる。accountのような差はinputではなくinstance configurationとしてsessionごとに持つ。
+
+### Resource
+
+複数のoperation invocationをまたいで参照され得る、状態を持つ対象。terminal、browser page、agent sessionなどが候補。厳密な適用範囲は未決定であり、操作対象なら何でもResourceと呼ぶわけではない。
+
+### resource ref
+
+Resource本体を指すwire上の参照。`terminal/123`、`browser/page/123`など。Resource本体をCoreが所有・管理することを意味しない。input / outputに含めてよく、routingの手掛かりにもなり得る。
+
+### Resource registry
+
+CoreがResourceの一覧や所属先を管理する仕組み。導入するかは未決定。Resourceという概念を使うことと、CoreがResource registryを持つことは別。
+
+### Plugin runtime
+
+Pluginのうち、画面ではない側で動く部分。operationの提供、状態保持、event処理、agent loopなどを担う。ProviderとしてCoreへ接続し、接続・登録時にPlugin manifestを送る。UIを閉じても動き続けてよい。
+
+### Plugin manifest
+
+Plugin runtimeがCoreへ接続・登録するときにPOST / PUTなどで送る宣言情報。ファイルではない。operation宣言、UI contribution宣言、UI bundle参照などを含む論理集合であり、実際のwire上は複数のREST操作へ分かれてよい。
+
+### Plugin runtime process
+
+Plugin runtimeが実際に動いているOS process。Processの起動・停止・再起動を話すときは、Plugin runtimeではなくこの語を使う。
+
+### Plugumi管理のPlugin runtime process
+
+Core Daemonがlifecycleを制御するPlugin runtime process。実際にspawnする主体は実行場所に応じる。Coreから見える単位は `1 Core : 1 provider session : 1 Plugin runtime process` とする。Plugin内部の共有serviceへ接続するかはPlugin作者の自由である。
+
+### self-managed / external Plugin service
+
+1つのprocessが複数Coreへ接続し得る、Plugumiのmanaged lifecycleで管理しないPlugin service。起動・停止・接続先Coreの追加は、利用者、外部system、またはそのservice自身が管理する。
+
+## 接続・登録モデル
 
 ### Registration
 
-特定のCoreにおけるPluginインスタンスの論理的な登録。登録の識別子は `registrationId`。物理接続から独立した寿命を持つ（[接続契約](contracts/00004-plugin-client-protocol.md)）。
+特定のCoreにおけるProviderインスタンスの論理的な登録。登録の識別子は `registrationId`。物理接続から独立した寿命を持つ（[接続契約](contracts/00004-plugin-client-protocol.md)）。
 
 ### Lease
 
@@ -64,11 +168,109 @@ Registryの観測時点を表す版。SSE通知とSnapshotの照合に使う。�
 
 ### Node
 
-Pluginが宣言する「実行環境」の共有識別（ローカル・Docker・リモートPC等）。Coreは意味を解釈しない。
+Providerが属する実行場所の共有識別（ローカル・Docker・リモートPC等）。Coreは意味を解釈しない。
 
 ### Core名
 
-Coreに任意で付ける名前（`plugumi.json` の `core.name` または `--name`）。`coreId` はプロセスごとに変わるが、Core名は再起動しても変わらない。Web PluginはURLでCoreを指すときにCore名を使う。
+Coreに任意で付ける名前（`plugumi.json` の `core.name` または `--name`）。`coreId` はプロセスごとに変わるが、Core名は再起動しても変わらない。Web appはURLでCoreを指すときにCore名を使う。
+
+### desired session state
+
+self-managed / externalなmulti-core serviceが利用し得る、「どのCoreへ接続してほしいか」を表す状態。Plugumiの標準managed lifecycleには採用しない。人間が直接編集する設定ファイルとは区別し、process状態やdiscovery stateと混ぜない。
+
+### reconciliation
+
+desired stateと実際の状態を比較し、冪等な処理で実際の状態をdesired stateへ近づける繰り返し可能な制御。file watch eventだけに依存せず、full scanと定期的な再確認を含める。
+
+## 画面の階層
+
+画面の概念階層は Core > Project > Area > Workspace > Panel とする。ProjectはAreaを、AreaはWorkspaceを、WorkspaceはPanelとそのtab構成をまとめる。Coreより下の階層の状態は現行実装ではWeb appのサーバーが保存し、Coreは扱わない（[Design 00004](designs/00004-web-plugin-screen-hierarchy.md)）。Workbench状態をどこまでCoreやUI App間で共有するかは移行中の論点である。
+
+### Project
+
+Environment上のdevice / folderを指すことができる作業単位。少なくとも「どの環境か」と「どのfolderか」を参照できる。ProjectはAreaをまとめる。
+
+### Area
+
+Workspaceをまとめる単位。以前Collectionと呼ばれていたものに相当する。worktree、monorepo内のpackage、同じプロジェクトの別repositoryなどを扱う候補があるが、Areaが入れ子になるかは未決定。AreaとWorkspaceの対応関係も現時点では確定しない。
+
+### Workspace
+
+Panelとそのtab構成・並びをまとめる作業画面。Panelの配置先としてcenterのsplit treeだけを持つ。固定されたleft・bottom・rightの領域はなく、「縁に常設する」配置は利用者がtreeの端にleafを作って表現する。
+
+### Dock
+
+旧画面モデルでPanelを置いていた固定領域（left・bottom・center・right）。現行モデルでは固定Dockを持たず、Workspaceはcenterのsplit treeだけを持つ。旧ドキュメントを読むときの用語として残している。
+
+## View参照とEmbed
+
+### Panel Reference
+
+共有・保存できるPanelへの参照。resource、intent、preferred view、params、寿命などを持ち、実行中のView実体ではない。各UI Appが自分の表示機能と利用できるoperationに従ってViewへ解決する。
+
+### virtual panel
+
+Panel instanceとして存在するが、Plugin viewをまだmountしていないinertな状態。DOM、event listener、timer、background処理を持たない。
+
+### unavailable panel
+
+現在のUI Appでは表示できないが、Panel Referenceとして存在する状態。`unsupported`、`missing-view`、`runtime-unavailable`、`fallback-available` などの理由を区別する。
+
+### Embed Reference
+
+共有・保存できるEmbedへの参照。resource、intent、representation、寿命などを持ち、実行中のcomponentやDOM実体ではない。各UI Appが自分の表示機能とimplementation registryに従ってrepresentationへ解決する。
+
+### virtual embed
+
+Embedとして存在するが、まだmountしていないinertな状態。DOM、event listener、timer、background処理を持たない。表示可能であることと、実際にmountしていることを区別する。
+
+### declarative surface
+
+component tree、data binding、actionをJSONなどの宣言的な形式で表す内容物の単位。A2UIではこの単位をsurfaceと呼び、Plugumiでもsurfaceと呼ぶ。payload仕様としてA2UIを採用する方向。view type（Panel / Embed / Widget）ではなく表現形式の単位であり、両者は直交する。surfaceの中にembed componentを配置できるし、panelは自身の中にsurfaceをホストできる。portable baselineとして扱う。
+
+### Component Catalog
+
+declarative surfaceで利用できるcomponentとfunctionの集合。basic component、standard component、plugin custom componentを含み得る。componentの組み合わせは動的でも、implementationは登録済みのものを使う。
+
+### custom component
+
+catalogに登録されたcomponentのうち、JSやnative実装を持つrich component。diff viewer、terminal、browser viewportなどが例。declarative surfaceの外にある対立概念ではなく、compositionの中のleafとして扱う。
+
+### Interaction
+
+人間またはAgentの入力を待っている第一級の対象。状態、対象resource、入力schema、利用可能なactionを持ち、component treeとは別にAIやWorkbench shellが参照できる。
+
+### Affordance
+
+resource / executionに対して現在利用できる操作。operationが存在することと、現在の状態や権限で有効であることを区別する。componentはAffordanceを描画するが、operationの正本にはしない。
+
+### Execution View
+
+同じExecutionを表示するview。inline embed、execution center / status area、panel、notificationなど複数のplacementがあり得る。viewを閉じてもExecution自体は残る。
+
+## 旧アーキテクチャの用語
+
+以下は旧docsまたは移行前の実装を読むための用語である。新しいdocsでは使わない。
+
+### UI Host
+
+旧構成でPlugin Viewsの実行・配信環境を指した語。現行ではUI Appを使う。UI Hostが担っていたapp-local operationはUI Appが登録するoperationとして分ける。
+
+### Web Plugin
+
+旧構成でブラウザ向けUIを提供するPluginとしていたもの。現行ではWeb appと呼び、Pluginではなく公式UI Appとして扱う。
+
+### Electron Plugin
+
+旧構成でElectron向けUIを提供するPluginとしていたもの。現行ではElectron appと呼び、Pluginではなく公式UI Appとして扱う。
+
+### Plugin Shell
+
+旧構成でWeb PluginとElectron Pluginが共有するとしていた画面の外枠。現行ではWorkbench shellと呼び、installable pluginの仕組みではなく `shared/app-ui` の公式shell共有実装として扱う。
+
+### Plugin Views
+
+旧構成でPanel・Embed・Widget等を表示する共通インターフェースをまとめて指した語。現行ではViewまたはPlugin Viewと書き分ける。
 
 ## 旧v1の接続用語
 
@@ -89,26 +291,6 @@ Linkと1対1で結ばれた双方向通信路（WebSocket + JSON-RPC 2.0）。Co
 ### caller channel
 
 Coreがcaller（Tool呼び出し元）向けに開くWebSocket接続（`GET /v1/call`、`docs/contracts/00001`）。Linkには紐付かず、connの寿命=接続の寿命。Pluginでないcaller（TUI・UI Host・スクリプト）は自身のtransportを持たないため、このchannel上で `docs/contracts/00003` のcaller側プロトコルをそのまま喋る。Transportとは別物。
-
-## 画面の階層
-
-Web Pluginの画面は Core > Project > Area > Workspace の順に入れ子になる。Coreより下の階層の状態はWeb Pluginのサーバーが保存し、Coreは扱わない（[Design 00004](designs/00004-web-plugin-screen-hierarchy.md)）。
-
-### Project
-
-Coreの中で扱う1つのプロジェクト。Coreが組織にあたるのに対し、Projectは組織の中の仕事の単位にあたる。
-
-### Area
-
-Projectのうち、どの部分を扱うかの単位。worktree、monorepo内のpackage、同じプロジェクトの別repositoryなど、種類の異なるものを同じ階層で扱う。Areaは入れ子にでき、フォルダのようなツリーになる。Areaごとに1つのWorkspaceを持つ。
-
-### Workspace
-
-Areaの中でファイルを見るなどの作業をする画面。Areaと1対1に対応し、Panelの配置先としてcenterのsplit treeだけを持つ。固定されたleft・bottom・rightの領域はなく、「縁に常設する」配置は利用者がtreeの端にleafを作って表現する。
-
-### Dock
-
-旧画面モデルでPanelを置いていた固定領域（left・bottom・center・right）。現行モデルでは固定Dockを持たず、Workspaceはcenterのsplit treeだけを持つ。旧ドキュメントを読むときの用語として残している。
 
 ## 旧revisionのTool用語
 
@@ -149,127 +331,6 @@ Agent等への入力の待ち受け機構（priority/timing付き）。Plugin内
 ### Subscribe（購読）
 
 変更を継続的に受け取ること。旧v1では長時間の `kind: async` callを指す場合がある。現行契約のRegistry購読はSSEで行う。
-
-## capability-centric modelの用語
-
-以下は[Architecture 00003](architecture/00003-daemon-centric-workbench-platform.md)、[Decision 00024](decisions/00024-operation-invocation-context-and-execution.md)、改訂後の[Contract 00004](contracts/00004-plugin-client-protocol.md)で使う用語である。実装は移行中だが、新しいdocsではこちらの用語を使う。
-
-### Provider
-
-capability / operationをCoreへ登録し、実行を受け付ける側。Environment Provider、Host Capability Provider、Extensionのbackend entryなどを含む。`registrationId` はCore内部の登録・配送管理IDであり、callerがoperation invocationの宛先として指定するものではない。
-
-### Operation
-
-Providerが公開するsemanticな操作単位。`filesystem/list` のようなoperation pathで識別し、callerも同じpathで呼ぶ。Toolとoperationを別名で持たない。
-
-### operation path
-
-Operationのcanonicalな識別子。slash区切りpathとし、CLI・MCP・HTTP API・AI tool catalogで共通に使う。slashを扱えない外部実装向けのencode/decodeはadapterだけで行う。
-
-### operation invocation
-
-Operationの実行呼び出し。callerはoperation pathとoperation inputを指定し、project / account / hostなどのrouting情報はinvocation context、resource ref、project bindingからCoreが解決する。AIへ見せるtool schemaにはoperation inputだけを含める。
-
-### invocation context
-
-operation inputとは別に、routingと記録のためにCoreが解決・付与する実行文脈。project、caller execution、host sessionなどを含み得る。AIに毎回入力させる項目ではない。
-
-### Core Daemon
-
-UI appやWorkbench Hostの寿命から独立して動くCore。Execution、capability routing、provider lifecycleを管理する。検討案では、Electron appをquitしてもCore Daemonとdurable Executionは残る。
-
-### Workbench Host
-
-Web / Electronが提供する公式UI shell。Panel layout、Viewのmount、通知、tray、Daemon管理画面などを担う。検討案ではruntime installableなpluginとして差し替えず、構造改造はforkまたはdownstream hostとして扱う。
-
-### Environment Provider
-
-filesystem / shell / terminal / processなどの環境標準capabilityを、local / WSL / remote / Dockerなどの環境へ提供するProvider。利用者へはPluginではなく環境として見せる方向で検討している。
-
-### Host Capability Provider
-
-Workbench Hostが内蔵し、host-local capabilityをCoreへ登録するProvider。例はElectron native browser、native dialog、OS統合。寿命は原則としてhost-sessionであり、durable executionの対象にはしない。
-
-### Extension
-
-capability、View、shell contributionをまとめるinstall / enable / disable / replace可能な配布単位。利用者向けの名称はPluginでよいという方向であり、重要なのは名称ではなくProvider / View / Host / Environmentと区別することである。Extensionという語への統一は必須ではない。
-
-### Backend entry
-
-Extensionのうち、UIと独立して長時間動くentry。Core-managedなextension hostまたはprovider processで実行し、capability提供、operation実装、状態保持、event処理を行う。
-
-### Client entry
-
-Extensionのうち、Web / Electron Workbench内で動き、shellの小さな拡張を行うentry。command、menu、status item、notification、Execution状態の表示反映などを担う。
-
-### View entry
-
-Extensionのうち、Panel / Embed内で描画とUI操作を担うentry。View instanceと同じ寿命を持つ。
-
-### Execution
-
-Core Daemonが管理する実行の単位。UI connectionやPanelの寿命から独立し、状態・途中出力・結果参照・cancelの対象になる。すべてのoperation invocationはExecutionとして記録し、`callId` のような接続相関IDとは区別する。fastなoperationは最初からterminal状態のExecutionになる。
-
-### Capability
-
-操作・Resource・Event・寿命の意味を持つ機能単位。実装はProviderが持ち、CoreはroutingとExecution記録を担う。`filesystem` / `shell` / `browser` などの意味名で扱い、`standard` / `electron` のような実装名と混同しない方向で検討している。
-
-### Panel Reference
-
-共有・保存できるPanelへの参照。resource、intent、preferred view、params、寿命などを持ち、実行中のView実体ではない。各Hostが自分のcapabilityに従ってViewへ解決する。
-
-### virtual panel
-
-Panel instanceとして存在するが、view runtimeをまだmountしていないinertな状態。DOM、event listener、timer、background処理を持たない。
-
-### unavailable panel
-
-現在のHostでは表示できないが、Panel Referenceとして存在する状態。`unsupported`、`missing-view`、`runtime-unavailable`、`fallback-available` などの理由を区別する。
-
-
-### user-level Plugin service
-
-どのCoreも所有者ではないmulti-core対応のPlugin service。最初に必要になったCoreが起動トリガになっても、起動後はuser-levelのserviceとして扱う。managed pluginとは寿命と停止の意味を区別する。
-
-### desired session state
-
-user-level Plugin serviceがどのCoreへ接続してほしいかを表す、machine-managedな状態。人間が直接編集する設定ファイルとは区別し、runtime statusやdiscovery stateと混ぜない。
-
-### reconciliation
-
-desired stateと実際の状態を比較し、冪等な処理で実際の状態をdesired stateへ近づける繰り返し可能な制御。file watch eventだけに依存せず、full scanと定期的な再確認を含める。
-
-### Embed Reference
-
-共有・保存できるEmbedへの参照。resource、intent、representation、寿命などを持ち、実行中のcomponentやDOM実体ではない。各Hostが自分のcapabilityとimplementation registryに従ってrepresentationへ解決する。
-
-### virtual embed
-
-Embedとして存在するが、まだmountしていないinertな状態。DOM、event listener、timer、background処理を持たない。表示可能であることと、実際にmountしていることを区別する。
-
-### declarative surface
-
-component tree、data binding、actionをJSONなどの宣言的な形式で表すEmbedの表現。A2UI-inspiredまたはA2UI-compatibleな方向で検討している。portable baselineとして扱う。
-
-### Component Catalog
-
-declarative surfaceで利用できるcomponentとfunctionの集合。basic component、standard component、plugin custom componentを含み得る。componentの組み合わせは動的でも、implementationは登録済みのものを使う。
-
-### custom component
-
-catalogに登録されたcomponentのうち、JSやnative実装を持つrich component。diff viewer、terminal、browser viewportなどが例。declarative surfaceの外にある対立概念ではなく、compositionの中のleafとして扱う。
-
-### Interaction
-
-人間またはAgentの入力を待っている第一級の対象。状態、対象resource、入力schema、利用可能なactionを持ち、component treeとは別にAIやWorkbench shellが参照できる。
-
-### Affordance
-
-resource / executionに対して現在利用できる操作。operationが存在することと、現在の状態や権限で有効であることを区別する。componentはAffordanceを描画するが、capabilityの正本にはしない。
-
-### Execution View
-
-同じExecutionを表示するview。inline embed、execution center / status area、panel、notificationなど複数のplacementがあり得る。viewを閉じてもExecution自体は残る。
 
 ## Specbook・文書
 

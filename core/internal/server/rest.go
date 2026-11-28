@@ -49,8 +49,8 @@ type registrationPath struct {
 	RegistrationID string `path:"registrationId" minLength:"1"`
 }
 
-type toolDeclarations struct {
-	Tools []wire.ToolDeclaration `json:"tools"`
+type operationDeclarations struct {
+	Operations []wire.OperationDeclaration `json:"operations"`
 }
 
 type leaseResponse struct {
@@ -81,30 +81,41 @@ func (s *Server) registerREST(mux *http.ServeMux) {
 			operation.OperationID = "renewRegistration"
 			operation.Summary = "登録のLeaseを更新する"
 		})
-	huma.Put(api, registrationsPath+"/{registrationId}/tools", s.replaceTools,
+	huma.Put(api, registrationsPath+"/{registrationId}/operations", s.replaceOperations,
 		func(operation *huma.Operation) {
-			operation.OperationID = "replaceToolDeclarations"
-			operation.Summary = "Tool宣言を置き換える"
+			operation.OperationID = "replaceOperationDeclarations"
+			operation.Summary = "operation宣言を置き換える"
 		})
 	huma.Put(api, registrationsPath+"/{registrationId}/ui", s.replaceUI,
 		func(operation *huma.Operation) {
 			operation.OperationID = "replaceUIManifest"
 			operation.Summary = "UI manifestを置き換える"
 		})
-	huma.Post(api, prefix+"/assets/missing", s.listMissingAssets,
+	huma.Post(api, registrationsPath+"/{registrationId}/ready", s.markReady,
 		func(operation *huma.Operation) {
-			operation.OperationID = "listMissingAssets"
-			operation.Summary = "Coreが持っていないassetのsha256を返す"
+			operation.OperationID = "markRegistrationReady"
+			operation.Summary = "初期setupの完了を宣言する"
 		})
-	// assetのPUTは生バイト、UI配信はワイルドカードパスのためhumaではなく
-	// 直接muxへ（認証・loopback・Origin拒否は既存ミドルウェアがかかる）。
-	mux.HandleFunc("PUT "+prefix+"/assets/{sha256}", s.putAsset)
+	// UI配信はワイルドカードパスのためhumaではなく直接muxへ
+	// （認証・loopback・Origin拒否は既存ミドルウェアがかかる）。
 	mux.HandleFunc("GET "+prefix+"/ui/{registrationId}/{path...}", s.uiAsset)
+	// asset内容のuploadもraw bytesなのでmux直接。assetはWSを通さず
+	// RESTで送る — WSはtool実行など双方向が必要なものだけに絞る。
+	mux.HandleFunc("PUT "+registrationsPath+"/{registrationId}/ui/assets/{path...}", s.uploadUIAsset)
 	huma.Delete(api, registrationsPath+"/{registrationId}", s.deleteRegistration,
 		func(operation *huma.Operation) {
 			operation.OperationID = "deleteRegistration"
 			operation.Summary = "登録を削除する"
 		})
+	viewsPath := prefix + "/views"
+	huma.Register(api, huma.Operation{
+		OperationID: "createViewInstance", Method: http.MethodPost, Path: viewsPath,
+		Summary: "view instanceを登録しticketを発行する", DefaultStatus: http.StatusCreated,
+	}, s.createViewInstance)
+	huma.Register(api, huma.Operation{
+		OperationID: "closeViewInstance", Method: http.MethodDelete, Path: viewsPath + "/{viewId}",
+		Summary: "view instanceを閉じる",
+	}, s.closeViewInstance)
 	huma.Get(api, prefix+"/core", func(context.Context, *struct{}) (*struct{ Body wire.CoreInfo }, error) {
 		return &struct{ Body wire.CoreInfo }{Body: wire.CoreInfo{CoreID: s.coreID, Name: s.name}}, nil
 	}, func(operation *huma.Operation) {
@@ -143,23 +154,23 @@ func (s *Server) renewRegistration(_ context.Context, input *registrationPath) (
 	return &struct{ Body wire.RegistrationLease }{Body: lease}, nil
 }
 
-func (s *Server) replaceTools(_ context.Context, input *struct {
+func (s *Server) replaceOperations(_ context.Context, input *struct {
 	RegistrationID string `path:"registrationId" minLength:"1"`
-	Body           toolDeclarations
+	Body           operationDeclarations
 }) (*struct{}, error) {
-	tools := input.Body.Tools
-	if tools == nil {
-		return nil, newAPIError(http.StatusBadRequest, "invalid_params", "tools must be an array")
+	operations := input.Body.Operations
+	if operations == nil {
+		return nil, newAPIError(http.StatusBadRequest, "invalid_params", "operations must be an array")
 	}
-	switch err := s.registry.ReplaceTools(input.RegistrationID, tools); err {
+	switch err := s.registry.ReplaceOperations(input.RegistrationID, operations); err {
 	case nil:
 		return nil, nil
-	case registry.ErrInvalidTools:
+	case registry.ErrInvalidOperations:
 		return nil, newAPIError(http.StatusBadRequest, "invalid_params", err.Error())
 	case registry.ErrUnknownRegistration:
 		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
 	default:
-		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace Tool declarations")
+		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace operation declarations")
 	}
 }
 
@@ -170,22 +181,15 @@ func (s *Server) deleteRegistration(_ context.Context, input *registrationPath) 
 	return nil, nil
 }
 
-func (s *Server) listMissingAssets(_ context.Context, input *struct {
-	Body struct {
-		SHA256 []string `json:"sha256"`
+func (s *Server) markReady(_ context.Context, input *registrationPath) (*struct{}, error) {
+	switch err := s.registry.SetReady(input.RegistrationID); err {
+	case nil:
+		return nil, nil
+	case registry.ErrUnknownRegistration:
+		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
+	default:
+		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not mark ready")
 	}
-}) (*struct {
-	Body struct {
-		Missing []string `json:"missing"`
-	}
-}, error) {
-	response := &struct {
-		Body struct {
-			Missing []string `json:"missing"`
-		}
-	}{}
-	response.Body.Missing = s.registry.MissingAssets(input.Body.SHA256)
-	return response, nil
 }
 
 func (s *Server) replaceUI(_ context.Context, input *struct {
@@ -200,10 +204,28 @@ func (s *Server) replaceUI(_ context.Context, input *struct {
 	case errors.Is(err, registry.ErrInvalidUI):
 		return nil, newAPIError(http.StatusBadRequest, "invalid_params", err.Error())
 	default:
-		var missing *registry.MissingAssetsError
-		if errors.As(err, &missing) {
-			return nil, newAPIError(http.StatusBadRequest, "missing_assets", err.Error())
-		}
 		return nil, newAPIError(http.StatusInternalServerError, "http_error", "could not replace UI manifest")
 	}
+}
+
+type viewPath struct {
+	ViewID string `path:"viewId" minLength:"1"`
+}
+
+func (s *Server) createViewInstance(_ context.Context, input *struct{ Body wire.ViewCreateParams }) (*struct{ Body wire.ViewTicket }, error) {
+	if !s.registry.HasRegistration(input.Body.RegistrationID) {
+		return nil, newAPIError(http.StatusNotFound, "unknown_registration", "unknown registration")
+	}
+	if !s.registry.PanelDeclared(input.Body.RegistrationID, input.Body.PanelID) {
+		return nil, newAPIError(http.StatusNotFound, "unknown_panel", "panel is not declared by the registration")
+	}
+	ticket := s.views.Store().Create(input.Body.RegistrationID, input.Body.PanelID)
+	return &struct{ Body wire.ViewTicket }{Body: ticket}, nil
+}
+
+func (s *Server) closeViewInstance(_ context.Context, input *viewPath) (*struct{}, error) {
+	if !s.views.CloseInstance(input.ViewID) {
+		return nil, newAPIError(http.StatusNotFound, "unknown_view", "unknown or already closed view instance")
+	}
+	return nil, nil
 }

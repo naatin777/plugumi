@@ -205,7 +205,7 @@ func (m *Model) openCoreView(target coreinstances.Instance) tea.Cmd {
 func (m *Model) closeCoreView() {
 	m.Disconnect()
 	m.coreView = coreView{}
-	m.callTool, m.callTicket = nil, nil
+	m.callOperation, m.callTicket = nil, nil
 	m.callID = ""
 	m.callState = callFinished
 	m.callGeneration++

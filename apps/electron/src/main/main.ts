@@ -2,15 +2,16 @@
 // BrowserWindowで開くviewerであり、同時に内部ブラウザ由来のToolを
 // hostのCoreへ登録するPluginでもある（decisions/00015）。
 import { join } from "node:path";
+import { existsSync } from "node:fs";
 import type { ChildProcess } from "node:child_process";
 import { app, BrowserWindow, ipcMain } from "electron";
-import { loadUI, newInstanceId, registerPlugin } from "plugumi-plugin-client";
-import type { UI } from "plugumi-plugin-client";
+import { newInstanceId, registerPlugin } from "@plugumi/runtime";
+import type { UI } from "@plugumi/runtime";
 import { parseCoreArgs } from "./args.js";
 import { findHost, spawnHost } from "./host.js";
 import { followHostCores } from "./cores.js";
 import { Windows } from "./windows.js";
-import { windowTools } from "./tools.js";
+import { windowOperations } from "./tools.js";
 
 // OS領域の帯（shellのenv(titlebar-area-height)既定値）に合わせる。
 // 色はテーマ連動（rendererのplugumi:theme通知でsetTitleBarOverlayする）。
@@ -96,14 +97,16 @@ async function start(): Promise<void> {
   // 内部ブラウザ由来のToolとPanelをhostのCoreへ登録する。windowとは
   // 独立に動かし、Coreの増減はhostの/api/coresに追従する。
   // UI bundle（ui/dist）は未buildならPanel無しで動かす。
+  const uiRoot = join(__dirname, "..", "..", "ui", "dist");
   let ui: UI | undefined;
-  try {
-    ui = loadUI(join(__dirname, "..", "..", "ui", "dist"));
-  } catch {
+  if (existsSync(join(uiRoot, "site.js"))) {
+    // manifestのscanとsha256計算はruntimeがrootから行う。宣言だけ渡す。
+    ui = { root: uiRoot, panels: [{ panelId: "site", title: "Site", entry: "site.js", styles: ["site.css"] }] };
+  } else {
     console.error("[electron] UI bundleがありません（apps/electron/uiでpnpm buildするとPanelが登録されます）");
   }
   const cores = new AbortController();
-  followHostCores(hostURL, instanceId, windowTools(windows), ui, cores.signal);
+  followHostCores(hostURL, instanceId, windowOperations(windows), ui, cores.signal);
 
   await windows.open();
 

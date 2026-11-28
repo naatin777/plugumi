@@ -1,0 +1,92 @@
+/* Style Labのchrome — sidebar・overlay nav・resizeの配線。
+   component自体の見た目はcomponents.cssとtokenに任せる。 */
+.lab {
+  position: relative;
+  display: flex;
+  font-family: var(--plugumi-font-family-sans);
+  color: var(--plugumi-colors-text);
+  height: 100%;
+  box-sizing: border-box;
+}
+.lab-nav {
+  width: var(--lab-nav-width, 180px);
+  border-right: 1px solid var(--plugumi-colors-border);
+  flex-shrink: 0;
+}
+.lab-content {
+  flex: 1;
+  overflow: auto;
+  padding: var(--plugumi-spacing-md);
+}
+
+/* sidebarのグループ見出しとresizer */
+.lab-nav-group {
+  font-size: var(--plugumi-font-size-2xs);
+  text-transform: capitalize;
+  color: var(--plugumi-colors-text-muted);
+  padding: var(--plugumi-spacing-sm) var(--plugumi-spacing-sm) 2px;
+  margin-top: var(--plugumi-spacing-sm);
+  border-top: 1px solid var(--plugumi-colors-border);
+}
+.lab-nav-group:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+.lab-resizer {
+  width: 4px;
+  cursor: col-resize;
+  flex-shrink: 0;
+}
+.lab-resizer:hover {
+  background: var(--plugumi-colors-fill);
+}
+
+/* responsive — narrow時はsidebarを畳み、hamburgerでoverlay表示 */
+.lab-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--plugumi-spacing-sm);
+  margin-bottom: var(--plugumi-spacing-sm);
+}
+.lab-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--plugumi-colors-text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--plugumi-spacing-xs);
+  border-radius: var(--plugumi-radii-md);
+}
+.lab-hamburger:hover {
+  background: var(--plugumi-colors-fill);
+  color: var(--plugumi-colors-text);
+}
+.lab.narrow .lab-hamburger { display: block; }
+.lab.narrow .lab-nav {
+  display: none;
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 12em;
+  /* このoverlay自体もdrawer — shellのpatternに揃える:
+     端にぴったりの不透明な台、影なし、内側の辺にだけ1px線。 */
+  background: var(--shell-frame-color, var(--plugumi-colors-background-secondary));
+  border-right: 1px solid var(--plugumi-colors-border);
+  z-index: var(--plugumi-z-side-drawer);
+  box-shadow: none;
+}
+.lab.narrow.nav-open .lab-nav { display: flex; }
+.lab.narrow .lab-resizer { display: none; }
+
+.lab-nav-child { padding-left: var(--plugumi-spacing-lg); }
+
+/* folder — 開閉だけのcontainer。項目の形はplugumi-list-itemに乗せる。 */
+.lab-nav-folder {
+  text-transform: capitalize;
+  color: var(--plugumi-colors-text-muted);
+}
+.lab-nav-folder-chevron {
+  font-size: 7px;
+  transition: transform 120ms;
+}
+.lab-nav-folder[data-open] .lab-nav-folder-chevron { transform: rotate(90deg); }

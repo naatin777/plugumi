@@ -1,377 +1,301 @@
-// Package router は caller Plugin → Core → target Plugin の呼び出し中継
-// （docs/contracts/00004）。id空間は接続ごと送信者ごと。Coreはtarget側へ
-// forward idを自空間から発行し、呼び出しに紐付くnotificationの params.callId を
-// 各方間のidへ書き換えて配送する。
+// Package router はoperation invocationの配送とExecution状態の更新を担う。
+// contracts/00004: caller→Coreのoperations.invokeをproviderへforwardし、
+// providerからのoperations.eventをExecution recordへ反映する。
 package router
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
+	"github.com/naatin777/plugumi/core/internal/execution"
 	"github.com/naatin777/plugumi/core/internal/registry"
 	"github.com/naatin777/plugumi/core/internal/rpc"
 	"github.com/naatin777/plugumi/core/internal/wire"
 )
 
 type Router struct {
-	registry    *registry.Registry
-	routes      map[string]*Route // target connection.ID + "\x00" + callId →
-	byCaller    map[string]*Route // caller connection.ID + "\x00" + callId →
-	mu          sync.Mutex
-	cancelGrace time.Duration
+	registry   *registry.Registry
+	executions *execution.Store
+
+	// OnExecutionEvent はexecution event（provider由来・Core合成の両方）が
+	// 発生するたびに呼ばれるhook。SSE feedへのfan-outに使う。
+	OnExecutionEvent func(params wire.OperationsEventParams)
+
+	mu sync.Mutex
+	// inflight[connectionID] = そのconnectionのproviderが処理中のexecution ID集合。
+	// 切断時にproviderDisconnectedでfailedへ進めるために使う。
+	inflight map[string]map[string]bool
+	// executionOwner[executionID] = 配送先providerのconnection。cancel転送に使う。
+	executionOwner map[string]*rpc.Connection
+	// invokers[executionID] = そのexecutionをinvokeしたcallerのconnection。
+	// executions.eventの自動push先（contracts/00004「呼んだ本人」）。
+	invokers map[string]*rpc.Connection
 }
 
-type Route struct {
-	Caller   *rpc.Connection
-	CallerID json.RawMessage // caller側connection上のid
-	Target   *rpc.Connection
-	TargetID json.RawMessage // Coreが発行したforward id
-	Kind     string
-
-	// ready はcallerへのresponse書込みが終わった時点で閉じる。
-	// 非同期callのoutput/resultは受理応答より後に配送する。
-	ready     chan struct{}
-	readyOnce sync.Once
-	// dropped はroute撤収で閉じる。ready待機中のnotification配送を抜けさせる。
-	dropped         chan struct{}
-	dropOnce        sync.Once
-	accepted        bool       // 非同期callが受理されたか。r.muで保護する。
-	delivery        sync.Mutex // 対象切断の終端と、配送中の通知を直列化する。
-	cancelRequested bool
-	// requestWritten はcallのrequestをtargetへ書き終えたか。
-	// 先着したcloseはこれが立つまで送らない（接続上の順序を保つため）。
-	requestWritten bool
-	cancelTimer    *time.Timer // cancelRequestedとともにr.muで保護する。
-}
-
-func New(registry *registry.Registry) *Router {
+func New(reg *registry.Registry, executions *execution.Store) *Router {
 	return &Router{
-		registry:    registry,
-		routes:      make(map[string]*Route),
-		byCaller:    make(map[string]*Route),
-		cancelGrace: 5 * time.Second,
+		registry:       reg,
+		executions:     executions,
+		inflight:       make(map[string]map[string]bool),
+		executionOwner: make(map[string]*rpc.Connection),
+		invokers:       make(map[string]*rpc.Connection),
 	}
 }
 
-func routeKey(c *rpc.Connection, id json.RawMessage) string { return c.ID + "\x00" + string(id) }
-
-// HandleCall はconnection上の tools.call request を捌く。targetへforwardし、
-// responseをそのままこのrequestのresponseとして返す。
-// OnRequestのgoroutine内で同期的に完結させる。
-func (r *Router) HandleCall(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
-	var params wire.CallParams
-	if err := wire.Unmarshal(message.Params, &params); err != nil {
-		return nil, &wire.RPCError{Code: -32602, Message: "invalid params"}
-	}
-
-	if params.Target.RegistrationID == "" || params.Target.ToolPath == "" {
-		return nil, &wire.RPCError{Code: -32602, Message: "registrationId and toolPath are required"}
-	}
-	target, kind, lookupErr := r.registry.ResolveTool(params.Target)
-	switch lookupErr {
-	case nil:
-	case registry.ErrUnknownRegistration:
-		return nil, &wire.RPCError{Code: -32007, Message: "unknown registration: " + params.Target.RegistrationID}
+// rpcErrorForResolve はoperation解決の失敗をJSON-RPC errorへ写像する。
+func rpcErrorForResolve(err error) *wire.RPCError {
+	switch err {
+	case registry.ErrUnknownOperation:
+		return &wire.RPCError{Code: -32003, Message: "no provider for operation"}
+	case registry.ErrAmbiguousOperation:
+		return &wire.RPCError{Code: -32003, Message: "operation is ambiguous"}
 	case registry.ErrConnectionUnavailable:
-		return nil, &wire.RPCError{Code: -32002, Message: "plugin connection unavailable"}
-	case registry.ErrUnknownTool:
-		return nil, &wire.RPCError{Code: -32601, Message: "no such toolPath: " + params.Target.ToolPath}
+		return &wire.RPCError{Code: -32003, Message: "provider connection unavailable"}
 	default:
-		return nil, &wire.RPCError{Code: -32603, Message: "failed to resolve tool target"}
+		return &wire.RPCError{Code: -32603, Message: "internal error"}
+	}
+}
+
+// HandleInvoke はcaller→Coreのoperations.invokeを捌く。
+// providerへforwardし、応答に応じてExecutionを更新してcallerへ返す。
+func (r *Router) HandleInvoke(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+	var params wire.InvokeParams
+	if err := wire.Unmarshal(message.Params, &params); err != nil || params.Operation == "" {
+		return nil, &wire.RPCError{Code: -32602, Message: "invalid invoke params"}
 	}
 
-	forwardID := target.NextID()
-	route := &Route{
-		Caller: caller, CallerID: message.ID,
-		Target: target, TargetID: forwardID,
-		Kind:    kind,
-		ready:   make(chan struct{}),
-		dropped: make(chan struct{}),
-	}
-	r.mu.Lock()
-	select {
-	case <-caller.Done():
-		r.mu.Unlock()
-		return nil, &wire.RPCError{Code: -32000, Message: "caller connection closed"}
-	case <-target.Done():
-		r.mu.Unlock()
-		return nil, &wire.RPCError{Code: -32000, Message: "forward failed: target connection closed"}
-	default:
-	}
-	targetKey := routeKey(target, forwardID)
-	if r.byCaller[routeKey(caller, message.ID)] != nil {
-		r.mu.Unlock()
-		return nil, &wire.RPCError{Code: -32600, Message: "call ID is already in use"}
-	}
-	r.routes[targetKey] = route
-	r.byCaller[routeKey(caller, message.ID)] = route
-	r.mu.Unlock()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-	res, err := target.RequestWithID(ctx, forwardID, wire.MethodCall,
-		wire.ForwardCallParams{ToolPath: params.Target.ToolPath, Input: params.Input},
-		func() { r.markRequestSent(route) })
+	target, err := r.registry.ResolveOperation(params.Operation)
 	if err != nil {
-		r.removeRoute(route)
-		// target側で実行中のcallがあれば止める。timeout/送信失敗で
-		// こちらが諦めても、相手側の購読・長時間callは実行され続けるため。
-		_ = target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: forwardID})
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, &wire.RPCError{Code: -32003, Message: "forward deadline exceeded"}
-		}
-		return nil, &wire.RPCError{Code: -32000, Message: "forward failed: " + err.Error()}
+		return nil, rpcErrorForResolve(err)
 	}
 
-	if kind == "sync" {
-		// 同期Toolは途中出力を実行中に配送でき、最終応答が終端となる。
-		err := target.WaitNotifications(ctx)
-		r.removeRoute(route)
-		if err != nil {
-			return nil, &wire.RPCError{Code: -32000, Message: "forward failed: " + err.Error()}
-		}
-		return res.Result, res.Error
+	exec := r.executions.Create(params.Operation, params.Input, params.Context)
+	r.mu.Lock()
+	r.invokers[exec.ID] = caller
+	r.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	r.trackInflight(target, exec.ID)
+	forward := wire.ForwardInvokeParams{
+		Operation:   params.Operation,
+		ExecutionID: exec.ID,
+		Input:       params.Input,
 	}
+	res, invokeErr := target.Request(ctx, wire.MethodOperationsInvoke, forward)
+
+	if invokeErr != nil {
+		// 配送失敗・切断: providerDisconnectedでfailedへ
+		r.executions.ApplyEvent(exec.ID, "error", wire.Marshal(wire.ExecutionError{
+			Code:    "provider_disconnected",
+			Message: "invoke delivery failed: " + invokeErr.Error(),
+			Kind:    wire.ErrorKindProviderDisconnected,
+		}))
+		r.untrackInflight(target, exec.ID)
+		updated, _ := r.executions.Get(exec.ID)
+		return wire.Marshal(wire.InvokeResult{Execution: updated}), nil
+	}
+
 	if res.Error != nil {
-		r.removeRoute(route)
-		return nil, res.Error
+		r.executions.ApplyEvent(exec.ID, "error", wire.Marshal(wire.ExecutionError{
+			Code:    "execution_failed",
+			Message: res.Error.Message,
+			Kind:    wire.ErrorKindExecutionFailed,
+		}))
+		r.untrackInflight(target, exec.ID)
+		updated, _ := r.executions.Get(exec.ID)
+		return wire.Marshal(wire.InvokeResult{Execution: updated}), nil
 	}
-	var acceptance struct {
-		Accepted bool `json:"accepted"`
+
+	var providerResult wire.ProviderInvokeResult
+	if err := wire.Unmarshal(res.Result, &providerResult); err != nil {
+		r.executions.ApplyEvent(exec.ID, "error", wire.Marshal(wire.ExecutionError{
+			Code:    "invalid_provider_response",
+			Message: "provider response is not a valid execution state",
+			Kind:    wire.ErrorKindExecutionFailed,
+		}))
+		r.untrackInflight(target, exec.ID)
+		updated, _ := r.executions.Get(exec.ID)
+		return wire.Marshal(wire.InvokeResult{Execution: updated}), nil
 	}
-	if json.Unmarshal(res.Result, &acceptance) != nil || !acceptance.Accepted {
-		r.removeRoute(route)
-		return res.Result, nil
+
+	updated := r.executions.Complete(exec.ID, &providerResult)
+	if updated != nil && isTerminal(updated.Status) {
+		r.untrackInflight(target, exec.ID)
 	}
-	// 切断処理と受理判定を直列化する。先にrouteが消えた場合はresponseで終端する。
-	r.mu.Lock()
-	if r.routes[targetKey] != route {
-		r.mu.Unlock()
-		return nil, &wire.RPCError{Code: -32000, Message: "forward failed: connection closed before acceptance"}
-	}
-	route.accepted = true
-	if route.cancelRequested {
-		r.startCancelTimerLocked(route)
-	}
-	r.mu.Unlock()
-	return res.Result, nil
+	return wire.Marshal(wire.InvokeResult{Execution: updated}), nil
 }
 
-// NotifyResponded はcaller connectionへのresponse書込み完了を受ける
-// （connection.OnRespondedから呼ぶ）。routeのreadyを閉じて
-// 非同期callのnotification中継を解禁する。
-func (r *Router) NotifyResponded(c *rpc.Connection, id json.RawMessage) {
-	r.mu.Lock()
-	route := r.byCaller[routeKey(c, id)]
-	r.mu.Unlock()
-	if route == nil {
-		return
-	}
-	route.readyOnce.Do(func() { close(route.ready) })
+func isTerminal(status string) bool {
+	return status == wire.ExecutionSucceeded || status == wire.ExecutionFailed || status == wire.ExecutionCancelled
 }
 
-// HandleTargetNotification はtarget側connectionからのnotification中継（途中出力・終端）。
-// callIdをcaller側のidへ書き換えて配送する。
-// callerがresponseを受け取る前にnotificationを届けないよう、
-// route.readyが閉じるまで待機する。
-func (r *Router) HandleTargetNotification(c *rpc.Connection, message *wire.Incoming) {
-	var chunk wire.CallChunkParams
-	var result wire.CallResultParams
-	var callID json.RawMessage
-	switch message.Method {
-	case wire.MethodCallChunk:
-		if err := wire.Unmarshal(message.Params, &chunk); err != nil {
-			return
-		}
-		callID = chunk.CallID
-	case wire.MethodCallResult:
-		if err := wire.Unmarshal(message.Params, &result); err != nil {
-			return
-		}
-		callID = result.CallID
-	default:
-		return
-	}
-
-	r.mu.Lock()
-	route := r.routes[routeKey(c, callID)]
-	r.mu.Unlock()
-	if route == nil {
-		return
-	}
-
-	if route.Kind == "async" {
-		select {
-		case <-route.ready:
-		case <-route.dropped:
-			return
-		}
-	}
-
-	route.delivery.Lock()
-	defer route.delivery.Unlock()
-	switch message.Method {
-	case wire.MethodCallResult:
-		// 切断処理に先を越された場合は、ここから終端を重ねて送らない。
-		if route.Kind != "async" || !r.removeRoute(route) {
-			return
-		}
-		result.CallID = route.CallerID
-		_ = route.Caller.Notify(wire.MethodCallResult, result)
-	case wire.MethodCallChunk:
-		select {
-		case <-route.dropped:
-			return
-		default:
-		}
-		chunk.CallID = route.CallerID
-		_ = route.Caller.Notify(wire.MethodCallChunk, chunk)
-	}
-}
-
-// HandleCallerNotification は呼び出し元側connectionからの tools.call.close notification。
-// 対応routeを引き、callIdをforward idへ書き換えてtargetへ配送する。
-func (r *Router) HandleCallerNotification(c *rpc.Connection, message *wire.Incoming) {
-	var closeParams wire.CallCloseParams
-	if err := wire.Unmarshal(message.Params, &closeParams); err != nil {
-		return
-	}
-	r.mu.Lock()
-	route := r.byCaller[routeKey(c, closeParams.CallID)]
-	if route == nil || route.cancelRequested || r.routes[routeKey(route.Target, route.TargetID)] != route {
-		r.mu.Unlock()
-		return
-	}
-	route.cancelRequested = true
-	if route.accepted {
-		r.startCancelTimerLocked(route)
-	}
-	written := route.requestWritten
-	r.mu.Unlock()
-	// 同期呼び出しと受理前の呼び出しには既存のrequest期限がある。
-	// callの書き込み前なら、markRequestSentがcallに続けてcloseを送る。
-	if written {
-		_ = route.Target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: route.TargetID})
-	}
-}
-
-// markRequestSent はforward requestの書き込み完了フック。
-// callの送信前に届いていたcloseがあれば、callに続けて送る。
-func (r *Router) markRequestSent(route *Route) {
-	r.mu.Lock()
-	route.requestWritten = true
-	sendClose := route.cancelRequested
-	r.mu.Unlock()
-	if sendClose {
-		_ = route.Target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: route.TargetID})
-	}
-}
-
-func (r *Router) startCancelTimerLocked(route *Route) {
-	route.cancelTimer = time.AfterFunc(r.cancelGrace, func() {
-		// 結果不明でも、受理応答より先に終端通知を送らない（contracts/00004）。
-		select {
-		case <-route.ready:
-		case <-route.dropped:
-			return
-		case <-route.Caller.Done():
-			return
-		}
-		route.delivery.Lock()
-		defer route.delivery.Unlock()
-		if r.removeRoute(route) {
-			_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
-				CallID: route.CallerID,
-				Error:  &wire.RPCError{Code: -32004, Message: "outcome unknown: no terminal result after cancellation request"},
-			})
-		}
-	})
-}
-
-// DispatchNotification はメソッドの方向に対応するID空間を使う。
-func (r *Router) DispatchNotification(c *rpc.Connection, message *wire.Incoming) {
-	switch message.Method {
-	case wire.MethodCallChunk, wire.MethodCallResult:
-		r.HandleTargetNotification(c, message)
-	case wire.MethodCallClose:
-		r.HandleCallerNotification(c, message)
-	}
-}
-
-// DropConnection はconnection終了時の後始末。そのconnectionに紐付くrouteを失敗として閉じる。
-// targetが死んだときはcallerへerror終端を、callerが死んだときはtargetへ
-// closeを送る。送らないと購読・長時間callが相手側で実行され続ける。
-func (r *Router) DropConnection(c *rpc.Connection) {
-	r.mu.Lock()
-	var abandoned, interrupted []*Route
-	for key, route := range r.routes {
-		if route.Target == c || route.Caller == c {
-			delete(r.routes, key)
-			route.dropLocked()
-			if route.Target == c && route.Caller != c && route.accepted {
-				// 受理応答の書き込みを待つ間はNotifyResponded用の索引を残す。
-				interrupted = append(interrupted, route)
-			} else {
-				delete(r.byCaller, routeKey(route.Caller, route.CallerID))
-				if route.Caller == c && route.Target != c {
-					abandoned = append(abandoned, route)
-				}
-			}
-		}
-	}
-	r.mu.Unlock()
-	for _, route := range interrupted {
-		go r.notifyTargetClosed(route)
-	}
-	for _, route := range abandoned {
-		_ = route.Target.Notify(wire.MethodCallClose, wire.CallCloseParams{CallID: route.TargetID})
-	}
-}
-
-func (r *Router) notifyTargetClosed(route *Route) {
-	defer func() {
-		r.mu.Lock()
-		key := routeKey(route.Caller, route.CallerID)
-		if r.byCaller[key] == route {
-			delete(r.byCaller, key)
-		}
-		r.mu.Unlock()
-	}()
-	select {
-	case <-route.ready:
-	case <-route.Caller.Done():
-		return
-	}
-	route.delivery.Lock()
-	defer route.delivery.Unlock()
-	_ = route.Caller.Notify(wire.MethodCallResult, wire.CallResultParams{
-		CallID: route.CallerID,
-		Error:  &wire.RPCError{Code: -32000, Message: "target connection closed"},
-	})
-}
-
-func (r *Router) removeRoute(route *Route) bool {
+func (r *Router) trackInflight(connection *rpc.Connection, executionID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	targetKey := routeKey(route.Target, route.TargetID)
-	if r.routes[targetKey] != route {
-		return false
+	set := r.inflight[connection.ID]
+	if set == nil {
+		set = make(map[string]bool)
+		r.inflight[connection.ID] = set
 	}
-	delete(r.routes, targetKey)
-	callerKey := routeKey(route.Caller, route.CallerID)
-	if r.byCaller[callerKey] == route {
-		delete(r.byCaller, callerKey)
-	}
-	route.dropLocked()
-	return true
+	set[executionID] = true
+	r.executionOwner[executionID] = connection
 }
 
-func (route *Route) dropLocked() {
-	if route.cancelTimer != nil {
-		route.cancelTimer.Stop()
+func (r *Router) untrackInflight(connection *rpc.Connection, executionID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if set := r.inflight[connection.ID]; set != nil {
+		delete(set, executionID)
+		if len(set) == 0 {
+			delete(r.inflight, connection.ID)
+		}
 	}
-	route.dropOnce.Do(func() { close(route.dropped) })
+	delete(r.executionOwner, executionID)
+}
+
+// HandleOperationsEvent はprovider→Coreのoperations.event notificationを捌く。
+// Execution recordへ反映し、terminalならin-flight追跡を外す。
+func (r *Router) HandleOperationsEvent(provider *rpc.Connection, message *wire.Incoming) {
+	var params wire.OperationsEventParams
+	if err := wire.Unmarshal(message.Params, &params); err != nil || params.ExecutionID == "" {
+		return
+	}
+	updated, err := r.executions.ApplyEvent(params.ExecutionID, params.Type, params.Payload)
+	if err != nil {
+		return
+	}
+	r.fanout(params)
+	if isTerminal(updated.Status) {
+		r.untrackInflight(provider, params.ExecutionID)
+		r.dropInvoker(params.ExecutionID)
+	}
+}
+
+// fanout はexecution eventをinvokerの接続とSSE hookへ配信する。
+func (r *Router) fanout(params wire.OperationsEventParams) {
+	r.mu.Lock()
+	invoker := r.invokers[params.ExecutionID]
+	r.mu.Unlock()
+	if invoker != nil {
+		// 書き込み失敗（切断済み）は気にしない。次の接続でgetすれば取り直せる。
+		_ = invoker.Notify(wire.MethodExecutionsEvent, params)
+	}
+	if r.OnExecutionEvent != nil {
+		r.OnExecutionEvent(params)
+	}
+}
+
+func (r *Router) dropInvoker(executionID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.invokers, executionID)
+}
+
+// HandleExecutionsGet はcaller→Coreのexecutions.getを捌く。
+func (r *Router) HandleExecutionsGet(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+	var params struct {
+		ExecutionID string `json:"executionId"`
+	}
+	if err := wire.Unmarshal(message.Params, &params); err != nil || params.ExecutionID == "" {
+		return nil, &wire.RPCError{Code: -32602, Message: "invalid params"}
+	}
+	exec, err := r.executions.Get(params.ExecutionID)
+	if err != nil {
+		return nil, &wire.RPCError{Code: -32005, Message: "unknown execution"}
+	}
+	return wire.Marshal(exec), nil
+}
+
+// HandleExecutionsList はcaller→Coreのexecutions.listを捌く。
+func (r *Router) HandleExecutionsList(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+	return wire.Marshal(struct {
+		Executions []*wire.Execution `json:"executions"`
+	}{Executions: r.executions.List()}), nil
+}
+
+// HandleOperationsList はcaller→Coreのoperations.listを捌く。
+func (r *Router) HandleOperationsList(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+	return wire.Marshal(struct {
+		Operations []wire.OperationDeclaration `json:"operations"`
+	}{Operations: r.registry.ListOperations()}), nil
+}
+
+// DispatchNotification はprovider側connectionからのnotificationをmethodで振り分ける。
+func (r *Router) DispatchNotification(c *rpc.Connection, message *wire.Incoming) {
+	switch message.Method {
+	case wire.MethodOperationsEvent:
+		r.HandleOperationsEvent(c, message)
+	}
+}
+
+// DropConnection はconnection切断時の清算。in-flightのExecutionを
+// providerDisconnectedでfailedへ進める（contracts/00004）。
+// caller側の接続ならinvoker登録を外す。
+func (r *Router) DropConnection(c *rpc.Connection) {
+	r.mu.Lock()
+	ids := make([]string, 0)
+	if set := r.inflight[c.ID]; set != nil {
+		for id := range set {
+			ids = append(ids, id)
+			delete(r.executionOwner, id)
+		}
+		delete(r.inflight, c.ID)
+	}
+	// callerとして切断した場合、それがinvokerのexecutionの登録を外す。
+	for id, invoker := range r.invokers {
+		if invoker == c {
+			delete(r.invokers, id)
+		}
+	}
+	r.mu.Unlock()
+	r.executions.FailDisconnected(ids)
+	// provider切断でfailedへ進んだexecutionへは、終端を知る術がないと
+	// callerがrunningのまま待ち続けるので、Core合成のerror eventをfanoutする。
+	for _, id := range ids {
+		seq := r.executions.NextSeq(id)
+		params := wire.OperationsEventParams{
+			ExecutionID: id,
+			Seq:         seq,
+			Type:        "error",
+			Payload: wire.Marshal(wire.ExecutionError{
+				Code:    "provider_disconnected",
+				Message: "provider disconnected",
+				Kind:    wire.ErrorKindProviderDisconnected,
+			}),
+		}
+		r.fanout(params)
+		r.dropInvoker(id)
+	}
+}
+
+// HandleExecutionsCancel はcaller→Coreのexecutions.cancelを捌く。
+// providerへcancel notificationを転送し、受理時点のExecutionを返す。
+// 終端はproviderのterminal eventを待つ（contracts/00004）。
+func (r *Router) HandleExecutionsCancel(caller *rpc.Connection, message *wire.Incoming) (json.RawMessage, *wire.RPCError) {
+	var params struct {
+		ExecutionID string `json:"executionId"`
+	}
+	if err := wire.Unmarshal(message.Params, &params); err != nil || params.ExecutionID == "" {
+		return nil, &wire.RPCError{Code: -32602, Message: "invalid params"}
+	}
+	exec, err := r.executions.Get(params.ExecutionID)
+	if err != nil {
+		return nil, &wire.RPCError{Code: -32005, Message: "unknown execution"}
+	}
+	if isTerminal(exec.Status) {
+		return wire.Marshal(exec), nil
+	}
+	r.mu.Lock()
+	owner := r.executionOwner[params.ExecutionID]
+	r.mu.Unlock()
+	if owner != nil {
+		_ = owner.Notify(wire.MethodExecutionsCancel, map[string]string{
+			"executionId": params.ExecutionID,
+		})
+	}
+	return wire.Marshal(exec), nil
 }

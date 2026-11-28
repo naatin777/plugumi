@@ -59,7 +59,7 @@ async fn assert_rejected(upgrade: bool) {
                 r#"{"registrationId":"test-registration","leaseSeconds":60}"#,
             )
             .await;
-            // tools宣言の後にupgradeする。Environment Providerはheadlessなのでasset pushやUI登録は行わない。
+            // operations宣言とreadyの後にupgradeする。Environment ProviderはheadlessなのでUI登録は行わない。
             loop {
                 let (socket, _) = listener.accept().await.unwrap();
                 let mut reader = BufReader::new(socket);
@@ -78,7 +78,9 @@ async fn assert_rejected(upgrade: bool) {
                     }
                 }
                 reader.read_exact(&mut vec![0; body_length]).await.unwrap();
-                let (status, body) = if request_line.starts_with("PUT /v1/registrations/test-registration/tools ") {
+                let (status, body) = if request_line.starts_with("PUT /v1/registrations/test-registration/operations ") {
+                    ("204 No Content", "")
+                } else if request_line.starts_with("POST /v1/registrations/test-registration/ready ") {
                     ("204 No Content", "")
                 } else if request_line.starts_with("GET /v1/rpc?") {
                     ("403 Forbidden", "")

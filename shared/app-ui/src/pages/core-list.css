@@ -1,0 +1,19 @@
+/* Core一覧（/）。shellの外の画面。 */
+@layer components {
+
+  .core-list-page {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: var(--plugumi-spacing-xl) var(--plugumi-spacing-md);
+    display: flex; flex-direction: column;
+    gap: var(--plugumi-spacing-md);
+  }
+  .core-list-page h1 { font-size: var(--plugumi-font-size-xl); margin: 0; }
+  .core-list-page li { display: flex; align-items: center; gap: var(--plugumi-spacing-xs); }
+  .core-entry { flex: 1; min-width: 0; }
+  .core-entry-static { cursor: default; }
+  .core-add { align-self: flex-start; }
+  .core-add-form { display: flex; gap: var(--plugumi-spacing-xs); }
+  .core-add-form input { flex: 1; min-width: 0; }
+  .core-error { color: var(--plugumi-colors-error); }
+}

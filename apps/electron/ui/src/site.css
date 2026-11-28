@@ -1,0 +1,39 @@
+.panel {
+  font-family: var(--plugumi-font-family-sans);
+  font-size: var(--plugumi-font-size-md);
+  color: var(--plugumi-colors-text);
+  background: transparent;
+  height: 100%;
+  padding: var(--plugumi-spacing-md);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--plugumi-spacing-sm);
+}
+form { display: flex; gap: var(--plugumi-spacing-xs); }
+input { flex: 1; min-width: 0; }
+
+.view {
+  flex: 1;
+  position: relative;
+  border: 1px dashed var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-sm);
+  display: flex;
+  min-height: 0;
+}
+.view webview {
+  flex: 1;
+  min-height: 0;
+}
+.hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.hint, .unavailable {
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-sm);
+}

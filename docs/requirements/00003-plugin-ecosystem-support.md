@@ -16,7 +16,7 @@ relations:
 
 - Pluginは好きな言語・好きなフロントエンドで書けなければならない MUST
 - Pluginは、利用者が指定したCoreへ自分から接続し、自前のHTTP/WS待受を公開せずに登録・機能提供・再接続ができなければならない MUST
-- 同じPluginプロセスが複数Coreへ独立に接続できなければならない MUST。CoreがPluginを起動・停止することを接続の前提にしてはならない MUST NOT
+- self-managed / externalなPluginプロセスは、複数Coreへ独立に接続できなければならない MUST。CoreがPluginを起動・停止することを接続の前提にしてはならない MUST NOT。Plugumi管理のPlugin runtime processの標準寿命をCoreごとのprocessに割り切ることは、このself-managed / externalな接続能力を禁止しない
 - 第三者がCore実装を読まずに開発できる環境（SDK・ドキュメント・skill）がなければならない MUST
 - 他者のPluginを採用する判断に必要な情報（何をするPluginか・危なくないか）を提供するskillがなければならない SHOULD
 

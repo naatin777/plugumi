@@ -1,7 +1,7 @@
 ---
 type: contract
-title: PanelのモジュールとWeb Pluginの接続
-description: Pluginが提供するPanelのentryがexportする関数、Web Pluginが渡すcontext、CSSの範囲、Panelのライフサイクルを定める。
+title: PanelのモジュールとWeb appの接続
+description: Pluginが提供するPanelのentryがexportする関数、Web appが渡すcontext、CSSの範囲、Panelのライフサイクルを定める。
 status: draft
 relations:
   decision:
@@ -15,45 +15,47 @@ relations:
 ## 当事者
 
 - **Panelのモジュール**: Pluginが提供するUI Bundleのentry。ESMのJavaScriptファイル。
-- **Web Plugin**: entryを読み込み、画面に表示する。
+- **Web app**: entryを読み込み、画面に表示する。
 
-Panelのモジュールは、Web Pluginと同じOriginで動き、Panel InstanceごとのShadowRootの中にDOMを作る（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）。Shadow DOMは見た目を分けるためのもので、信頼の境界ではない。entryのファイルと宣言の受け渡しは[Contract 00004](00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」に従う。
+Panelのモジュールは、Web appと同じOriginで動き、Panel InstanceごとのShadowRootの中にDOMを作る（[Decision 00014](../decisions/00014-panel-runs-unisolated.md)）。Shadow DOMは見た目を分けるためのもので、信頼の境界ではない。entryのファイルと宣言の受け渡しは[Contract 00004](00004-plugin-client-protocol.md)の「UIファイルとPanelの宣言」に従う。
 
 ## entryがexportするもの
 
-> 移行メモ: この節の `callTool` は旧revisionの `registrationId + toolPath` modelに対応する。[Contract 00004](00004-plugin-client-protocol.md)のoperation / Execution modelへ実装を移行するとき、Panelからの呼び出しAPIも `callTool` からoperation pathを使う形へ改訂する。それまでは現行実装の記述として残す。
-
 ```ts
-export function mount(host: ShadowRoot, context: PanelContext): PanelHandle | Promise<PanelHandle>;
+export function mount(host: ShadowRoot, context: ViewContext): ViewHandle | Promise<ViewHandle>;
 
-interface PanelHandle {
+interface ViewHandle {
   destroy(): void;
 }
 
-interface PanelContext {
-  // このPanelのShadowRoot。mountに渡すhostと同じもの。
-  root: ShadowRoot;
-  // このPanelを提供した登録のToolを呼ぶ。現在はsyncのToolだけに対応する。
-  callTool(toolPath: string, input: unknown): Promise<unknown>;
+interface ViewContext {
+  // viewがCoreへ自分で接続するための情報（designs/00011のview channel）。
+  // hostはticketの受け渡しだけを行い、通信には関与しない。
+  connection: { coreUrl: string; ticket: string };
   // このPanelを開いたときの初期入力。openPanelの第2引数がそのまま届く。
   input?: unknown;
+  // このPanelのShadowRoot。mountに渡すhostと同じもの。
+  root?: ShadowRoot;
+  // viewの活動状態をhostへ通知する。意味だけ渡し、表現はhostが決める。
+  setActivity?(activity: ViewActivity | null): void;
   // 同じleafの自分の隣に、同じPluginの別Panelを開く。
-  openPanel(panelId: string, input?: unknown): void;
+  openPanel?(panelId: string, input?: unknown): void;
 }
 ```
 
+viewとruntimeの通信はshellを経由しない。viewは `connection` の情報でCoreのview専用endpointへ自分でWebSocket接続し、ticketでbindする。それ以降のmessageはCoreがopaqueにruntimeへroutingする（[Design 00011](../designs/00011-view-channel.md)）。標準の書き方は `@plugumi/view` の `defineView<SendMsg, RecvMsg>(mount)` で、接続・bind・型付け・cleanupはSDKが担い、作者は接続済みの型付きchannelを受け取ってUIだけを書く。
+
 - `host` は、そのPanel Instance専用のShadowRootである。Panelは `host` の中だけにDOMを作る。ShadowRootを持つhost要素には `data-plugumi-plugin="<registrationId>"` が付いている。
 - popover・tooltip・dialogなど、Panelの並びの外に置きたい要素は `context.root`（`host`と同じShadowRoot）へappendする。documentやbody直下へ出すと、Panel自身のCSSがその要素に届かない。
-- `callTool` は、Toolの結果を返す。Toolがエラーを返したときは、Promiseを拒否する。
 - `openPanel` で開いたPanelは、自分を開いたPanelの隣（leaf内の次の位置）に挿入され、その新しいPanelの `context.input` に第2引数が届く。`input` は実行時だけの値で、workspaceへは保存されず再mountでも届かない。開けるのは同じPluginのPanelだけ（他PluginのPanelを指定することはできない）。
 - Panelは特定のフレームワークに依存しなくてよい。フレームワークのランタイムはPanelのBundleに含める。
-- TypeScriptの型（`PanelContext`・`PanelHandle`）は、配布用のパッケージ `@plugumi/plugin-view` から使える。
+- TypeScriptの型（`ViewContext`・`ViewHandle`）は、配布用のパッケージ `@plugumi/view` から使える。
 
 ## Panelのライフサイクル
 
-Web Pluginは、開いている1つ1つのPanelをPanel Instanceとして扱う。Panel Instanceは、Panelの宣言（Pluginと `panelId`）とは別のもので、Web PluginがIDを振る。同じPanelを複数開くと、それぞれが別のPanel Instanceになる。
+Web appは、開いている1つ1つのPanelをPanel Instanceとして扱う。Panel Instanceは、Panelの宣言（Pluginと `panelId`）とは別のもので、Web appがIDを振る。同じPanelを複数開くと、それぞれが別のPanel Instanceになる。
 
-| できごと | Web Pluginが行うこと |
+| できごと | Web appが行うこと |
 |---|---|
 | Panelを開く | 新しいPanel Instanceを作り、`mount` を1回呼ぶ |
 | タブを切り替える | 表示を隠すだけで、`destroy` も `mount` も呼ばない。DOMはそのまま残る |
@@ -61,9 +63,9 @@ Web Pluginは、開いている1つ1つのPanelをPanel Instanceとして扱う�
 | UIが更新される（`uiSha256` が変わる） | `destroy` を呼んでから、新しい版のentryで `mount` し直す |
 | 提供元の登録がなくなる | 同じPluginの同じPanelの登録が1つだけあれば、それで `mount` し直す。なければ、その旨を表示してPanel Instanceは残す |
 
-Panelは `destroy` で購読やタイマーを片付ける。`mount` し直したとき、Web PluginはPanelの内部状態を復元しない。
+Panelは `destroy` で購読やタイマーを片付ける。`mount` し直したとき、Web appはPanelの内部状態を復元しない。
 
-Web Pluginは、表示に失敗した理由を次の3つに分けて示し、同じPanel Instanceのまま再試行できるようにする。
+Web appは、表示に失敗した理由を次の3つに分けて示し、同じPanel Instanceのまま再試行できるようにする。
 
 | 分類 | 意味 |
 |---|---|
@@ -75,10 +77,10 @@ Web Pluginは、表示に失敗した理由を次の3つに分けて示し、同
 
 Panelは専用のShadowRootの中に描かれるので、CSSはShadow DOMの境界で分かれる。この分離は見た目のためのもので、セキュリティの境界ではない — PanelのJSはdocumentを直接触れる。
 
-- **Web Plugin自身のCSS**: document側のCSSとして書く。Shadow DOMを越えないのでPanelには届かず、Panelに届くのはToken（CSS変数）と、文字色やフォントなどの継承される値だけである。
-- **PanelのCSS**: Panelの宣言の `styles` に、UI BundleのCSSファイルを書く。Web PluginはそれをそのPanelのShadowRootにだけ適用する（`adoptedStyleSheets`）。`@keyframes` もshadow内で閉じるため、他のPanelやWeb Pluginと名前が衝突しない。`@font-face` はshadow内では登録できないため、Web Pluginがdocument側へ出す — 画面全体で共有され、名前の衝突はPanel側が避ける。`@import` は使えない。
+- **Web app自身のCSS**: document側のCSSとして書く。Shadow DOMを越えないのでPanelには届かず、Panelに届くのはToken（CSS変数）と、文字色やフォントなどの継承される値だけである。
+- **PanelのCSS**: Panelの宣言の `styles` に、UI BundleのCSSファイルを書く。Web appはそれをそのPanelのShadowRootにだけ適用する（`adoptedStyleSheets`）。`@keyframes` もshadow内で閉じるため、他のPanelやWeb appと名前が衝突しない。`@font-face` はshadow内では登録できないため、Web appがdocument側へ出す — 画面全体で共有され、名前の衝突はPanel側が避ける。`@import` は使えない。
 
-Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照できる。値はWeb Pluginが決め、Dark/Lightは `:root` の `data-plugumi-theme` で切り替わる。
+Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照できる。値はWeb appが決め、Dark/Lightは `:root` の `data-plugumi-theme` で切り替わる。
 
 | 種別 | 名前の例 |
 |---|---|
@@ -86,7 +88,7 @@ Panelは、見た目をそろえたい場合、次のTokenを `var()` で参照�
 | 文字 | `--plugumi-font-family-sans`、`--plugumi-font-family-mono`、`--plugumi-font-size-md`、`--plugumi-font-weight-semibold`、`--plugumi-line-height-md` |
 | 余白・角丸 | `--plugumi-spacing-xs` 〜 `--plugumi-spacing-xl`、`--plugumi-radii-sm` 〜 `--plugumi-radii-lg` |
 
-Tokenの名前は `@plugumi/plugin-view` の `tokenNames` でも参照できる。値の正本は、Plugin Shellの `shared/workbench/src/styles/tokens.css` とする。
+値の正本は、Workbench shellの `shared/app-ui/src/styles/tokens.css` とする。
 
 Panelの最背面は透明にする。Panelの面はShellが領域によらず `--plugumi-colors-background-secondary` で敷く（Design 00005「面と縁」）。Panelが自分で最背面を塗る必要はなく、Tokenで面の色を塗るのはPanel内部で面を分けたい要素に限る。
 
@@ -96,7 +98,7 @@ Plugin経由ではなくShellのbundleに同梱されるPanel（`kind: "builtin"
 
 組み込みも本contractの `mount(host, context)` で呼ばれ、`host`はPluginと同じShadowRoot。違うのはコードとstyleの来所だけで、module fetchの代わりにbundle同梱の`mount`を呼び、Core経由の`styles` fetchの代わりに同梱されたCSSテキストを`adoptedStyleSheets`へ載せる。contextは`PanelContext`に`shell: ShellController`を足した`BuiltinPanelContext` — 同梱コードなので信頼境界はなく、テーマのような端末localのprefsへはCore Toolではなくこの`shell`で届く（`callTool`は組み込みでは使えない）。`styles`・`uiSha256`・`registrationId`は持たず、一覧の更新追従・再mountも行わない。
 
-組み込みPanelの実体は`shared/`配下の独立package（最初の組み込みはテーマ切替Panel `plugumi-theme-panel`、`panelId: "theme"`）として置き、`shared/workbench`はmountの機構だけを持つ。
+組み込みPanelの実体は`shared/`配下の独立package（最初の組み込みはテーマ切替Panel `plugumi-theme-panel`、`panelId: "theme"`）として置き、`shared/app-ui`はmountの機構だけを持つ。
 
 ## 未決定
 

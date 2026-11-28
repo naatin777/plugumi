@@ -416,8 +416,8 @@ func (m *Model) registrationTreeRows(width, height int) []paneRow {
 	start, end := visibleRange(len(m.rows), selection, height-1)
 	for index := start; index < end; index++ {
 		row := m.rows[index]
-		if row.tool != nil {
-			label := "  " + selectableRow(toolLabel(row.tool, row.registration.ProviderID), index == selection, focused)
+		if row.operation != nil {
+			label := "  " + selectableRow(operationLabel(row.operation, row.registration.ProviderID), index == selection, focused)
 			rows = append(rows, paneRow{text: label, target: mouseTarget{kind: hitTool, index: index}})
 			continue
 		}
@@ -470,16 +470,14 @@ func (m *Model) callRows(height int) []string {
 		}
 	}
 	output := "OUTPUT"
-	if m.callTool != nil {
-		output += "  /  " + m.callTool.ToolPath
+	if m.callOperation != nil {
+		output += "  /  " + m.callOperation.Path
 	}
 	switch m.callState {
 	case callPreparing:
 		output += "  /  connecting"
 	case callActive:
 		output += "  /  running"
-	case callClosing:
-		output += "  /  closing"
 	case callFinished:
 		output += "  /  done"
 	}

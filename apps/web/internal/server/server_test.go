@@ -260,10 +260,10 @@ func fakeUICore(t *testing.T, name string) *httptest.Server {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"coreId": "fake-ui", "revision": "r1",
 			"registrations": []map[string]any{
-				{"registrationId": "reg-1", "providerId": "standard", "rpcAvailable": true, "uiSha256": "deadbeef",
-					"tools":  []map[string]string{{"toolPath": "fs/list", "kind": "sync"}, {"toolPath": "exec", "kind": "async"}},
-					"panels": []map[string]any{{"panelId": "files", "title": "Files", "entry": "panel.js", "styles": []string{"panel.css"}}}},
-				{"registrationId": "reg-2", "providerId": "other", "rpcAvailable": false, "tools": []map[string]string{}},
+				{"registrationId": "reg-1", "providerId": "standard", "rpcAvailable": true, "ready": true, "uiSha256": "deadbeef",
+					"operations": []map[string]string{{"path": "filesystem/list"}, {"path": "shell/exec"}},
+					"panels":     []map[string]any{{"panelId": "files", "title": "Files", "entry": "panel.js", "styles": []string{"panel.css"}}}},
+				{"registrationId": "reg-2", "providerId": "other", "rpcAvailable": false, "operations": []map[string]string{}},
 			},
 		})
 	})
@@ -275,6 +275,28 @@ func fakeUICore(t *testing.T, name string) *httptest.Server {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		w.Header().Set("ETag", `"abc123"`)
 		_, _ = w.Write([]byte("export function mount() {}"))
+	})
+	mux.HandleFunc("POST /v1/views", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			RegistrationID string `json:"registrationId"`
+			PanelID        string `json:"panelId"`
+		}
+		if json.NewDecoder(r.Body).Decode(&body) != nil || body.RegistrationID != "reg-1" || body.PanelID != "files" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "view-test1", "registrationId": body.RegistrationID, "panelId": body.PanelID,
+			"status": "pending", "ticket": "ticket-abc",
+		})
+	})
+	mux.HandleFunc("DELETE /v1/views/{viewId}", func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("viewId") != "view-test1" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -344,7 +366,7 @@ func TestUIAssetProxy(t *testing.T) {
 	}
 }
 
-// fakeRPCCore はGET /v1/rpcのupgradeを受けてtools.callに応答する偽のCore。
+// fakeRPCCore はGET /v1/rpcのupgradeを受けてoperations.invokeに応答する偽のCore。
 // respondはリクエストparamsを見てresult/errorを返す。
 func fakeRPCCore(t *testing.T, respond func(params json.RawMessage) (any, any)) *httptest.Server {
 	t.Helper()
@@ -363,8 +385,8 @@ func fakeRPCCore(t *testing.T, respond func(params json.RawMessage) (any, any)) 
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"coreId": "fake-rpc", "revision": "r1",
 			"registrations": []map[string]any{
-				{"registrationId": "reg-1", "providerId": "standard", "rpcAvailable": true,
-					"tools": []map[string]string{{"toolPath": "fs/list", "kind": "sync"}, {"toolPath": "exec", "kind": "async"}}},
+				{"registrationId": "reg-1", "providerId": "standard", "rpcAvailable": true, "ready": true,
+					"operations": []map[string]string{{"path": "filesystem/list"}, {"path": "shell/exec"}}},
 			},
 		})
 	})
@@ -400,53 +422,62 @@ func fakeRPCCore(t *testing.T, respond func(params json.RawMessage) (any, any)) 
 	return server
 }
 
-func TestCallTool(t *testing.T) {
+func TestInvokeOperation(t *testing.T) {
 	fixture := newFixture(t, fstest.MapFS{"index.html": {Data: []byte("ok")}})
 	core := fakeRPCCore(t, func(params json.RawMessage) (any, any) {
 		var decoded struct {
-			Target struct {
-				RegistrationID string `json:"registrationId"`
-				ToolPath       string `json:"toolPath"`
-			} `json:"target"`
-			Input json.RawMessage `json:"input"`
+			Operation string          `json:"operation"`
+			Input     json.RawMessage `json:"input"`
 		}
 		if err := json.Unmarshal(params, &decoded); err != nil {
 			return nil, map[string]any{"code": -32602, "message": "bad params"}
 		}
-		if decoded.Target.ToolPath == "fs/list" {
-			return map[string]any{"entries": []string{"a.txt"}}, nil
+		execution := func(status string, result any) map[string]any {
+			return map[string]any{"execution": map[string]any{
+				"id": "execution-1", "operation": decoded.Operation, "status": status, "result": result,
+			}}
 		}
-		return nil, map[string]any{"code": -32000, "message": "unknown toolPath: " + decoded.Target.ToolPath}
+		switch decoded.Operation {
+		case "filesystem/list":
+			return execution("succeeded", map[string]any{"entries": []string{"a.txt"}}), nil
+		case "shell/exec":
+			return execution("running", nil), nil
+		}
+		return nil, map[string]any{"code": -32003, "message": "no provider for operation"}
 	})
 	response := do(t, fixture.handler, http.MethodPost, "/api/cores", `{"url":"`+core.URL+`"}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("add: %d %s", response.Code, response.Body)
 	}
-	call := func(body string) *httptest.ResponseRecorder {
-		return do(t, fixture.handler, http.MethodPost, "/api/cores/rpccore/call", body)
+	invoke := func(body string) *httptest.ResponseRecorder {
+		return do(t, fixture.handler, http.MethodPost, "/api/cores/rpccore/invoke", body)
 	}
-	// sync Toolの成功。
-	response = call(`{"registrationId":"reg-1","toolPath":"fs/list","input":{"path":"."}}`)
+	// terminalで成功したoperationはExecutionが返る。
+	response = invoke(`{"operation":"filesystem/list","input":{"path":"."}}`)
 	if response.Code != http.StatusOK {
-		t.Fatalf("call: %d %s", response.Code, response.Body)
+		t.Fatalf("invoke: %d %s", response.Code, response.Body)
 	}
 	var result struct {
-		Result struct {
-			Entries []string `json:"entries"`
-		} `json:"result"`
+		Execution struct {
+			Status string `json:"status"`
+			Result struct {
+				Entries []string `json:"entries"`
+			} `json:"result"`
+		} `json:"execution"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || len(result.Result.Entries) != 1 {
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil ||
+		result.Execution.Status != "succeeded" || len(result.Execution.Result.Entries) != 1 {
 		t.Fatalf("unexpected result: %s", response.Body)
 	}
 	// JSON-RPC errorは502で{error:{message,code}}。
-	response = call(`{"registrationId":"reg-1","toolPath":"missing","input":{}}`)
-	if response.Code != http.StatusBadGateway || !strings.Contains(response.Body.String(), "unknown toolPath") {
+	response = invoke(`{"operation":"missing","input":{}}`)
+	if response.Code != http.StatusBadGateway || !strings.Contains(response.Body.String(), "no provider") {
 		t.Fatalf("rpc error: %d %s", response.Code, response.Body)
 	}
-	// async Toolは事前に400。
-	response = call(`{"registrationId":"reg-1","toolPath":"exec","input":{}}`)
+	// runningで返るstream系はこのendpointでは扱わず400。
+	response = invoke(`{"operation":"shell/exec","input":{}}`)
 	if response.Code != http.StatusBadRequest {
-		t.Fatalf("async call: %d %s", response.Code, response.Body)
+		t.Fatalf("streaming invoke: %d %s", response.Code, response.Body)
 	}
 }
 
@@ -540,5 +571,38 @@ func TestProjectAPIsRequireCoreName(t *testing.T) {
 		if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "core.name") {
 			t.Fatalf("%s nameless core: %d %s", method, response.Code, response.Body)
 		}
+	}
+}
+
+func TestViewInstanceProxy(t *testing.T) {
+	fixture := newFixture(t, fstest.MapFS{"index.html": {Data: []byte("ok")}})
+	addUIKeyCore(t, fixture, "uicore")
+
+	// hostとしてinstance登録 → ticketがそのまま返る。
+	response := do(t, fixture.handler, http.MethodPost, "/api/cores/uicore/views",
+		`{"registrationId":"reg-1","panelId":"files"}`)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("create view: %d %s", response.Code, response.Body)
+	}
+	var ticket struct {
+		ID     string `json:"id"`
+		Ticket string `json:"ticket"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &ticket); err != nil ||
+		ticket.ID != "view-test1" || ticket.Ticket != "ticket-abc" || ticket.Status != "pending" {
+		t.Fatalf("unexpected ticket: %s", response.Body)
+	}
+
+	// host主導のclose。
+	response = do(t, fixture.handler, http.MethodDelete, "/api/cores/uicore/views/view-test1", "")
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("close view: %d %s", response.Code, response.Body)
+	}
+
+	// 未知instanceはupstreamの404がBadGatewayとして返る。
+	response = do(t, fixture.handler, http.MethodDelete, "/api/cores/uicore/views/view-missing", "")
+	if response.Code != http.StatusBadGateway {
+		t.Fatalf("close missing: %d %s", response.Code, response.Body)
 	}
 }

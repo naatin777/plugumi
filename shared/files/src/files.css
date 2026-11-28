@@ -16,30 +16,9 @@
   display: flex; flex: none;
   gap: var(--plugumi-spacing-xs);
 }
-
 .files-controls input {
   flex: 1; min-width: 0;
-  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-  background: var(--plugumi-colors-background-secondary);
-  color: var(--plugumi-colors-text);
-  border: 1px solid var(--plugumi-colors-border);
-  border-radius: var(--plugumi-radii-sm);
   font-family: var(--plugumi-font-family-mono);
-  font-size: var(--plugumi-font-size-sm);
-}
-
-.files-controls button {
-  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm);
-  background: var(--plugumi-colors-background-tertiary);
-  color: var(--plugumi-colors-text);
-  border: 1px solid var(--plugumi-colors-border);
-  border-radius: var(--plugumi-radii-sm);
-  font: inherit;
-  cursor: pointer;
-}
-
-.files-controls button:hover {
-  border-color: var(--plugumi-colors-border-strong);
 }
 
 .files-provider {
@@ -53,43 +32,12 @@
   font: inherit;
 }
 
-.files-list {
-  list-style: none;
-  padding: 0;
-  margin: var(--plugumi-spacing-sm) 0;
-}
-
-.files-row {
-  padding: 2px 0;
-  display: flex;
-  align-items: baseline;
-}
-
+.files-list { margin: var(--plugumi-spacing-sm) 0; }
 .files-entry {
+  width: 100%;
   font-family: var(--plugumi-font-family-mono);
-  font-size: var(--plugumi-font-size-sm);
 }
-
-button.files-directory {
-  background: none;
-  border: none;
-  color: var(--plugumi-colors-info);
-  font: inherit;
-  font-family: var(--plugumi-font-family-mono);
-  font-size: var(--plugumi-font-size-sm);
-  cursor: pointer;
-  padding: 0;
-}
-
-button.files-directory:hover {
-  color: var(--plugumi-colors-text-strong);
-}
-
-.files-meta {
-  color: var(--plugumi-colors-text-muted);
-  font-size: var(--plugumi-font-size-xs);
-  margin-left: var(--plugumi-spacing-sm);
-}
+.files-directory { color: var(--plugumi-colors-info); }
 
 .files-path {
   color: var(--plugumi-colors-text-muted);
@@ -97,11 +45,11 @@ button.files-directory:hover {
   font-size: var(--plugumi-font-size-xs);
   margin: var(--plugumi-spacing-xs) 0 0;
 }
-
-.files-error {
-  color: var(--plugumi-colors-error);
+.files-meta {
+  color: var(--plugumi-colors-text-muted);
+  font-size: var(--plugumi-font-size-xs);
 }
-
+.files-error { color: var(--plugumi-colors-error); }
 .files-empty {
   color: var(--plugumi-colors-text-muted);
   font-size: var(--plugumi-font-size-sm);

@@ -41,7 +41,7 @@ TypeScriptを選ぶ理由:
 
 要するに、Agentの実装言語は、OS操作の性能よりLLM関連のエコシステムを重視して選んでいる。
 
-なお、TypeScriptを採用する理由は公式UI Host（web Plugin）がSolidJSであることとは別。AgentのバックエンドをTypeScriptで書き、Plugin ViewをSolidJSで書く構成で問題ない。
+なお、TypeScriptを採用する理由は公式UI App（Web app）がSolidJSであることとは別。AgentのバックエンドをTypeScriptで書き、Plugin ViewをSolidJSで書く構成で問題ない。
 
 ## トレードオフと帰結
 

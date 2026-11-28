@@ -44,7 +44,7 @@ func FetchCoreInfo(ctx context.Context, client *http.Client, token, coreURL stri
 func CreateRegistration(ctx context.Context, client *http.Client, token, coreURL, pluginID, pluginInstanceID string) (Lease, error) {
 	var lease Lease
 	err := request(ctx, client, token, http.MethodPost, coreURL, "/registrations",
-		map[string]string{"providerId": pluginID, "instanceId": pluginInstanceID, "providerKind": "host"}, &lease)
+		map[string]string{"providerId": pluginID, "instanceId": pluginInstanceID}, &lease)
 	return lease, err
 }
 
@@ -104,18 +104,47 @@ type PanelDeclaration struct {
 	Styles  []string `json:"styles"`
 }
 
+// OperationDeclaration は登録が宣言するoperation。schema等はCore側の
+// 完全な宣言にあり、ここでは呼び出し先の選定に必要な部分だけを持つ。
+type OperationDeclaration struct {
+	Path        string `json:"path"`
+	Description string `json:"description,omitempty"`
+}
+
 // RegistryRegistration はGET /v1/registryの1登録。panelsはUI manifest由来。
+// providerKindとtoolsはoperation / Execution modelで廃止（contracts/00004）。
 type RegistryRegistration struct {
-	RegistrationID string             `json:"registrationId"`
-	ProviderID     string             `json:"providerId"`
-	Kind           string             `json:"providerKind"`
-	Panels         []PanelDeclaration `json:"panels"`
-	UISHA256       string             `json:"uiSha256"`
-	RPCAvailable   bool               `json:"rpcAvailable"`
-	Tools          []struct {
-		ToolPath string `json:"toolPath"`
-		Kind     string `json:"kind"`
-	} `json:"tools"`
+	RegistrationID string                `json:"registrationId"`
+	ProviderID     string                `json:"providerId"`
+	Environment    string                `json:"environment,omitempty"`
+	Ready          bool                  `json:"ready"`
+	Panels         []PanelDeclaration    `json:"panels"`
+	UISHA256       string                `json:"uiSha256"`
+	RPCAvailable   bool                  `json:"rpcAvailable"`
+	Operations     []OperationDeclaration `json:"operations"`
+}
+
+// ViewTicket はPOST /v1/viewsの応答。hostがinstance登録し、
+// ticketをviewへ渡す（designs/00011）。
+type ViewTicket struct {
+	ID             string `json:"id"`
+	RegistrationID string `json:"registrationId"`
+	PanelID        string `json:"panelId"`
+	Status         string `json:"status"`
+	Ticket         string `json:"ticket"`
+}
+
+// CreateViewInstance はview instanceを登録しticketを受け取る。
+func CreateViewInstance(ctx context.Context, client *http.Client, token, coreURL, registrationID, panelID string) (ViewTicket, error) {
+	var ticket ViewTicket
+	err := request(ctx, client, token, http.MethodPost, coreURL, "/views",
+		map[string]string{"registrationId": registrationID, "panelId": panelID}, &ticket)
+	return ticket, err
+}
+
+// CloseViewInstance はview instanceを閉じる（host主導のclose）。
+func CloseViewInstance(ctx context.Context, client *http.Client, token, coreURL, viewID string) error {
+	return request(ctx, client, token, http.MethodDelete, coreURL, "/views/"+url.PathEscape(viewID), nil, nil)
 }
 
 // RegistrySnapshot はGET /v1/registryの応答。
