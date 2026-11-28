@@ -34,11 +34,11 @@
     z-index: var(--plugumi-z-floor);
     /* alphaとsaturateの両方を--aurora-vividで増減する（0で無彩色）。 */
     background:
-      radial-gradient(45% 60% at 15% 20%, rgb(255 90 140 / calc(0.11 * var(--aurora-vivid))), transparent 70%),
-      radial-gradient(50% 55% at 85% 15%, rgb(80 130 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%),
-      radial-gradient(45% 55% at 75% 85%, rgb(110 255 170 / calc(0.08 * var(--aurora-vivid))), transparent 70%),
-      radial-gradient(50% 50% at 25% 90%, rgb(190 90 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%),
-      radial-gradient(40% 40% at 55% 50%, rgb(255 200 80 / calc(0.06 * var(--aurora-vivid))), transparent 70%);
+      radial-gradient(45% 60% at 15% 20%, rgb(255 90 140 / calc(0.11 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(50% 55% at 85% 15%, rgb(80 130 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(45% 55% at 75% 85%, rgb(110 255 170 / calc(0.08 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(50% 50% at 25% 90%, rgb(190 90 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
+      radial-gradient(40% 40% at 55% 50%, rgb(255 200 80 / calc(0.06 * var(--aurora-vivid))), transparent 70%); /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
     filter: blur(80px) saturate(calc(var(--aurora-vivid) * 1.05));
     /* 名前はdocument全体で一意の契約（css-isolationがこの名前を数える）
        ので、module化しても:global()で衝突しない形のまま残す。 */

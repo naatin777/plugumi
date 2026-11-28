@@ -106,5 +106,5 @@
   }
   .area-menu-item:hover { background: color-mix(in oklab, var(--plugumi-colors-background-tertiary), var(--plugumi-colors-text) 8%); }
   .area-menu-item.selected { font-weight: 600; }
-  .area-menu-item.danger { color: var(--plugumi-colors-text-danger, #e26d75); }
+  .area-menu-item.danger { color: var(--plugumi-colors-error); }
 }

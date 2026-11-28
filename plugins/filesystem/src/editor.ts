@@ -46,7 +46,7 @@ const editorTheme = EditorView.theme({
     color: "var(--plugumi-colors-text)",
   },
   ".cm-content": {
-    fontFamily: "var(--plugumi-fonts-mono, monospace)",
+    fontFamily: "var(--plugumi-font-family-mono, monospace)",
     caretColor: "var(--plugumi-colors-accent)",
     padding: "var(--plugumi-spacing-sm) 0",
   },
@@ -56,7 +56,7 @@ const editorTheme = EditorView.theme({
     backgroundColor: "transparent",
     color: "var(--plugumi-colors-text-muted)",
     border: "none",
-    fontFamily: "var(--plugumi-fonts-mono, monospace)",
+    fontFamily: "var(--plugumi-font-family-mono, monospace)",
   },
   ".cm-activeLine": { backgroundColor: "color-mix(in oklab, var(--plugumi-colors-accent) 6%, transparent)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent" },
@@ -79,7 +79,7 @@ export const mount = defineView<ViewMessage, RuntimeMessage>((host, channel, con
   status.style.padding = "2px var(--plugumi-spacing-sm)";
   status.style.fontSize = "var(--plugumi-font-size-sm, 12px)";
   status.style.color = "var(--plugumi-colors-text-muted)";
-  status.style.fontFamily = "var(--plugumi-fonts-mono, monospace)";
+  status.style.fontFamily = "var(--plugumi-font-family-mono, monospace)";
   status.style.flexShrink = "0";
 
   const editorParent = document.createElement("div");
