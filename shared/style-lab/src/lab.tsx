@@ -604,6 +604,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
   // media queryではなくpanelの実サイズ基準（splitで狭くなることがある）。
   const [narrow, setNarrow] = createSignal(false);
   const [navOpen, setNavOpen] = createSignal(false);
+  const [openFolders, setOpenFolders] = createSignal<ReadonlySet<string>>(new Set(ENTRIES.map((entry) => entry.folder).filter((f): f is string => !!f)));
   const current = () => ENTRIES.find((entry) => entry.id === active()) ?? ENTRIES[0];
   const observer = new ResizeObserver((records) => {
     for (const record of records) setNarrow(record.contentRect.width < widths.compact);
@@ -697,21 +698,34 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
                 )}
               </For>
               <For each={[...new Set(ENTRIES.filter((entry) => entry.group === group && entry.folder).map((entry) => entry.folder!))]}>
-                {(folder) => (
-                  <>
-                    <div class="lab-nav-folder">{folder}</div>
-                    <For each={ENTRIES.filter((entry) => entry.group === group && entry.folder === folder)}>
-                      {(entry) => (
-                        <button
-                          class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === entry.id }}
-                          onClick={() => select(entry.id)}
-                        >
-                          {entry.title}
-                        </button>
+                {(folder) => {
+                  const open = () => openFolders().has(folder);
+                  const toggle = () => setOpenFolders((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(folder)) next.delete(folder); else next.add(folder);
+                    return next;
+                  });
+                  return (
+                    <>
+                      <button class="lab-nav-folder" data-open={open() ? "" : undefined} onClick={() => toggle()}>
+                        <span class="lab-nav-folder-chevron">▶</span>
+                        {folder}
+                      </button>
+                      {open() && (
+                        <For each={ENTRIES.filter((entry) => entry.group === group && entry.folder === folder)}>
+                          {(entry) => (
+                            <button
+                              class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === entry.id }}
+                              onClick={() => select(entry.id)}
+                            >
+                              {entry.title}
+                            </button>
+                          )}
+                        </For>
                       )}
-                    </For>
-                  </>
-                )}
+                    </>
+                  );
+                }}
               </For>
             </>
           )}

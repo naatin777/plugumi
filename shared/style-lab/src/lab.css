@@ -123,10 +123,15 @@
 /* sidebarのグループ見出しとresizer */
 .lab-nav-group {
   font-size: var(--plugumi-font-size-2xs);
-  color: var(--plugumi-colors-text-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: capitalize;
+  color: var(--plugumi-colors-text-muted);
   padding: var(--plugumi-spacing-sm) var(--plugumi-spacing-sm) 2px;
+  margin-top: var(--plugumi-spacing-sm);
+  border-top: 1px solid var(--plugumi-colors-border);
+}
+.lab-nav-group:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 .lab-resizer {
   width: 4px;
@@ -429,10 +434,24 @@
   align-items: center;
   margin-bottom: var(--plugumi-spacing-md);
 }
-/* folderの見出しと子項目 — 木構造のnav。 */
+.lab-nav-child { padding-left: var(--plugumi-spacing-lg); }
+
+/* folder見出し — 開閉できるbutton。chevronは状態で回転。 */
 .lab-nav-folder {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+  width: 100%;
+  background: none; border: none; cursor: pointer;
+  font: inherit;
   font-size: var(--plugumi-font-size-2xs);
+  text-transform: capitalize;
   color: var(--plugumi-colors-text-muted);
   padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm) 2px;
+  text-align: left;
 }
-.lab-nav-child { padding-left: var(--plugumi-spacing-lg); }
+.lab-nav-folder:hover { color: var(--plugumi-colors-text); }
+.lab-nav-folder-chevron {
+  display: inline-block;
+  transition: transform 120ms;
+  font-size: 8px;
+}
+.lab-nav-folder[data-open] .lab-nav-folder-chevron { transform: rotate(90deg); }
