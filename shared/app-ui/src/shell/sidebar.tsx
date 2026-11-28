@@ -209,7 +209,7 @@ function AreaRow(props: { slot: ListSlot; area: FlatArea }): JSX.Element {
       <div
         class={{ [styles["area-row"]]: true, "plugumi-list-item": true, "plugumi-list-item--selected": selected() }}
           data-part="area-list-row"
-        style={{ "padding-left": `${props.area.depth * 12}px` }}
+        style={{ "padding-left": `calc(var(--plugumi-spacing-md) + ${props.area.depth * 12}px)` }}
       >
         <a href={href()} onClick={open}>{title()}</a>
         <button
