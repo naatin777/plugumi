@@ -87,6 +87,35 @@ function Labeled(props: { label: string; children: JSX.Element }): JSX.Element {
   );
 }
 
+// 背景を切り替えて試せるstage。透明・半透明の素材は「背後に何があるか」
+// で見え方が決まるので、単色からbusyな柄まで背後を変えながら評価する。
+// auroraは実物のrecipeのminiature — blurの効いた虹色の床。
+const BACKDROPS = ["aurora", "light", "dark", "gradient", "busy", "flat"] as const;
+type Backdrop = (typeof BACKDROPS)[number];
+
+function Stage(props: { children: JSX.Element }): JSX.Element {
+  const [backdrop, setBackdrop] = createSignal<Backdrop>("aurora");
+  return (
+    <div class="lab-stage-wrap">
+      <div class="lab-stage-picker">
+        <For each={BACKDROPS}>
+          {(id) => (
+            <button
+              class={{ "lab-stage-chip": true, selected: backdrop() === id }}
+              onClick={() => setBackdrop(id)}
+            >
+              {id}
+            </button>
+          )}
+        </For>
+      </div>
+      <div class="lab-stage" data-backdrop={backdrop()}>
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
 const circleIcon = (
   <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
 );
@@ -332,33 +361,82 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
     ),
   },
   {
+    group: "foundations", id: "glass", title: "Glass (experimental)",
+    render: () => (
+      <>
+        <p class="lab-note">
+          透明素材の実験場。blur+tintの組み合わせ候補を、切り替えられる
+          背後の上で評価する — 背後が何であれ読める素材が正解。
+          文字を直に置く面は濃く、chrome的な面は薄く、という階層の
+          手応えをここで確かめる。
+        </p>
+        <Stage>
+          <div class="lab-glass-grid">
+            <For each={[
+              { label: "white 8% / blur 0", tint: "color-mix(in oklab, white 8%, transparent)", blur: 0 },
+              { label: "white 8% / blur 12", tint: "color-mix(in oklab, white 8%, transparent)", blur: 12 },
+              { label: "white 20% / blur 0", tint: "color-mix(in oklab, white 20%, transparent)", blur: 0 },
+              { label: "white 20% / blur 12", tint: "color-mix(in oklab, white 20%, transparent)", blur: 12 },
+              { label: "black 20% / blur 12", tint: "color-mix(in oklab, black 20%, transparent)", blur: 12 },
+              { label: "black 45% / blur 12", tint: "color-mix(in oklab, black 45%, transparent)", blur: 12 },
+              { label: "white 8% / blur 24", tint: "color-mix(in oklab, white 8%, transparent)", blur: 24 },
+              { label: "black 45% / blur 24", tint: "color-mix(in oklab, black 45%, transparent)", blur: 24 },
+            ]}>
+              {(cell) => (
+                <div class="lab-glass-cell">
+                  <div class="lab-glass-material" style={{
+                    background: cell.tint,
+                    "backdrop-filter": cell.blur > 0 ? `blur(${cell.blur}px)` : "none",
+                  }}>
+                    <span class="lab-glass-text">ガラスの上の文字 Aa</span>
+                    <span class="lab-glass-text-muted">muted text</span>
+                  </div>
+                  <div class="lab-state-label">{cell.label}</div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Stage>
+        <p class="lab-note">
+          tintはcolor-mixの生値 — 実験段階なのでtokenではない。
+          採用する組み合わせが決まったらtoken化する。busyな背後で
+          blurなしがどれだけ崩れるかを見ると、blurの効用が分かる。
+        </p>
+      </>
+    ),
+  },
+  {
     group: "components", id: "buttons", title: "Buttons",
     render: () => (
       <>
         {/* buttonはfamily。text button（plugumi-button、plugin-facing）と
             icon button（shell chrome）をvariantとして並べる。 */}
         <h3>text button — .plugumi-button / pluginでも使える</h3>
-        <div class="lab-states">
-          <Labeled label="default">
-            <button class="plugumi-button">button</button>
-          </Labeled>
-          <Labeled label="disabled">
-            <button class="plugumi-button" disabled>button</button>
-          </Labeled>
-        </div>
+        <Stage>
+          <div class="lab-states">
+            <Labeled label="default">
+              <button class="plugumi-button">button</button>
+            </Labeled>
+            <Labeled label="disabled">
+              <button class="plugumi-button" disabled>button</button>
+            </Labeled>
+          </div>
+        </Stage>
         <p class="lab-note">実使用はdemo pluginのみ。accent/danger variantは契約にあるが使われていない。</p>
         <h3>icon button — .icon-button / shell専有</h3>
-        <div class="lab-states">
-          <Labeled label="off">
-            <button class="icon-button" aria-label="off">{circleIcon}</button>
-          </Labeled>
-          <Labeled label="hover — 実際に触って">
-            <button class="icon-button" aria-label="hover">{circleIcon}</button>
-          </Labeled>
-          <Labeled label="on (aria-pressed)">
-            <button class="icon-button" aria-label="on" aria-pressed="true">{circleIcon}</button>
-          </Labeled>
-        </div>
+        <Stage>
+          <div class="lab-states">
+            <Labeled label="off">
+              <button class="icon-button" aria-label="off">{circleIcon}</button>
+            </Labeled>
+            <Labeled label="hover — 実際に触って">
+              <button class="icon-button" aria-label="hover">{circleIcon}</button>
+            </Labeled>
+            <Labeled label="on (aria-pressed)">
+              <button class="icon-button" aria-label="on" aria-pressed="true">{circleIcon}</button>
+            </Labeled>
+          </div>
+        </Stage>
         <Spec rows={[
           ["size", "26×26px 固定"],
           ["radius", "radii-md"],
