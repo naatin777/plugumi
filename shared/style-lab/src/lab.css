@@ -439,22 +439,23 @@
     inset 0 0 0 1px var(--plugumi-colors-raised-edge),
     inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
 }
-.lab-hole-base {
-  /* 切り抜きの外枠 — 中身はholeの巨大shadowが塗り、ここではclipする
-     だけ。面は「浮くほど明るく」に従いraised系でなければならない —
-     暗い面にすると面自体が穴に見えて構造が逆転する。 */
-  overflow: hidden;
-  border-radius: var(--plugumi-radii-lg);
+.lab-hole-surface {
+  /* 穴の開いたガラス面 — 3x3 gridで、周囲8枚のstripが面を構成し、
+     中央は何もない（=穴）。面の素材はstrip側が持つ。 */
+  display: grid;
+  grid-template-columns: var(--plugumi-spacing-lg) 1fr var(--plugumi-spacing-lg);
+  grid-template-rows: var(--plugumi-spacing-lg) auto var(--plugumi-spacing-lg);
   margin-bottom: var(--plugumi-spacing-md);
-  /* 穴の周りに面が見える幅。 */
-  padding: var(--plugumi-spacing-lg);
+}
+.lab-strip {
+  /* 面の構成片 — leafと同じガラス素材。隣接するstrip同士は継ぎ目が
+     出ない（同じfilterが同じbackdropにかかるので連続して見える）。 */
+  backdrop-filter: blur(12px) saturate(1.2);
 }
 .lab-hole {
-  /* 穴 — 自身は何も塗らず、巨大なspreadのshadowで外側を塗りつぶす
-     逆転技法。shadowはradiusに追従し、baseのoverflow hiddenで
-     clipされる。 */
-  box-shadow: 0 0 0 100vmax var(--plugumi-colors-raised);
-  border-radius: var(--plugumi-radii-md);
+  /* 穴 — gridの中央cell。何も塗らず、filterもかけないので、
+     見えるのはpanelの裏側（素のLayer 1）そのもの。 */
+  grid-area: 2/2;
   padding: var(--plugumi-spacing-md);
   display: flex; flex-direction: column; gap: var(--plugumi-spacing-sm);
 }

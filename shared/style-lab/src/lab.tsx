@@ -368,15 +368,27 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
           Layer 2の素材（decisions/00041）。現実のpanelは基本surfaceを
           つけるもの — leafのガラスカードが既にそうだ。だからここでも
           まずsurfaceを敷き、その中に穴を開ける。穴には何も塗らない
-          — 素の状態の参照窓で、見えるのはpanelの裏側そのもの（素のLayer 1 — labはshellのglassを外してもらっている）
-          （panel contentが実際に見るもの）。テストするsurfaceは穴の
+          — 素の状態の参照窓で、見えるのはpanelの裏側そのもの
+          （素のLayer 1 — labはshellのglassを外してもらい、面を
+          自分でつけている）。テストするsurfaceは穴の
           中に置く — 素の状態と素材を被せた状態が同じ視野で比較できる。
         </p>
         {/* 穴の構造。baseは実際のpanelのsurface contextを再現する
             カード面、その中のholeには何も塗らない。素材はholeの中に
             浮かべる — hole自体がtransparentの参照なので、素材ごとに
             「何もない場合との差」が直接読み取れる。 */}
-        <div class="lab-hole-base">
+        <div class="lab-hole-surface">
+          {/* 穴の周りを囲む8枚のstrip — 全部leafと同じガラス素材
+              (blur(12px) saturate(1.2))。gridで敷き詰めるので穴の
+              位置合わせにJSは要らない。面はpanelが自分でつける。 */}
+          <div class="lab-strip" style={{ "grid-area": "1/1", "border-top-left-radius": "var(--plugumi-radii-lg)" }} />
+          <div class="lab-strip" style={{ "grid-area": "1/2" }} />
+          <div class="lab-strip" style={{ "grid-area": "1/3", "border-top-right-radius": "var(--plugumi-radii-lg)" }} />
+          <div class="lab-strip" style={{ "grid-area": "2/1" }} />
+          <div class="lab-strip" style={{ "grid-area": "2/3" }} />
+          <div class="lab-strip" style={{ "grid-area": "3/1", "border-bottom-left-radius": "var(--plugumi-radii-lg)" }} />
+          <div class="lab-strip" style={{ "grid-area": "3/2" }} />
+          <div class="lab-strip" style={{ "grid-area": "3/3", "border-bottom-right-radius": "var(--plugumi-radii-lg)" }} />
           <div class="lab-hole">
             <span class="lab-hole-caption">↑ この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える</span>
             <div class="lab-hole-row">
