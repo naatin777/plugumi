@@ -367,41 +367,42 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
         <p class="lab-note">
           Layer 2の素材（decisions/00041）。現実のpanelは基本surfaceを
           つけるもの — leafのガラスカードが既にそうだ。だからここでも
-          まずsurfaceを敷き、その中に穴を開ける。穴には何も塗らない
-          — 素の状態の参照窓で、見えるのはpanelの裏側そのもの
-          （素のLayer 1 — labはshellのglassを外してもらい、面を
-          自分でつけている）。テストするsurfaceは穴の
-          中に置く — 素の状態と素材を被せた状態が同じ視野で比較できる。
+          surfaceはpanelの面 — Layer 2の背景で、システムに1種類だけ
+          あるもの。だからこのpanel自体がsurfaceで覆われている
+          （labはshellのglassを外してもらい、面を自分でつけている）。
+          穴には何も塗らない — 素の状態の参照窓で、見えるのはpanelの
+          裏側そのもの（素のLayer 1）。穴の内と外の対比がsurface
+          そのものの評価になる。家具はsurfaceの上に乗るものなので、
+          specimenは穴の外（=surfaceの上）に置く。
         </p>
-        {/* 穴の構造。baseは実際のpanelのsurface contextを再現する
-            カード面、その中のholeには何も塗らない。素材はholeの中に
-            浮かべる — hole自体がtransparentの参照なので、素材ごとに
-            「何もない場合との差」が直接読み取れる。 */}
+        {/* 穴 — surface評価専用の参照窓。中には何も置かない。 */}
         <div class="lab-hole">
-            <span class="lab-hole-caption">↑ この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える</span>
-            <div class="lab-hole-row">
-              <div class="lab-surface-box lab-hole-item" style={{ background: "var(--plugumi-colors-fill)" }}>
-                <span class="lab-glass-text">thin Aa</span>
-                <span class="lab-glass-text-muted">fill — 操作面</span>
+          <span class="lab-hole-caption">この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える。周囲との差がsurfaceのしていること</span>
+        </div>
+        {/* 家具のspecimen — surfaceの上に乗るものなので、panelの
+            通常領域（=surfaceの上）に置くのが正しい評価条件。 */}
+        <div class="lab-hole-row">
+          <div class="lab-surface-box lab-hole-item" style={{ background: "var(--plugumi-colors-fill)" }}>
+            <span class="lab-glass-text">thin Aa</span>
+            <span class="lab-glass-text-muted">fill — 操作面</span>
+          </div>
+          <div class="lab-surface-box lab-hole-item lab-surface-card">
+            <span class="lab-glass-text">card Aa</span>
+            <span class="lab-glass-text-muted">raised — 浮いた面</span>
+          </div>
+        </div>
+        <div class="lab-hole-row">
+          <For each={[100, 92, 85]}>
+            {(opacity) => (
+              <div
+                class="lab-surface-box lab-hole-item"
+                style={{ background: `color-mix(in oklab, var(--plugumi-colors-background-primary) ${opacity}%, transparent)` }}
+              >
+                <span class="lab-glass-text">dense {opacity}%</span>
+                <span class="lab-glass-text-muted">{opacity === 100 ? "opaque — 現行の台" : "わずかに透ける"}</span>
               </div>
-              <div class="lab-surface-box lab-hole-item lab-surface-card">
-                <span class="lab-glass-text">card Aa</span>
-                <span class="lab-glass-text-muted">raised — 浮いた面</span>
-              </div>
-            </div>
-            <div class="lab-hole-row">
-              <For each={[100, 92, 85]}>
-                {(opacity) => (
-                  <div
-                    class="lab-surface-box lab-hole-item"
-                    style={{ background: `color-mix(in oklab, var(--plugumi-colors-background-primary) ${opacity}%, transparent)` }}
-                  >
-                    <span class="lab-glass-text">dense {opacity}%</span>
-                    <span class="lab-glass-text-muted">{opacity === 100 ? "opaque — 現行の台" : "わずかに透ける"}</span>
-                  </div>
-                )}
-              </For>
-            </div>
+            )}
+          </For>
         </div>
         <p class="lab-note">
           階層は「文字を置く面は濃く、chrome的な面は薄く」。両テーマとも
@@ -607,7 +608,8 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
 
 const GROUPS = [...new Set(ENTRIES.map((entry) => entry.group))];
 
-function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => void }): JSX.Element {
+function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => void; leafEl?: HTMLElement | null }): JSX.Element {
+  const leafEl = props.leafEl;
   const saveState = props.saveState;
   // 初期選択はrestorable stateから — signalの初期値として渡す。
   // 生成後にbody内でsetするとSolid 2.0では「owned scopeでのwrite」
@@ -662,30 +664,28 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
     setNavOpen(false);
   };
 
-  // panel全体を覆うsurface — shellのglassを外してもらっているので、
-  // panelが自分でつける面。maskで穴のrectだけ除外する（穴は素の
-  // Layer 1が見える）。穴の位置はDOMから定期測定 — labは実験装置
-  // なのでResizeObserverの配線より単純なintervalで十分。
-  let surfaceEl: HTMLDivElement | undefined;
+  // 穴 — shellのleaf surfaceに開ける。panelにはデフォルトでsurfaceが
+  // つくので、labは面を自作せず、leafに穴のrectだけ書き込む。
+  // leaf側は--hole-*をmaskに使う（実験装置なのでinterval測定）。
   const trackHole = setInterval(() => {
-    if (!surfaceEl) return;
-    const hole = surfaceEl.parentElement?.querySelector(".lab-hole");
+    const hole = labRootEl?.querySelector(".lab-hole");
+    if (!leafEl) return;
     if (!hole) {
-      surfaceEl.style.setProperty("--hole-w", "0px");
+      leafEl.style.setProperty("--hole-w", "0px");
       return;
     }
-    const surfaceRect = surfaceEl.getBoundingClientRect();
+    const leafRect = leafEl.getBoundingClientRect();
     const holeRect = hole.getBoundingClientRect();
-    surfaceEl.style.setProperty("--hole-x", `${holeRect.left - surfaceRect.left}px`);
-    surfaceEl.style.setProperty("--hole-y", `${holeRect.top - surfaceRect.top}px`);
-    surfaceEl.style.setProperty("--hole-w", `${holeRect.width}px`);
-    surfaceEl.style.setProperty("--hole-h", `${holeRect.height}px`);
+    leafEl.style.setProperty("--hole-x", `${holeRect.left - leafRect.left}px`);
+    leafEl.style.setProperty("--hole-y", `${holeRect.top - leafRect.top}px`);
+    leafEl.style.setProperty("--hole-w", `${holeRect.width}px`);
+    leafEl.style.setProperty("--hole-h", `${holeRect.height}px`);
   }, 300);
   onCleanup(() => clearInterval(trackHole));
 
+  let labRootEl: HTMLDivElement | undefined;
   return (
-    <div class={{ "lab": true, narrow: narrow(), "nav-open": navOpen() }} ref={((el) => observer.observe(el)) as (el: HTMLDivElement) => void} onPointerDown={outsideDown}>
-      <div class="lab-surface" ref={(el) => { surfaceEl = el; }} />
+    <div class={{ "lab": true, narrow: narrow(), "nav-open": navOpen() }} ref={((el) => { labRootEl = el; observer.observe(el); }) as (el: HTMLDivElement) => void} onPointerDown={outsideDown}>
       <nav class="lab-nav" data-drawer-keep style={narrow() ? undefined : { width: `${width()}px` }}>
         <For each={GROUPS}>
           {(group) => (
@@ -719,12 +719,13 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
 }
 
 export function mount(host: ShadowRoot, context: ViewContext): ViewHandle {
-  // labはsurfaceを自分で供給する — shellのleaf glassを外してもらい、
-  // 穴が素のLayer 1をそのまま見せられるようにする。
-  (host as ShadowRoot).host?.setAttribute?.("data-shell-surface", "none");
+  // 穴を開けるleaf — host要素から辿る。class名はhash化されているので
+  // 部分一致で探す（実験装置なのでこの粗さは許容）。
+  const hostEl = (host as ShadowRoot).host as HTMLElement | undefined;
+  const leafEl = (hostEl?.closest?.("[class*=leaf]") as HTMLElement | null) ?? null;
   const saved = context.state as { selected?: string } | undefined;
   const dispose = render(() => (
-    <Lab initialSelected={saved?.selected} saveState={context.saveState} />
+    <Lab initialSelected={saved?.selected} saveState={context.saveState} leafEl={leafEl} />
   ), host);
   return { destroy: () => dispose() };
 }

@@ -440,23 +440,6 @@
     inset 0 0 0 1px var(--plugumi-colors-raised-edge),
     inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
 }
-.lab-surface {
-  /* panel全体を覆う面 — panelが自分でつけるsurface。mask-compositeの
-     excludeで穴のrectだけ抜く: 全面のlayerと穴のlayerのXORなので
-     穴の部分だけfilterがかからず、素のLayer 1が見える。
-     穴の座標はts側が--hole-*に定期的に書き込む。 */
-  position: absolute; inset: 0; z-index: 0;
-  backdrop-filter: blur(12px) saturate(1.2);
-  --hole-x: 0px; --hole-y: 0px; --hole-w: 0px; --hole-h: 0px;
-  mask:
-    linear-gradient(#000 0 0),
-    linear-gradient(#000 0 0);
-  mask-position: 0 0, var(--hole-x) var(--hole-y);
-  mask-size: 100% 100%, var(--hole-w) var(--hole-h);
-  mask-repeat: no-repeat, no-repeat;
-  mask-composite: exclude;
-  pointer-events: none;
-}
 .lab-hole {
   /* 穴 — 自身は何も塗らない。面のmaskがこのrectを抜くので、
      見えるのはpanelの裏側（素のLayer 1）そのもの。 */
@@ -473,5 +456,5 @@
 }
 .lab-hole-item { flex: 1; min-width: 120px; }
 
-/* surface(z-index 0)より上に載せる。 */
-.lab-nav, .lab-content, .lab-resizer, .lab-topbar { position: relative; z-index: 1; }
+/* 穴は参照窓なので、空でも見え方を評価できる高さを持つ。 */
+.lab-hole { min-height: 120px; align-items: center; justify-content: center; }

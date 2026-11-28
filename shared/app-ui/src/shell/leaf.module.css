@@ -16,12 +16,18 @@
     overflow: clip;
     overflow-clip-margin: 8px;
   }
-  /* panelがsurfaceを自分で供給する宣言（data-shell-surface="none"）を
-     持つとき、shellのglassは外す。panelがsurfaceをつけるかどうかを
-     決める世界への実験的な入り口 — 宣言の正規の仕組み（manifest等）は
-     未設計。 */
-  .leaf:has([data-shell-surface="none"]) {
-    backdrop-filter: none;
+  /* 穴 — panel内容が--hole-*を書き込むと、そのrectだけmaskで抜けて
+     素のLayer 1が見える（labの実験装置）。mask-compositeのexcludeは
+     全面layerと穴layerのXOR。穴がなければw=0で全面のまま。 */
+  .leaf {
+    --hole-x: 0px; --hole-y: 0px; --hole-w: 0px; --hole-h: 0px;
+    mask:
+      linear-gradient(#000 0 0),
+      linear-gradient(#000 0 0);
+    mask-position: 0 0, var(--hole-x) var(--hole-y);
+    mask-size: 100% 100%, var(--hole-w) var(--hole-h);
+    mask-repeat: no-repeat, no-repeat;
+    mask-composite: exclude;
   }
   .leaf-body { flex: 1; min-width: 0; min-height: 0; position: relative; }
   .leaf-empty {
