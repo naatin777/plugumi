@@ -114,7 +114,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
           const inst = () => area.instance(ref);
           return (
             <div
-              class={{ [styles["tab"]]: true, [styles["selected"]]: props.selected === ref.instanceId }}
+              class={{ "plugumi-tab": true, "plugumi-tab--selected": props.selected === ref.instanceId }}
               data-part="tab"
               data-selected={props.selected === ref.instanceId || undefined}
               role="tab"
@@ -123,9 +123,9 @@ export function TabStrip(props: TabStripProps): JSX.Element {
               {...surfaceAttrs(inst().activity(), "header")}
               {...busyAttr(inst().activity())}
             >
-              <span class={styles["tab-title"]}>{inst().title()}</span>
+              <span class="plugumi-tab-title">{inst().title()}</span>
               <button
-                class={styles["tab-close"]}
+                class="plugumi-tab-close"
                 data-part="tab-close"
                 aria-label="閉じる"
                 onPointerDown={(event) => event.stopPropagation()}

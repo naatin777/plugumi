@@ -502,12 +502,12 @@ const ENTRIES: { group: string; id: string; title: string; parent?: string; rend
             shadow越しに継承され、そのまま使える。 */}
         <header class="leaf-strip">
           <div class="tab-strip">
-            <button class="tab"><span class="tab-title">非選択</span></button>
-            <button class="tab selected"><span class="tab-title">選択中</span><span class="tab-close">×</span></button>
+            <button class="plugumi-tab"><span class="plugumi-tab-title">非選択</span></button>
+            <button class="plugumi-tab plugumi-tab--selected"><span class="plugumi-tab-title">選択中</span><span class="plugumi-tab-close">×</span></button>
           </div>
         </header>
         <Spec rows={[
-          ["class", ".tab — shell専有"],
+          ["class", ".plugumi-tab / .plugumi-tab-title / .plugumi-tab-close / --selected"],
           ["radius", "radii-sm — icon-buttonのmdと違う点に注意"],
           ["border", "なし。輪郭はinset box-shadow: colors-raised-edge 35%"],
           ["off", "transparent / colors-text-muted / font-size-xs"],

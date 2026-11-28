@@ -24,64 +24,12 @@
     min-height: 0;
     scrollbar-width: none;
   }
-  .tab {
-    /* tabはタイトル幅に合わせる（固定幅にしない）。溢れたらstripが
-       横scrollする（選択tabはscriptで見える位置へ寄せる）。 */
-    flex: none;
-    position: relative;
-    display: inline-flex; align-items: center; gap: var(--plugumi-spacing-xs);
-    padding: 0 var(--plugumi-spacing-sm);
-    border: none;
-    border-radius: var(--plugumi-radii-sm);
-    /* 非選択は透明だと「ただの文字」になるので、薄い輪郭だけ敷いて
-       chipとして形を持たせる。選択は強い輪郭＋面で一段上げる。 */
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--plugumi-colors-raised-edge) 35%, transparent);
-    background: transparent;
-    color: var(--plugumi-colors-text-muted);
-    font-size: var(--plugumi-font-size-xs);
-    white-space: nowrap; cursor: pointer; user-select: none;
-  }
-  .tab .tab-title {
-    min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  }
-  .tab .tab-close { flex: none; }
-  /* 「×」は選択中のtabだけ常時表示。非選択では居場所だけ確保して
-     透明にし、hover/focus-visibleで出す — 絶対配置でタイトルの上に
-     重ねると文字とぶつかるので、常にflex内の実位置を取る。 */
-  .tab:not(.selected) .tab-close {
-    opacity: 0; pointer-events: none;
-  }
-  .tab:not(.selected):hover .tab-close,
-  .tab:not(.selected) .tab-close:focus-visible {
-    opacity: 1; pointer-events: auto;
-  }
-  /* tabの面はかなり透かす — カードのblurとauroraの上で、選択は面より
-     文字の濃さで読ませる。濃さはテーマが決める固定値。
-     面の色は--raised（darkでは明るい霜、lightでは白）。 */
-  .tab:hover {
-    background: color-mix(in oklab, var(--plugumi-colors-raised) 30%, transparent);
-  }
-  .tab.selected {
-    background: color-mix(in oklab, var(--plugumi-colors-raised) 50%, transparent);
-    color: var(--plugumi-colors-text);
-    /* 透過fillだけだとガラスの上でのっぺりするので、選択tabは輪郭で
-       自立させる — insetの1px枠＋上端のハイライトで「面」に見せる。
-       box-shadowなのでlayoutは動かない。 */
-    box-shadow:
-      inset 0 0 0 1px var(--plugumi-colors-raised-edge),
-      inset 0 1px 0 rgb(255 255 255 / 0.06); /* token-check-ignore: 面の上端に当たる白い光の物理metaphor — テーマ色ではない */
-  }
   /* activityのheader面: tabの上端に2pxのtintを引く。色の対応と
      toneのattrはactivity.module.cssが持つ（ここは.tabがlocalな
      ため、attrを受けたtabだけを拾う）。 */
-  .tab[data-activity-header] {
+  .plugumi-tab[data-activity-header] {
     background: linear-gradient(var(--activity-color), var(--activity-color))
       0 0 / 100% 2px no-repeat;
-  }
-  .tab-close {
-    display: inline-flex; padding: 1px;
-    border: none; border-radius: var(--plugumi-radii-sm);
-    background: transparent; color: inherit; cursor: pointer;
   }
   /* strip右端のdeck切替。普段は薄く、deck中は選択tabと同じ面で示す。 */
   .strip-deck {
@@ -97,5 +45,4 @@
     background: var(--plugumi-colors-fill-strong);
     color: var(--plugumi-colors-text);
   }
-  .tab-close:hover { background: var(--plugumi-colors-fill-strong); }
 }
