@@ -6,6 +6,7 @@
      上端に置き、中身との間はhairline（divider面）で区切る。tab自体は
      面を持たず、selectedはtoneで示す。 */
   .leaf-strip {
+    position: relative;
     display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
     height: var(--shell-strip-h); box-sizing: border-box;
     padding: 0 var(--plugumi-spacing-xs);

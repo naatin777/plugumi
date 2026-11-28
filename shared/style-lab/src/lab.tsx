@@ -379,31 +379,6 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
         <div class="lab-hole">
           <span class="lab-hole-caption">この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える。周囲との差がsurfaceのしていること</span>
         </div>
-        {/* 家具のspecimen — surfaceの上に乗るものなので、panelの
-            通常領域（=surfaceの上）に置くのが正しい評価条件。 */}
-        <div class="lab-hole-row">
-          <div class="lab-surface-box lab-hole-item" style={{ background: "var(--plugumi-colors-fill)" }}>
-            <span class="lab-glass-text">thin Aa</span>
-            <span class="lab-glass-text-muted">fill — 操作面</span>
-          </div>
-          <div class="lab-surface-box lab-hole-item lab-surface-card">
-            <span class="lab-glass-text">card Aa</span>
-            <span class="lab-glass-text-muted">raised — 浮いた面</span>
-          </div>
-        </div>
-        <div class="lab-hole-row">
-          <For each={[100, 92, 85]}>
-            {(opacity) => (
-              <div
-                class="lab-surface-box lab-hole-item"
-                style={{ background: `color-mix(in oklab, var(--plugumi-colors-background-primary) ${opacity}%, transparent)` }}
-              >
-                <span class="lab-glass-text">dense {opacity}%</span>
-                <span class="lab-glass-text-muted">{opacity === 100 ? "opaque — 現行の台" : "わずかに透ける"}</span>
-              </div>
-            )}
-          </For>
-        </div>
         <p class="lab-note">
           階層は「文字を置く面は濃く、chrome的な面は薄く」。両テーマとも
           操作は共通で「白を足して浮かせる」— 暗く重ねるとガラスの上で
@@ -721,8 +696,17 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
 export function mount(host: ShadowRoot, context: ViewContext): ViewHandle {
   // 穴を開けるleaf — host要素から辿る。class名はhash化されているので
   // 部分一致で探す（実験装置なのでこの粗さは許容）。
-  const hostEl = (host as ShadowRoot).host as HTMLElement | undefined;
-  const leafEl = (hostEl?.closest?.("[class*=leaf]") as HTMLElement | null) ?? null;
+  // 穴を開けるleaf本体 — class名はhash化されているので部分一致で
+  // 辿るが、leaf-body・leaf-emptyも「leaf」を含むので除外する
+  // （実験装置なのでこの粗さは許容）。
+  let leafEl: HTMLElement | null = null;
+  for (let el = (host as ShadowRoot).host?.parentElement ?? null; el; el = el.parentElement) {
+    const cls = typeof el.className === "string" ? el.className : "";
+    if (cls.includes("leaf") && !cls.includes("leaf-body") && !cls.includes("leaf-empty")) {
+      leafEl = el as HTMLElement;
+      break;
+    }
+  }
   const saved = context.state as { selected?: string } | undefined;
   const dispose = render(() => (
     <Lab initialSelected={saved?.selected} saveState={context.saveState} leafEl={leafEl} />

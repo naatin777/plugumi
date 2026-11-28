@@ -12,22 +12,26 @@
        という段階はない。 */
     border-radius: var(--plugumi-radii-lg);
     background: transparent;
-    backdrop-filter: blur(12px) saturate(1.2);
     overflow: clip;
     overflow-clip-margin: 8px;
   }
-  /* 穴 — panel内容が--hole-*を書き込むと、そのrectだけmaskで抜けて
-     素のLayer 1が見える（labの実験装置）。mask-compositeのexcludeは
-     全面layerと穴layerのXOR。穴がなければw=0で全面のまま。 */
-  .leaf {
-    --hole-x: 0px; --hole-y: 0px; --hole-w: 0px; --hole-h: 0px;
+  /* surface — panelの面（Layer 2の背景）。leafと別要素にすることで
+     maskの穴開けがコンテンツに影響しなくなる。absoluteで全面に
+     張り、後続の兄弟（strip・leaf-body）がpositionedなので
+     DOM順で自然に上に乗る。角はleafのoverflow clipが処理する。 */
+  .leaf-surface {
+    position: absolute; inset: 0; z-index: 0;
+    backdrop-filter: blur(12px) saturate(1.2);
+    /* 穴 — --hole-*が書き込まれるとそのrectだけblurが抜ける。
+       mask-composite: excludeは全面layerと穴layerのXOR。 */
     mask:
       linear-gradient(#000 0 0),
       linear-gradient(#000 0 0);
-    mask-position: 0 0, var(--hole-x) var(--hole-y);
-    mask-size: 100% 100%, var(--hole-w) var(--hole-h);
+    mask-position: 0 0, var(--hole-x, 0px) var(--hole-y, 0px);
+    mask-size: 100% 100%, var(--hole-w, 0px) var(--hole-h, 0px);
     mask-repeat: no-repeat, no-repeat;
     mask-composite: exclude;
+    pointer-events: none;
   }
   .leaf-body { flex: 1; min-width: 0; min-height: 0; position: relative; }
   .leaf-empty {

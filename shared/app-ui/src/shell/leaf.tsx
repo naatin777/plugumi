@@ -53,6 +53,10 @@ export function LeafView(props: { leaf: Leaf }): JSX.Element {
       {...surfaceAttrs(selectedInstance()?.activity(), "border")}
       {...busyAttr(selectedInstance()?.activity())}
     >
+      {/* surface — panelの面。leafとは別要素なので、maskで穴を開けても
+          コンテンツは消えない。穴のrectは--hole-*（panel内容が書き込む）
+          で、継承でここに届く。 */}
+      <div class={styles["leaf-surface"]} data-part="leaf-surface" />
       <header class={stripStyles["leaf-strip"]} data-part="leaf-strip" {...dividerAttr(selectedInstance()?.activity())}>
         <TabStrip
           refs={props.leaf.panels}
