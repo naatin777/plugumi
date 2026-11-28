@@ -8,3 +8,4 @@ export const panelId = "theme";
 export const title = "テーマ";
 export { mount } from "./theme.tsx";
 export const css = styles;
+export { backgroundPresets, resolveBackgroundImage } from "./presets.ts";

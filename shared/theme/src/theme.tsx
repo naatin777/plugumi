@@ -6,6 +6,7 @@ import { For, Show, createSignal, onCleanup } from "solid-js";
 import { render } from "@solidjs/web";
 import type { JSX } from "@solidjs/web";
 import type { ViewContext, ViewHandle } from "@plugumi/view";
+import { backgroundPresets } from "./presets.ts";
 
 type ThemeMode = "system" | "light" | "dark";
 
@@ -145,6 +146,22 @@ function ThemePanel(props: { shell: ThemeShell }): JSX.Element {
               消す
             </button>
           </Show>
+        </div>
+        {/* 同梱preset — デバッグ・評価用にすぐ使える画像。 */}
+        <div class="theme-presets">
+          <For each={backgroundPresets}>
+            {(preset) => (
+              <button
+                class={{ "theme-preset": true, selected: props.shell.prefs().backgroundImage === `preset:${preset.id}` }}
+                title={preset.label}
+                onClick={() => props.shell.updatePrefs((prefs) => {
+                  prefs.backgroundImage = `preset:${preset.id}`;
+                })}
+              >
+                <img class="theme-preset-img" src={preset.url} alt={preset.label} />
+              </button>
+            )}
+          </For>
         </div>
       </Show>
       <label class="theme-slider">

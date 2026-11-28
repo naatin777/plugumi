@@ -13,6 +13,7 @@ import { ShellFrame } from "../shell/shell.tsx";
 import { AreaView, DragGhost } from "../shell/area-view.tsx";
 import styles from "../shell/shell.module.css";
 import workStyles from "../shell/work-shape.module.css";
+import { resolveBackgroundImage } from "plugumi-theme-panel";
 
 export default function ProjectPage(): JSX.Element {
   const host = useShellHost();
@@ -56,7 +57,7 @@ function DetachedArea(): JSX.Element {
         "--membrane-blur": `${shell.prefs().membraneBlur}px`,
         "--shell-bg-image":
           shell.prefs().background === "image" && shell.prefs().backgroundImage
-            ? `url(${shell.prefs().backgroundImage})`
+            ? `url(${resolveBackgroundImage(shell.prefs().backgroundImage)})`
             : "none",
       }}
     >

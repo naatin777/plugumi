@@ -14,6 +14,7 @@ import { TitleToolsLeft, TitleSegmentMain, TitleToolsRight } from "./title-tools
 import { SidebarView } from "./sidebar.tsx";
 import { AreaView, AreaEmpty, DragGhost } from "./area-view.tsx";
 import { Resizer } from "./resizer.tsx";
+import { resolveBackgroundImage } from "plugumi-theme-panel";
 import styles from "./shell.module.css";
 import areaStyles from "./area-view.module.css";
 
@@ -133,10 +134,11 @@ export function ShellFrame(): JSX.Element {
         "--shell-frame-alpha": prefs().frameAlpha / 100,
         // 膜（Layer 1）のblur量。床の要素にかかる。
         "--membrane-blur": `${prefs().membraneBlur}px`,
-        // 床の画像。data URLなので引用符を含まずCSS varに載せられる。
+        // 床の画像。preset参照は解決してURLにする。data URLなので
+        // 引用符を含まずCSS varに載せられる。
         "--shell-bg-image":
           prefs().background === "image" && prefs().backgroundImage
-            ? `url(${prefs().backgroundImage})`
+            ? `url(${resolveBackgroundImage(prefs().backgroundImage)})`
             : "none",
         // sans/monoとも「pref → 同梱のPlex → localのPlex Sans JP
         // → system」の順で解決する。prefに無いfamily名を書かれても
