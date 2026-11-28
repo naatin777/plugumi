@@ -90,3 +90,19 @@
   color: var(--plugumi-colors-text);
   font: inherit; font-size: var(--plugumi-font-size-xs);
 }
+/* 背景画像のpicker。file inputは隠し、label側をbutton風に見せる。 */
+.theme-image-row {
+  display: flex; align-items: center; gap: var(--plugumi-spacing-xs);
+  flex: none;
+}
+.theme-image-pick { cursor: pointer; }
+.theme-image-button, .theme-image-clear {
+  display: inline-block;
+  padding: 2px var(--plugumi-spacing-sm);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-sm);
+  background: var(--plugumi-colors-background-tertiary);
+  color: var(--plugumi-colors-text);
+  font: inherit; font-size: var(--plugumi-font-size-xs);
+  cursor: pointer;
+}

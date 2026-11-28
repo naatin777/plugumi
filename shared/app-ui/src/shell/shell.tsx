@@ -108,8 +108,15 @@ export function ShellFrame(): JSX.Element {
   return (
     <main
       ref={observe}
-      class={{ [styles["shell"]]: true, [styles["no-aurora"]]: !prefs().aurora }}
+      class={{ [styles["shell"]]: true }}
       data-part="shell"
+      // Layer 0の床の種類。imageが選ばれていても画像が無ければnoneに
+      // 落とす（画像を消したあとprefだけ残る経路がある）。
+      data-bg={
+        prefs().background === "image" && !prefs().backgroundImage
+          ? "none"
+          : prefs().background
+      }
       // bodyの列は開いている側だけ（data-attrでCSSが組み替える）。
       data-size={shell.shellSize()}
       data-side={sideWidth() > 0 ? "" : undefined}
@@ -124,6 +131,13 @@ export function ShellFrame(): JSX.Element {
         // テーマPanelのスライダーが動かす表示設定。
         "--aurora-vivid": prefs().auroraVivid / 100,
         "--shell-frame-alpha": prefs().frameAlpha / 100,
+        // 膜（Layer 1）のblur量。床の要素にかかる。
+        "--membrane-blur": `${prefs().membraneBlur}px`,
+        // 床の画像。data URLなので引用符を含まずCSS varに載せられる。
+        "--shell-bg-image":
+          prefs().background === "image" && prefs().backgroundImage
+            ? `url(${prefs().backgroundImage})`
+            : "none",
         // sans/monoとも「pref → 同梱のPlex → localのPlex Sans JP
         // → system」の順で解決する。prefに無いfamily名を書かれても
         // 同梱フォントへ戻るのでappの顔は保てる。

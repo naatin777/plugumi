@@ -43,8 +43,22 @@ function DetachedArea(): JSX.Element {
   });
   return (
     <main
-      class={{ [styles["shell"]]: true, [styles["detached"]]: true, [styles["no-aurora"]]: !shell.prefs().aurora }}
+      class={{ [styles["shell"]]: true, [styles["detached"]]: true }}
       data-part="shell"
+      data-bg={
+        shell.prefs().background === "image" && !shell.prefs().backgroundImage
+          ? "none"
+          : shell.prefs().background
+      }
+      style={{
+        "--aurora-vivid": shell.prefs().auroraVivid / 100,
+        "--shell-frame-alpha": shell.prefs().frameAlpha / 100,
+        "--membrane-blur": `${shell.prefs().membraneBlur}px`,
+        "--shell-bg-image":
+          shell.prefs().background === "image" && shell.prefs().backgroundImage
+            ? `url(${shell.prefs().backgroundImage})`
+            : "none",
+      }}
     >
       {/* 最低限のtitle帯（窓のdrag領域）だけ残す。 */}
       <header class={workStyles["work-title"]} />

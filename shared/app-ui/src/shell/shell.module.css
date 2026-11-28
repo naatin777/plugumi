@@ -25,24 +25,42 @@
     font-family: var(--plugumi-font-family-sans);
     font-size: var(--plugumi-font-size-sm);
   }
-  /* 床の虹色もやもや。はみ出す分をblurで滲ませ、ゆっくり漂わせる。
-     no-auroraでは床は素の色になり、タイルは色の無いガラスに見える。 */
-  main.shell.no-aurora::before { display: none; }
+  /* Layer 0の床（decisions/00041）。aurora=虹色もやもや、image=ユーザー
+     の画像、none=要素ごと無し。膜（Layer 1）の加工はこの要素に焼き込む
+     — tintは最上background layerとして重ね、blurはsource側にかける。
+     backdrop-filterを全面に張ると毎frame合成が走るので、静止する床に
+     一度だけかける方が安い。Electronで床がデスクトップのときはOSの
+     vibrancyがblurを、shell本体のbackgroundがtintを担う。 */
   main.shell::before {
     content: "";
     position: absolute; inset: -20%;
     z-index: var(--plugumi-z-floor);
+    /* insetのoverscanはblurの縁の滲みを画面外へ逃がすため。 */
+    filter: blur(var(--membrane-blur, 80px));
+  }
+  main.shell[data-bg="none"]::before { display: none; }
+  /* 膜のtintはどの床でも最上layerに同じ式で乗る（線形gradientの単色）。 */
+  main.shell[data-bg="aurora"]::before {
     /* alphaとsaturateの両方を--aurora-vividで増減する（0で無彩色）。 */
-    background:
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--shell-frame-color) calc(var(--shell-frame-alpha, 0.6) * 100%), transparent) 0 0),
       radial-gradient(45% 60% at 15% 20%, rgb(255 90 140 / calc(0.11 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
       radial-gradient(50% 55% at 85% 15%, rgb(80 130 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
       radial-gradient(45% 55% at 75% 85%, rgb(110 255 170 / calc(0.08 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
       radial-gradient(50% 50% at 25% 90%, rgb(190 90 255 / calc(0.1 * var(--aurora-vivid))), transparent 70%), /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
       radial-gradient(40% 40% at 55% 50%, rgb(255 200 80 / calc(0.06 * var(--aurora-vivid))), transparent 70%); /* token-check-ignore: auroraの装飾palette — semanticなテーマ色ではなくart work */
-    filter: blur(80px) saturate(calc(var(--aurora-vivid) * 1.05));
+    filter: blur(var(--membrane-blur, 80px)) saturate(calc(var(--aurora-vivid) * 1.05));
     /* 名前はdocument全体で一意の契約（css-isolationがこの名前を数える）
        ので、module化しても:global()で衝突しない形のまま残す。 */
     animation: global(shell-aurora) 40s ease-in-out infinite alternate;
+  }
+  main.shell[data-bg="image"]::before {
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--shell-frame-color) calc(var(--shell-frame-alpha, 0.6) * 100%), transparent) 0 0),
+      var(--shell-bg-image, none);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
   }
   @keyframes :global(shell-aurora) {
     from { transform: translate3d(-3%, -2%, 0) scale(1); }

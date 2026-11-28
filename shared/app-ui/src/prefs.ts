@@ -11,10 +11,16 @@ export interface ShellPrefs {
   subOpen: boolean;
   subWidth: number;
   theme: ThemeMode;
-  // 床の虹色もやもや。消すとフラットな暗い床になる。
-  aurora: boolean;
+  // Layer 0の背景（decisions/00041）。aurora=虹色もやもや、image=好きな
+  // 画像、none=無し（膜の色だけの床）。画像はbackgroundImageに入る。
+  background: "none" | "aurora" | "image";
+  // ユーザーが選んだ背景画像。downscaleしたJPEGのdata URL。
+  backgroundImage: string;
   // auroraの鮮やかさ（%）。0で無彩色に近づき、100が標準。
   auroraVivid: number;
+  // 膜（Layer 1）のblur量（px）。browserでは背景要素自体にかける
+  // （backdrop-filterではなくsource側 — 全面blurを毎frame合成しない）。
+  membraneBlur: number;
   // 床に敷くframe色の濃さ（%）。vibrancy宿主ではデスクトップの
   // 上に乗る暗さの量。ブラウザでは下地が同色なので見た目不変。
   frameAlpha: number;
@@ -36,9 +42,11 @@ const defaults = (): ShellPrefs => ({
   subOpen: false,
   subWidth: 480,
   theme: "system",
-  // 既定はoff — 「デスクトップ→vibrancy→暗いframe→タイル」が素の世界。
-  aurora: false,
+  // 既定はnone — 「デスクトップ→vibrancy→暗いframe→タイル」が素の世界。
+  background: "none",
+  backgroundImage: "",
   auroraVivid: 100,
+  membraneBlur: 80,
   frameAlpha: 60,
   tabAlpha: 50,
   sansFont: "IBM Plex Sans",
@@ -75,8 +83,16 @@ export function loadPrefs(): ShellPrefs {
     subOpen: flag(saved.subOpen, base.subOpen),
     subWidth: clampWidth(saved.subWidth, base.subWidth),
     theme: theme === "light" || theme === "dark" || theme === "system" ? theme : base.theme,
-    aurora: flag(saved.aurora, base.aurora),
+    background: (() => {
+      const bg = saved.background;
+      if (bg === "aurora" || bg === "image" || bg === "none") return bg;
+      // 旧pref（aurora boolean）からの移行。
+      if (typeof saved.aurora === "boolean") return saved.aurora ? "aurora" : "none";
+      return base.background;
+    })(),
+    backgroundImage: typeof saved.backgroundImage === "string" ? saved.backgroundImage : base.backgroundImage,
     auroraVivid: clampPercent(saved.auroraVivid, 0, 200, base.auroraVivid),
+    membraneBlur: clampPercent(saved.membraneBlur, 0, 100, base.membraneBlur),
     frameAlpha: clampPercent(saved.frameAlpha, 0, 100, base.frameAlpha),
     tabAlpha: clampPercent(saved.tabAlpha, 0, 100, base.tabAlpha),
     sansFont: typeof saved.sansFont === "string" ? saved.sansFont : base.sansFont,
