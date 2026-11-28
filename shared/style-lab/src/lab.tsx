@@ -368,7 +368,7 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
           Layer 2の素材（decisions/00041）。現実のpanelは基本surfaceを
           つけるもの — leafのガラスカードが既にそうだ。だからここでも
           まずsurfaceを敷き、その中に穴を開ける。穴には何も塗らない
-          — 素の状態の参照窓で、見えるのは本物のleaf越しの世界そのもの
+          — 素の状態の参照窓で、見えるのはpanelの裏側そのもの（素のLayer 1 — labはshellのglassを外してもらっている）
           （panel contentが実際に見るもの）。テストするsurfaceは穴の
           中に置く — 素の状態と素材を被せた状態が同じ視野で比較できる。
         </p>
@@ -378,7 +378,7 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
             「何もない場合との差」が直接読み取れる。 */}
         <div class="lab-hole-base">
           <div class="lab-hole">
-            <span class="lab-hole-caption">↑ この領域は何も塗っていない — 本物のleaf越しの世界がそのまま見える</span>
+            <span class="lab-hole-caption">↑ この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える</span>
             <div class="lab-hole-row">
               <div class="lab-surface-box lab-hole-item" style={{ background: "var(--plugumi-colors-fill)" }}>
                 <span class="lab-glass-text">thin Aa</span>
@@ -698,6 +698,9 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
 }
 
 export function mount(host: ShadowRoot, context: ViewContext): ViewHandle {
+  // labはsurfaceを自分で供給する — shellのleaf glassを外してもらい、
+  // 穴が素のLayer 1をそのまま見せられるようにする。
+  (host as ShadowRoot).host?.setAttribute?.("data-shell-surface", "none");
   const saved = context.state as { selected?: string } | undefined;
   const dispose = render(() => (
     <Lab initialSelected={saved?.selected} saveState={context.saveState} />
