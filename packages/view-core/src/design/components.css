@@ -14,7 +14,7 @@
   padding: 4px var(--plugumi-spacing-md);
   border: 1px solid var(--plugumi-colors-border);
   border-radius: var(--plugumi-radii-md);
-  background: var(--plugumi-colors-background-tertiary);
+  background: var(--plugumi-colors-fill);
   color: var(--plugumi-colors-text);
   font: inherit;
   font-size: var(--plugumi-font-size-sm);
@@ -22,11 +22,11 @@
   user-select: none;
 }
 .plugumi-button:hover:not(:disabled) {
-  background: var(--plugumi-colors-fill);
+  background: var(--plugumi-colors-fill-strong);
   border-color: var(--plugumi-colors-border-strong);
 }
 .plugumi-button:active:not(:disabled) {
-  background: var(--plugumi-colors-fill-strong);
+  background: color-mix(in oklab, var(--plugumi-colors-fill-strong), var(--plugumi-colors-text) 6%);
 }
 .plugumi-button:disabled {
   opacity: 0.5;
@@ -55,7 +55,7 @@
   padding: 4px var(--plugumi-spacing-sm);
   border: 1px solid var(--plugumi-colors-border-strong);
   border-radius: var(--plugumi-radii-md);
-  background: var(--plugumi-colors-background-tertiary);
+  background: var(--plugumi-colors-fill);
   color: var(--plugumi-colors-text);
   font: inherit;
   font-size: var(--plugumi-font-size-sm);
@@ -63,10 +63,6 @@
 .plugumi-input::placeholder {
   color: var(--plugumi-colors-text-subtle);
 }
-.plugumi-input:focus-visible {
-  border-color: var(--plugumi-colors-accent-border);
-}
-
 /* ---- focus ring（インタラクション要素共通の見た目ルール） ---- */
 .plugumi-button:focus-visible,
 .plugumi-input:focus-visible {
