@@ -735,7 +735,7 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
       <div class="lab-content">
         <div class="lab-topbar">
           <button class="lab-hamburger" data-drawer-keep aria-label="menu" onClick={() => setNavOpen(!navOpen())}>☰</button>
-          <div class="lab-summary">{usedTokens.size} / {entries.length} tokens in use — 薄いものは未使用</div>
+          
         </div>
         <h2>{current().title}</h2>
         {current().render()}
