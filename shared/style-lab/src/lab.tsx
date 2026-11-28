@@ -377,7 +377,14 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
         </p>
         {/* 穴 — surface評価専用の参照窓。中には何も置かない。 */}
         <div class="lab-hole">
-          <span class="lab-hole-caption">この領域は何も塗っていない — panelの裏側（素のLayer 1）がそのまま見える。周囲との差がsurfaceのしていること</span>
+          {/* 中央のsurface — 現行の素材（blur 12 + transparent）を
+              再現したspecimen。穴の中なので背後は素のLayer 1 —
+              素の状態と面を被せた状態が同じ視野で対比できる。 */}
+          <div class="lab-hole-specimen">
+            <span class="lab-glass-text">surface Aa</span>
+            <span class="lab-glass-text-muted">blur(12px) + transparent — 現行のpanelの面</span>
+          </div>
+          <span class="lab-hole-caption">破線の内側は素のLayer 1 — 中央の面との差がsurfaceのしていること</span>
         </div>
         <p class="lab-note">
           階層は「文字を置く面は濃く、chrome的な面は薄く」。両テーマとも

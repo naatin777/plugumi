@@ -466,3 +466,14 @@
   outline-offset: -1px;
   border-radius: var(--plugumi-radii-md);
 }
+/* 穴の中央に置くsurface specimen — 現行のpanel surfaceの素材を再現。
+   穴の中なのでbackdrop-filterは素のLayer 1にかかる。 */
+.lab-hole-specimen {
+  backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid var(--plugumi-colors-border);
+  border-radius: var(--plugumi-radii-md);
+  padding: var(--plugumi-spacing-lg) var(--plugumi-spacing-xl);
+  display: flex; flex-direction: column; gap: var(--plugumi-spacing-xs);
+  align-items: center;
+  margin-bottom: var(--plugumi-spacing-md);
+}
