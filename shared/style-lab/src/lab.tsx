@@ -100,8 +100,16 @@ function Stage(props: { children: JSX.Element }): JSX.Element {
   );
 }
 
-const circleIcon = (
-  <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
+// shellのchromeで実際に使われる形のicon。buttonには文字ではなく
+// こういう図形が入る。
+const plusIcon = (
+  <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" fill="none" /></svg>
+);
+const closeIcon = (
+  <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" fill="none" /></svg>
+);
+const gearIcon = (
+  <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.4" /><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6L11 5M5 11l-1.4 1.4" stroke="currentColor" stroke-width="1.4" fill="none" /></svg>
 );
 
 // ---- entry定義。sidebarにはこの順で並ぶ ----
@@ -239,7 +247,7 @@ function ResponsiveEntry(): JSX.Element {
   );
 }
 
-const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Element }[] = [
+const ENTRIES: { group: string; id: string; title: string; folder?: string; render: () => JSX.Element }[] = [
   {
     group: "foundations", id: "color", title: "Color",
     render: () => (
@@ -433,7 +441,7 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
     ),
   },
   {
-    group: "components", id: "buttons", title: "Buttons",
+    group: "components", id: "buttons", title: "Buttons", folder: "buttons",
     render: () => (
       <>
         {/* buttonはfamily。text button（plugumi-button、plugin-facing）と
@@ -450,17 +458,24 @@ const ENTRIES: { group: string; id: string; title: string; render: () => JSX.Ele
           </div>
         </Stage>
         <p class="lab-note">実使用はdemo pluginのみ。accent/danger variantは契約にあるが使われていない。</p>
-        <h3>icon button — .icon-button / shell専有</h3>
+      </>
+    ),
+  },
+  {
+    group: "components", id: "icon-buttons", title: "Icon buttons", folder: "buttons",
+    render: () => (
+      <>
+        <p class="lab-note">icon button — .icon-button / shell専有。panelのchromeに並ぶ小さい操作。</p>
         <Stage>
           <div class="lab-states">
             <Labeled label="off">
-              <button class="icon-button" aria-label="off">{circleIcon}</button>
-            </Labeled>
-            <Labeled label="hover — 実際に触って">
-              <button class="icon-button" aria-label="hover">{circleIcon}</button>
+              <button class="icon-button" aria-label="追加">{plusIcon}</button>
+              <button class="icon-button" aria-label="閉じる">{closeIcon}</button>
+              <button class="icon-button" aria-label="設定">{gearIcon}</button>
             </Labeled>
             <Labeled label="on (aria-pressed)">
-              <button class="icon-button" aria-label="on" aria-pressed="true">{circleIcon}</button>
+              <button class="icon-button" aria-label="追加" aria-pressed="true">{plusIcon}</button>
+              <button class="icon-button" aria-label="設定" aria-pressed="true">{gearIcon}</button>
             </Labeled>
           </div>
         </Stage>
@@ -669,7 +684,9 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
           {(group) => (
             <>
               <div class="lab-nav-group">{group}</div>
-              <For each={ENTRIES.filter((entry) => entry.group === group)}>
+              {/* folderのあるentryはfolder見出しの下にインデントして
+                  木にする。folderは展開/折畳なしの常時展開。 */}
+              <For each={ENTRIES.filter((entry) => entry.group === group && !entry.folder)}>
                 {(entry) => (
                   <button
                     class={{ "lab-nav-item": true, selected: active() === entry.id }}
@@ -677,6 +694,23 @@ function Lab(props: { initialSelected?: string; saveState?: (state: unknown) => 
                   >
                     {entry.title}
                   </button>
+                )}
+              </For>
+              <For each={[...new Set(ENTRIES.filter((entry) => entry.group === group && entry.folder).map((entry) => entry.folder!))]}>
+                {(folder) => (
+                  <>
+                    <div class="lab-nav-folder">{folder}</div>
+                    <For each={ENTRIES.filter((entry) => entry.group === group && entry.folder === folder)}>
+                      {(entry) => (
+                        <button
+                          class={{ "lab-nav-item": true, "lab-nav-child": true, selected: active() === entry.id }}
+                          onClick={() => select(entry.id)}
+                        >
+                          {entry.title}
+                        </button>
+                      )}
+                    </For>
+                  </>
                 )}
               </For>
             </>

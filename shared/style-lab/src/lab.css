@@ -429,3 +429,10 @@
   align-items: center;
   margin-bottom: var(--plugumi-spacing-md);
 }
+/* folderの見出しと子項目 — 木構造のnav。 */
+.lab-nav-folder {
+  font-size: var(--plugumi-font-size-2xs);
+  color: var(--plugumi-colors-text-muted);
+  padding: var(--plugumi-spacing-xs) var(--plugumi-spacing-sm) 2px;
+}
+.lab-nav-child { padding-left: var(--plugumi-spacing-lg); }
